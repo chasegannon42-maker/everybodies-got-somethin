@@ -571,67 +571,87 @@ const Render = {
       }
     }
 
-    // body
-    const bg = ctx.createLinearGradient(0, 1, 0, 17);
-    bg.addColorStop(0, '#eed4b4'); bg.addColorStop(1, '#cdae8c');
+    // little shuffling feet
+    const step = p.moving ? Math.sin(G.t * 15) * 3.2 : 0;
+    ctx.fillStyle = '#b99a76';
+    ctx.beginPath(); ctx.ellipse(-5.5, 17 - Math.max(0, step), 4.2, 3, 0, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(5.5, 17 + Math.min(0, step), 4.2, 3, 0, 0, TAU); ctx.fill();
+    // stubby body
+    const bg = ctx.createLinearGradient(0, 3, 0, 17);
+    bg.addColorStop(0, '#edd3b3'); bg.addColorStop(1, '#c6a684');
     ctx.fillStyle = bg;
-    ctx.beginPath(); ctx.ellipse(0, 9, 10, 8, 0, 0, TAU); ctx.fill();
-    // head with soft top-light
-    const hg = ctx.createRadialGradient(-4, -10, 3, 0, -4, 17);
-    hg.addColorStop(0, '#fbecd6'); hg.addColorStop(0.7, '#f2dcc0'); hg.addColorStop(1, '#dcc09e');
-    ctx.fillStyle = hg;
-    ctx.beginPath(); ctx.arc(0, -4, 14, 0, TAU); ctx.fill();
-    ctx.strokeStyle = 'rgba(60,40,50,0.28)'; ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.arc(0, -4, 14, 0, TAU); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(0, 10, 8.5, 7, 0, 0, TAU); ctx.fill();
+    // tiny arms
+    ctx.strokeStyle = '#d8bb96'; ctx.lineWidth = 3.5; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(-7, 7); ctx.lineTo(-11, 11 + step * 0.3); ctx.moveTo(7, 7); ctx.lineTo(11, 11 - step * 0.3); ctx.stroke();
+    ctx.lineCap = 'butt';
 
-    // face — eyes look toward aim
-    const ex = Math.cos(p.aimAng) * 2.5, ey = Math.sin(p.aimAng) * 2 - 5;
+    // big round head with cool rim-light so it pops off the dark floor
+    const HR = 16;
+    const hg = ctx.createRadialGradient(-5, -12, 3, 0, -6, HR + 4);
+    hg.addColorStop(0, '#fdf1de'); hg.addColorStop(0.62, '#f2dcc0'); hg.addColorStop(1, '#cdb08b');
+    ctx.fillStyle = hg;
+    ctx.beginPath(); ctx.arc(0, -6, HR, 0, TAU); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,250,238,0.45)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(0, -6, HR - 1, 0.35, 1.5); ctx.stroke();
+    ctx.strokeStyle = 'rgba(58,40,50,0.32)'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(0, -6, HR, 0, TAU); ctx.stroke();
+    // rosy cheeks
+    ctx.fillStyle = 'rgba(224,132,120,0.32)';
+    ctx.beginPath(); ctx.ellipse(-9.5, -1, 3.6, 2.6, 0, 0, TAU); ctx.ellipse(9.5, -1, 3.6, 2.6, 0, 0, TAU); ctx.fill();
+
+    // face — big eyes look toward aim
+    const ex = Math.cos(p.aimAng) * 2.8, ey = Math.sin(p.aimAng) * 2.2 - 6;
     const sad = p.diag === 'depression';
     ctx.fillStyle = '#2c2333';
-    ctx.beginPath(); ctx.ellipse(-5 + ex, ey, 2.6, sad ? 2 : 3.2, 0, 0, TAU); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(5 + ex, ey, 2.6, sad ? 2 : 3.2, 0, 0, TAU); ctx.fill();
-    // eye gloss
-    ctx.fillStyle = 'rgba(255,255,255,0.85)';
-    ctx.beginPath(); ctx.arc(-5.8 + ex, ey - 1, 1, 0, TAU); ctx.arc(4.2 + ex, ey - 1, 1, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(-6 + ex, ey, 3, sad ? 2.3 : 3.9, 0, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(6 + ex, ey, 3, sad ? 2.3 : 3.9, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.92)';
+    ctx.beginPath(); ctx.arc(-7 + ex, ey - 1.4, 1.3, 0, TAU); ctx.arc(5 + ex, ey - 1.4, 1.3, 0, TAU); ctx.fill();
     // tear streaks
-    ctx.strokeStyle = 'rgba(122,184,232,0.8)'; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(-5 + ex, ey + 3); ctx.lineTo(-5 + ex, ey + 7); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(5 + ex, ey + 3); ctx.lineTo(5 + ex, ey + 7); ctx.stroke();
+    ctx.strokeStyle = 'rgba(122,184,232,0.85)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(-6 + ex, ey + 3.5); ctx.lineTo(-6 + ex, ey + 8); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(6 + ex, ey + 3.5); ctx.lineTo(6 + ex, ey + 8); ctx.stroke();
     // mouth
-    ctx.strokeStyle = '#2c2333'; ctx.lineWidth = 1.6;
+    ctx.strokeStyle = '#2c2333'; ctx.lineWidth = 1.8;
     ctx.beginPath();
     if (p.diag === 'fine') { ctx.moveTo(-4, 3); ctx.lineTo(4, 3); }
-    else if (p.mania && p.diag === 'bipolar' && !p.flags.stable) { ctx.arc(0, 2, 4, 0.15, Math.PI - 0.15); }
-    else { ctx.arc(0, 6, 4, Math.PI + 0.3, TAU - 0.3); }
+    else if (p.mania && p.diag === 'bipolar' && !p.flags.stable) { ctx.arc(0, 1, 4.5, 0.12, Math.PI - 0.12); }
+    else { ctx.arc(0, 7, 4.5, Math.PI + 0.28, TAU - 0.28); }
     ctx.stroke();
 
-    // diagnosis accessory
+    // diagnosis accessory (sized to the bigger head)
     if (p.diag === 'adhd') {
       ctx.fillStyle = '#f7b32b';
-      ctx.fillRect(-14, -14, 28, 5);
+      this.rr(ctx, -16, -15, 32, 5.5, 2); ctx.fill();
+      ctx.fillStyle = '#d89818'; ctx.fillRect(-3, -15, 6, 5.5);
       if (p.moving) {
         ctx.strokeStyle = 'rgba(247,179,43,0.5)'; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.moveTo(-20, 2); ctx.lineTo(-26, 2); ctx.moveTo(-19, -6); ctx.lineTo(-25, -8); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-22, 3); ctx.lineTo(-28, 3); ctx.moveTo(-21, -6); ctx.lineTo(-27, -8); ctx.stroke();
       }
     } else if (p.diag === 'schizo') {
       ctx.fillStyle = '#c8c8d2';
-      ctx.beginPath(); ctx.moveTo(-11, -12); ctx.lineTo(0, -26); ctx.lineTo(11, -12); ctx.closePath(); ctx.fill();
-      ctx.strokeStyle = '#9a9aa8'; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(-6, -15); ctx.lineTo(-2, -20); ctx.moveTo(2, -21); ctx.lineTo(6, -15); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-13, -13); ctx.lineTo(0, -30); ctx.lineTo(13, -13); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = '#9a9aa8'; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(-7, -17); ctx.lineTo(-2, -23); ctx.moveTo(2, -24); ctx.lineTo(7, -17); ctx.stroke();
     } else if (p.diag === 'depression') {
-      ctx.fillStyle = '#5d8aa8';
-      ctx.beginPath(); ctx.arc(0, -6, 15, Math.PI * 1.05, Math.PI * 1.95); ctx.lineTo(15, -2); ctx.lineTo(-15, -2); ctx.closePath(); ctx.fill();
+      const cg = ctx.createLinearGradient(0, -22, 0, -3);
+      cg.addColorStop(0, '#6d9ab8'); cg.addColorStop(1, '#4a748e');
+      ctx.fillStyle = cg;
+      ctx.beginPath(); ctx.arc(0, -6, 17, Math.PI * 1.03, Math.PI * 1.97); ctx.lineTo(16, -2); ctx.lineTo(-16, -2); ctx.closePath(); ctx.fill();
     } else if (p.diag === 'anxiety') {
       ctx.fillStyle = 'rgba(122,184,232,0.9)';
       const sw = Math.sin(G.t * 3) * 2;
-      ctx.beginPath(); ctx.arc(12, -14 + sw, 2.5, 0, TAU); ctx.fill();
-      ctx.beginPath(); ctx.arc(15, -9 + sw * 0.6, 1.8, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.arc(13, -15 + sw, 2.8, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.arc(16, -10 + sw * 0.6, 2, 0, TAU); ctx.fill();
     } else if (p.diag === 'bipolar') {
       ctx.fillStyle = p.mania || p.flags.stable ? '#e8c84c' : '#7a88b8';
-      ctx.beginPath(); ctx.arc(11, -13, 4, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.arc(12, -14, 4.5, 0, TAU); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+      ctx.beginPath(); ctx.arc(10.5, -15.5, 1.5, 0, TAU); ctx.fill();
     } else if (p.diag === 'fine') {
       ctx.fillStyle = '#8a4a4a';
-      ctx.beginPath(); ctx.moveTo(0, 2); ctx.lineTo(3, 8); ctx.lineTo(0, 15); ctx.lineTo(-3, 8); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(0, 1); ctx.lineTo(3.5, 8); ctx.lineTo(0, 16); ctx.lineTo(-3.5, 8); ctx.closePath(); ctx.fill();
     }
 
     // item held overhead
@@ -679,6 +699,18 @@ const Render = {
     ctx.restore();
   },
 
+  /* shaded sphere body (fleshy Isaac look) */
+  orb(ctx, cx, cy, r, clr, flash) {
+    const g = ctx.createRadialGradient(cx - r * 0.35, cy - r * 0.42, r * 0.12, cx, cy, r);
+    g.addColorStop(0, flash ? '#ffffff' : this.shade(clr, 0.44));
+    g.addColorStop(0.68, flash ? '#f0f0f0' : clr);
+    g.addColorStop(1, flash ? '#d6d6d6' : this.shade(clr, -0.3));
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, TAU); ctx.fill();
+    ctx.strokeStyle = flash ? '#cfcfcf' : this.shade(clr, -0.44); ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, TAU); ctx.stroke();
+  },
+
   /* ============ enemies ============ */
   drawEnemy(e, G) {
     const ctx = this.ctx;
@@ -702,122 +734,175 @@ const Render = {
     const body = flash ? '#ffffff' : e.clr;
 
     switch (e.id) {
-      case 'scroller': {
-        ctx.fillStyle = body;
-        ctx.beginPath(); ctx.ellipse(0, 2, e.r, e.r * 0.85, 0, 0, TAU); ctx.fill();
-        ctx.fillStyle = '#2a3148';
-        this.rr(ctx, -7, -12, 14, 20, 4); ctx.fill();
-        ctx.fillStyle = '#8fb8e8';
-        this.rr(ctx, -5, -10, 10, 12, 2); ctx.fill();
-        ctx.fillStyle = '#2c2333';
-        ctx.beginPath(); ctx.arc(-9, -4, 2, 0, TAU); ctx.arc(9, -4, 2, 0, TAU); ctx.fill();
+      case 'scroller': { // phone-zombie hunched over a glowing screen
+        this.orb(ctx, 0, 3, e.r, e.clr, flash);
+        // glow from phone
+        const gl = ctx.createRadialGradient(0, -3, 1, 0, -3, 16);
+        gl.addColorStop(0, 'rgba(150,200,255,0.5)'); gl.addColorStop(1, 'rgba(150,200,255,0)');
+        ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(0, -3, 16, 0, TAU); ctx.fill();
+        // dead-tired eyes with bags
+        ctx.fillStyle = '#20263a';
+        ctx.beginPath(); ctx.ellipse(-6, -3, 2.3, 3, 0, 0, TAU); ctx.ellipse(6, -3, 2.3, 3, 0, 0, TAU); ctx.fill();
+        ctx.strokeStyle = 'rgba(20,20,40,0.4)'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.arc(-6, -1, 3, 0.2, Math.PI - 0.2); ctx.arc(6, -1, 3, 0.2, Math.PI - 0.2); ctx.stroke();
+        // slack mouth
+        ctx.fillStyle = '#20263a'; ctx.beginPath(); ctx.ellipse(0, 5, 2, 2.5, 0, 0, TAU); ctx.fill();
+        // the phone
+        ctx.fillStyle = '#15181f'; this.rr(ctx, -7, 10, 14, 9, 2); ctx.fill();
+        ctx.fillStyle = '#9ecbe8'; this.rr(ctx, -5.5, 11.5, 11, 6, 1); ctx.fill();
         break;
       }
-      case 'notif': {
-        ctx.fillStyle = flash ? '#fff' : '#e05a5a';
-        ctx.beginPath(); ctx.arc(0, 0, e.r, 0, TAU); ctx.fill();
+      case 'notif': { // glossy red alert badge, buzzing
+        const buzz = Math.sin(G.t * 40) * 0.8;
+        ctx.translate(buzz, 0);
+        // vibration lines
+        ctx.strokeStyle = 'rgba(224,90,90,0.5)'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(0, 0, e.r + 4, -0.6, 0.6); ctx.arc(0, 0, e.r + 4, Math.PI - 0.6, Math.PI + 0.6); ctx.stroke();
+        this.orb(ctx, 0, 0, e.r, '#e05a5a', flash);
         ctx.fillStyle = '#fff';
-        ctx.font = this.font(13, true); ctx.textAlign = 'center';
+        ctx.font = this.font(14, true); ctx.textAlign = 'center';
         ctx.fillText('!', 0, 5);
         break;
       }
-      case 'larper': {
-        // knockoff player
-        ctx.fillStyle = flash ? '#fff' : '#cabfb2';
-        ctx.beginPath(); ctx.ellipse(0, 8, 8, 6, 0, 0, TAU); ctx.fill();
-        ctx.fillStyle = flash ? '#fff' : '#d8cec2';
-        ctx.beginPath(); ctx.arc(0, -3, 11, 0, TAU); ctx.fill();
+      case 'larper': { // knockoff of YOU with sharpie tears
+        const eg = ctx.createLinearGradient(0, 4, 0, 12);
+        eg.addColorStop(0, flash ? '#fff' : '#c8bdb0'); eg.addColorStop(1, flash ? '#eee' : '#a89e90');
+        ctx.fillStyle = eg;
+        ctx.beginPath(); ctx.ellipse(0, 9, 7.5, 6, 0, 0, TAU); ctx.fill();
+        this.orb(ctx, 0, -3, 11, flash ? '#f4f4f4' : '#d8cec2', flash);
         ctx.fillStyle = '#2c2333';
         ctx.beginPath(); ctx.arc(-4, -4, 2, 0, TAU); ctx.arc(4, -4, 2, 0, TAU); ctx.fill();
-        // drawn-on tears (marker)
-        ctx.strokeStyle = '#4a6ae0'; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.moveTo(-4, -1); ctx.lineTo(-4, 4); ctx.moveTo(4, -1); ctx.lineTo(4, 4); ctx.stroke();
-        ctx.font = this.font(8); ctx.fillStyle = '#8a8078'; ctx.textAlign = 'center';
-        ctx.fillText('me too', 0, 20);
+        ctx.strokeStyle = '#4a6ae0'; ctx.lineWidth = 2; // marker tears
+        ctx.beginPath(); ctx.moveTo(-4, -1); ctx.lineTo(-4, 5); ctx.moveTo(4, -1); ctx.lineTo(4, 5); ctx.stroke();
+        ctx.strokeStyle = '#2c2333'; ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.arc(0, 1, 3, 0.2, Math.PI - 0.2); ctx.stroke(); // forced frown
+        ctx.font = this.font(8); ctx.fillStyle = '#9a8f80'; ctx.textAlign = 'center';
+        ctx.fillText('me too', 0, 21);
         break;
       }
-      case 'ad': {
-        ctx.fillStyle = flash ? '#fff' : '#f0e8d0';
-        this.rr(ctx, -15, -13, 30, 26, 4); ctx.fill();
-        ctx.strokeStyle = '#c8a03a'; ctx.lineWidth = 2.5;
-        this.rr(ctx, -15, -13, 30, 26, 4); ctx.stroke();
-        ctx.fillStyle = '#c8503a';
-        ctx.font = this.font(9, true); ctx.textAlign = 'center';
-        ctx.fillText('ASK', 0, -2);
-        ctx.fillText('YOUR DR', 0, 8);
+      case 'ad': { // garish pop-up window with a pill mascot
+        ctx.fillStyle = flash ? '#fff' : '#f4eeda';
+        this.rr(ctx, -16, -15, 32, 30, 3); ctx.fill();
+        ctx.fillStyle = '#3a6ad0'; this.rr(ctx, -16, -15, 32, 7, 3); ctx.fill(); // title bar
+        ctx.fillStyle = '#e05a5a'; ctx.beginPath(); ctx.arc(11, -11.5, 2.2, 0, TAU); ctx.fill(); // close btn
+        ctx.fillStyle = '#fff'; ctx.font = this.font(7, true); ctx.textAlign = 'center'; ctx.fillText('x', 11, -9.3);
+        // pill mascot
+        ctx.save(); ctx.translate(0, -1); ctx.rotate(-0.5);
+        ctx.fillStyle = '#e05a5a'; this.rr(ctx, -8, -4, 8, 8, 4); ctx.fill();
+        ctx.fillStyle = '#f0f0e8'; this.rr(ctx, 0, -4, 8, 8, 4); ctx.fill();
+        ctx.restore();
+        ctx.fillStyle = '#c8503a'; ctx.font = this.font(7, true);
+        ctx.fillText('ASK YOUR', 0, 9); ctx.fillText('DOCTOR!', 0, 15);
+        ctx.strokeStyle = '#c8a03a'; ctx.lineWidth = 2; this.rr(ctx, -16, -15, 32, 30, 3); ctx.stroke();
         break;
       }
-      case 'doubt': {
-        ctx.globalAlpha *= 0.85;
-        ctx.fillStyle = flash ? '#fff' : body;
-        ctx.beginPath(); ctx.arc(0, 0, e.r, 0, TAU); ctx.fill();
-        ctx.fillStyle = '#f0f0f8';
+      case 'doubt': { // wavering translucent wisp
+        ctx.globalAlpha *= 0.78;
+        const wob = Math.sin(e.t * 4) * 1.5;
+        const g = ctx.createRadialGradient(0, -2, 2, 0, 0, e.r);
+        g.addColorStop(0, flash ? '#fff' : this.shade(e.clr, 0.4)); g.addColorStop(1, this.shade(e.clr, -0.2));
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(0, -2, e.r, Math.PI, 0);
+        ctx.quadraticCurveTo(e.r, e.r, e.r * 0.5, e.r * 0.7 + wob);
+        ctx.quadraticCurveTo(0, e.r + wob, -e.r * 0.5, e.r * 0.7 - wob);
+        ctx.quadraticCurveTo(-e.r, e.r, -e.r, -2); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = 'rgba(240,240,248,0.9)';
         ctx.font = this.font(16, true); ctx.textAlign = 'center';
-        ctx.fillText('?', 0, 6);
+        ctx.fillText('?', 0, 4);
         break;
       }
-      case 'deadline': {
-        const shakeA = e.state === 1 ? U.rand(-2, 2) : 0;
-        ctx.translate(shakeA, shakeA);
-        ctx.fillStyle = flash ? '#fff' : body;
-        this.rr(ctx, -e.r, -e.r, e.r * 2, e.r * 2, 5); ctx.fill();
-        ctx.fillStyle = '#fff';
-        ctx.beginPath(); ctx.arc(0, 0, 10, 0, TAU); ctx.fill();
+      case 'deadline': { // angry alarm clock with legs
+        const shk = e.state === 1 ? U.rand(-2.5, 2.5) : 0;
+        ctx.translate(shk, shk);
+        // bells
+        ctx.fillStyle = flash ? '#fff' : this.shade(e.clr, 0.1);
+        ctx.beginPath(); ctx.arc(-11, -13, 5, 0, TAU); ctx.arc(11, -13, 5, 0, TAU); ctx.fill();
+        // legs
+        ctx.strokeStyle = this.shade(e.clr, -0.3); ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(-8, 15); ctx.lineTo(-11, 21); ctx.moveTo(8, 15); ctx.lineTo(11, 21); ctx.stroke(); ctx.lineCap = 'butt';
+        this.orb(ctx, 0, 0, e.r, e.clr, flash);
+        ctx.fillStyle = '#f4ecd8'; ctx.beginPath(); ctx.arc(0, 0, 11, 0, TAU); ctx.fill();
+        // angry brows + hands
         ctx.strokeStyle = '#2c2333'; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.arc(0, 0, 10, 0, TAU);
-        ctx.moveTo(0, 0); ctx.lineTo(0, -7);
-        ctx.moveTo(0, 0); ctx.lineTo(5 * Math.cos(e.t * 6), 5 * Math.sin(e.t * 6));
-        ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-7, -4); ctx.lineTo(-2, -2); ctx.moveTo(7, -4); ctx.lineTo(2, -2); ctx.stroke();
+        ctx.fillStyle = '#2c2333'; ctx.beginPath(); ctx.arc(-4, 1, 1.6, 0, TAU); ctx.arc(4, 1, 1.6, 0, TAU); ctx.fill();
+        ctx.strokeStyle = '#b03030'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -7); ctx.moveTo(0, 0); ctx.lineTo(5 * Math.cos(e.t * 6), 5 * Math.sin(e.t * 6)); ctx.stroke();
         break;
       }
-      case 'intrusive': {
-        ctx.globalAlpha *= (e.state === 0 ? 0.5 : 0.95);
-        ctx.fillStyle = flash ? '#fff' : body;
+      case 'intrusive': { // jagged shadow-thought with glowing eyes
+        ctx.globalAlpha *= (e.state === 0 ? 0.55 : 0.95);
+        ctx.fillStyle = flash ? '#fff' : this.shade(e.clr, -0.1);
         ctx.beginPath();
-        ctx.arc(0, 0, e.r, 0, TAU); ctx.fill();
-        ctx.fillStyle = '#17323a';
-        ctx.beginPath(); ctx.ellipse(-4, -2, 2, 4, -0.4, 0, TAU); ctx.ellipse(4, -2, 2, 4, 0.4, 0, TAU); ctx.fill();
-        ctx.strokeStyle = 'rgba(90,208,184,0.6)'; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.moveTo(-e.r, 4); ctx.quadraticCurveTo(0, 10 + Math.sin(e.t * 8) * 3, e.r, 4); ctx.stroke();
-        break;
-      }
-      case 'redflag': {
-        const fl = e.fuse >= 0 && Math.sin(G.t * 25) > 0;
-        ctx.strokeStyle = '#6a5a4a'; ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.moveTo(-2, 14); ctx.lineTo(-2, -16); ctx.stroke();
-        ctx.fillStyle = fl ? '#fff' : (flash ? '#fff' : '#d04040');
-        ctx.beginPath();
-        ctx.moveTo(-2, -16);
-        ctx.lineTo(16, -10 + Math.sin(e.t * 7) * 2);
-        ctx.lineTo(-2, -4);
+        const spikes = 9;
+        for (let i = 0; i <= spikes; i++) {
+          const a = (i / spikes) * TAU;
+          const rr = e.r * (i % 2 ? 0.72 : 1) + Math.sin(e.t * 6 + i) * 1.5;
+          const fn = i === 0 ? 'moveTo' : 'lineTo';
+          ctx[fn](Math.cos(a) * rr, Math.sin(a) * rr);
+        }
         ctx.closePath(); ctx.fill();
-        ctx.fillStyle = '#2c2333';
-        ctx.beginPath(); ctx.arc(-6, 6, 1.8, 0, TAU); ctx.arc(2, 6, 1.8, 0, TAU); ctx.fill();
+        // glowing eyes
+        ctx.fillStyle = '#d6fff4';
+        ctx.beginPath(); ctx.ellipse(-4, -2, 1.8, 3, -0.3, 0, TAU); ctx.ellipse(4, -2, 1.8, 3, 0.3, 0, TAU); ctx.fill();
+        ctx.strokeStyle = '#0e2b26'; ctx.lineWidth = 1.5; // jagged grin
+        ctx.beginPath(); ctx.moveTo(-5, 5); ctx.lineTo(-2, 3); ctx.lineTo(1, 6); ctx.lineTo(4, 3); ctx.lineTo(6, 5); ctx.stroke();
         break;
       }
-      case 'fog': {
-        ctx.globalAlpha *= 0.85;
-        ctx.fillStyle = flash ? '#fff' : body;
+      case 'redflag': { // warning flag with a nervous face
+        const fl = e.fuse >= 0 && Math.sin(G.t * 25) > 0;
+        ctx.strokeStyle = '#5a4a3a'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(-3, 15); ctx.lineTo(-3, -17); ctx.stroke();
+        ctx.fillStyle = '#c8b090'; ctx.beginPath(); ctx.arc(-3, -17, 2.5, 0, TAU); ctx.fill();
+        const fg = ctx.createLinearGradient(-3, 0, 16, 0);
+        fg.addColorStop(0, fl ? '#fff' : '#e04a4a'); fg.addColorStop(1, fl ? '#fff' : '#a82828');
+        ctx.fillStyle = fg;
         ctx.beginPath();
-        ctx.arc(-12, 2, 14, 0, TAU); ctx.arc(0, -8, 17, 0, TAU); ctx.arc(13, 3, 14, 0, TAU); ctx.arc(0, 6, 15, 0, TAU);
-        ctx.fill();
-        ctx.fillStyle = '#5a6862';
-        ctx.beginPath(); ctx.arc(-7, -3, 2.5, 0, TAU); ctx.arc(7, -3, 2.5, 0, TAU); ctx.fill();
-        ctx.strokeStyle = '#5a6862'; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.arc(0, 6, 5, Math.PI * 0.2, Math.PI * 0.8); ctx.stroke();
+        ctx.moveTo(-3, -17);
+        ctx.quadraticCurveTo(9, -15 + Math.sin(e.t * 7) * 3, 17, -12 + Math.sin(e.t * 7) * 2);
+        ctx.quadraticCurveTo(9, -8, 17, -4 + Math.sin(e.t * 7) * 2);
+        ctx.quadraticCurveTo(9, -3, -3, -3);
+        ctx.closePath(); ctx.fill();
+        // nervous face on the pole base
+        ctx.fillStyle = '#2c2333';
+        ctx.beginPath(); ctx.arc(-8, 6, 1.8, 0, TAU); ctx.arc(1, 6, 1.8, 0, TAU); ctx.fill();
+        ctx.fillStyle = 'rgba(122,184,232,0.8)'; ctx.beginPath(); ctx.arc(4, 8 + Math.sin(e.t * 4) * 2, 1.6, 0, TAU); ctx.fill();
         break;
       }
-      case 'enabler': {
-        ctx.fillStyle = flash ? '#fff' : body;
-        ctx.beginPath(); ctx.arc(0, 0, e.r, 0, TAU); ctx.fill();
+      case 'fog': { // puffy brain-fog cloud, spiral-eyed and dazed
+        ctx.globalAlpha *= 0.9;
+        const pf = Math.sin(e.t * 1.5) * 1.5;
+        for (const o of [[-13, 3, 14], [0, -9, 18], [14, 4, 14], [0, 7, 16], [-8, -4, 12], [9, -5, 12]]) {
+          const g = ctx.createRadialGradient(o[0] - 3, o[1] - 3, 2, o[0], o[1], o[2] + pf);
+          g.addColorStop(0, flash ? '#fff' : this.shade(e.clr, 0.2)); g.addColorStop(1, this.shade(e.clr, -0.12));
+          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(o[0], o[1], o[2] + pf, 0, TAU); ctx.fill();
+        }
+        // spiral eyes
+        ctx.strokeStyle = '#4a5852'; ctx.lineWidth = 1.5;
+        for (const sx of [-7, 7]) {
+          ctx.beginPath();
+          for (let a = 0; a < 8; a += 0.4) ctx.lineTo(sx + Math.cos(a + e.t) * a * 0.35, -2 + Math.sin(a + e.t) * a * 0.35);
+          ctx.stroke();
+        }
+        ctx.strokeStyle = '#4a5852'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(0, 7, 4, Math.PI * 0.15, Math.PI * 0.85); ctx.stroke();
+        break;
+      }
+      case 'enabler': { // too-supportive yellow blob
+        this.orb(ctx, 0, 0, e.r, e.clr, flash);
+        // sparkles
+        ctx.fillStyle = 'rgba(255,255,255,0.8)';
+        for (let i = 0; i < 3; i++) { const a = e.t * 2 + i * 2.1; const px = Math.cos(a) * (e.r + 4), py = Math.sin(a) * (e.r + 4); ctx.beginPath(); ctx.arc(px, py, 1.5, 0, TAU); ctx.fill(); }
         ctx.fillStyle = '#2c2333';
         ctx.beginPath(); ctx.arc(-5, -3, 2.2, 0, TAU); ctx.arc(5, -3, 2.2, 0, TAU); ctx.fill();
-        ctx.strokeStyle = '#2c2333'; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.arc(0, 3, 6, 0.2, Math.PI - 0.2); ctx.stroke();
-        ctx.fillStyle = '#fff';
-        ctx.font = this.font(9, true); ctx.textAlign = 'center';
-        ctx.fillText("you're", 0, -20);
-        ctx.fillText('valid!!', 0, -11);
+        ctx.fillStyle = 'rgba(255,255,255,0.8)';
+        ctx.beginPath(); ctx.arc(-5.6, -3.6, 0.8, 0, TAU); ctx.arc(4.4, -3.6, 0.8, 0, TAU); ctx.fill();
+        ctx.strokeStyle = '#2c2333'; ctx.lineWidth = 2; // huge grin
+        ctx.beginPath(); ctx.arc(0, 2, 7, 0.15, Math.PI - 0.15); ctx.stroke();
+        ctx.fillStyle = 'rgba(20,14,20,0.75)';
+        this.rr(ctx, -22, -30, 44, 15, 4); ctx.fill();
+        ctx.fillStyle = '#f4e88a'; ctx.font = this.font(8, true); ctx.textAlign = 'center';
+        ctx.fillText("you're SO valid!!", 0, -20);
         break;
       }
     }
@@ -844,146 +929,201 @@ const Render = {
     const flash = b.hitFlash > 0;
 
     switch (b.id) {
-      case 'gatekeeper': {
-        ctx.fillStyle = flash ? '#fff' : '#7a7090';
-        this.rr(ctx, -42, -50, 84, 100, 14); ctx.fill();
-        ctx.fillStyle = flash ? '#eee' : '#5c5474';
-        this.rr(ctx, -34, -42, 68, 84, 10); ctx.fill();
-        // door face
+      case 'gatekeeper': { // hospital-door bouncer with a velvet rope
         const open = b.vulnerable;
-        ctx.fillStyle = open ? '#f0e8d8' : '#3a3450';
-        ctx.beginPath(); ctx.ellipse(-14, -12, 8, open ? 10 : 2, 0, 0, TAU); ctx.fill();
-        ctx.beginPath(); ctx.ellipse(14, -12, 8, open ? 10 : 2, 0, 0, TAU); ctx.fill();
+        // velvet stanchion in front
+        ctx.strokeStyle = '#7a2030'; ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.moveTo(-46, 46); ctx.quadraticCurveTo(0, 58, 46, 46); ctx.stroke();
+        ctx.fillStyle = '#c8a24a'; ctx.beginPath(); ctx.arc(-46, 44, 4, 0, TAU); ctx.arc(46, 44, 4, 0, TAU); ctx.fill();
+        // steel door body
+        const dg = ctx.createLinearGradient(-42, 0, 42, 0);
+        dg.addColorStop(0, flash ? '#fff' : '#5a5470'); dg.addColorStop(0.5, flash ? '#fff' : '#7c7290'); dg.addColorStop(1, flash ? '#eee' : '#4c465e');
+        ctx.fillStyle = dg;
+        this.rr(ctx, -42, -50, 84, 100, 14); ctx.fill();
+        ctx.fillStyle = 'rgba(20,16,30,0.4)'; this.rr(ctx, -34, -42, 68, 84, 10); ctx.fill();
+        // wired-glass window
+        ctx.strokeStyle = 'rgba(180,190,210,0.25)'; ctx.lineWidth = 1;
+        for (let i = -3; i <= 3; i++) { ctx.beginPath(); ctx.moveTo(i * 9, -40); ctx.lineTo(i * 9, -8); ctx.moveTo(-30, -34 + (i + 3) * 4.5); ctx.lineTo(30, -34 + (i + 3) * 4.5); ctx.stroke(); }
+        // sunglasses (bouncer) or open eyes
         if (open) {
+          ctx.fillStyle = '#f0e8d8';
+          ctx.beginPath(); ctx.ellipse(-14, -12, 8, 10, 0, 0, TAU); ctx.ellipse(14, -12, 8, 10, 0, 0, TAU); ctx.fill();
           ctx.fillStyle = '#2c2333';
-          ctx.beginPath(); ctx.arc(-14, -12, 4, 0, TAU); ctx.arc(14, -12, 4, 0, TAU); ctx.fill();
+          ctx.beginPath(); ctx.arc(-14, -10, 4, 0, TAU); ctx.arc(14, -10, 4, 0, TAU); ctx.fill();
+        } else {
+          ctx.fillStyle = '#141018';
+          this.rr(ctx, -24, -18, 20, 12, 3); ctx.fill(); this.rr(ctx, 4, -18, 20, 12, 3); ctx.fill();
+          ctx.fillRect(-5, -14, 10, 2);
         }
         ctx.strokeStyle = '#2c2333'; ctx.lineWidth = 3;
         ctx.beginPath(); ctx.arc(0, 22, 12, Math.PI + 0.4, TAU - 0.4); ctx.stroke();
-        // crossed arms when denying
-        if (!open) {
-          ctx.strokeStyle = '#8a8098'; ctx.lineWidth = 10; ctx.lineCap = 'round';
-          ctx.beginPath(); ctx.moveTo(-30, 30); ctx.lineTo(30, 4); ctx.moveTo(30, 30); ctx.lineTo(-30, 4); ctx.stroke();
-          ctx.lineCap = 'butt';
+        if (!open) { // crossed arms
+          ctx.strokeStyle = '#8a8098'; ctx.lineWidth = 11; ctx.lineCap = 'round';
+          ctx.beginPath(); ctx.moveTo(-30, 30); ctx.lineTo(30, 6); ctx.moveTo(30, 30); ctx.lineTo(-30, 6); ctx.stroke(); ctx.lineCap = 'butt';
         }
         // clipboard
-        ctx.fillStyle = '#e8dcc0';
         ctx.save(); ctx.rotate(0.15);
-        ctx.fillRect(28, -20, 22, 30);
+        ctx.fillStyle = '#8a6a3a'; this.rr(ctx, 27, -22, 24, 32, 3); ctx.fill();
+        ctx.fillStyle = '#f0ead8'; this.rr(ctx, 29, -19, 20, 26, 2); ctx.fill();
+        ctx.strokeStyle = '#c05050'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(32, -13); ctx.lineTo(46, -13); ctx.stroke();
         ctx.restore();
         break;
       }
-      case 'adjuster': {
-        ctx.fillStyle = flash ? '#fff' : '#5a6a8a';
-        this.rr(ctx, -34, -40, 68, 74, 10); ctx.fill();
-        ctx.fillStyle = '#f0ead8';
-        this.rr(ctx, -24, -30, 48, 30, 4); ctx.fill();
-        ctx.fillStyle = '#c84040';
+      case 'adjuster': { // monitor-headed claims denier
+        // suited torso
+        const sg = ctx.createLinearGradient(0, -6, 0, 40);
+        sg.addColorStop(0, flash ? '#fff' : '#3f4a63'); sg.addColorStop(1, flash ? '#eee' : '#2b3346');
+        ctx.fillStyle = sg;
+        this.rr(ctx, -30, 4, 60, 44, 8); ctx.fill();
+        // shirt + tie
+        ctx.fillStyle = '#e8e6de'; ctx.beginPath(); ctx.moveTo(-8, 4); ctx.lineTo(8, 4); ctx.lineTo(0, 20); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#8a2a2a'; ctx.beginPath(); ctx.moveTo(0, 8); ctx.lineTo(5, 16); ctx.lineTo(0, 40); ctx.lineTo(-5, 16); ctx.closePath(); ctx.fill();
+        // monitor head
+        ctx.fillStyle = flash ? '#fff' : '#4a5266';
+        this.rr(ctx, -34, -40, 68, 44, 6); ctx.fill();
+        const scr = ctx.createLinearGradient(0, -36, 0, -4);
+        scr.addColorStop(0, '#1a2230'); scr.addColorStop(1, '#243044');
+        ctx.fillStyle = scr; this.rr(ctx, -28, -34, 56, 32, 3); ctx.fill();
+        ctx.fillStyle = flash ? '#fff' : '#e05a5a';
         ctx.font = this.font(12, true); ctx.textAlign = 'center';
-        ctx.save(); ctx.rotate(-0.08);
-        ctx.fillText('CLAIM', 0, -16);
-        ctx.fillText('DENIED', 0, -4);
+        ctx.save(); ctx.rotate(-0.06);
+        ctx.fillText('CLAIM', 0, -22); ctx.fillText('DENIED', 0, -9);
         ctx.restore();
-        ctx.fillStyle = '#2c2333';
-        ctx.beginPath(); ctx.arc(-12, 16, 3, 0, TAU); ctx.arc(12, 16, 3, 0, TAU); ctx.fill();
-        ctx.strokeStyle = '#2c2333'; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.moveTo(-8, 26); ctx.lineTo(8, 26); ctx.stroke();
-        // tie
-        ctx.fillStyle = '#8a2a2a';
-        ctx.beginPath(); ctx.moveTo(0, 26); ctx.lineTo(4, 32); ctx.lineTo(0, 40); ctx.lineTo(-4, 32); ctx.closePath(); ctx.fill();
+        // DENIED stamp for a hand
+        ctx.save(); ctx.translate(38, 20); ctx.rotate(Math.sin(b.t * 3) * 0.3 - 0.2);
+        ctx.fillStyle = '#7a2020'; this.rr(ctx, -8, -6, 16, 16, 2); ctx.fill();
+        ctx.fillStyle = '#c05050'; ctx.fillRect(-3, -14, 6, 8);
+        ctx.restore();
         break;
       }
-      case 'larperking': {
-        // giant knockoff of YOU
-        ctx.fillStyle = flash ? '#fff' : '#cabfb2';
-        ctx.beginPath(); ctx.ellipse(0, 24, 26, 20, 0, 0, TAU); ctx.fill();
-        ctx.fillStyle = flash ? '#fff' : '#d8cec2';
+      case 'larperking': { // giant garish knockoff of YOU
+        const bg = ctx.createLinearGradient(0, 4, 0, 44);
+        bg.addColorStop(0, flash ? '#fff' : '#cbc0b3'); bg.addColorStop(1, flash ? '#eee' : '#a89d90');
+        ctx.fillStyle = bg;
+        ctx.beginPath(); ctx.ellipse(0, 26, 27, 21, 0, 0, TAU); ctx.fill();
+        const hg = ctx.createRadialGradient(-10, -20, 6, 0, -8, 40);
+        hg.addColorStop(0, flash ? '#fff' : '#e6ddd0'); hg.addColorStop(1, flash ? '#eee' : '#c2b7a8');
+        ctx.fillStyle = hg;
         ctx.beginPath(); ctx.arc(0, -8, 34, 0, TAU); ctx.fill();
-        // party-store crown
+        // jeweled party crown
         ctx.fillStyle = '#e8c84c';
         ctx.beginPath();
-        ctx.moveTo(-24, -34); ctx.lineTo(-24, -52); ctx.lineTo(-12, -40) ; ctx.lineTo(0, -54); ctx.lineTo(12, -40); ctx.lineTo(24, -52); ctx.lineTo(24, -34);
+        ctx.moveTo(-24, -34); ctx.lineTo(-24, -52); ctx.lineTo(-12, -40); ctx.lineTo(0, -54); ctx.lineTo(12, -40); ctx.lineTo(24, -52); ctx.lineTo(24, -34);
         ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#e05a7a'; ctx.beginPath(); ctx.arc(0, -44, 3, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#5ab0e0'; ctx.beginPath(); ctx.arc(-16, -42, 2.5, 0, TAU); ctx.arc(16, -42, 2.5, 0, TAU); ctx.fill();
+        // rosy cheeks + shifty eyes
+        ctx.fillStyle = 'rgba(224,132,120,0.3)'; ctx.beginPath(); ctx.ellipse(-20, 2, 6, 4, 0, 0, TAU); ctx.ellipse(20, 2, 6, 4, 0, 0, TAU); ctx.fill();
         ctx.fillStyle = '#2c2333';
         ctx.beginPath(); ctx.arc(-12, -10, 5, 0, TAU); ctx.arc(12, -10, 5, 0, TAU); ctx.fill();
-        // sharpie tears
-        ctx.strokeStyle = '#4a6ae0'; ctx.lineWidth = 4;
-        ctx.beginPath(); ctx.moveTo(-12, -3); ctx.lineTo(-12, 8); ctx.moveTo(12, -3); ctx.lineTo(12, 8); ctx.stroke();
-        // mask label
-        ctx.fillStyle = '#f0ead8';
-        this.rr(ctx, -30, 40, 60, 16, 4); ctx.fill();
-        ctx.fillStyle = '#8a6a4a';
-        ctx.font = this.font(10, true); ctx.textAlign = 'center';
-        ctx.fillText('HELLO I HAVE: ' + (b.mask === 'mania' ? 'MANIA' : b.mask.toUpperCase()), 0, 52);
+        ctx.strokeStyle = '#4a6ae0'; ctx.lineWidth = 4; // sharpie tears
+        ctx.beginPath(); ctx.moveTo(-12, -3); ctx.lineTo(-12, 9); ctx.moveTo(12, -3); ctx.lineTo(12, 9); ctx.stroke();
+        // "HELLO I HAVE" name sticker
+        ctx.fillStyle = '#f4f0e6'; this.rr(ctx, -32, 40, 64, 18, 3); ctx.fill();
+        ctx.fillStyle = '#c04040'; this.rr(ctx, -32, 40, 64, 5, 3); ctx.fill();
+        ctx.fillStyle = '#3a5ac8'; ctx.font = this.font(9, true); ctx.textAlign = 'center';
+        ctx.fillText('HELLO I HAVE: ' + (b.mask === 'mania' ? 'MANIA' : b.mask.toUpperCase()), 0, 53);
         break;
       }
-      case 'withdrawal': {
-        ctx.fillStyle = flash ? '#fff' : '#e8e0d8';
-        this.rr(ctx, -30, -44, 60, 88, 20); ctx.fill();
-        ctx.fillStyle = flash ? '#eee' : '#d05a8a';
-        this.rr(ctx, -30, -44, 60, 34, 20); ctx.fill();
+      case 'withdrawal': { // shaking empty pill bottle
+        const jit = 1.5;
+        ctx.translate(Math.sin(b.t * 30) * jit, 0);
+        // child-proof cap
+        ctx.fillStyle = flash ? '#fff' : '#b84a78';
+        this.rr(ctx, -30, -52, 60, 16, 4); ctx.fill();
+        ctx.strokeStyle = '#8a3a5a'; ctx.lineWidth = 1;
+        for (let i = -5; i <= 5; i++) { ctx.beginPath(); ctx.moveTo(i * 5, -52); ctx.lineTo(i * 5, -36); ctx.stroke(); }
+        // amber bottle
+        const bg2 = ctx.createLinearGradient(-30, 0, 30, 0);
+        bg2.addColorStop(0, flash ? '#fff' : '#c98a4a'); bg2.addColorStop(0.5, flash ? '#fff' : '#e8c07a'); bg2.addColorStop(1, flash ? '#eee' : '#b0743a');
+        ctx.fillStyle = bg2;
+        this.rr(ctx, -30, -38, 60, 84, 10); ctx.fill();
+        // Rx label
+        ctx.fillStyle = '#f4efe2'; this.rr(ctx, -26, -20, 52, 40, 3); ctx.fill();
+        ctx.fillStyle = '#a83a5a'; ctx.font = this.font(11, true); ctx.textAlign = 'center';
+        ctx.fillText('℞ EMPTY', 0, -6);
+        // sunken panicked eyes + sweat
         ctx.fillStyle = '#2c2333';
-        ctx.beginPath(); ctx.ellipse(-12, 4, 4, 6 + Math.sin(b.t * 9) * 2, 0, 0, TAU); ctx.ellipse(12, 4, 4, 6 + Math.sin(b.t * 9 + 1) * 2, 0, 0, TAU); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(-11, 8, 4, 6 + Math.sin(b.t * 9) * 2, 0, 0, TAU); ctx.ellipse(11, 8, 4, 6 + Math.sin(b.t * 9 + 1) * 2, 0, 0, TAU); ctx.fill();
         ctx.strokeStyle = '#2c2333'; ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.arc(0, 26, 9, Math.PI + 0.3, TAU - 0.3); ctx.stroke();
-        // sweat
-        ctx.fillStyle = 'rgba(122,184,232,0.8)';
-        ctx.beginPath(); ctx.arc(20, -8 + Math.sin(b.t * 4) * 4, 3, 0, TAU); ctx.fill();
-        ctx.font = this.font(9, true); ctx.fillStyle = '#8a5a6a'; ctx.textAlign = 'center';
-        ctx.fillText('RX EMPTY', 0, -22);
+        ctx.beginPath(); ctx.moveTo(-8, 30); ctx.lineTo(-3, 27); ctx.lineTo(3, 30); ctx.lineTo(8, 27); ctx.stroke();
+        ctx.fillStyle = 'rgba(122,184,232,0.85)';
+        ctx.beginPath(); ctx.arc(24, -14 + Math.sin(b.t * 4) * 5, 3, 0, TAU); ctx.arc(-24, -6 + Math.cos(b.t * 3) * 5, 2.5, 0, TAU); ctx.fill();
         break;
       }
-      case 'stigma': {
+      case 'stigma': { // whispering shadow of judgment
         const near = U.dist(b.x, b.y, G.player.x, G.player.y) < 150;
-        const vis = flash || near ? 0.85 : 0.12;
+        const vis = flash || near ? 0.9 : 0.12;
         ctx.globalAlpha *= vis;
-        ctx.fillStyle = '#241c30';
+        // pointing fingers reaching from the dark
+        ctx.strokeStyle = '#1a1424'; ctx.lineWidth = 5; ctx.lineCap = 'round';
+        for (let i = 0; i < 3; i++) { const a = -0.5 + i * 0.5 + Math.sin(b.t + i) * 0.1; ctx.beginPath(); ctx.moveTo(Math.cos(a) * 20, Math.sin(a) * 20 + 20); ctx.lineTo(Math.cos(a) * 40, Math.sin(a) * 40 + 24); ctx.stroke(); }
+        ctx.lineCap = 'butt';
+        // cloaked body
+        const cg = ctx.createRadialGradient(0, -8, 6, 0, 0, 40);
+        cg.addColorStop(0, '#332a40'); cg.addColorStop(1, '#160f20');
+        ctx.fillStyle = cg;
         ctx.beginPath();
         ctx.arc(0, -6, 34, Math.PI, TAU);
-        ctx.quadraticCurveTo(34, 30, 24, 26);
-        ctx.quadraticCurveTo(18, 38, 8, 30);
-        ctx.quadraticCurveTo(0, 42, -8, 30);
-        ctx.quadraticCurveTo(-18, 38, -24, 26);
-        ctx.quadraticCurveTo(-34, 30, -34, -6);
-        ctx.closePath(); ctx.fill();
-        ctx.globalAlpha = Math.min(1, vis + 0.5);
+        ctx.quadraticCurveTo(34, 30, 24, 26); ctx.quadraticCurveTo(18, 38, 8, 30);
+        ctx.quadraticCurveTo(0, 42, -8, 30); ctx.quadraticCurveTo(-18, 38, -24, 26);
+        ctx.quadraticCurveTo(-34, 30, -34, -6); ctx.closePath(); ctx.fill();
+        // hollow glowing judging eyes
+        ctx.globalAlpha = Math.min(1, vis + 0.55);
         ctx.fillStyle = '#e8e0f0';
-        ctx.beginPath(); ctx.ellipse(-11, -10, 5, 7, 0, 0, TAU); ctx.ellipse(11, -10, 5, 7, 0, 0, TAU); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(-11, -10, 5, 8, 0, 0, TAU); ctx.ellipse(11, -10, 5, 8, 0, 0, TAU); ctx.fill();
         ctx.fillStyle = '#241c30';
-        ctx.beginPath(); ctx.arc(-11, -9, 2.5, 0, TAU); ctx.arc(11, -9, 2.5, 0, TAU); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(-11, -8, 2.4, 4, 0, 0, TAU); ctx.ellipse(11, -8, 2.4, 4, 0, 0, TAU); ctx.fill();
+        ctx.strokeStyle = '#e8e0f0'; ctx.lineWidth = 1.5; // furrowed brows
+        ctx.beginPath(); ctx.moveTo(-16, -18); ctx.lineTo(-6, -14); ctx.moveTo(16, -18); ctx.lineTo(6, -14); ctx.stroke();
+        // whisper marks
+        ctx.fillStyle = 'rgba(200,190,220,' + (0.3 + Math.sin(b.t * 3) * 0.2) + ')';
+        ctx.font = this.font(11, true); ctx.textAlign = 'center';
+        ctx.fillText('?', -40, -20 + Math.sin(b.t * 2) * 3); ctx.fillText('...', 42, -14 + Math.cos(b.t * 2) * 3);
         break;
       }
-      case 'burnout': {
-        // candle person burning at both ends
-        ctx.fillStyle = flash ? '#fff' : '#f0e0c0';
-        this.rr(ctx, -22, -38, 44, 80, 12); ctx.fill();
-        // drips
-        ctx.fillStyle = '#e0d0a8';
-        ctx.beginPath(); ctx.ellipse(-18, -30 + Math.sin(b.t) * 2, 5, 10, 0.3, 0, TAU); ctx.ellipse(19, -18, 4, 9, -0.2, 0, TAU); ctx.fill();
-        // flame
-        const ff = 1 + Math.sin(b.t * 11) * 0.15;
+      case 'burnout': { // candle burning at BOTH ends
+        const ff = 1 + Math.sin(b.t * 11) * 0.15, ff2 = 1 + Math.cos(b.t * 13) * 0.15;
+        // bottom flame
+        ctx.fillStyle = b.enrage > 0 ? '#e05a3a' : '#e8863a';
+        ctx.beginPath(); ctx.ellipse(0, 48, 9 * ff2, 14 * ff2, 0, 0, TAU); ctx.fill();
+        // wax body
+        const wg = ctx.createLinearGradient(-22, 0, 22, 0);
+        wg.addColorStop(0, flash ? '#fff' : '#d8c49c'); wg.addColorStop(0.5, flash ? '#fff' : '#f2e4c4'); wg.addColorStop(1, flash ? '#eee' : '#c8b088');
+        ctx.fillStyle = wg;
+        this.rr(ctx, -22, -36, 44, 78, 10); ctx.fill();
+        // melting drips
+        ctx.fillStyle = '#e8d8b0';
+        ctx.beginPath(); ctx.ellipse(-19, -22 + Math.sin(b.t) * 3, 5, 11, 0.3, 0, TAU); ctx.ellipse(20, -8 + Math.cos(b.t) * 3, 4, 10, -0.2, 0, TAU); ctx.ellipse(-15, 20, 4, 8, 0.2, 0, TAU); ctx.fill();
+        // top flame
         ctx.fillStyle = b.enrage > 0 ? '#e05a3a' : '#f0a03a';
-        ctx.beginPath(); ctx.ellipse(0, -50, 10 * ff, 16 * ff, 0, 0, TAU); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(0, -50, 10 * ff, 17 * ff, 0, 0, TAU); ctx.fill();
         ctx.fillStyle = '#f8d05a';
         ctx.beginPath(); ctx.ellipse(0, -48, 5 * ff, 9 * ff, 0, 0, TAU); ctx.fill();
-        // exhausted face
-        ctx.strokeStyle = '#5a4a3a'; ctx.lineWidth = 2.5;
-        ctx.beginPath(); ctx.moveTo(-14, -8); ctx.lineTo(-6, -5); ctx.moveTo(14, -8); ctx.lineTo(6, -5); ctx.stroke();
+        // burnt-out exhausted face
+        ctx.strokeStyle = '#6a5540'; ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.moveTo(-15, -8); ctx.lineTo(-6, -4); ctx.moveTo(15, -8); ctx.lineTo(6, -4); ctx.stroke();
         ctx.fillStyle = '#2c2333';
-        ctx.beginPath(); ctx.arc(-9, -2, 2.5, 0, TAU); ctx.arc(9, -2, 2.5, 0, TAU); ctx.fill();
-        ctx.beginPath(); ctx.ellipse(0, 12, 5, 7, 0, 0, TAU); ctx.fill(); // yawn
+        ctx.beginPath(); ctx.arc(-9, 0, 2.5, 0, TAU); ctx.arc(9, 0, 2.5, 0, TAU); ctx.fill();
+        ctx.fillStyle = 'rgba(90,110,150,0.5)'; // eyebags
+        ctx.beginPath(); ctx.ellipse(-9, 5, 4, 2, 0, 0, TAU); ctx.ellipse(9, 5, 4, 2, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#2c2333'; ctx.beginPath(); ctx.ellipse(0, 16, 5, 8, 0, 0, TAU); ctx.fill(); // big yawn
         break;
       }
-      case 'walrus': {
-        this.drawWalrusFace(ctx, 0, 0, 0.62, b.t);
-        // white coat collar
-        ctx.fillStyle = '#f0f0f4';
-        ctx.beginPath(); ctx.moveTo(-34, 30); ctx.lineTo(-14, 44); ctx.lineTo(-24, 52); ctx.closePath(); ctx.fill();
-        ctx.beginPath(); ctx.moveTo(34, 30); ctx.lineTo(14, 44); ctx.lineTo(24, 52); ctx.closePath(); ctx.fill();
-        if (b.state === 3) { // say ahh
-          ctx.fillStyle = '#2c2333';
-          ctx.beginPath(); ctx.ellipse(0, 30, 10, 13, 0, 0, TAU); ctx.fill();
-        }
+      case 'walrus': { // Dr. Walrus in a lab coat
+        // coat body
+        const cg = ctx.createLinearGradient(0, 20, 0, 60);
+        cg.addColorStop(0, flash ? '#fff' : '#f2f2f6'); cg.addColorStop(1, flash ? '#eee' : '#d6d6e0');
+        ctx.fillStyle = cg;
+        ctx.beginPath(); ctx.moveTo(-40, 60); ctx.quadraticCurveTo(-42, 24, -22, 22); ctx.lineTo(22, 22); ctx.quadraticCurveTo(42, 24, 40, 60); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = '#c0c0cc'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(0, 24); ctx.lineTo(0, 60); ctx.stroke();
+        ctx.fillStyle = '#2c2333'; ctx.beginPath(); ctx.arc(-8, 40, 1.6, 0, TAU); ctx.arc(8, 48, 1.6, 0, TAU); ctx.fill(); // buttons
+        // stethoscope
+        ctx.strokeStyle = '#3a3a44'; ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.moveTo(-10, 24); ctx.quadraticCurveTo(-16, 44, 6, 48); ctx.stroke();
+        ctx.fillStyle = '#8a8a94'; ctx.beginPath(); ctx.arc(6, 49, 4, 0, TAU); ctx.fill();
+        this.drawWalrusFace(ctx, 0, -6, 0.62, b.t);
+        if (b.state === 3) { ctx.fillStyle = '#2c2333'; ctx.beginPath(); ctx.ellipse(0, 24, 10, 13, 0, 0, TAU); ctx.fill(); }
         break;
       }
     }
@@ -1049,50 +1189,18 @@ const Render = {
   /* character-select portrait (Patient Files) */
   drawCharPortrait(ctx, diagId) {
     ctx.clearRect(0, 0, 84, 84);
+    // reuse the exact in-game sprite for consistency
+    const prev = this.ctx;
+    this.ctx = ctx;
     ctx.save();
-    ctx.translate(42, 46);
-    ctx.scale(2.1, 2.1);
-    // body + head
-    ctx.fillStyle = '#e8ceae';
-    ctx.beginPath(); ctx.ellipse(0, 9, 10, 8, 0, 0, TAU); ctx.fill();
-    ctx.fillStyle = '#f2dcc0';
-    ctx.beginPath(); ctx.arc(0, -4, 14, 0, TAU); ctx.fill();
-    ctx.strokeStyle = 'rgba(60,40,50,0.25)'; ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.arc(0, -4, 14, 0, TAU); ctx.stroke();
-    // eyes + tear streaks
-    const sad = diagId === 'depression';
-    ctx.fillStyle = '#2c2333';
-    ctx.beginPath(); ctx.ellipse(-5, -5, 2.6, sad ? 2 : 3.2, 0, 0, TAU); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(5, -5, 2.6, sad ? 2 : 3.2, 0, 0, TAU); ctx.fill();
-    ctx.strokeStyle = 'rgba(122,184,232,0.8)'; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(-5, -2); ctx.lineTo(-5, 2); ctx.moveTo(5, -2); ctx.lineTo(5, 2); ctx.stroke();
-    // mouth
-    ctx.strokeStyle = '#2c2333'; ctx.lineWidth = 1.6;
-    ctx.beginPath();
-    if (diagId === 'fine') { ctx.moveTo(-4, 3); ctx.lineTo(4, 3); }
-    else { ctx.arc(0, 6, 4, Math.PI + 0.3, TAU - 0.3); }
-    ctx.stroke();
-    // accessory
-    if (diagId === 'adhd') {
-      ctx.fillStyle = '#f7b32b'; ctx.fillRect(-14, -14, 28, 5);
-    } else if (diagId === 'schizo') {
-      ctx.fillStyle = '#c8c8d2';
-      ctx.beginPath(); ctx.moveTo(-11, -12); ctx.lineTo(0, -26); ctx.lineTo(11, -12); ctx.closePath(); ctx.fill();
-    } else if (diagId === 'depression') {
-      ctx.fillStyle = '#5d8aa8';
-      ctx.beginPath(); ctx.arc(0, -6, 15, Math.PI * 1.05, Math.PI * 1.95); ctx.lineTo(15, -2); ctx.lineTo(-15, -2); ctx.closePath(); ctx.fill();
-    } else if (diagId === 'anxiety') {
-      ctx.fillStyle = 'rgba(122,184,232,0.9)';
-      ctx.beginPath(); ctx.arc(12, -14, 2.5, 0, TAU); ctx.fill();
-      ctx.beginPath(); ctx.arc(15, -9, 1.8, 0, TAU); ctx.fill();
-    } else if (diagId === 'bipolar') {
-      ctx.fillStyle = '#e8c84c'; ctx.beginPath(); ctx.arc(11, -13, 4, 0, TAU); ctx.fill();
-      ctx.fillStyle = '#7a88b8'; ctx.beginPath(); ctx.arc(-11, -13, 4, 0, TAU); ctx.fill();
-    } else if (diagId === 'fine') {
-      ctx.fillStyle = '#8a4a4a';
-      ctx.beginPath(); ctx.moveTo(0, 2); ctx.lineTo(3, 8); ctx.lineTo(0, 15); ctx.lineTo(-3, 8); ctx.closePath(); ctx.fill();
-    }
+    ctx.translate(42, 40);
+    ctx.scale(1.65, 1.65);
+    const pl = new Player(diagId);
+    pl.x = 0; pl.y = 0; pl.aimAng = -Math.PI / 2; pl.iframes = 0; pl.moving = false;
+    if (diagId === 'bipolar') pl.mania = true;
+    try { this.drawPlayer(pl, { t: 0.6 }); } catch (e) { }
     ctx.restore();
+    this.ctx = prev;
   },
 
   drawItemIcon(id, x, y) {
