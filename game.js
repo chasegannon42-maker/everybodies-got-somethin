@@ -15,6 +15,7 @@ const G = {
   boss: null, trapdoor: null,
   shake: 0, dark: 0, darkTarget: 0,
   enemySlow: 0, tearsAura: false, playerFired: false, healBeam: null,
+  complications: [], floorMods: {}, floorDark: 0,
   doorsOpen: true, secretFound: false,
   pillAssign: [], pillKnown: new Set(),
   banner: null, toasts: [],
@@ -262,6 +263,11 @@ const G = {
     this.tearsAura = false;
     this.darkTarget = 0;
     this.enemySlow = 0;
+    // endless difficulty: roll this floor's ward complications
+    this.complications = DATA.rollComplications(this.depth);
+    this.floorMods = {};
+    for (const c of this.complications) Object.assign(this.floorMods, c.mods);
+    this.floorDark = this.floorMods.dark || 0;
     const p = this.player;
     p.pillsThisFloor = 0;
     if (p.diag === 'depression') p.blanket = true;
@@ -287,6 +293,12 @@ const G = {
     }
     if (p.flags.mapReveal) this.floorRooms.forEach(r => r.discovered = true);
     this.enterRoom(gen.start, null);
+    // announce ward complications
+    if (this.complications.length) setTimeout(() => {
+      if (this.state !== 'run') return;
+      SFX.play('error');
+      for (const c of this.complications) this.toast('⚠ ' + c.name + ' — ' + c.desc, '#e0955a');
+    }, 500);
     if (p.diag === 'schizo' && U.chance(0.5)) setTimeout(() => { if (this.state === 'run') { this.toast(U.choice(DATA.VOICE_LINES), '#cbb8e8'); SFX.play('voice'); } }, 2500);
   },
 
@@ -584,7 +596,7 @@ const G = {
     this.enemySlow -= dt;
     let dtarget = this.darkTarget;
     if (!(this.boss && !this.boss.dead && this.boss.id === 'stigma')) {
-      dtarget = this.player.diag === 'depression' ? 0.14 : 0;
+      dtarget = Math.max(this.player.diag === 'depression' ? 0.14 : 0, this.floorDark || 0);
       this.darkTarget = dtarget;
     }
     this.dark = U.lerp(this.dark, dtarget, U.clamp(dt * 2.5, 0, 1));
@@ -765,7 +777,7 @@ const G = {
         <div class="rx" style="border-color:#8a3030">
           <div class="stamp">DECEASED</div>
           <h2>Patient Outcome: Suboptimal</h2>
-          <div class="sub">${DATA.DIAG[diagId].name} · made it to ${DATA.floorName(this.depth)} (ward ${this.depth})</div>
+          <div class="sub">${DATA.DIAG[diagId].name} · made it to ${DATA.floorName(this.depth)} (ward ${this.depth} · ${DATA.tierName(this.depth)})</div>
           <div class="mech">${this.stats.kills} symptoms managed · ${this.stats.items} prescriptions collected · ${this.stats.rooms} rooms survived</div>
         </div>
         <div class="walrusbox">

@@ -262,6 +262,8 @@ DATA.ENEMIES = {
   enabler:   { name: "The Enabler", hp: 16, spd: 62, r: 16, dmg: 1, beh: 'buffer', clr: '#e0c95a' }
 };
 DATA.enemyPoolFor = function (depth) {
+  // deeper enemies get relatively more common the further past their unlock you go,
+  // so late wards lean on the nastier roster instead of the same early mix
   const P = [
     { id: 'scroller', d: 1, w: 3 }, { id: 'notif', d: 1, w: 3 }, { id: 'larper', d: 1, w: 2.4 },
     { id: 'ad', d: 2, w: 2.4 }, { id: 'doubt', d: 2, w: 2 },
@@ -269,6 +271,7 @@ DATA.enemyPoolFor = function (depth) {
     { id: 'redflag', d: 4, w: 1.8 }, { id: 'fog', d: 4, w: 1.4 },
     { id: 'enabler', d: 5, w: 1.4 }
   ].filter(e => depth >= e.d);
+  for (const e of P) e.w *= 1 + 0.12 * Math.max(0, depth - e.d);
   return P;
 };
 DATA.pickEnemy = function (depth) {
@@ -297,6 +300,66 @@ DATA.bossFor = function (depth, lastBoss) {
   if (depth >= 4) pool.push('withdrawal', 'burnout');
   const filtered = pool.filter(b => b !== lastBoss);
   return U.choice(filtered.length ? filtered : pool);
+};
+
+/* ============ ENDLESS DIFFICULTY CURVE ============
+   One place that scales every threat axis with depth. Early wards (1-5)
+   match the tuned baseline; growth is mostly linear with a gentle
+   quadratic so it keeps pace with an item-stacked player forever. */
+DATA.difficulty = function (depth) {
+  const d = depth - 1;
+  return {
+    enemyHp: 1 + 0.30 * d + 0.005 * d * d,             // spongier, uncapped
+    enemySpd: 1 + Math.min(0.55, 0.02 * d),            // soft cap ~+55%
+    enemyDmg: 1 + Math.floor(depth / 13),              // hits get heavier past ward 13, 25...
+    shotRate: Math.max(0.5, 1 - 0.018 * d),            // shooters fire faster deep (x on cooldown)
+    count: U.clamp(3 + Math.floor(0.8 * depth), 3, 12),// more bodies per room, cap 12
+    champChance: U.clamp(0.05 * (depth - 5), 0, 0.55), // elites from ward 6, up to 55%
+    bossHp: 1 + 0.20 * d + 0.004 * d * d,
+    bossDmg: 1 + Math.floor(depth / 9),                // boss hits heavier past ward 9, 18...
+    bossAggr: 1 + Math.min(0.6, 0.022 * d)             // bosses move & attack faster deep
+  };
+};
+
+/* Elite / "Champion" enemy variants — tougher, tinted, better loot. */
+DATA.ELITES = [
+  { id: 'chief',  name: "Chief Complaint", tint: '#e0b040', hp: 2.4, dmg: 1, spd: 1.05, sz: 1.18 },
+  { id: 'acute',  name: "Acute Case",      tint: '#e05a5a', hp: 1.8, dmg: 2, spd: 1.15, sz: 1.1 },
+  { id: 'chronic',name: "Chronic Case",    tint: '#8a6be0', hp: 3.2, dmg: 1, spd: 0.9,  sz: 1.25 }
+];
+
+/* Randomized ward "Complications" (Isaac-style curses) rolled on deeper floors. */
+DATA.COMPLICATIONS = [
+  { id: 'overcrowded', name: "Overcrowded Ward", desc: "+50% patients per room.", mods: { countMul: 1.5 } },
+  { id: 'manic',       name: "Manic Ward",       desc: "Everything moves faster.", mods: { spdMul: 1.28 } },
+  { id: 'triggerhappy',name: "Trigger-Happy Ward", desc: "Enemies fire far more often.", mods: { shotMul: 0.55 } },
+  { id: 'elite',       name: "VIP Ward",         desc: "Champions everywhere.", mods: { champAdd: 0.45 } },
+  { id: 'dim',         name: "Lights-Out Ward",  desc: "Someone cut the power.", mods: { dark: 0.62 } },
+  { id: 'swarm',       name: "Swarm Ward",       desc: "More enemies, but frailer.", mods: { countMul: 1.6, hpMul: 0.65 } },
+  { id: 'juiced',      name: "Juiced Ward",      desc: "Tougher, angrier patients.", mods: { hpMul: 1.35, dmgAdd: 1 } },
+  { id: 'sudden',      name: "Sudden-Onset Ward", desc: "No spawn warning.", mods: { fastSpawn: true, spdMul: 1.12 } }
+];
+DATA.rollComplications = function (depth) {
+  if (depth < 4) return [];
+  const n = depth < 8 ? (U.chance(0.55) ? 1 : 0) : depth < 14 ? U.randi(1, 2) : U.randi(1, 3);
+  return U.shuffle(DATA.COMPLICATIONS).slice(0, n);
+};
+
+/* Flavor tier shown as you go deeper — the "meds" narrative of escalation. */
+DATA.TIERS = [
+  { d: 1, name: "Intake" },
+  { d: 4, name: "Under Observation" },
+  { d: 8, name: "The Meds Aren't Working" },
+  { d: 12, name: "Treatment-Resistant" },
+  { d: 16, name: "Off The Charts" },
+  { d: 22, name: "No Known Cure" },
+  { d: 30, name: "Medically Inadvisable" },
+  { d: 40, name: "Purely Theoretical" }
+];
+DATA.tierName = function (depth) {
+  let t = DATA.TIERS[0];
+  for (const x of DATA.TIERS) if (depth >= x.d) t = x;
+  return t.name;
 };
 
 /* ============ ROOM TEMPLATES (13 x 7) ============ */

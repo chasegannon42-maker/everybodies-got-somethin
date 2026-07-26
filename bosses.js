@@ -8,14 +8,16 @@
 class Boss {
   constructor(id, depth, G) {
     const M = DATA.BOSSES[id];
+    const dif = DATA.difficulty(depth);
     this.id = id;
     this.name = M.name; this.sub = M.sub;
     const fineMult = G.player.flags.fineMode ? 1.15 : 1;
-    this.maxhp = this.hp = M.hp * (1 + 0.20 * (depth - 1)) * fineMult;
+    this.maxhp = this.hp = M.hp * dif.bossHp * fineMult;
     this.depth = depth;
+    this.aggr = dif.bossAggr;              // deeper bosses move & attack faster
     this.x = CW / 2; this.y = RY + 130;
     this.r = id === 'walrus' ? 46 : id === 'fogless' ? 40 : 40;
-    this.dmg = 1 + (depth >= 8 ? 1 : 0);
+    this.dmg = dif.bossDmg;
     this.t = 0; this.atkT = 2; this.spT = 6; this.dashT = 3;
     this.state = 0; this.stateT = 0;
     this.phase = 1;
@@ -79,6 +81,7 @@ class Boss {
     this.t += dt; this.hitFlash -= dt;
     if (this.dead) { this.deathT += dt; return; }
     if (this.introT > 0) { this.introT -= dt; return; }
+    dt *= (this.aggr || 1); // endless: deeper bosses move & attack faster
     const p = G.player;
     if (this.hp < this.maxhp * 0.5) this.phase = 2;
     const P2 = this.phase === 2;

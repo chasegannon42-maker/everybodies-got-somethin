@@ -733,6 +733,16 @@ const Render = {
     const flash = e.hitFlash > 0;
     const body = flash ? '#ffffff' : e.clr;
 
+    // elite / champion glow
+    if (e.eliteTint && e.spawnT <= 0) {
+      ctx.save();
+      ctx.strokeStyle = e.eliteTint; ctx.lineWidth = 2.5;
+      ctx.shadowColor = e.eliteTint; ctx.shadowBlur = 11;
+      const rr = e.r + 5 + Math.sin(G.t * 5) * 1.5;
+      ctx.beginPath(); ctx.arc(0, 0, rr, 0, TAU); ctx.stroke();
+      ctx.restore();
+    }
+
     switch (e.id) {
       case 'scroller': { // phone-zombie hunched over a glowing screen
         this.orb(ctx, 0, 3, e.r, e.clr, flash);
@@ -1387,7 +1397,11 @@ const Render = {
     ctx.fillText(DATA.floorName(G.depth), CW - 180, 22);
     ctx.font = this.font(11);
     ctx.fillStyle = 'rgba(240,232,216,0.5)';
-    ctx.fillText('ward ' + G.depth, CW - 180, 38);
+    ctx.fillText('ward ' + G.depth + ' · ' + DATA.tierName(G.depth), CW - 180, 38);
+    if (G.complications && G.complications.length) {
+      ctx.fillStyle = 'rgba(224,149,90,0.85)';
+      ctx.fillText('⚠ ' + G.complications.map(c => c.name.replace(' Ward', '')).join(', '), CW - 180, 52);
+    }
 
     // minimap
     this.drawMinimap(G);
@@ -1513,10 +1527,17 @@ const Render = {
     ctx.textAlign = 'center';
     ctx.font = this.font(30, true);
     ctx.fillStyle = '#f0e8d8';
-    ctx.fillText(DATA.floorName(G.depth), CW / 2, CH / 2 - 8);
+    ctx.fillText(DATA.floorName(G.depth), CW / 2, CH / 2 - 20);
     ctx.font = this.font(15);
     ctx.fillStyle = 'rgba(240,232,216,0.6)';
-    ctx.fillText('ward ' + G.depth + ' — descending', CW / 2, CH / 2 + 24);
+    ctx.fillText('ward ' + G.depth + ' · ' + DATA.tierName(G.depth), CW / 2, CH / 2 + 8);
+    // ward complications
+    if (G.complications && G.complications.length) {
+      ctx.font = this.font(14, true);
+      ctx.fillStyle = '#e0955a';
+      let y = CH / 2 + 40;
+      for (const c of G.complications) { ctx.fillText('⚠ ' + c.name, CW / 2, y); y += 22; }
+    }
     ctx.restore();
   },
 

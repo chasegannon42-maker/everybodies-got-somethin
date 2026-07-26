@@ -326,20 +326,25 @@ class EBullet {
 
 /* ---------------- enemies ---------------- */
 class Enemy {
-  constructor(id, x, y, depth, fake, hpMult) {
+  constructor(id, x, y, depth, fake, hpMult, elite) {
     const D = DATA.ENEMIES[id];
+    const dif = DATA.difficulty(depth);
+    const E = elite ? DATA.ELITES.find(e => e.id === elite) : null;
     this.id = id;
-    this.x = x; this.y = y; this.r = D.r;
-    const scale = (1 + 0.32 * (depth - 1)) * (hpMult || 1);
-    this.maxhp = this.hp = fake ? 1 : D.hp * scale;
-    this.spd = D.spd * (1 + 0.02 * Math.min(depth, 20));
-    this.dmg = D.dmg + (depth >= 7 && U.chance(0.35) ? 1 : 0);
+    this.elite = E ? E.id : null;
+    this.eliteTint = E ? E.tint : null;
+    this.x = x; this.y = y; this.r = D.r * (E ? E.sz : 1);
+    const hp = D.hp * dif.enemyHp * (hpMult || 1) * (E ? E.hp : 1);
+    this.maxhp = this.hp = fake ? 1 : hp;
+    this.spd = D.spd * dif.enemySpd * (E ? E.spd : 1);
+    this.dmg = D.dmg * dif.enemyDmg + (E ? (E.dmg - 1) : 0);
     this.fake = !!fake;
     this.beh = D.beh; this.clr = D.clr;
     this.t = U.rand(0, 3); this.state = 0; this.stateT = 0;
     this.vx = 0; this.vy = 0;
-    this.shotCd = D.shotCd || 0; this.shotT = U.rand(0.6, (D.shotCd || 1.5));
-    this.bulSpd = D.bulSpd || 180;
+    this.shotCd = (D.shotCd || 0) * dif.shotRate;
+    this.shotT = U.rand(0.6, (this.shotCd || 1.5));
+    this.bulSpd = (D.bulSpd || 180) * (1 + Math.min(0.4, 0.012 * (depth - 1)));
     this.hitFlash = 0;
     this.spawnT = 0.55;
     this.dying = false; this.deadDone = false;
@@ -574,6 +579,16 @@ class Enemy {
     }
     if (this.noDrop) return;
     const p = G.player;
+    // elites always pay out, and more generously
+    if (this.elite) {
+      const n = U.randi(2, 3);
+      for (let i = 0; i < n; i++) {
+        const roll = Math.random();
+        const type = roll < 0.34 ? (U.chance(0.4) ? 'half' : 'full') : roll < 0.55 ? 'nickel' : roll < 0.72 ? 'pill' : roll < 0.86 ? 'key' : 'coin';
+        G.pickups.push(new Pickup(type, this.x + U.rand(-14, 14), this.y + U.rand(-14, 14)));
+      }
+      return;
+    }
     const dropChance = 0.20 + p.luck * 0.03;
     if (U.chance(dropChance)) {
       const roll = Math.random();
@@ -689,8 +704,13 @@ class FloatText {
 /* ---------------- room population ---------------- */
 function spawnEnemiesForRoom(room, depth, G) {
   const p = G.player;
-  const hpMult = p.flags.fineMode ? 1.15 : 1;
-  let count = U.clamp(3 + Math.floor(depth * 0.8) + U.randi(-1, 1), 3, 9);
+  const dif = DATA.difficulty(depth);
+  const mods = G.floorMods || {};
+  const hpMult = (p.flags.fineMode ? 1.15 : 1) * (mods.hpMul || 1);
+  let count = dif.count;
+  if (mods.countMul) count = Math.round(count * mods.countMul);
+  count = U.clamp(count + U.randi(-1, 1), 3, 16);
+  const champChance = U.clamp(dif.champChance + (mods.champAdd || 0), 0, 0.75);
   const spots = [];
   for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
     if (room.layout[r][c] !== 0) continue;
@@ -702,7 +722,11 @@ function spawnEnemiesForRoom(room, depth, G) {
   const spawned = [];
   for (const s of chosen) {
     const id = DATA.pickEnemy(depth);
-    const e = new Enemy(id, s.x + U.rand(-8, 8), s.y + U.rand(-8, 8), depth, false, hpMult);
+    const elite = (id !== 'redflag' && U.chance(champChance)) ? U.choice(DATA.ELITES).id : null;
+    const e = new Enemy(id, s.x + U.rand(-8, 8), s.y + U.rand(-8, 8), depth, false, hpMult, elite);
+    if (mods.spdMul) e.spd *= mods.spdMul;
+    if (mods.dmgAdd) e.dmg += mods.dmgAdd;
+    if (mods.fastSpawn) e.spawnT = 0.22;
     G.enemies.push(e);
     spawned.push(id);
   }
