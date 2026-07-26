@@ -190,37 +190,92 @@ input[type=range].slider::-moz-range-track { height: 12px; border-radius: 10px; 
 .charCard.locked canvas { filter: brightness(0.15); }
 .charCard.locked:hover { background: #d8d2c8; transform: none; }
 
-/* ---------- touch UI ---------- */
-#touchUI { display: none; position: fixed; inset: 0; pointer-events: none; z-index: 15; }
-body.touch #touchUI.inrun { display: block; }
-.stickzone { position: absolute; bottom: 0; top: 40%; width: 45%; }
-#stickL { left: 0; } #stickR { right: 0; }
+/* ---------- touch controls ---------- */
+#deck, #padLand { display: none; }
+
+/* ===== LANDSCAPE overlay: floating twin-stick + corner buttons ===== */
+#padLand { position: fixed; inset: 0; pointer-events: none; z-index: 15; }
+body.touch.inrun #padLand { display: block; }
+@media (orientation: portrait) { body.touch #padLand { display: none !important; } }
+
+.lzone { position: fixed; bottom: 0; height: 68%; width: 45%; pointer-events: auto; }
+#zoneMoveL { left: 0; } #zoneAimL { right: 0; }
 .stick {
-  position: absolute; width: 110px; height: 110px; border-radius: 50%;
-  border: 3px solid rgba(255,255,255,.35); background: rgba(255,255,255,.07);
+  position: fixed; width: 116px; height: 116px; border-radius: 50%;
+  border: 3px solid rgba(255,255,255,.28); background: rgba(255,255,255,.06);
   transform: translate(-50%, -50%);
-  display: none;
+  display: none; pointer-events: none; z-index: 16;
 }
 .stick .nub {
-  position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; border-radius: 50%;
-  background: rgba(255,255,255,.45);
-  transform: translate(-50%, -50%);
+  position: absolute; inset: 0; margin: auto; width: 48px; height: 48px; border-radius: 50%;
+  background: rgba(255,255,255,.4);
 }
+#landBtns { position: fixed; top: calc(6px + env(safe-area-inset-top)); right: calc(8px + env(safe-area-inset-right)); display: flex; gap: 8px; pointer-events: none; }
 .tbtn {
-  position: fixed;
-  width: 62px; height: 62px; border-radius: 50%;
+  width: 56px; height: 56px; border-radius: 50%;
   border: 3px solid rgba(255,255,255,.5);
-  background: rgba(40,30,50,.55);
-  color: #fff; font-family: inherit; font-size: 11px;
+  background: rgba(40,30,50,.62);
+  color: #fff; font-family: inherit; font-size: 10px; line-height: 1.15;
   pointer-events: auto;
   display: flex; align-items: center; justify-content: center; flex-direction: column;
-  z-index: 16;
 }
-#btnPill { right: 18px; top: calc(38% - 70px); }
-#btnBomb { right: 90px; top: calc(38% - 70px); }
-#btnPause { display: none; }
-body.touch #btnPause.inrun { display: flex; position: fixed; right: 12px; top: 10px; width: 44px; height: 44px; font-size: 15px; }
+.tbtn:active { transform: translateY(2px); background: rgba(60,45,75,.8); }
 
-@media (max-height: 500px) {
-  #btnPill { top: 12px; } #btnBomb { top: 12px; right: 160px; }
+/* ===== PORTRAIT: Game Boy control deck below the game ===== */
+@media (orientation: portrait) {
+  body.touch #wrap { flex-direction: column; justify-content: flex-start; }
+  body.touch.inrun #deck { display: flex; }
 }
+#deck {
+  width: 100%; flex: 1 1 auto; min-height: 0;
+  flex-direction: column; align-items: center; justify-content: flex-start;
+  padding: 8px 12px calc(20px + env(safe-area-inset-bottom));
+  background: linear-gradient(#2b2436, #14101c);
+  border-top: 3px solid #0d0a12;
+  touch-action: none;
+}
+#deckBrand {
+  flex: 1 1 auto; display: flex; align-items: center; justify-content: center; gap: 8px;
+  color: #6b6478; font-size: clamp(12px, 3.2vw, 16px); font-weight: bold;
+  letter-spacing: 1px; text-align: center; opacity: .85; padding: 6px;
+}
+#deckBrand span { font-size: 1.6em; }
+#deckControls {
+  width: 100%; flex: 0 0 auto;
+  display: flex; align-items: flex-end; justify-content: space-between; gap: 8px;
+}
+.pad {
+  position: relative; flex: 0 0 auto;
+  width: min(37vw, 158px); height: min(37vw, 158px);
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 33%, #4c4258, #2a2434);
+  border: 3px solid #0d0a12;
+  box-shadow: inset 0 5px 10px rgba(0,0,0,.45), 0 3px 0 #0d0a12;
+  touch-action: none;
+}
+.pad .padbase {
+  position: absolute; inset: 0; margin: auto; width: 40%; height: 40%;
+  border-radius: 50%; background: rgba(0,0,0,.28);
+}
+.pad .nub {
+  position: absolute; inset: 0; margin: auto; width: 47%; height: 47%; border-radius: 50%;
+  background: radial-gradient(circle at 40% 33%, #f2d98e, #d8a838);
+  border: 3px solid #0d0a12; box-shadow: 0 3px 0 rgba(0,0,0,.35);
+}
+.pad .plabel {
+  position: absolute; left: 0; right: 0; bottom: -20px; text-align: center;
+  font-size: 12px; color: #b3a7b8; letter-spacing: 1px;
+}
+.deckmid {
+  flex: 1 1 auto; max-width: 44%;
+  display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: 8px;
+}
+.deckbtn {
+  font-family: inherit; font-size: clamp(13px, 3.6vw, 16px); font-weight: bold; color: #2c2333;
+  background: #e8b64c; border: 3px solid #0d0a12; border-radius: 12px;
+  box-shadow: 0 4px 0 #0d0a12; padding: 11px 6px;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.deckbtn span { font-size: 11px; }
+.deckbtn.small { padding: 8px; font-size: 17px; background: #cfc6ba; }
+.deckbtn:active { transform: translateY(3px); box-shadow: 0 1px 0 #0d0a12; }

@@ -39,8 +39,7 @@ const G = {
   showTitle() {
     this.state = 'title';
     SFX.setMusic('menu');
-    document.getElementById('touchUI').classList.remove('inrun');
-    document.getElementById('btnPause').classList.remove('inrun');
+    document.body.classList.remove('inrun');
     const m = Meta.data;
     const statsLine = m.runs > 0
       ? `<div class="stats-line">runs: ${m.runs} · deepest ward: ${m.bestFloor} · walruses defeated: ${m.walrusKills}</div>`
@@ -247,8 +246,7 @@ const G = {
     this.state = 'run';
     this.hideOverlay();
     SFX.setMusic('run');
-    document.getElementById('touchUI').classList.add('inrun');
-    document.getElementById('btnPause').classList.add('inrun');
+    document.body.classList.add('inrun');
   },
 
   newFloor() {
@@ -817,30 +815,50 @@ const G = {
   Meta.load();
   Input.init(canvas);
 
+  // treat coarse-pointer devices (phones/tablets) as touch from the start so the
+  // portrait deck / landscape overlay lay out correctly before the first tap
+  if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) document.body.classList.add('touch');
+
   function resize() {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     canvas.width = CW * dpr;
     canvas.height = CH * dpr;
     Render.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const scale = Math.min(window.innerWidth / CW, window.innerHeight / CH);
+    const iw = window.innerWidth, ih = window.innerHeight;
+    const touch = document.body.classList.contains('touch');
+    const portrait = ih > iw;
+    let scale;
+    if (touch && portrait) {
+      // Game Boy layout: game at the top, deck fills the rest — cap game height so the deck always fits
+      scale = Math.min(iw / CW, (ih * 0.58) / CH);
+    } else {
+      scale = Math.min(iw / CW, ih / CH);
+    }
     canvas.style.width = Math.floor(CW * scale) + 'px';
     canvas.style.height = Math.floor(CH * scale) + 'px';
   }
   window.addEventListener('resize', resize);
+  window.addEventListener('orientationchange', () => setTimeout(resize, 120));
   resize();
 
-  // touch stick visuals
+  // touch stick visuals — floating rings (landscape) + deck nubs (portrait)
   function updateSticks() {
-    for (const [stick, elId] of [[Input.moveStick, 'stickLvis'], [Input.aimStick, 'stickRvis']]) {
-      const el = document.getElementById(elId);
-      if (!el) continue;
-      if (stick.active && (G.state === 'run')) {
-        el.style.display = 'block';
-        el.style.left = stick.ax + 'px';
-        el.style.top = stick.ay + 'px';
-        const nub = el.firstElementChild;
-        nub.style.transform = `translate(calc(-50% + ${stick.dx * 30}px), calc(-50% + ${stick.dy * 30}px))`;
-      } else el.style.display = 'none';
+    const live = G.state === 'run';
+    for (const [stick, ringId, nubId] of [[Input.moveStick, 'stickLvis', 'nubMove'], [Input.aimStick, 'stickRvis', 'nubAim']]) {
+      const ring = document.getElementById(ringId);
+      if (ring) {
+        if (live && stick.active && stick.mode === 'float') {
+          ring.style.display = 'block';
+          ring.style.left = stick.ax + 'px';
+          ring.style.top = stick.ay + 'px';
+          ring.firstElementChild.style.transform = `translate(${stick.dx * 34}px, ${stick.dy * 34}px)`;
+        } else ring.style.display = 'none';
+      }
+      const nub = document.getElementById(nubId);
+      if (nub) {
+        const on = live && stick.active && stick.mode === 'pad';
+        nub.style.transform = `translate(${(on ? stick.dx : 0) * 40}px, ${(on ? stick.dy : 0) * 40}px)`;
+      }
     }
   }
 

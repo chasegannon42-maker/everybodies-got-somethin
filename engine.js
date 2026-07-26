@@ -337,33 +337,50 @@ const Input = {
     window.addEventListener('mouseup', e => { if (e.button === 0) this.mouse.down = false; });
     canvas.addEventListener('contextmenu', e => e.preventDefault());
 
-    /* touch: left half = float move stick, right half = float aim stick */
-    const onTouch = (e) => {
+    /* touch input: dedicated zones start a stick; the finger is then tracked globally.
+       'float' zones (landscape) anchor to the touch point; 'pad' zones (portrait
+       Game Boy deck) anchor to the pad centre for a proper joystick feel. */
+    const markTouch = () => {
       this.usingTouch = true;
-      document.body.classList.add('touch');
-      SFX.init();
-      for (const t of e.changedTouches) {
-        const half = t.clientX < window.innerWidth * 0.5;
-        const st = half ? this.moveStick : this.aimStick;
-        if (e.type === 'touchstart' && !st.active) {
-          st.active = true; st.id = t.identifier;
-          st.ax = t.clientX; st.ay = t.clientY; st.dx = 0; st.dy = 0;
-        }
+      if (!document.body.classList.contains('touch')) {
+        document.body.classList.add('touch');
+        window.dispatchEvent(new Event('resize'));
       }
-      e.preventDefault();
     };
+    const registerZone = (id, stick, mode) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('touchstart', e => {
+        markTouch(); SFX.init();
+        for (const t of e.changedTouches) {
+          if (stick.active) break;
+          const r = el.getBoundingClientRect();
+          if (mode === 'pad') { stick.ax = r.left + r.width / 2; stick.ay = r.top + r.height / 2; stick.radius = Math.min(r.width, r.height) * 0.42; }
+          else { stick.ax = t.clientX; stick.ay = t.clientY; stick.radius = 58; }
+          stick.active = true; stick.id = t.identifier; stick.dx = 0; stick.dy = 0; stick.mode = mode;
+          break;
+        }
+        e.preventDefault();
+      }, { passive: false });
+    };
+    registerZone('zoneMoveL', this.moveStick, 'float');
+    registerZone('zoneAimL', this.aimStick, 'float');
+    registerZone('deckMove', this.moveStick, 'pad');
+    registerZone('deckAim', this.aimStick, 'pad');
+
     const onMove = (e) => {
+      let handled = false;
       for (const t of e.changedTouches) {
         for (const st of [this.moveStick, this.aimStick]) {
           if (st.active && st.id === t.identifier) {
-            let dx = (t.clientX - st.ax) / 55, dy = (t.clientY - st.ay) / 55;
+            let dx = (t.clientX - st.ax) / st.radius, dy = (t.clientY - st.ay) / st.radius;
             const l = Math.sqrt(dx * dx + dy * dy);
             if (l > 1) { dx /= l; dy /= l; }
-            st.dx = dx; st.dy = dy;
+            st.dx = dx; st.dy = dy; handled = true;
           }
         }
       }
-      e.preventDefault();
+      if (handled) e.preventDefault();
     };
     const onEnd = (e) => {
       for (const t of e.changedTouches) {
@@ -371,21 +388,21 @@ const Input = {
           if (st.active && st.id === t.identifier) { st.active = false; st.dx = 0; st.dy = 0; st.id = -1; }
         }
       }
-      e.preventDefault();
     };
-    canvas.addEventListener('touchstart', onTouch, { passive: false });
-    canvas.addEventListener('touchmove', onMove, { passive: false });
-    canvas.addEventListener('touchend', onEnd, { passive: false });
-    canvas.addEventListener('touchcancel', onEnd, { passive: false });
+    window.addEventListener('touchmove', onMove, { passive: false });
+    window.addEventListener('touchend', onEnd);
+    window.addEventListener('touchcancel', onEnd);
 
-    /* touch buttons */
+    /* touch buttons (both landscape overlay and portrait deck ids) */
     const bind = (id, name) => {
       const el = document.getElementById(id);
       if (!el) return;
-      el.addEventListener('touchstart', e => { this._edge[name] = true; this.usingTouch = true; document.body.classList.add('touch'); SFX.init(); e.preventDefault(); e.stopPropagation(); }, { passive: false });
-      el.addEventListener('mousedown', e => { this._edge[name] = true; e.preventDefault(); e.stopPropagation(); });
+      el.addEventListener('touchstart', e => { this._edge[name] = true; markTouch(); SFX.init(); e.preventDefault(); e.stopPropagation(); }, { passive: false });
+      el.addEventListener('mousedown', e => { this._edge[name] = true; SFX.init(); e.preventDefault(); e.stopPropagation(); });
     };
-    bind('btnPill', 'pill'); bind('btnBomb', 'bomb'); bind('btnPause', 'pause');
+    ['btnPillL', 'btnPillD'].forEach(id => bind(id, 'pill'));
+    ['btnBombL', 'btnBombD'].forEach(id => bind(id, 'bomb'));
+    ['btnPauseL', 'btnPauseD'].forEach(id => bind(id, 'pause'));
   },
 
   getMove() {
