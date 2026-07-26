@@ -64,14 +64,19 @@ const Meta = {
    Voices (osc/noise) send dry to master and optional wet to the reverb.
 */
 const SFX = {
-  ctx: null, master: null, comp: null, reverbIn: null, musicGain: null, _dest: null, muted: false,
-  musicMode: null, _mtimer: null, _next: 0, _step: 0, _vol: 0.5,
+  ctx: null, master: null, comp: null, reverbIn: null, musicGain: null, sfxGain: null, _dest: null, muted: false,
+  musicMode: null, _mtimer: null, _next: 0, _step: 0, _vol: 0.6,
+  sfxVol: 0.85, musicVol: 0.5,
   init() {
     if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
     try {
       const AC = window.AudioContext || window.webkitAudioContext;
       const ctx = this.ctx = new AC();
-      try { this.muted = localStorage.getItem('egs_mute') === '1'; } catch (e) { }
+      try {
+        this.muted = localStorage.getItem('egs_mute') === '1';
+        const sv = parseFloat(localStorage.getItem('egs_sfxvol')); if (sv >= 0 && sv <= 1) this.sfxVol = sv;
+        const mv = parseFloat(localStorage.getItem('egs_musvol')); if (mv >= 0 && mv <= 1) this.musicVol = mv;
+      } catch (e) { }
       this.master = ctx.createGain();
       this.master.gain.value = this.muted ? 0 : this._vol;
       this.comp = ctx.createDynamicsCompressor();
@@ -83,8 +88,10 @@ const SFX = {
       this.reverbIn.buffer = this._impulse(1.2, 2.8);
       const rg = ctx.createGain(); rg.gain.value = 0.55;
       this.reverbIn.connect(rg); rg.connect(this.master);
-      // music sits on its own quieter bus so gameplay SFX cut through
-      this.musicGain = ctx.createGain(); this.musicGain.gain.value = 0.5;
+      // separate SFX and music buses so each has its own volume
+      this.sfxGain = ctx.createGain(); this.sfxGain.gain.value = this.sfxVol;
+      this.sfxGain.connect(this.master);
+      this.musicGain = ctx.createGain(); this.musicGain.gain.value = this.musicVol;
       this.musicGain.connect(this.master);
       this._mtimer = setInterval(() => this._musicTick(), 55);
     } catch (e) { this.ctx = null; }
@@ -94,6 +101,16 @@ const SFX = {
     if (this.master) this.master.gain.setTargetAtTime(this.muted ? 0 : this._vol, this.ctx.currentTime, 0.02);
     try { localStorage.setItem('egs_mute', this.muted ? '1' : '0'); } catch (e) { }
     return this.muted;
+  },
+  setSfxVol(v) {
+    this.sfxVol = U.clamp(v, 0, 1);
+    if (this.sfxGain) this.sfxGain.gain.setTargetAtTime(this.sfxVol, this.ctx.currentTime, 0.01);
+    try { localStorage.setItem('egs_sfxvol', String(this.sfxVol)); } catch (e) { }
+  },
+  setMusicVol(v) {
+    this.musicVol = U.clamp(v, 0, 1);
+    if (this.musicGain) this.musicGain.gain.setTargetAtTime(this.musicVol, this.ctx.currentTime, 0.02);
+    try { localStorage.setItem('egs_musvol', String(this.musicVol)); } catch (e) { }
   },
   _impulse(dur, decay) {
     const ctx = this.ctx, n = Math.floor(ctx.sampleRate * dur);
@@ -121,8 +138,8 @@ const SFX = {
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
     let out = g;
     if (o.filter) { const f = ctx.createBiquadFilter(); f.type = o.filter; f.frequency.value = o.cutoff || 1200; if (o.q) f.Q.value = o.q; g.connect(f); out = f; }
-    osc.connect(g); out.connect(this._dest || this.master);
-    if (o.wet) { const s = ctx.createGain(); s.gain.value = o.wet; out.connect(s); s.connect(this.reverbIn); }
+    osc.connect(g); out.connect(this._dest || this.sfxGain);
+    if (o.wet) { const s = ctx.createGain(); s.gain.value = o.wet * (this._dest === this.musicGain ? this.musicVol : this.sfxVol); out.connect(s); s.connect(this.reverbIn); }
     osc.start(t0); osc.stop(t0 + dur + 0.05);
   },
   // filtered noise burst
@@ -138,8 +155,8 @@ const SFX = {
     const g = ctx.createGain();
     g.gain.setValueAtTime(o.vol || 0.1, t0);
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-    src.connect(f); f.connect(g); g.connect(this._dest || this.master);
-    if (o.wet) { const s = ctx.createGain(); s.gain.value = o.wet; g.connect(s); s.connect(this.reverbIn); }
+    src.connect(f); f.connect(g); g.connect(this._dest || this.sfxGain);
+    if (o.wet) { const s = ctx.createGain(); s.gain.value = o.wet * (this._dest === this.musicGain ? this.musicVol : this.sfxVol); g.connect(s); s.connect(this.reverbIn); }
     src.start(t0);
   },
   // drum voices
@@ -149,7 +166,7 @@ const SFX = {
     const o = ctx.createOscillator(), g = ctx.createGain();
     o.type = 'sine'; o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(45, t + 0.11);
     g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.17);
-    o.connect(g); g.connect(this._dest || this.master); o.start(t); o.stop(t + 0.19);
+    o.connect(g); g.connect(this._dest || this.sfxGain); o.start(t); o.stop(t + 0.19);
     this.n(t, 0.02, { filter: 'bandpass', freq: 1800, vol: vol * 0.28 });
   },
   snare(t, vol) {
@@ -159,7 +176,7 @@ const SFX = {
     const o = ctx.createOscillator(), g = ctx.createGain();
     o.type = 'triangle'; o.frequency.value = 190;
     g.gain.setValueAtTime(vol * 0.5, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
-    o.connect(g); g.connect(this._dest || this.master); o.start(t); o.stop(t + 0.1);
+    o.connect(g); g.connect(this._dest || this.sfxGain); o.start(t); o.stop(t + 0.1);
   },
   hat(t, vol, open) {
     if (!this.ctx || this.muted) return;

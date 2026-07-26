@@ -56,7 +56,7 @@ const G = {
         <button class="btn minor" id="bFiles">📁 PATIENT FILES (choose your diagnosis)</button>
         <div class="btnrow">
           <button class="btn minor" id="bHow">HOW TO PLAY</button>
-          <button class="btn minor" id="bMute">${SFX.muted ? '🔇 UNMUTE' : '🔊 MUTE'}</button>
+          <button class="btn minor" id="bSettings">⚙ SETTINGS</button>
         </div>
         ${statsLine}
         <div class="smallprint">A satire about a system that hands out labels like candy — not about the people living with them. Be kind, including to yourself. ♥</div>
@@ -65,7 +65,34 @@ const G = {
     document.getElementById('bStart').onclick = () => { SFX.init(); SFX.play('ui'); this.startQuiz(); };
     document.getElementById('bFiles').onclick = () => { SFX.init(); SFX.play('ui'); this.showFiles(); };
     document.getElementById('bHow').onclick = () => { SFX.init(); SFX.play('ui'); this.showHow(); };
-    document.getElementById('bMute').onclick = (e) => { SFX.init(); const mu = SFX.toggleMute(); e.target.textContent = mu ? '🔇 UNMUTE' : '🔊 MUTE'; };
+    document.getElementById('bSettings').onclick = () => { SFX.init(); SFX.play('ui'); this.showSettings(() => this.showTitle()); };
+  },
+
+  /* settings overlay with SFX + music volume sliders; returnTo() restores the prior screen */
+  showSettings(returnTo) {
+    SFX.init();
+    const pct = v => Math.round(v * 100);
+    this.overlay(`
+      <div class="panel">
+        <h1 class="logo" style="font-size:30px">SETTINGS</h1>
+        <div class="setrow">
+          <label>🔊 Sound FX <span id="sfxPct">${pct(SFX.sfxVol)}%</span></label>
+          <input type="range" class="slider" id="sfxSlider" min="0" max="100" value="${pct(SFX.sfxVol)}">
+        </div>
+        <div class="setrow">
+          <label>🎵 Music <span id="musPct">${pct(SFX.musicVol)}%</span></label>
+          <input type="range" class="slider" id="musSlider" min="0" max="100" value="${pct(SFX.musicVol)}">
+        </div>
+        <button class="btn minor" id="bMuteAll">${SFX.muted ? '🔇 UNMUTE ALL' : '🔊 MUTE ALL'}</button>
+        <button class="btn" id="bSetBack">BACK</button>
+        <div class="smallprint">Tip: press <span class="kbd">M</span> anytime to mute. Settings are saved on this device.</div>
+      </div>`);
+    const sfx = document.getElementById('sfxSlider'), mus = document.getElementById('musSlider');
+    sfx.oninput = () => { SFX.init(); SFX.setSfxVol(sfx.value / 100); document.getElementById('sfxPct').textContent = sfx.value + '%'; };
+    sfx.onchange = () => { if (!SFX.muted) SFX.play('coin'); }; // preview level on release
+    mus.oninput = () => { SFX.init(); SFX.setMusicVol(mus.value / 100); document.getElementById('musPct').textContent = mus.value + '%'; };
+    document.getElementById('bMuteAll').onclick = (e) => { SFX.init(); const mu = SFX.toggleMute(); e.target.textContent = mu ? '🔇 UNMUTE ALL' : '🔊 MUTE ALL'; };
+    document.getElementById('bSetBack').onclick = () => { SFX.play('ui'); returnTo(); };
   },
 
   /* Isaac-style character select — every diagnosis is its own character */
@@ -716,11 +743,11 @@ const G = {
         <h1 class="logo" style="font-size:30px">PAUSED</h1>
         <div class="stats-line">${DATA.DIAG[this.player.diag].name} · ward ${this.depth} · ${this.stats.kills} symptoms managed</div>
         <button class="btn" id="bResume">RESUME</button>
-        <button class="btn minor" id="bMute2">${SFX.muted ? '🔇 UNMUTE' : '🔊 MUTE'}</button>
+        <button class="btn minor" id="bSettings2">⚙ SETTINGS</button>
         <button class="btn minor" id="bQuit">QUIT TO TITLE</button>
       </div>`);
     document.getElementById('bResume').onclick = () => { SFX.play('ui'); this.hideOverlay(); this.state = 'run'; };
-    document.getElementById('bMute2').onclick = (e) => { const mu = SFX.toggleMute(); e.target.textContent = mu ? '🔇 UNMUTE' : '🔊 MUTE'; };
+    document.getElementById('bSettings2').onclick = () => { SFX.play('ui'); this.showSettings(() => this.showPause()); };
     document.getElementById('bQuit').onclick = () => { SFX.play('ui'); this.showTitle(); };
   },
 
