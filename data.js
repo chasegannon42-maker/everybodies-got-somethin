@@ -223,11 +223,50 @@ DATA.ITEMS = {
   twice:     { name: "Take Twice Daily", quote: "Or hourly. Live your life.", desc: "+18% fire rate.", pools: ["boss"], apply(p) { p.tearDelay *= 0.82; } },
 
   /* --- out-of-network exclusive --- */
-  offlabel:  { name: "Off-Label Use", quote: "It's not approved for this. It's not approved for anything.", desc: "+1.5 damage, +10% speed. We're in uncharted waters, baby.", pools: ["oon"], apply(p) { p.dmg += 1.5; p.spd *= 1.1; } }
+  offlabel:  { name: "Off-Label Use", quote: "It's not approved for this. It's not approved for anything.", desc: "+1.5 damage, +10% speed. We're in uncharted waters, baby.", pools: ["oon"], apply(p) { p.dmg += 1.5; p.spd *= 1.1; } },
+
+  /* --- unlockable rewards (only enter the pools once their achievement is earned) --- */
+  placebonus:   { name: "Placebo Effect", quote: "It works because you believe. Don't tell anyone.", desc: "Pills can NEVER overprescribe you, and each gives +5% luck.", pools: ["special"], unlock: "ward6", apply(p) { p.flags.noOverRx = true; } },
+  secondopinion:{ name: "Second Opinion", quote: "A DIFFERENT doctor. Groundbreaking.", desc: "+1.5 damage and +1 heart. Clarity, at last.", pools: ["special", "shop"], unlock: "ward10", apply(p) { p.dmg += 1.5; p.maxhp += 2; p.hp += 2; } },
+  malpractice:  { name: "Malpractice Settlement", quote: "You win. Here is a bag of money and raw power.", desc: "+35% damage, +1 heart, +1 luck. Richly deserved.", pools: ["special"], unlock: "walrus3", apply(p) { p.dmg *= 1.35; p.maxhp += 2; p.hp += 2; p.luck += 1; } }
 };
 
 DATA.POOLS = { special: [], boss: [], shop: [], oon: [] };
 for (const id in DATA.ITEMS) for (const pl of DATA.ITEMS[id].pools) DATA.POOLS[pl].push(id);
+
+/* an item is locked until its unlock-achievement is earned */
+DATA.itemLocked = function (id) {
+  const it = DATA.ITEMS[id];
+  if (!it || !it.unlock) return false;
+  return !(Meta.data.unlocks && Meta.data.unlocks[it.unlock]);
+};
+/* pool ids that are unlocked and (optionally) not already owned */
+DATA.pickPool = function (name, owned) {
+  return DATA.POOLS[name].filter(id => !DATA.itemLocked(id) && !(owned && owned.indexOf(id) >= 0));
+};
+
+/* ============ ACHIEVEMENTS / UNLOCKS ============ */
+DATA.ACHIEVEMENTS = [
+  { id: 'intake',   name: "Intake Complete",       desc: "Finish your first checkup and run.",           hint: "Play a run.",                              check: m => m.runs >= 1 },
+  { id: 'ward3',    name: "Referred Out",          desc: "Reach Ward 3.",                                 hint: "Descend to Ward 3.",                       check: m => m.bestFloor >= 3 },
+  { id: 'ward6',    name: "Non-Compliant",         desc: "Reach Ward 6. Unlocks the Placebo Effect.",     hint: "Descend to Ward 6.",                       check: m => m.bestFloor >= 6, reward: "Placebo Effect" },
+  { id: 'ward10',   name: "The Meds Aren't Working", desc: "Reach Ward 10. Unlocks the Second Opinion.",  hint: "Descend to Ward 10.",                      check: m => m.bestFloor >= 10, reward: "Second Opinion" },
+  { id: 'ward15',   name: "Treatment-Resistant",   desc: "Reach Ward 15.",                                hint: "Descend to Ward 15.",                      check: m => m.bestFloor >= 15 },
+  { id: 'ward22',   name: "No Known Cure",         desc: "Reach Ward 22.",                                hint: "Descend to Ward 22.",                      check: m => m.bestFloor >= 22 },
+  { id: 'walrus1',  name: "Second Opinion, Denied", desc: "Defeat Dr. Walrus. Unlocks Perfectly Fine.",   hint: "Survive to Ward 5 and win.",               check: m => (m.walrusKills || 0) >= 1 },
+  { id: 'walrus3',  name: "Malpractice Suit",      desc: "Defeat Dr. Walrus 3 times. Unlocks the Settlement.", hint: "Beat Dr. Walrus, repeatedly.",        check: m => (m.walrusKills || 0) >= 3, reward: "Malpractice Settlement" },
+  { id: 'allDiag',  name: "Hypochondriac",         desc: "Play all six diagnoses.",                       hint: "Get diagnosed with everything.",           check: m => Object.keys(m.diagsPlayed || {}).length >= 6 },
+  { id: 'kills500', name: "Symptom Management",     desc: "Defeat 500 enemies (all runs).",                hint: "Keep managing symptoms.",                  check: m => (m.kills || 0) >= 500 },
+  { id: 'overRx',   name: "Overprescribed",        desc: "Get overprescribed — 4 pills on one floor.",    hint: "Take a LOT of pills at once.",             check: m => !!m.everOverRx },
+  { id: 'nohit',    name: "Clean Bill of Health",  desc: "Clear a whole floor without taking a hit.",     hint: "Survive a floor untouched.",               check: m => !!m.everNoHitFloor },
+  { id: 'denial',   name: "Peak Denial",           desc: "Reach Ward 5 as Perfectly Fine.",               hint: "Insist nothing is wrong. Deeply.",         check: m => ((m.diagBest || {}).fine || 0) >= 5 }
+];
+DATA.checkAchievements = function (m) {
+  if (!m.unlocks) m.unlocks = {};
+  const fresh = [];
+  for (const a of DATA.ACHIEVEMENTS) if (!m.unlocks[a.id] && a.check(m)) { m.unlocks[a.id] = 1; fresh.push(a); }
+  return fresh;
+};
 
 /* ============ PILLS ============ */
 DATA.PILL_COLORS = ['#e05a5a', '#5a9de0', '#8fd05a', '#e0c95a', '#b06be0', '#e08f5a', '#5ad0c8', '#e06bb0', '#a0a0a0', '#f0f0e8'];

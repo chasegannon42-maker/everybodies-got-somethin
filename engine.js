@@ -54,7 +54,7 @@ function collideTiles(layout, x, y, rad) {
 
 /* ---------------- persistent meta ---------------- */
 const Meta = {
-  data: { runs: 0, deaths: 0, kills: 0, bestFloor: 0, walrusKills: 0, itemsSeen: 0, diagBest: {}, fineSeen: 0 },
+  data: { runs: 0, deaths: 0, kills: 0, bestFloor: 0, walrusKills: 0, itemsSeen: 0, diagBest: {}, fineSeen: 0, unlocks: {}, diagsPlayed: {}, everOverRx: 0, everNoHitFloor: 0 },
   load() { try { const j = localStorage.getItem('egs_meta'); if (j) Object.assign(this.data, JSON.parse(j)); } catch (e) { } },
   save() { try { localStorage.setItem('egs_meta', JSON.stringify(this.data)); } catch (e) { } }
 };

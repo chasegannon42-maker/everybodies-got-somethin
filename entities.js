@@ -220,6 +220,7 @@ class Player {
     this.hp -= n;
     this.iframes = this.iframeTime;
     this.hurtFlash = 0.35;
+    G.floorHits = (G.floorHits || 0) + 1;
     G.shake = Math.max(G.shake, 9);
     SFX.play('hurt');
     Haptics.buzz(55, 0);

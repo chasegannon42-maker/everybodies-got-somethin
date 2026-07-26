@@ -19,7 +19,8 @@ const G = {
   doorsOpen: true, secretFound: false,
   pillAssign: [], pillKnown: new Set(),
   banner: null, toasts: [],
-  stats: { kills: 0, rooms: 0, items: 0 },
+  stats: { kills: 0, rooms: 0, items: 0, bosses: 0, pills: 0 },
+  runUnlocks: [], floorHits: 0,
   hyperfixType: null,
   larperToastShown: false,
   descendT: 0,
@@ -34,6 +35,18 @@ const G = {
     if (this.toasts.length > 3) this.toasts.shift();
   },
   setBanner(text, sub, dur) { this.banner = { text, sub, t: 0, dur: dur || 2.2 }; },
+  checkUnlocks() {
+    const fresh = DATA.checkAchievements(Meta.data);
+    if (!fresh.length) return;
+    Meta.save();
+    for (const a of fresh) {
+      this.runUnlocks.push(a);
+      if (this.state === 'run' || this.state === 'descend') {
+        this.toast('🏆 UNLOCKED: ' + a.name, '#e8c84c');
+        SFX.play('item'); if (typeof Haptics !== 'undefined') Haptics.buzz([30, 40, 60], 0);
+      }
+    }
+  },
 
   /* ---------- flow: title / quiz / card ---------- */
   showTitle() {
@@ -56,6 +69,7 @@ const G = {
         <button class="btn minor" id="bFiles">📁 PATIENT FILES (choose your diagnosis)</button>
         <div class="btnrow">
           <button class="btn minor" id="bHow">HOW TO PLAY</button>
+          <button class="btn minor" id="bUnlocksT">🏆 UNLOCKS</button>
           <button class="btn minor" id="bSettings">⚙ SETTINGS</button>
         </div>
         ${statsLine}
@@ -65,6 +79,7 @@ const G = {
     document.getElementById('bStart').onclick = () => { SFX.init(); SFX.play('ui'); this.startQuiz(); };
     document.getElementById('bFiles').onclick = () => { SFX.init(); SFX.play('ui'); this.showFiles(); };
     document.getElementById('bHow').onclick = () => { SFX.init(); SFX.play('ui'); this.showHow(); };
+    document.getElementById('bUnlocksT').onclick = () => { SFX.init(); SFX.play('ui'); this.showUnlocks(() => this.showTitle()); };
     document.getElementById('bSettings').onclick = () => { SFX.init(); SFX.play('ui'); this.showSettings(() => this.showTitle()); };
   },
 
@@ -236,13 +251,19 @@ const G = {
 
   /* ---------- run setup ---------- */
   beginRun(diagId) {
-    Meta.data.runs++; Meta.save();
+    Meta.data.runs++;
+    if (!Meta.data.diagsPlayed) Meta.data.diagsPlayed = {};
+    Meta.data.diagsPlayed[diagId] = 1;
+    Meta.save();
     this.player = new Player(diagId);
     this.pillAssign = U.shuffle(DATA.PILLS.map((_, i) => i)).slice(0, 10);
     this.pillKnown = new Set();
     this.depth = 1;
     this.lastBoss = null;
-    this.stats = { kills: 0, rooms: 0, items: 0 };
+    this.stats = { kills: 0, rooms: 0, items: 0, bosses: 0, pills: 0 };
+    this.runUnlocks = [];
+    this.floorHits = 0;
+    this._deathRecorded = false;
     this.larperToastShown = false;
     this.deathT = 0;
     this.newFloor();
@@ -264,6 +285,7 @@ const G = {
     this.tearsAura = false;
     this.darkTarget = 0;
     this.enemySlow = 0;
+    this.floorHits = 0;
     // endless difficulty: roll this floor's ward complications
     this.complications = DATA.rollComplications(this.depth);
     this.floorMods = {};
@@ -366,7 +388,7 @@ const G = {
       }
       case 'item': {
         room.cleared = true;
-        const pool = DATA.POOLS.special.filter(id => !p.items.includes(id));
+        const pool = DATA.pickPool('special', p.items);
         const id1 = U.choice(pool.length ? pool : DATA.POOLS.special);
         if (p.flags.twoChoice) {
           let pool2 = pool.filter(id => id !== id1);
@@ -389,7 +411,7 @@ const G = {
           { type: 'bomb', price: px(5), x: RX + 420, y, taken: false },
           { type: 'key', price: px(5), x: RX + 560, y, taken: false }
         ];
-        const pool = DATA.POOLS.shop.filter(id => !p.items.includes(id));
+        const pool = DATA.pickPool('shop', p.items);
         room.peds.push({ x: RX + 690, y: y + 6, itemId: U.choice(pool.length ? pool : DATA.POOLS.shop), kind: 'shop', price: px(12), taken: false });
         this.shopStock = room.stock;
         break;
@@ -403,14 +425,14 @@ const G = {
         room.cleared = true;
         for (let i = 0; i < U.randi(2, 4); i++) room.pickups.push(new Pickup(U.choice(['coin', 'coin', 'nickel', 'pill']), CW / 2 + U.rand(-90, 90), RY + RH / 2 + U.rand(-60, 60)));
         if (U.chance(0.3)) {
-          const pool = DATA.POOLS.special.filter(id => !p.items.includes(id));
+          const pool = DATA.pickPool('special', p.items);
           room.peds.push({ x: CW / 2, y: RY + RH / 2, itemId: U.choice(pool.length ? pool : DATA.POOLS.special), kind: 'item', taken: false });
         }
         break;
       }
       case 'oon': {
         room.cleared = true;
-        const pool = DATA.POOLS.oon.filter(id => !p.items.includes(id));
+        const pool = DATA.pickPool('oon', p.items);
         room.peds.push({ x: CW / 2, y: RY + RH / 2, itemId: U.choice(pool.length ? pool : DATA.POOLS.oon), kind: 'oon', price: 1, taken: false });
         break;
       }
@@ -458,15 +480,17 @@ const G = {
     const room = this.room, p = this.player;
     room.cleared = true;
     this.doorsOpen = true;
+    this.stats.bosses++;
     Meta.data.bestFloor = Math.max(Meta.data.bestFloor, this.depth);
     if (!Meta.data.diagBest) Meta.data.diagBest = {};
     Meta.data.diagBest[p.diag] = Math.max(Meta.data.diagBest[p.diag] || 0, this.depth);
     Meta.save();
+    this.checkUnlocks();
     // rewards
     const bossPool = DATA.POOLS.boss;
     room.peds.push({ x: CW / 2 - 90, y: RY + RH / 2 + 40, itemId: U.choice(bossPool), kind: 'boss', taken: false });
     if (this.bossId === 'walrus') {
-      const pool = DATA.POOLS.special.filter(id => !p.items.includes(id));
+      const pool = DATA.pickPool('special', p.items);
       room.peds.push({ x: CW / 2 + 90, y: RY + RH / 2 + 40, itemId: U.choice(pool.length ? pool : DATA.POOLS.special), kind: 'boss', taken: false });
     }
     this.pickups.push(new Pickup('full', CW / 2 + U.rand(-60, 60), RY + RH / 2 - 40));
@@ -562,20 +586,26 @@ const G = {
     const pill = DATA.PILLS[pillIdx];
     p.pill = null;
     p.pillsThisFloor++;
+    this.stats.pills++;
     SFX.play('pill');
     pill.apply(p, this);
     const known = this.pillKnown.has(pillIdx) || p.flags.pillsKnown;
     this.pillKnown.add(pillIdx);
     this.toast((known ? '' : 'It was... ') + pill.name + '! ' + pill.msg, pill.bad ? '#e0a05a' : '#b8e0a0');
     if (p.pillsThisFloor >= 4) {
-      const eff = U.choice([
-        () => { p.dmg = Math.max(1, p.dmg - 0.3); return 'damage down'; },
-        () => { p.spd *= 0.94; return 'speed down'; },
-        () => { p.tearDelay *= 1.07; return 'tears down'; },
-        () => { p.tempSlow = 8; return 'sudden drowsiness'; }
-      ])();
-      this.toast(DATA.TOASTS.overrx + ' (' + eff + ')', '#e05a5a');
-      SFX.play('error');
+      if (!Meta.data.everOverRx) { Meta.data.everOverRx = 1; this.checkUnlocks(); }
+      if (!p.flags.noOverRx) {
+        const eff = U.choice([
+          () => { p.dmg = Math.max(1, p.dmg - 0.3); return 'damage down'; },
+          () => { p.spd *= 0.94; return 'speed down'; },
+          () => { p.tearDelay *= 1.07; return 'tears down'; },
+          () => { p.tempSlow = 8; return 'sudden drowsiness'; }
+        ])();
+        this.toast(DATA.TOASTS.overrx + ' (' + eff + ')', '#e05a5a');
+        SFX.play('error');
+      } else {
+        this.toast('Placebo Effect: no side effects!', '#b8e0a0');
+      }
     }
   },
 
@@ -710,6 +740,7 @@ const G = {
 
     // trapdoor
     if (this.trapdoor && U.dist(this.trapdoor.x, this.trapdoor.y, p.x, p.y) < 26) {
+      if (this.floorHits === 0 && !Meta.data.everNoHitFloor) { Meta.data.everNoHitFloor = 1; this.checkUnlocks(); }
       this.state = 'descend';
       this.descendT = 0;
       this._descended = false;
@@ -766,34 +797,88 @@ const G = {
   },
 
   showDead() {
-    this.state = 'dead';
-    Meta.data.deaths++;
-    Meta.data.bestFloor = Math.max(Meta.data.bestFloor, this.depth);
-    if (!Meta.data.diagBest) Meta.data.diagBest = {};
-    Meta.data.diagBest[this.player.diag] = Math.max(Meta.data.diagBest[this.player.diag] || 0, this.depth);
-    Meta.save();
-    SFX.setMusic('menu');
     const diagId = this.player.diag;
+    // record meta exactly once per death (this screen can be re-opened from Unlocks)
+    if (!this._deathRecorded) {
+      this._deathRecorded = true;
+      Meta.data.deaths++;
+      Meta.data.bestFloor = Math.max(Meta.data.bestFloor, this.depth);
+      if (!Meta.data.diagBest) Meta.data.diagBest = {};
+      this._prevBest = Meta.data.diagBest[diagId] || 0;
+      Meta.data.diagBest[diagId] = Math.max(this._prevBest, this.depth);
+      Meta.save();
+      this.checkUnlocks(); // catch kills/ward/etc. milestones reached this run
+      this._deathQuip = U.choice(DATA.DEATH_LINES);
+    }
+    this.state = 'dead';
+    const prevBest = this._prevBest, newBest = this.depth > prevBest;
+    SFX.setMusic('menu');
+    const D = DATA.DIAG[diagId];
+    const st = this.stats;
+    const row = (label, val) => `<div class="sumrow"><span>${label}</span><b>${val}</b></div>`;
+    const unlockHtml = this.runUnlocks.length ? `
+      <div class="newunlocks">
+        <div class="nutitle">🏆 NEW UNLOCK${this.runUnlocks.length > 1 ? 'S' : ''}!</div>
+        ${this.runUnlocks.map(a => `<div class="nurow"><b>${a.name}</b><span>${a.desc}</span></div>`).join('')}
+      </div>` : '';
     this.overlay(`
-      <div class="panel">
+      <div class="panel wide">
         <div class="rx" style="border-color:#8a3030">
-          <div class="stamp">DECEASED</div>
-          <h2>Patient Outcome: Suboptimal</h2>
-          <div class="sub">${DATA.DIAG[diagId].name} · made it to ${DATA.floorName(this.depth)} (ward ${this.depth} · ${DATA.tierName(this.depth)})</div>
-          <div class="mech">${this.stats.kills} symptoms managed · ${this.stats.items} prescriptions collected · ${this.stats.rooms} rooms survived</div>
+          <div class="stamp">DISCHARGED</div>
+          <h2 style="color:${D.color}">${D.name}</h2>
+          <div class="sub">Reached ${DATA.floorName(this.depth)} · Ward ${this.depth} · ${DATA.tierName(this.depth)}${newBest ? ' &nbsp;⭐ NEW BEST' : (prevBest ? ' (best: ward ' + prevBest + ')' : '')}</div>
         </div>
+        <div class="summary">
+          ${row('Symptoms managed', st.kills)}
+          ${row('Bosses defeated', st.bosses)}
+          ${row('Prescriptions collected', st.items)}
+          ${row('Pills swallowed', st.pills)}
+          ${row('Rooms survived', st.rooms)}
+        </div>
+        ${unlockHtml}
         <div class="walrusbox">
           <canvas class="walrusCanvas" width="132" height="132" id="deadWalrus"></canvas>
-          <div class="bubble"><i>“${U.choice(DATA.DEATH_LINES)}”</i></div>
+          <div class="bubble"><i>“${this._deathQuip}”</i></div>
         </div>
         <button class="btn" id="bAgainSame">SAME DIAGNOSIS, RUN IT BACK</button>
-        <button class="btn minor" id="bAgainNew">GET RE-DIAGNOSED</button>
+        <div class="btnrow">
+          <button class="btn minor" id="bAgainNew">RE-DIAGNOSE</button>
+          <button class="btn minor" id="bUnlocks">🏆 UNLOCKS</button>
+        </div>
         <button class="btn minor" id="bTitle">TITLE</button>
       </div>`);
     this.paintWalrus('deadWalrus');
     document.getElementById('bAgainSame').onclick = () => { SFX.play('ui'); this.beginRun(diagId); };
     document.getElementById('bAgainNew').onclick = () => { SFX.play('ui'); this.startQuiz(); };
+    document.getElementById('bUnlocks').onclick = () => { SFX.play('ui'); this.showUnlocks(() => this.showDead()); };
     document.getElementById('bTitle').onclick = () => { SFX.play('ui'); this.showTitle(); };
+  },
+
+  /* ---------- unlocks / achievements screen ---------- */
+  showUnlocks(returnTo) {
+    this.state = 'unlocks';
+    const m = Meta.data;
+    const cards = DATA.ACHIEVEMENTS.map(a => {
+      const got = !!(m.unlocks && m.unlocks[a.id]);
+      return `<div class="ach ${got ? 'got' : 'locked'}">
+        <div class="achicon">${got ? '🏆' : '🔒'}</div>
+        <div class="achbody">
+          <div class="achname">${got ? a.name : '???'}</div>
+          <div class="achdesc">${got ? a.desc : a.hint}</div>
+          ${a.reward ? `<div class="achreward">unlocks: ${a.reward}</div>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+    const total = DATA.ACHIEVEMENTS.length;
+    const done = DATA.ACHIEVEMENTS.filter(a => m.unlocks && m.unlocks[a.id]).length;
+    this.overlay(`
+      <div class="panel wide">
+        <h1 class="logo" style="font-size:26px">UNLOCKS</h1>
+        <div class="tagline">${done} / ${total} earned · your permanent record</div>
+        <div class="achlist">${cards}</div>
+        <button class="btn" id="bUnlBack">BACK</button>
+      </div>`);
+    document.getElementById('bUnlBack').onclick = () => { SFX.play('ui'); (returnTo || (() => this.showTitle()))(); };
   },
 
   /* ---------- overlay plumbing ---------- */
