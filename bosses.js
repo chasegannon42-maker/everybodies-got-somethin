@@ -11,7 +11,7 @@ class Boss {
     this.id = id;
     this.name = M.name; this.sub = M.sub;
     const fineMult = G.player.flags.fineMode ? 1.15 : 1;
-    this.maxhp = this.hp = M.hp * (1 + 0.22 * (depth - 1)) * fineMult;
+    this.maxhp = this.hp = M.hp * (1 + 0.20 * (depth - 1)) * fineMult;
     this.depth = depth;
     this.x = CW / 2; this.y = RY + 130;
     this.r = id === 'walrus' ? 46 : id === 'fogless' ? 40 : 40;
@@ -22,7 +22,7 @@ class Boss {
     this.vulnerable = true;
     this.dead = false; this.deathT = 0;
     this.hitFlash = 0;
-    this.vx = 120; this.vy = 90;
+    this.vx = 95; this.vy = 72;
     this.spiralA = 0;
     this.mask = 'adhd'; this.maskT = 0; this.maskIdx = 0;
     this.stolen = 0;
@@ -107,7 +107,7 @@ class Boss {
           }
         }
         this.spT -= dt;
-        if (this.spT <= 0) { this.spT = 12; this.state = 1; this.stateT = 2.2; this.vulnerable = false; G.toast('"Prove it."'); }
+        if (this.spT <= 0) { this.spT = 12; this.state = 1; this.stateT = 1.4; this.vulnerable = false; G.toast('"Prove it."'); }
         if (this.state === 1) {
           this.stateT -= dt;
           if (this.stateT <= 0) { this.state = 0; this.vulnerable = true; }
@@ -116,8 +116,13 @@ class Boss {
       }
       /* ---------- THE ADJUSTER ---------- */
       case 'adjuster': {
-        this.x += this.vx * dt * (P2 ? 1.35 : 1);
-        this.y += this.vy * dt * (P2 ? 1.35 : 1);
+        // periodically hover so it's actually hittable
+        this.pullT -= dt;
+        const hover = this.pullT < 0 && this.pullT > -1.1;
+        if (this.pullT < -1.1) this.pullT = U.rand(2.5, 4);
+        const mv = hover ? 0.15 : (P2 ? 1.25 : 1);
+        this.x += this.vx * dt * mv;
+        this.y += this.vy * dt * mv;
         if (this.x < RX + this.r || this.x > RX + RW - this.r) this.vx *= -1;
         if (this.y < RY + this.r || this.y > RY + RH - this.r) this.vy *= -1;
         this.clampPos();
@@ -401,8 +406,9 @@ class Boss {
     G.darkTarget = 0;
     SFX.play('die'); SFX.play('boom');
     G.shake = 14;
-    const clrs = this.id === 'larperking' ? ['#e05a5a', '#5a9de0', '#8fd05a', '#e0c95a', '#b06be0'] : [this.id === 'walrus' ? '#8a6a4a' : '#666', '#999', '#ccc'];
-    for (let i = 0; i < 60; i++) G.parts.push(new Particle(this.x, this.y, U.rand(-260, 260), U.rand(-260, 260), U.rand(0.5, 1.1), U.choice(clrs), U.rand(3, 6)));
+    const clrs = this.id === 'larperking' ? ['#e05a5a', '#5a9de0', '#8fd05a', '#e0c95a', '#b06be0'] : [this.id === 'walrus' ? '#8a6a4a' : '#8a7a6a', '#b0a090', '#d8c8b8'];
+    for (let i = 0; i < 34; i++) G.parts.push(new Particle(this.x, this.y, U.rand(-260, 260), U.rand(-260, 260), U.rand(0.5, 1.1), U.choice(clrs), U.rand(3, 6)));
+    for (let i = 0; i < 5; i++) makeGibs(G, this.x + U.rand(-this.r, this.r), this.y + U.rand(-this.r, this.r), U.choice(clrs), 6);
     if (this.id === 'adjuster' && this.stolen > 0) {
       for (let i = 0; i < Math.min(this.stolen + 2, 10); i++) G.pickups.push(new Pickup('coin', this.x + U.rand(-30, 30), this.y + U.rand(-30, 30)));
     }
@@ -411,9 +417,14 @@ class Boss {
       Meta.data.walrusKills++;
       G.toast('DR. WALRUS: "' + U.choice(DATA.WALRUS_DEFEAT_LINES) + '"');
     }
-    // clear leftover hazards
+    // clear leftover hazards AND summoned minions — beating the boss clears the room
     for (const z of G.zones) z.dead = true;
     for (const b of G.eBullets) b.dead = true;
+    for (const e of G.enemies) {
+      if (e.dying) continue;
+      e.dying = true; e.deadDone = true;
+      for (let i = 0; i < 8; i++) G.parts.push(new Particle(e.x, e.y, U.rand(-120, 120), U.rand(-120, 120), 0.45, e.clr, 4));
+    }
     G.stamps.length = 0;
     G.onBossDead();
   }

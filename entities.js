@@ -60,8 +60,8 @@ class Player {
     this.diag = diagId;
     this.maxhp = 6; this.hp = 6;
     this.spd = 225;
-    this.tearDelay = 0.42; this.tearTimer = 0;
-    this.dmg = 3.5; this.shotSpd = 420; this.range = 0.85;
+    this.tearDelay = 0.40; this.tearTimer = 0;
+    this.dmg = 4.0; this.shotSpd = 440; this.range = 0.9;
     this.wobble = 0; this.luck = 0;
     this.coins = 3; this.keys = 1; this.bombs = 1;
     this.pill = U.randi(0, 9);
@@ -566,7 +566,7 @@ class Enemy {
     Meta.data.kills++;
     G.stats.kills++;
     if (!G.hyperfixType) G.hyperfixType = this.id;
-    for (let i = 0; i < 12; i++) G.parts.push(new Particle(this.x, this.y, U.rand(-150, 150), U.rand(-150, 150), 0.5, this.clr, 4));
+    makeGibs(G, this.x, this.y, this.clr, Math.round(6 + this.r * 0.4));
     if (this.beh === 'bomber') { this.explode(G); return; }
     if (this.id === 'larper') {
       if (!G.larperToastShown) { G.larperToastShown = true; G.toast(DATA.TOASTS.larper); }
@@ -651,13 +651,35 @@ class Particle {
     this.x = x; this.y = y; this.vx = vx; this.vy = vy;
     this.life = life; this.max = life; this.clr = clr; this.r = r || 3;
     this.dead = false;
+    this.gib = false; this.grav = 0; this.rot = 0; this.vr = 0; this.settled = false;
   }
   update(dt) {
+    if (this.settled) { this.life -= dt; if (this.life <= 0) this.dead = true; return; }
     this.x += this.vx * dt; this.y += this.vy * dt;
-    this.vx *= 0.92; this.vy *= 0.92;
+    if (this.grav) {
+      this.vy += this.grav * dt;
+      this.vx *= 0.985; // gibs keep horizontal momentum longer
+      this.rot += this.vr * dt;
+      // settle on the floor plane
+      if (this.vy > 0 && this.life < this.max * 0.55 && Math.abs(this.vx) < 40) {
+        this.settled = true; this.life = Math.min(this.life, 0.9);
+      }
+    } else {
+      this.vx *= 0.92; this.vy *= 0.92;
+    }
     this.life -= dt;
     if (this.life <= 0) this.dead = true;
   }
+}
+
+/* chunky gib burst used when things die — Isaac-style viscera */
+function makeGibs(G, x, y, clr, n) {
+  for (let i = 0; i < n; i++) {
+    const p = new Particle(x, y, U.rand(-190, 190), U.rand(-260, -40), U.rand(0.5, 1.0), clr, U.rand(3, 6.5));
+    p.gib = true; p.grav = U.rand(900, 1300); p.rot = U.rand(0, TAU); p.vr = U.rand(-12, 12);
+    G.parts.push(p);
+  }
+  if (Render && Render.splat) Render.splat(G.room, x, y, clr);
 }
 class FloatText {
   constructor(x, y, txt, clr) { this.x = x; this.y = y; this.txt = txt; this.clr = clr || '#fff'; this.life = 1.1; this.dead = false; }

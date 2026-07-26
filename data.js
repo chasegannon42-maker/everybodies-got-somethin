@@ -281,13 +281,13 @@ DATA.pickEnemy = function (depth) {
 
 /* ============ BOSSES ============ */
 DATA.BOSSES = {
-  gatekeeper: { name: "THE GATEKEEPER", sub: "“You don't even LOOK sick.”", hp: 300 },
-  adjuster:   { name: "THE ADJUSTER", sub: "“Claim denied.”", hp: 280 },
-  larperking: { name: "THE LARPER KING", sub: "“He read one (1) article.”", hp: 330 },
-  withdrawal: { name: "WITHDRAWAL", sub: "“Refill unavailable. Please scream.”", hp: 340 },
-  stigma:     { name: "THE STIGMA", sub: "“What will people think?”", hp: 300 },
-  burnout:    { name: "BURNOUT", sub: "“Just push through it.”", hp: 360 },
-  walrus:     { name: "DR. WALRUS, M.D.*", sub: "*mail-order", hp: 430 }
+  gatekeeper: { name: "THE GATEKEEPER", sub: "“You don't even LOOK sick.”", hp: 190 },
+  adjuster:   { name: "THE ADJUSTER", sub: "“Claim denied.”", hp: 180 },
+  larperking: { name: "THE LARPER KING", sub: "“He read one (1) article.”", hp: 205 },
+  withdrawal: { name: "WITHDRAWAL", sub: "“Refill unavailable. Please scream.”", hp: 225 },
+  stigma:     { name: "THE STIGMA", sub: "“What will people think?”", hp: 195 },
+  burnout:    { name: "BURNOUT", sub: "“Just push through it.”", hp: 240 },
+  walrus:     { name: "DR. WALRUS, M.D.*", sub: "*mail-order", hp: 300 }
 };
 DATA.bossFor = function (depth, lastBoss) {
   if (depth % 5 === 0) return 'walrus';
@@ -437,11 +437,11 @@ DATA.floorName = function (depth) {
   return DATA.FLOOR_BASE[idx] + (cyc > 1 ? " " + U.roman(cyc) : "");
 };
 DATA.FLOOR_PALETTES = [
-  { floor: '#cfd8cd', line: '#bcc8ba', wall: '#5a6858', trim: '#43503f' },   // waiting room (mint)
-  { floor: '#d6cfc2', line: '#c6bcae', wall: '#6b5c4a', trim: '#514434' },   // ward (beige)
-  { floor: '#c9d2dc', line: '#b8c2cf', wall: '#4d5c70', trim: '#38455a' },   // pharmacy (blue-grey)
-  { floor: '#d8cbd8', line: '#c9b8c9', wall: '#66506b', trim: '#4c3852' },   // psych (lavender)
-  { floor: '#d9d3c0', line: '#cac2a8', wall: '#6e6448', trim: '#544a30' }    // admin (manila)
+  { floor: '#414a3c', line: '#333c2f', wall: '#4a5340', trim: '#20271a' },   // waiting room — grimy olive linoleum
+  { floor: '#4a3f31', line: '#3a3024', wall: '#544733', trim: '#251d12' },   // ward — dark stained tan
+  { floor: '#38434c', line: '#2c363f', wall: '#40505e', trim: '#182027' },   // pharmacy — clinical blue-grey
+  { floor: '#433a4a', line: '#342d3c', wall: '#4d4258', trim: '#1f1826' },   // psych — murky padded purple
+  { floor: '#48412e', line: '#393322', wall: '#544a30', trim: '#221d10' }    // admin — dark sepia manila
 ];
 
 /* ============ FLAVOR TEXT ============ */
