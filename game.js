@@ -862,6 +862,22 @@ const G = {
     }
   }
 
+  // big status readout in the portrait deck (its own canvas, only when the deck is visible)
+  const deckStatusEl = document.getElementById('deckStatus');
+  const dsCtx = deckStatusEl ? deckStatusEl.getContext('2d') : null;
+  function updateDeckStatus() {
+    if (!dsCtx || !deckStatusEl.offsetParent || !G.player) return; // offsetParent is null when the deck is display:none
+    if (G.state !== 'run' && G.state !== 'pause' && G.state !== 'descend' && G.state !== 'dead') return;
+    const rect = deckStatusEl.getBoundingClientRect();
+    const w = Math.max(1, Math.round(rect.width)), h = Math.max(1, Math.round(rect.height));
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    if (deckStatusEl.width !== Math.round(w * dpr) || deckStatusEl.height !== Math.round(h * dpr)) {
+      deckStatusEl.width = Math.round(w * dpr); deckStatusEl.height = Math.round(h * dpr);
+    }
+    dsCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    Render.drawDeckStatus(dsCtx, w, h, G);
+  }
+
   let last = performance.now();
   function frame(now) {
     let dt = (now - last) / 1000;
@@ -870,6 +886,7 @@ const G = {
     if (G.state === 'run' || G.state === 'descend') G.update(dt);
     Render.draw(G);
     updateSticks();
+    updateDeckStatus();
     requestAnimationFrame(frame);
   }
 

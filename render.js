@@ -1515,6 +1515,77 @@ const Render = {
     }
     ctx.restore();
   },
+  /* big status readout for the portrait Game Boy deck (its own canvas) */
+  drawDeckStatus(ctx, W, H, G) {
+    const p = G.player; if (!p) return;
+    ctx.clearRect(0, 0, W, H);
+    const prev = this.ctx; this.ctx = ctx; // so drawHeart/drawCoin/etc. target the deck canvas
+    try { this._deckStatusBody(ctx, W, H, G, p); } finally { this.ctx = prev; }
+  },
+  _deckStatusBody(ctx, W, H, G, p) {
+    const D = DATA.DIAG[p.diag];
+    ctx.textAlign = 'center';
+
+    // diagnosis + ward/tier
+    let y = Math.max(18, Math.min(24, H * 0.13));
+    ctx.font = this.font(Math.min(18, W * 0.05), true);
+    ctx.fillStyle = D.color;
+    ctx.fillText(D.name, W / 2, y);
+    ctx.font = this.font(11.5);
+    ctx.fillStyle = 'rgba(230,222,210,0.55)';
+    ctx.fillText('WARD ' + G.depth + ' · ' + DATA.tierName(G.depth).toUpperCase(), W / 2, y + 17);
+
+    // status mood line (mania/dip/hyperfocus/adrenaline) when relevant
+    let statusTxt = '';
+    if (p.diag === 'bipolar' && !p.flags.stable) statusTxt = p.mania ? '▲ MANIA' : '▼ THE DIP';
+    if (p.focused) statusTxt = '◎ HYPERFOCUS';
+    if (p.adren) statusTxt = '⚡ ADRENALINE';
+    if (statusTxt) { ctx.font = this.font(11, true); ctx.fillStyle = D.color; ctx.fillText(statusTxt, W / 2, y + 33); }
+
+    // hearts (wrap to rows of up to 8)
+    const hearts = Math.ceil(p.maxhp / 2);
+    const perRow = Math.min(8, hearts);
+    const hs = Math.min(13, (W * 0.86) / perRow / 2.4);
+    const gap = hs * 2.5;
+    const rows = Math.ceil(hearts / perRow);
+    let hy = y + (statusTxt ? 54 : 42) + hs;
+    for (let r = 0; r < rows; r++) {
+      const inRow = Math.min(perRow, hearts - r * perRow);
+      let hx = W / 2 - (inRow * gap) / 2 + gap / 2;
+      for (let c = 0; c < inRow; c++) {
+        const i = r * perRow + c, hpHere = p.hp - i * 2;
+        if (hpHere >= 2) this.drawHeart(hx, hy, hs, '#e05a5a', false);
+        else if (hpHere === 1) this.drawHeart(hx, hy, hs, '#e05a5a', true);
+        else this.drawHeart(hx, hy, hs, '#4a3a44', false);
+        hx += gap;
+      }
+      hy += gap;
+    }
+
+    // resource row: copays / referrals / claims / pill
+    const ry = Math.min(H - 16, hy + 6);
+    const slots = [
+      { icon: (x) => this.drawCoin(x, ry, false), val: String(p.coins) },
+      { icon: (x) => this.drawKeyIcon(x, ry), val: String(p.keys) },
+      { icon: (x) => this.drawBombIcon(x, ry), val: String(p.bombs) },
+      {
+        icon: (x) => {
+          if (p.pill != null) this.drawPillIcon(x, ry, DATA.PILL_COLORS[p.pill]);
+          else { ctx.fillStyle = 'rgba(210,200,210,0.35)'; ctx.font = this.font(16, true); ctx.textAlign = 'center'; ctx.fillText('—', x, ry + 5); }
+        }, val: ''
+      }
+    ];
+    for (let i = 0; i < slots.length; i++) {
+      const cx = W * (i + 0.5) / slots.length;
+      slots[i].icon(cx - (slots[i].val ? 9 : 0));
+      if (slots[i].val) {
+        ctx.textAlign = 'left'; ctx.font = this.font(16, true); ctx.fillStyle = '#f0e8d8';
+        ctx.fillText(slots[i].val, cx + 4, ry + 5);
+        ctx.textAlign = 'center';
+      }
+    }
+  },
+
   drawDescend(G) {
     const ctx = this.ctx;
     const t = G.descendT;

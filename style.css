@@ -234,12 +234,9 @@ body.touch.inrun #padLand { display: block; }
   border-top: 3px solid #0d0a12;
   touch-action: none;
 }
-#deckBrand {
-  flex: 1 1 auto; display: flex; align-items: center; justify-content: center; gap: 8px;
-  color: #6b6478; font-size: clamp(12px, 3.2vw, 16px); font-weight: bold;
-  letter-spacing: 1px; text-align: center; opacity: .85; padding: 6px;
+#deckStatus {
+  flex: 1 1 auto; width: 100%; min-height: 0; display: block;
 }
-#deckBrand span { font-size: 1.6em; }
 #deckControls {
   width: 100%; flex: 0 0 auto;
   display: flex; align-items: flex-end; justify-content: space-between; gap: 8px;
