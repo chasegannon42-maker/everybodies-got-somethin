@@ -101,6 +101,7 @@ class Player {
       this.itemHold = 2.0; this.itemHoldName = it.name; this.itemHoldQuote = it.quote;
       this.iframes = Math.max(this.iframes, 2.0);
       SFX.play('item');
+      Haptics.buzz([20, 40, 30], 0);
     }
   }
 
@@ -212,6 +213,7 @@ class Player {
       this.iframes = 1.2;
       G.toast(DATA.TOASTS.blanket);
       SFX.play('whoosh');
+      Haptics.buzz(22, 0);
       return;
     }
     if (this.diag === 'bipolar' && !this.flags.stable && !this.mania) n = Math.max(1, Math.floor(n / 2));
@@ -220,13 +222,14 @@ class Player {
     this.hurtFlash = 0.35;
     G.shake = Math.max(G.shake, 9);
     SFX.play('hurt');
+    Haptics.buzz(55, 0);
     if (this.flags.hurtNova) {
       for (let i = 0; i < 8; i++) {
         const a = (i / 8) * TAU;
         G.tears.push(new Tear(this.x, this.y, Math.cos(a) * 380, Math.sin(a) * 380, this.effDmg(), 0.5, false));
       }
     }
-    if (this.hp <= 0) { this.dead = true; SFX.play('die'); }
+    if (this.hp <= 0) { this.dead = true; SFX.play('die'); Haptics.buzz([90, 60, 150], 0); }
   }
   heal(n) { this.hp = Math.min(this.maxhp, this.hp + n); }
 }
@@ -556,6 +559,7 @@ class Enemy {
   explode(G) {
     this.dying = true; this.deadDone = true;
     SFX.play('boom');
+    Haptics.buzz(45, 0);
     G.shake = Math.max(G.shake, 10);
     for (let i = 0; i < 20; i++) G.parts.push(new Particle(this.x, this.y, U.rand(-220, 220), U.rand(-220, 220), 0.6, U.choice(['#e06a3a', '#e0a03a', '#d04040']), 5));
     const p = G.player;
@@ -571,6 +575,7 @@ class Enemy {
     Meta.data.kills++;
     G.stats.kills++;
     if (!G.hyperfixType) G.hyperfixType = this.id;
+    Haptics.buzz(this.elite ? 30 : 14, 45); // kill tick; throttled so a burst of deaths = one bump
     makeGibs(G, this.x, this.y, this.clr, Math.round(6 + this.r * 0.4));
     if (this.beh === 'bomber') { this.explode(G); return; }
     if (this.id === 'larper') {

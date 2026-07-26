@@ -84,6 +84,7 @@ const G = {
           <input type="range" class="slider" id="musSlider" min="0" max="100" value="${pct(SFX.musicVol)}">
         </div>
         <button class="btn minor" id="bMuteAll">${SFX.muted ? '🔇 UNMUTE ALL' : '🔊 MUTE ALL'}</button>
+        ${Haptics.supported ? `<button class="btn minor" id="bHaptics">${Haptics.enabled ? '📳 HAPTICS: ON' : '📴 HAPTICS: OFF'}</button>` : ''}
         <button class="btn" id="bSetBack">BACK</button>
         <div class="smallprint">Tip: press <span class="kbd">M</span> anytime to mute. Settings are saved on this device.</div>
       </div>`);
@@ -92,6 +93,8 @@ const G = {
     sfx.onchange = () => { if (!SFX.muted) SFX.play('coin'); }; // preview level on release
     mus.oninput = () => { SFX.init(); SFX.setMusicVol(mus.value / 100); document.getElementById('musPct').textContent = mus.value + '%'; };
     document.getElementById('bMuteAll').onclick = (e) => { SFX.init(); const mu = SFX.toggleMute(); e.target.textContent = mu ? '🔇 UNMUTE ALL' : '🔊 MUTE ALL'; };
+    const hb = document.getElementById('bHaptics');
+    if (hb) hb.onclick = (e) => { Input.usingTouch = true; const on = Haptics.toggle(); e.target.textContent = on ? '📳 HAPTICS: ON' : '📴 HAPTICS: OFF'; };
     document.getElementById('bSetBack').onclick = () => { SFX.play('ui'); returnTo(); };
   },
 
@@ -492,6 +495,7 @@ const G = {
   /* ---------- explosions / paperwork ---------- */
   explode(x, y, rad, dmg) {
     SFX.play('boom');
+    Haptics.buzz([30, 30, 60], 0);
     this.shake = Math.max(this.shake, 12);
     for (let i = 0; i < 26; i++) this.parts.push(new Particle(x, y, U.rand(-240, 240), U.rand(-240, 240), U.rand(0.3, 0.7), U.choice(['#e0a03a', '#e06a3a', '#8a8078', '#f0e8d0']), U.rand(3, 6)));
     const p = this.player;
@@ -813,6 +817,7 @@ const G = {
   const canvas = document.getElementById('game');
   Render.ctx = canvas.getContext('2d');
   Meta.load();
+  Haptics.init();
   Input.init(canvas);
 
   // treat coarse-pointer devices (phones/tablets) as touch from the start so the

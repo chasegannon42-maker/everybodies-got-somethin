@@ -427,3 +427,25 @@ const Input = {
   take(name) { if (this._edge[name]) { this._edge[name] = false; return true; } return false; },
   clearEdges() { for (const k in this._edge) this._edge[k] = false; }
 };
+
+/* ---------------- haptics (mobile vibration) ---------------- */
+const Haptics = {
+  enabled: true,
+  supported: (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function'),
+  _last: 0,
+  init() { try { this.enabled = localStorage.getItem('egs_haptics') !== '0'; } catch (e) { } },
+  // pattern: ms or [buzz,pause,buzz,...]; gap throttles bursts (mass deaths -> one buzz)
+  buzz(pattern, gap) {
+    if (!this.enabled || !this.supported || !Input.usingTouch) return;
+    const now = (typeof performance !== 'undefined' ? performance.now() : 0);
+    if (now - this._last < (gap == null ? 22 : gap)) return;
+    this._last = now;
+    try { navigator.vibrate(pattern); } catch (e) { }
+  },
+  toggle() {
+    this.enabled = !this.enabled;
+    try { localStorage.setItem('egs_haptics', this.enabled ? '1' : '0'); } catch (e) { }
+    if (this.enabled && this.supported) { try { navigator.vibrate(28); } catch (e) { } }
+    return this.enabled;
+  }
+};

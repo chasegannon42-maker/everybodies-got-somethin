@@ -408,6 +408,7 @@ class Boss {
     G.tearsAura = false;
     G.darkTarget = 0;
     SFX.play('die'); SFX.play('boom');
+    Haptics.buzz([60, 50, 90, 50, 140], 0);
     G.shake = 14;
     const clrs = this.id === 'larperking' ? ['#e05a5a', '#5a9de0', '#8fd05a', '#e0c95a', '#b06be0'] : [this.id === 'walrus' ? '#8a6a4a' : '#8a7a6a', '#b0a090', '#d8c8b8'];
     for (let i = 0; i < 34; i++) G.parts.push(new Particle(this.x, this.y, U.rand(-260, 260), U.rand(-260, 260), U.rand(0.5, 1.1), U.choice(clrs), U.rand(3, 6)));
