@@ -172,7 +172,7 @@ class Boss {
           }
         }
         this.spT -= dt;
-        if (this.spT <= 0) { this.spT = 12; this.state = 1; this.stateT = 1.4; this.vulnerable = false; G.toast('"Prove it."'); }
+        if (this.spT <= 0) { this.spT = 16; this.state = 1; this.stateT = 1.0; this.vulnerable = false; G.toast('"Prove it."'); }
         if (this.state === 1) {
           this.stateT -= dt;
           if (this.stateT <= 0) { this.state = 0; this.vulnerable = true; }
@@ -391,9 +391,9 @@ class Boss {
         this.y = RY + 118 + Math.sin(this.t * 0.9) * 26;
         this.pageT -= dt;
         if (this.pageT <= 0) {
-          this.pageT = P2 ? 5.5 : 7.5;
+          this.pageT = P2 ? 4.5 : 6;
           this.page = (this.page + 1 + (Math.random() < 0.3 ? 1 : 0)) % DSM_PAGES.length;
-          this.state = 1; this.stateT = 0.85; // page-flip pause (no fire)
+          this.state = 1; this.stateT = 0.5; // page-flip pause (no fire)
           G.toast('“' + DSM_PAGES[this.page].label + '”');
           SFX.play('voice');
         }
@@ -410,7 +410,7 @@ class Boss {
       case 'priorauth': {
         this.x = CW / 2 + Math.sin(this.t * 0.5) * 170;
         this.y = RY + 118 + Math.sin(this.t * 1.0) * 26;
-        const formCount = P2 ? 5 : 4;
+        const formCount = P2 ? 4 : 3;
         if (!this._paInit) { this._paInit = true; this.state = 0; this.vulnerable = false; this._scatterForms(G, formCount); }
         const formsLeft = G.enemies.filter(e => e._form && !e.dying).length;
         if (this.state === 0) {
@@ -418,12 +418,12 @@ class Boss {
           this.vulnerable = false;
           this.atkT -= dt;
           if (this.atkT <= 0) { this.atkT = P2 ? 1.3 : 1.9; for (const off of [-0.28, 0, 0.28]) this.bullet(this.aimP(G) + off, 175, '#7a86b8', { r: 8 }); SFX.play('pop'); }
-          // occasionally demand MORE paperwork
+          // occasionally demand ONE more form (deep only, and never a full reset)
           this.spT -= dt;
-          if (this.spT <= 0) { this.spT = P2 ? 4.5 : 6.5; if (formsLeft > 0 && formsLeft < formCount) { this._scatterForms(G, 1); G.toast('“Additional documentation required.”', '#e0955a'); SFX.play('error'); } }
-          if (formsLeft === 0) { this.state = 1; this.stateT = P2 ? 3.5 : 4.5; this.vulnerable = true; G.toast('APPROVED. Briefly.', '#8fd05a'); SFX.play('heal'); }
+          if (this.spT <= 0) { this.spT = 9; if (P2 && formsLeft > 0 && formsLeft < formCount) { this._scatterForms(G, 1); G.toast('“Additional documentation required.”', '#e0955a'); SFX.play('error'); } }
+          if (formsLeft === 0) { this.state = 1; this.stateT = P2 ? 5.5 : 7; this.vulnerable = true; G.toast('APPROVED. Briefly.', '#8fd05a'); SFX.play('heal'); }
         } else {
-          // APPROVED: vulnerable window, lighter fire, then it denies you again
+          // APPROVED: generous vulnerable window, lighter fire, then it denies you again
           this.stateT -= dt;
           this.atkT -= dt;
           if (this.atkT <= 0) { this.atkT = 0.6; this.bullet(this.aimP(G), 150, '#e8c84c'); }

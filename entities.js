@@ -196,6 +196,7 @@ class Player {
       else d *= this.mania ? 1.3 : 0.85;
     }
     if (this.focused) d *= 1.5;
+    if (this.adren) d *= 1.1;   // anxiety: adrenaline sharpens damage when danger is close
     if (this.flags.fineMode) d *= 1.15;
     if (this.flags.rsd && this.hp >= this.maxhp) d *= 1.22;   // rejection sensitivity: prove them wrong at full HP
     return d;

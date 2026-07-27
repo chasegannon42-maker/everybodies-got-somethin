@@ -326,16 +326,16 @@ DATA.pickEnemy = function (depth) {
 
 /* ============ BOSSES ============ */
 DATA.BOSSES = {
-  gatekeeper: { name: "THE GATEKEEPER", sub: "“You don't even LOOK sick.”", hp: 190 },
+  gatekeeper: { name: "THE GATEKEEPER", sub: "“You don't even LOOK sick.”", hp: 165 },
   adjuster:   { name: "THE ADJUSTER", sub: "“Claim denied.”", hp: 180 },
   larperking: { name: "THE LARPER KING", sub: "“He read one (1) article.”", hp: 205 },
-  withdrawal: { name: "WITHDRAWAL", sub: "“Refill unavailable. Please scream.”", hp: 225 },
+  withdrawal: { name: "WITHDRAWAL", sub: "“Refill unavailable. Please scream.”", hp: 210 },
   stigma:     { name: "THE STIGMA", sub: "“What will people think?”", hp: 195 },
-  burnout:    { name: "BURNOUT", sub: "“Just push through it.”", hp: 240 },
-  dsm:        { name: "THE MANUAL", sub: "“Everybody's in here somewhere.”", hp: 265 },
-  priorauth:  { name: "PRIOR AUTHORIZATION", sub: "“Please hold.”", hp: 250 },
-  algorithm:  { name: "THE ALGORITHM", sub: "“You might also like: THIS.”", hp: 255 },
-  thecure:    { name: "THE CURE", sub: "“It was inside you all along. (It wasn't.)”", hp: 340 },
+  burnout:    { name: "BURNOUT", sub: "“Just push through it.”", hp: 215 },
+  dsm:        { name: "THE MANUAL", sub: "“Everybody's in here somewhere.”", hp: 215 },
+  priorauth:  { name: "PRIOR AUTHORIZATION", sub: "“Please hold.”", hp: 205 },
+  algorithm:  { name: "THE ALGORITHM", sub: "“You might also like: THIS.”", hp: 215 },
+  thecure:    { name: "THE CURE", sub: "“It was inside you all along. (It wasn't.)”", hp: 300 },
   walrus:     { name: "DR. WALRUS, M.D.*", sub: "*mail-order", hp: 300 }
 };
 DATA.bossFor = function (depth, lastBoss) {
