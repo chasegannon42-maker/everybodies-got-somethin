@@ -627,7 +627,8 @@ const G = {
     this.shake *= Math.pow(0.001, dt); if (this.shake < 0.3) this.shake = 0;
     this.enemySlow -= dt;
     let dtarget = this.darkTarget;
-    if (!(this.boss && !this.boss.dead && this.boss.id === 'stigma')) {
+    const bossDark = this.boss && !this.boss.dead && (this.boss.id === 'stigma' || this.boss.id === 'dsm');
+    if (!bossDark) {
       dtarget = Math.max(this.player.diag === 'depression' ? 0.14 : 0, this.floorDark || 0);
       this.darkTarget = dtarget;
     }

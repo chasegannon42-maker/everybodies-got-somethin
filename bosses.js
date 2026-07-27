@@ -1,9 +1,53 @@
 /* =========================================================
    EVERYBODIES GOT SOMETHIN — bosses.js
    The Gatekeeper, The Adjuster, The Larper King, Withdrawal,
-   The Stigma, Burnout, and Dr. Walrus himself.
+   The Stigma, Burnout, The Manual (DSM), and Dr. Walrus himself.
    ========================================================= */
 'use strict';
+
+/* THE MANUAL flips to a "chapter" and unleashes that disorder's bullet pattern */
+const DSM_PAGES = [
+  {
+    label: "CH. 1 — ATTENTION", cd: 0.34, clr: '#f7b32b',
+    fire(b, G, P2) {
+      b.bullet(b.aimP(G) + U.rand(-0.5, 0.5), 250, '#f7b32b');
+      if (P2) b.bullet(b.aimP(G) + U.rand(-0.8, 0.8), 260, '#f7b32b');
+    }
+  },
+  {
+    label: "CH. 2 — MOOD", cd: 1.5, clr: '#b86bff',
+    fire(b, G, P2) {
+      b._sub = !b._sub;
+      if (b._sub) b.ring(P2 ? 16 : 12, 155, '#b86bff', U.rand(0, TAU));
+      else for (let i = 0; i < 5; i++) b.bullet(b.aimP(G) + (i - 2) * 0.26, 300, '#e8c84c');
+    }
+  },
+  {
+    label: "CH. 3 — ANXIETY", cd: 1.9, clr: '#43b8a5',
+    fire(b, G, P2) {
+      for (let i = 0; i < (P2 ? 8 : 6); i++) {
+        const bl = b.bullet(b.aimP(G) + U.rand(-0.85, 0.85), 135, '#43b8a5', { life: 3.5 });
+        bl.home = 0.8;
+      }
+    }
+  },
+  {
+    label: "CH. 4 — PSYCHOSIS", cd: 1.6, clr: '#ff7a9e',
+    fire(b, G, P2) {
+      const gap = b.aimP(G) + Math.PI; // gap points away from the player so it's dodgeable
+      b.ring(P2 ? 22 : 16, 175, '#ff7a9e', U.rand(0, TAU), gap, 0.7);
+      // a couple of harmless hallucinated shots for flavor
+      for (let i = 0; i < 2; i++) { const bl = b.bullet(U.rand(0, TAU), 150, '#ffc0d4'); bl.fake = true; }
+    }
+  },
+  {
+    label: "CH. 5 — MOOD (SEVERE)", cd: 2.0, clr: '#5d8aa8',
+    fire(b, G, P2) {
+      for (const off of [-0.4, 0, 0.4]) b.bullet(b.aimP(G) + off, 120, '#5d8aa8', { r: 13, life: 4 });
+      G.darkTarget = 0.5;
+    }
+  }
+];
 
 class Boss {
   constructor(id, depth, G) {
@@ -32,6 +76,7 @@ class Boss {
     this.enrage = 0; this.emberT = 3;
     this.dashDir = null;
     this.pullT = 0;
+    this.page = 0; this.pageT = 2.6; this._sub = false; // THE MANUAL
     this.introT = 1.6; // brief intro pause
   }
 
@@ -320,6 +365,27 @@ class Boss {
           this.spT -= dt;
           if (this.spT <= 0) { this.spT = 17; this.enrage = 3.5; G.toast('CRUNCH TIME'); SFX.play('boss'); }
         }
+        this.clampPos();
+        break;
+      }
+      /* ---------- THE MANUAL (DSM) ---------- */
+      case 'dsm': {
+        this.x = CW / 2 + Math.sin(this.t * 0.5) * 150;
+        this.y = RY + 118 + Math.sin(this.t * 0.9) * 26;
+        this.pageT -= dt;
+        if (this.pageT <= 0) {
+          this.pageT = P2 ? 5.5 : 7.5;
+          this.page = (this.page + 1 + (Math.random() < 0.3 ? 1 : 0)) % DSM_PAGES.length;
+          this.state = 1; this.stateT = 0.85; // page-flip pause (no fire)
+          G.toast('“' + DSM_PAGES[this.page].label + '”');
+          SFX.play('voice');
+        }
+        if (this.state === 1) { this.stateT -= dt; if (this.stateT <= 0) this.state = 0; break; }
+        this.atkT -= dt;
+        const pg = DSM_PAGES[this.page];
+        if (this.atkT <= 0) { this.atkT = pg.cd * (P2 ? 0.72 : 1); pg.fire(this, G, P2); SFX.play('pop'); }
+        // depression page darkness fades otherwise
+        if (this.page !== 4) G.darkTarget = Math.max(0, (G.darkTarget || 0) - dt * 0.6);
         this.clampPos();
         break;
       }

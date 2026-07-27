@@ -915,6 +915,36 @@ const Render = {
         ctx.fillText("you're SO valid!!", 0, -20);
         break;
       }
+      case 'sideeffect': { // queasy pill-blob that multiplies
+        const s = e.r / 18; // scale by tier size
+        this.orb(ctx, 0, 0, e.r, e.clr, flash);
+        // capsule seam (two-tone pill)
+        ctx.fillStyle = 'rgba(255,255,255,0.16)';
+        ctx.beginPath(); ctx.arc(0, 0, e.r - 2, Math.PI, TAU); ctx.fill();
+        ctx.strokeStyle = this.shade(e.clr, -0.3); ctx.lineWidth = 1.5 * s;
+        ctx.beginPath(); ctx.moveTo(-e.r + 3, 0); ctx.lineTo(e.r - 3, 0); ctx.stroke();
+        // woozy spiral eyes
+        ctx.strokeStyle = '#2c2333'; ctx.lineWidth = 1.4 * s;
+        for (const ex of [-6 * s, 6 * s]) {
+          ctx.beginPath();
+          for (let a = 0; a < 6; a += 0.5) ctx.lineTo(ex + Math.cos(a + e.t * 3) * a * 0.5 * s, -3 * s + Math.sin(a + e.t * 3) * a * 0.5 * s);
+          ctx.stroke();
+        }
+        // green nauseous wavy mouth
+        ctx.strokeStyle = '#6ab04a'; ctx.lineWidth = 2 * s;
+        ctx.beginPath();
+        const my = 6 * s;
+        ctx.moveTo(-6 * s, my);
+        ctx.quadraticCurveTo(-3 * s, my + 3 * s, 0, my);
+        ctx.quadraticCurveTo(3 * s, my - 3 * s, 6 * s, my);
+        ctx.stroke();
+        // "+" multiply hint when large
+        if (e.tier >= 2) {
+          ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.font = this.font(9, true); ctx.textAlign = 'center';
+          ctx.fillText('×', e.r - 3, -e.r + 4);
+        }
+        break;
+      }
     }
     ctx.restore();
 
@@ -1134,6 +1164,45 @@ const Render = {
         ctx.fillStyle = '#8a8a94'; ctx.beginPath(); ctx.arc(6, 49, 4, 0, TAU); ctx.fill();
         this.drawWalrusFace(ctx, 0, -6, 0.62, b.t);
         if (b.state === 3) { ctx.fillStyle = '#2c2333'; ctx.beginPath(); ctx.ellipse(0, 24, 10, 13, 0, 0, TAU); ctx.fill(); }
+        break;
+      }
+      case 'dsm': { // THE MANUAL — a giant living diagnostic book
+        const flip = b.state === 1;                    // mid page-flip
+        const page = (DSM_PAGES && DSM_PAGES[b.page]) || { label: '', clr: '#c0b8a0' };
+        // hard cover behind
+        ctx.fillStyle = flash ? '#fff' : '#5a2030';
+        this.rr(ctx, -54, -46, 108, 92, 6); ctx.fill();
+        ctx.strokeStyle = '#e8c84c'; ctx.lineWidth = 2;
+        this.rr(ctx, -50, -42, 100, 84, 4); ctx.stroke();
+        // open pages (two leaves meeting at the spine)
+        const lean = flip ? Math.sin(b.stateT * 8) * 10 : 0;
+        for (const sgn of [-1, 1]) {
+          ctx.save();
+          const pg = ctx.createLinearGradient(0, -40, 0, 40);
+          pg.addColorStop(0, '#fbf4e2'); pg.addColorStop(1, '#e6dcc4');
+          ctx.fillStyle = flash ? '#fff' : pg;
+          ctx.beginPath();
+          ctx.moveTo(0, -40); ctx.lineTo(sgn * (46 + (sgn > 0 ? lean : 0)), -34);
+          ctx.lineTo(sgn * (46 + (sgn > 0 ? lean : 0)), 34); ctx.lineTo(0, 40);
+          ctx.closePath(); ctx.fill();
+          ctx.strokeStyle = '#b8ac90'; ctx.lineWidth = 1;
+          for (let i = 0; i < 6; i++) { const ly = -26 + i * 10; ctx.beginPath(); ctx.moveTo(sgn * 8, ly); ctx.lineTo(sgn * 40, ly + sgn * 2); ctx.stroke(); }
+          ctx.restore();
+        }
+        // spine + peering eyes over the top
+        ctx.strokeStyle = '#7a3040'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(0, -40); ctx.lineTo(0, 40); ctx.stroke();
+        ctx.fillStyle = '#f0e8d8'; ctx.beginPath(); ctx.ellipse(-16, -30, 8, 9, 0, 0, TAU); ctx.ellipse(16, -30, 8, 9, 0, 0, TAU); ctx.fill();
+        const ea = U.ang(b.x - 16, b.y - 30, G.player.x, G.player.y);
+        ctx.fillStyle = '#2c2333';
+        ctx.beginPath(); ctx.arc(-16 + Math.cos(ea) * 3, -30 + Math.sin(ea) * 3, 3.5, 0, TAU); ctx.arc(16 + Math.cos(ea) * 3, -30 + Math.sin(ea) * 3, 3.5, 0, TAU); ctx.fill();
+        // chapter tab (current page colour) + title
+        ctx.fillStyle = page.clr;
+        this.rr(ctx, -34, 40, 68, 16, 3); ctx.fill();
+        ctx.fillStyle = '#2c2333'; ctx.font = this.font(9, true); ctx.textAlign = 'center';
+        ctx.fillText(page.label, 0, 52);
+        // gold "DSM" on the cover top edge
+        ctx.fillStyle = '#e8c84c'; ctx.font = this.font(11, true);
+        ctx.fillText('THE MANUAL', 0, -48);
         break;
       }
     }

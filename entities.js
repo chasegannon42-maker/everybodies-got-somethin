@@ -330,17 +330,21 @@ class EBullet {
 
 /* ---------------- enemies ---------------- */
 class Enemy {
-  constructor(id, x, y, depth, fake, hpMult, elite) {
+  constructor(id, x, y, depth, fake, hpMult, elite, tier) {
     const D = DATA.ENEMIES[id];
     const dif = DATA.difficulty(depth);
     const E = elite ? DATA.ELITES.find(e => e.id === elite) : null;
     this.id = id;
+    this.depth = depth; this._hpMult = hpMult || 1;
     this.elite = E ? E.id : null;
     this.eliteTint = E ? E.tint : null;
-    this.x = x; this.y = y; this.r = D.r * (E ? E.sz : 1);
-    const hp = D.hp * dif.enemyHp * (hpMult || 1) * (E ? E.hp : 1);
+    // splitter tiers: 2 = large (base), 1 = medium, 0 = small (won't split again)
+    this.tier = (tier != null) ? tier : (id === 'sideeffect' ? 2 : 0);
+    const ts = (id === 'sideeffect') ? { r: [0.52, 0.74, 1][this.tier], hp: [0.22, 0.5, 1][this.tier], spd: [1.5, 1.24, 1][this.tier] } : { r: 1, hp: 1, spd: 1 };
+    this.x = x; this.y = y; this.r = D.r * (E ? E.sz : 1) * ts.r;
+    const hp = D.hp * dif.enemyHp * (hpMult || 1) * (E ? E.hp : 1) * ts.hp;
     this.maxhp = this.hp = fake ? 1 : hp;
-    this.spd = D.spd * dif.enemySpd * (E ? E.spd : 1);
+    this.spd = D.spd * dif.enemySpd * (E ? E.spd : 1) * ts.spd;
     this.dmg = D.dmg * dif.enemyDmg + (E ? (E.dmg - 1) : 0);
     this.fake = !!fake;
     this.beh = D.beh; this.clr = D.clr;
@@ -370,6 +374,11 @@ class Enemy {
     switch (this.beh) {
       case 'chase': {
         const a = U.ang(this.x, this.y, p.x, p.y) + Math.sin(this.t * 3) * 0.3;
+        this.x += Math.cos(a) * S * dt; this.y += Math.sin(a) * S * dt;
+        break;
+      }
+      case 'splitter': {
+        const a = U.ang(this.x, this.y, p.x, p.y) + Math.sin(this.t * 2.4) * 0.55;
         this.x += Math.cos(a) * S * dt; this.y += Math.sin(a) * S * dt;
         break;
       }
@@ -578,6 +587,15 @@ class Enemy {
     if (!G.hyperfixType) G.hyperfixType = this.id;
     Haptics.buzz(this.elite ? 30 : 14, 45); // kill tick; throttled so a burst of deaths = one bump
     makeGibs(G, this.x, this.y, this.clr, Math.round(6 + this.r * 0.4));
+    // Side Effect splits into two smaller ones ("may cause additional side effects")
+    if (this.id === 'sideeffect' && this.tier > 0 && !this.fake) {
+      for (let i = 0; i < 2; i++) {
+        const a = U.rand(0, TAU);
+        const child = new Enemy('sideeffect', this.x + Math.cos(a) * 12, this.y + Math.sin(a) * 12, this.depth, false, this._hpMult, this.elite, this.tier - 1);
+        child.spawnT = 0.25; child.noDrop = true;
+        G.enemies.push(child);
+      }
+    }
     if (this.beh === 'bomber') { this.explode(G); return; }
     if (this.id === 'larper') {
       if (!G.larperToastShown) { G.larperToastShown = true; G.toast(DATA.TOASTS.larper); }

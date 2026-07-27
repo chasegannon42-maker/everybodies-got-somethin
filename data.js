@@ -298,7 +298,8 @@ DATA.ENEMIES = {
   intrusive: { name: "Intrusive Thought", hp: 8, spd: 0, r: 13, dmg: 1, beh: 'teleport', clr: '#5ad0b8' },
   redflag:   { name: "Red Flag", hp: 7, spd: 88, r: 14, dmg: 1, beh: 'bomber', clr: '#d04040' },
   fog:       { name: "Brain Fog", hp: 30, spd: 26, r: 28, dmg: 1, beh: 'fog', clr: '#9aa8a0' },
-  enabler:   { name: "The Enabler", hp: 16, spd: 62, r: 16, dmg: 1, beh: 'buffer', clr: '#e0c95a' }
+  enabler:   { name: "The Enabler", hp: 16, spd: 62, r: 16, dmg: 1, beh: 'buffer', clr: '#e0c95a' },
+  sideeffect:{ name: "Side Effect", hp: 16, spd: 54, r: 18, dmg: 1, beh: 'splitter', clr: '#d06ba0' }
 };
 DATA.enemyPoolFor = function (depth) {
   // deeper enemies get relatively more common the further past their unlock you go,
@@ -307,7 +308,7 @@ DATA.enemyPoolFor = function (depth) {
     { id: 'scroller', d: 1, w: 3 }, { id: 'notif', d: 1, w: 3 }, { id: 'larper', d: 1, w: 2.4 },
     { id: 'ad', d: 2, w: 2.4 }, { id: 'doubt', d: 2, w: 2 },
     { id: 'deadline', d: 3, w: 2 }, { id: 'intrusive', d: 3, w: 2 },
-    { id: 'redflag', d: 4, w: 1.8 }, { id: 'fog', d: 4, w: 1.4 },
+    { id: 'redflag', d: 4, w: 1.8 }, { id: 'fog', d: 4, w: 1.4 }, { id: 'sideeffect', d: 4, w: 1.8 },
     { id: 'enabler', d: 5, w: 1.4 }
   ].filter(e => depth >= e.d);
   for (const e of P) e.w *= 1 + 0.12 * Math.max(0, depth - e.d);
@@ -329,13 +330,14 @@ DATA.BOSSES = {
   withdrawal: { name: "WITHDRAWAL", sub: "“Refill unavailable. Please scream.”", hp: 225 },
   stigma:     { name: "THE STIGMA", sub: "“What will people think?”", hp: 195 },
   burnout:    { name: "BURNOUT", sub: "“Just push through it.”", hp: 240 },
+  dsm:        { name: "THE MANUAL", sub: "“Everybody's in here somewhere.”", hp: 265 },
   walrus:     { name: "DR. WALRUS, M.D.*", sub: "*mail-order", hp: 300 }
 };
 DATA.bossFor = function (depth, lastBoss) {
   if (depth % 5 === 0) return 'walrus';
   let pool = ['gatekeeper', 'larperking'];
   if (depth >= 2) pool.push('adjuster');
-  if (depth >= 3) pool.push('stigma');
+  if (depth >= 3) pool.push('stigma', 'dsm');
   if (depth >= 4) pool.push('withdrawal', 'burnout');
   const filtered = pool.filter(b => b !== lastBoss);
   return U.choice(filtered.length ? filtered : pool);
