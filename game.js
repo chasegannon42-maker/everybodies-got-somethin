@@ -26,10 +26,16 @@ const G = {
   descendT: 0,
   doorCd: 0, lockCd: 0, deathT: 0,
   quiz: null,
+  seed: null, daily: false, dailyKey: null,   // Daily Ward: a fixed date-seeded run
   debug: /[?&]debug=1/.test(location.search),
 
   /* ---------- helpers ---------- */
   roomAt(gx, gy) { return this.grid ? (this.grid.get(U.key(gx, gy)) || null) : null; },
+  /* Run a generation step with RAND seeded from the run seed + a label. A normal run
+     has seed == null, so this just calls fn() on Math.random — behavior unchanged.
+     Reseeding per floor/room/reward means the daily dungeon is identical for everyone
+     regardless of play order, while combat keeps using Math.random. */
+  genSeed(parts, fn) { return this.seed == null ? fn() : withSeed(hashSeed(this.seed, parts), fn); },
   toast(txt, clr) {
     this.toasts.push({ txt, t: 0, dur: 2.8, clr });
     if (this.toasts.length > 3) this.toasts.shift();
@@ -46,6 +52,53 @@ const G = {
         SFX.play('item'); if (typeof Haptics !== 'undefined') Haptics.buzz([30, 40, 60], 0);
       }
     }
+  },
+
+  /* ---------- daily ward (a date-seeded run everyone shares) ---------- */
+  DAILY_DIAGS: ['adhd', 'bipolar', 'depression', 'anxiety', 'schizo'],
+  todayKey() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  },
+  seedFromKey(key) {
+    let h = 2166136261 >>> 0;
+    for (let i = 0; i < key.length; i++) h = Math.imul(h ^ key.charCodeAt(i), 16777619);
+    return h >>> 0;
+  },
+  dailyInfo() {
+    const key = this.todayKey(), seed = this.seedFromKey(key);
+    return { key, seed, diag: this.DAILY_DIAGS[seed % this.DAILY_DIAGS.length] };
+  },
+  showDaily() {
+    this.state = 'daily';
+    SFX.setMusic('menu');
+    document.body.classList.remove('inrun');
+    const info = this.dailyInfo();
+    const D = DATA.DIAG[info.diag];
+    const rec = (Meta.data.daily && Meta.data.daily.key === info.key) ? Meta.data.daily : null;
+    const bestLine = rec
+      ? `<div class="stats-line">today's best: <b>Ward ${rec.best}</b>${rec.win ? ' · 🦭 beat the Walrus' : ''}</div>`
+      : `<div class="stats-line">not attempted yet today — go set the bar</div>`;
+    this.overlay(`
+      <div class="panel">
+        <h1 class="logo" style="font-size:28px">🗓️ DAILY WARD</h1>
+        <div class="tagline">${info.key} · everyone gets THIS exact dungeon today</div>
+        <div class="walrusbox">
+          <canvas width="84" height="84" id="dailyPortrait" style="width:92px;height:92px;flex:0 0 auto"></canvas>
+          <div class="bubble">Today you're <b style="color:${D.color}">${D.name}</b>. Same rooms, same items, same bosses for every player — combat's still live, so it's pure skill. Screenshot your card and dare your friends.</div>
+        </div>
+        ${bestLine}
+        <button class="btn" id="bDailyPlay">▶ PLAY TODAY'S WARD</button>
+        ${rec ? `<button class="btn minor" id="bDailyShare">📤 SHARE MY RESULT</button>` : ''}
+        <button class="btn minor" id="bDailyBack">BACK</button>
+        <div class="smallprint">Seed resets at local midnight. Replays allowed — only your best counts.</div>
+      </div>`);
+    const pc = document.getElementById('dailyPortrait');
+    if (pc) Render.drawCharPortrait(pc.getContext('2d'), info.diag);
+    document.getElementById('bDailyPlay').onclick = () => { SFX.init(); SFX.play('ui'); this.beginRun(info.diag, { seed: info.seed, key: info.key }); };
+    const sh = document.getElementById('bDailyShare');
+    if (sh) sh.onclick = () => { SFX.play('ui'); Render.shareCard({ diag: info.diag, depth: rec.best, daily: true, key: info.key, win: rec.win, stats: rec.stats }); };
+    document.getElementById('bDailyBack').onclick = () => { SFX.play('ui'); this.showTitle(); };
   },
 
   /* ---------- flow: title / quiz / card ---------- */
@@ -66,6 +119,7 @@ const G = {
           <div class="bubble" id="titleBubble">The doctor will see you now. He sees everyone. That's the problem.</div>
         </div>
         <button class="btn" id="bStart">🩺 START CHECKUP</button>
+        <button class="btn" id="bDaily">🗓️ DAILY WARD</button>
         <button class="btn minor" id="bFiles">📁 PATIENT FILES (choose your diagnosis)</button>
         <div class="btnrow">
           <button class="btn minor" id="bHow">HOW TO PLAY</button>
@@ -77,6 +131,7 @@ const G = {
       </div>`);
     this.paintWalrus('titleWalrus');
     document.getElementById('bStart').onclick = () => { SFX.init(); SFX.play('ui'); this.startQuiz(); };
+    document.getElementById('bDaily').onclick = () => { SFX.init(); SFX.play('ui'); this.showDaily(); };
     document.getElementById('bFiles').onclick = () => { SFX.init(); SFX.play('ui'); this.showFiles(); };
     document.getElementById('bHow').onclick = () => { SFX.init(); SFX.play('ui'); this.showHow(); };
     document.getElementById('bUnlocksT').onclick = () => { SFX.init(); SFX.play('ui'); this.showUnlocks(() => this.showTitle()); };
@@ -250,13 +305,17 @@ const G = {
   },
 
   /* ---------- run setup ---------- */
-  beginRun(diagId) {
+  beginRun(diagId, daily) {
+    this.daily = !!daily;
+    this.seed = daily ? (daily.seed >>> 0) : null;
+    this.dailyKey = daily ? daily.key : null;
+    this._startWalrusKills = Meta.data.walrusKills || 0;   // for daily "beat the Walrus" flag
     Meta.data.runs++;
     if (!Meta.data.diagsPlayed) Meta.data.diagsPlayed = {};
     Meta.data.diagsPlayed[diagId] = 1;
     Meta.save();
-    this.player = new Player(diagId);
-    this.pillAssign = U.shuffle(DATA.PILLS.map((_, i) => i)).slice(0, 10);
+    this.player = this.genSeed(['player'], () => new Player(diagId));
+    this.pillAssign = this.genSeed(['pills'], () => U.shuffle(DATA.PILLS.map((_, i) => i)).slice(0, 10));
     this.pillKnown = new Set();
     this.depth = 1;
     this.lastBoss = null;
@@ -274,7 +333,7 @@ const G = {
   },
 
   newFloor() {
-    const gen = generateFloor(this.depth, this.lastBoss);
+    const gen = this.genSeed(['floor', this.depth], () => generateFloor(this.depth, this.lastBoss));
     this.grid = gen.grid;
     this.floorRooms = gen.rooms;
     this.bossId = gen.bossId;
@@ -287,7 +346,7 @@ const G = {
     this.enemySlow = 0;
     this.floorHits = 0;
     // endless difficulty: roll this floor's ward complications
-    this.complications = DATA.rollComplications(this.depth);
+    this.complications = this.genSeed(['comp', this.depth], () => DATA.rollComplications(this.depth));
     this.floorMods = {};
     for (const c of this.complications) Object.assign(this.floorMods, c.mods);
     this.floorDark = this.floorMods.dark || 0;
@@ -377,6 +436,7 @@ const G = {
   populateRoom(room) {
     room.spawned = true;
     const p = this.player;
+    this.genSeed(['room', this.depth, room.gx, room.gy], () => {
     switch (room.type) {
       case 'start':
         room.cleared = true;
@@ -437,6 +497,7 @@ const G = {
         break;
       }
     }
+    });
   },
 
   moveRoom(dir) {
@@ -486,33 +547,35 @@ const G = {
     Meta.data.diagBest[p.diag] = Math.max(Meta.data.diagBest[p.diag] || 0, this.depth);
     Meta.save();
     this.checkUnlocks();
-    // rewards
-    const bossPool = DATA.POOLS.boss;
-    room.peds.push({ x: CW / 2 - 90, y: RY + RH / 2 + 40, itemId: U.choice(bossPool), kind: 'boss', taken: false });
-    if (this.bossId === 'walrus') {
-      const pool = DATA.pickPool('special', p.items);
-      room.peds.push({ x: CW / 2 + 90, y: RY + RH / 2 + 40, itemId: U.choice(pool.length ? pool : DATA.POOLS.special), kind: 'boss', taken: false });
-    }
-    this.pickups.push(new Pickup('full', CW / 2 + U.rand(-60, 60), RY + RH / 2 - 40));
-    this.pickups.push(new Pickup('coin', CW / 2 + U.rand(-80, 80), RY + RH / 2));
-    room.trapdoor = this.trapdoor = { x: CW / 2, y: RY + RH / 2 - 100 };
-    // out-of-network door (25%)
-    if (U.chance(0.25)) {
-      for (const d of U.shuffle(Object.keys(DIRS))) {
-        const nx = room.gx + DIRS[d].dx, ny = room.gy + DIRS[d].dy;
-        if (!this.roomAt(nx, ny)) {
-          const oon = makeRoom(nx, ny, 'oon');
-          oon.doors[DIRS[d].opp] = true;
-          room.doors[d] = true;
-          buildLayout(oon, this.depth);
-          this.grid.set(U.key(nx, ny), oon);
-          this.floorRooms.push(oon);
-          oon.discovered = true;
-          this.toast('A red door creaks open. Out-of-network...', '#e08a8a');
-          break;
+    // rewards (seeded per ward so a daily's boss loot & OON door match for everyone)
+    this.genSeed(['reward', this.depth], () => {
+      const bossPool = DATA.POOLS.boss;
+      room.peds.push({ x: CW / 2 - 90, y: RY + RH / 2 + 40, itemId: U.choice(bossPool), kind: 'boss', taken: false });
+      if (this.bossId === 'walrus') {
+        const pool = DATA.pickPool('special', p.items);
+        room.peds.push({ x: CW / 2 + 90, y: RY + RH / 2 + 40, itemId: U.choice(pool.length ? pool : DATA.POOLS.special), kind: 'boss', taken: false });
+      }
+      this.pickups.push(new Pickup('full', CW / 2 + U.rand(-60, 60), RY + RH / 2 - 40));
+      this.pickups.push(new Pickup('coin', CW / 2 + U.rand(-80, 80), RY + RH / 2));
+      room.trapdoor = this.trapdoor = { x: CW / 2, y: RY + RH / 2 - 100 };
+      // out-of-network door (25%)
+      if (U.chance(0.25)) {
+        for (const d of U.shuffle(Object.keys(DIRS))) {
+          const nx = room.gx + DIRS[d].dx, ny = room.gy + DIRS[d].dy;
+          if (!this.roomAt(nx, ny)) {
+            const oon = makeRoom(nx, ny, 'oon');
+            oon.doors[DIRS[d].opp] = true;
+            room.doors[d] = true;
+            buildLayout(oon, this.depth);
+            this.grid.set(U.key(nx, ny), oon);
+            this.floorRooms.push(oon);
+            oon.discovered = true;
+            this.toast('A red door creaks open. Out-of-network...', '#e08a8a');
+            break;
+          }
         }
       }
-    }
+    });
     SFX.setMusic('run');
   },
 
@@ -807,11 +870,20 @@ const G = {
       if (!Meta.data.diagBest) Meta.data.diagBest = {};
       this._prevBest = Meta.data.diagBest[diagId] || 0;
       Meta.data.diagBest[diagId] = Math.max(this._prevBest, this.depth);
+      // daily ward: keep the deepest result for today
+      if (this.daily && this.dailyKey) {
+        const prev = (Meta.data.daily && Meta.data.daily.key === this.dailyKey) ? Meta.data.daily : null;
+        const best = Math.max(prev ? prev.best : 0, this.depth);
+        const win = !!(prev && prev.win) || (Meta.data.walrusKills > (this._startWalrusKills || 0));
+        Meta.data.daily = { key: this.dailyKey, diag: diagId, best, win, stats: { kills: this.stats.kills, bosses: this.stats.bosses, pills: this.stats.pills, rooms: this.stats.rooms } };
+      }
       Meta.save();
       this.checkUnlocks(); // catch kills/ward/etc. milestones reached this run
       this._deathQuip = U.choice(DATA.DEATH_LINES);
     }
     this.state = 'dead';
+    const daily = this.daily, dseed = this.seed, dkey = this.dailyKey;
+    const dailyWin = Meta.data.walrusKills > (this._startWalrusKills || 0);
     const prevBest = this._prevBest, newBest = this.depth > prevBest;
     SFX.setMusic('menu');
     const D = DATA.DIAG[diagId];
@@ -826,6 +898,7 @@ const G = {
       <div class="panel wide">
         <div class="rx" style="border-color:#8a3030">
           <div class="stamp">DISCHARGED</div>
+          ${daily ? `<div class="sub" style="color:#e0a05a;font-weight:bold">🗓️ DAILY WARD · ${dkey}</div>` : ''}
           <h2 style="color:${D.color}">${D.name}</h2>
           <div class="sub">Reached ${DATA.floorName(this.depth)} · Ward ${this.depth} · ${DATA.tierName(this.depth)}${newBest ? ' &nbsp;⭐ NEW BEST' : (prevBest ? ' (best: ward ' + prevBest + ')' : '')}</div>
         </div>
@@ -841,7 +914,10 @@ const G = {
           <canvas class="walrusCanvas" width="132" height="132" id="deadWalrus"></canvas>
           <div class="bubble"><i>“${this._deathQuip}”</i></div>
         </div>
-        <button class="btn" id="bAgainSame">SAME DIAGNOSIS, RUN IT BACK</button>
+        ${daily
+          ? `<button class="btn" id="bRetryDaily">🗓️ RETRY TODAY'S DAILY</button>`
+          : `<button class="btn" id="bAgainSame">SAME DIAGNOSIS, RUN IT BACK</button>`}
+        <button class="btn" id="bShare">📤 SHARE DIAGNOSIS CARD</button>
         <div class="btnrow">
           <button class="btn minor" id="bAgainNew">RE-DIAGNOSE</button>
           <button class="btn minor" id="bUnlocks">🏆 UNLOCKS</button>
@@ -849,7 +925,9 @@ const G = {
         <button class="btn minor" id="bTitle">TITLE</button>
       </div>`);
     this.paintWalrus('deadWalrus');
-    document.getElementById('bAgainSame').onclick = () => { SFX.play('ui'); this.beginRun(diagId); };
+    if (daily) document.getElementById('bRetryDaily').onclick = () => { SFX.play('ui'); this.beginRun(diagId, { seed: dseed, key: dkey }); };
+    else document.getElementById('bAgainSame').onclick = () => { SFX.play('ui'); this.beginRun(diagId); };
+    document.getElementById('bShare').onclick = () => { SFX.play('ui'); Render.shareCard({ diag: diagId, depth: this.depth, daily, key: dkey, win: dailyWin, stats: { kills: st.kills, bosses: st.bosses, pills: st.pills } }); };
     document.getElementById('bAgainNew').onclick = () => { SFX.play('ui'); this.startQuiz(); };
     document.getElementById('bUnlocks').onclick = () => { SFX.play('ui'); this.showUnlocks(() => this.showDead()); };
     document.getElementById('bTitle').onclick = () => { SFX.play('ui'); this.showTitle(); };

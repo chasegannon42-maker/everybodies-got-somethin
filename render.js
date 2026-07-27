@@ -1282,6 +1282,96 @@ const Render = {
     this.ctx = prev;
   },
 
+  /* ---------- shareable Diagnosis Card ----------
+     Renders a polished portrait card to an offscreen canvas, then shares it
+     (mobile Web Share w/ image) or downloads a PNG (desktop). */
+  shareCard(opts) {
+    const W = 900, H = 1180;
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    const x = cv.getContext('2d');
+    const prev = this.ctx; this.ctx = x;
+    try { this._paintShareCard(x, W, H, opts); } catch (e) { }
+    this.ctx = prev;
+    const D = DATA.DIAG[opts.diag] || { name: 'Something' };
+    const url = 'https://chasegannon42-maker.github.io/everybodies-got-somethin/';
+    const text = opts.daily
+      ? `🗓️ Daily Ward ${opts.key}: I'm ${D.name} and reached Ward ${opts.depth} in Everybodies Got Somethin. Can you beat me? ${url}`
+      : `Diagnosed with ${D.name} — reached Ward ${opts.depth} in Everybodies Got Somethin. ${url}`;
+    const fname = `egs-${opts.diag}-ward${opts.depth}.png`;
+    const finish = (blob) => {
+      if (!blob) return;
+      const file = new File([blob], fname, { type: 'image/png' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        navigator.share({ files: [file], title: 'Everybodies Got Somethin', text }).catch(() => { });
+      } else {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = fname;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+      }
+    };
+    if (cv.toBlob) cv.toBlob(finish, 'image/png');
+    else { const a = document.createElement('a'); a.href = cv.toDataURL('image/png'); a.download = fname; a.click(); }
+    return cv;
+  },
+  _paintShareCard(x, W, H, opts) {
+    const D = DATA.DIAG[opts.diag] || DATA.DIAG.adhd;
+    // backdrop + vignette
+    x.fillStyle = '#17131a'; x.fillRect(0, 0, W, H);
+    const vg = x.createRadialGradient(W / 2, H * 0.42, H * 0.18, W / 2, H * 0.5, H * 0.78);
+    vg.addColorStop(0, 'rgba(70,48,82,0.30)'); vg.addColorStop(1, 'rgba(0,0,0,0)');
+    x.fillStyle = vg; x.fillRect(0, 0, W, H);
+    // parchment panel
+    const m = 34;
+    x.fillStyle = 'rgba(0,0,0,0.45)'; this.rr(x, m + 6, m + 12, W - 2 * m, H - 2 * m, 26); x.fill();
+    x.fillStyle = '#f6eedd'; this.rr(x, m, m, W - 2 * m, H - 2 * m, 26); x.fill();
+    x.strokeStyle = '#2c2333'; x.lineWidth = 8; this.rr(x, m, m, W - 2 * m, H - 2 * m, 26); x.stroke();
+    x.textAlign = 'center';
+    // title (gold drop-shadow, purple face)
+    x.font = this.font(50, true);
+    x.fillStyle = '#e8b64c'; x.fillText('EVERYBODIES', W / 2 + 4, 136); x.fillText('GOT SOMETHIN', W / 2 + 4, 192);
+    x.fillStyle = '#3a2a4a'; x.fillText('EVERYBODIES', W / 2, 132); x.fillText('GOT SOMETHIN', W / 2, 188);
+    x.fillStyle = '#6b5a4a'; x.font = this.font(20); x.fillText('a checkup nobody asked for', W / 2, 224);
+    // daily ribbon
+    let topY = 244;
+    if (opts.daily) {
+      x.fillStyle = '#e8b64c'; this.rr(x, W / 2 - 200, topY, 400, 44, 22); x.fill();
+      x.strokeStyle = '#2c2333'; x.lineWidth = 4; this.rr(x, W / 2 - 200, topY, 400, 44, 22); x.stroke();
+      x.fillStyle = '#2c2333'; x.font = this.font(23, true);
+      x.fillText('🗓️ DAILY WARD · ' + opts.key, W / 2, topY + 30);
+      topY += 70;
+    } else topY += 6;
+    // walrus portrait
+    this.drawWalrusFace(x, W / 2, topY + 96, 1.35, 0.5);
+    let y = topY + 210;
+    // diagnosis prescription block
+    const bx = m + 40, bw = W - 2 * (m + 40);
+    x.fillStyle = '#fff8f0'; this.rr(x, bx, y, bw, 150, 16); x.fill();
+    x.strokeStyle = '#b03030'; x.lineWidth = 5; x.setLineDash([12, 8]); this.rr(x, bx, y, bw, 150, 16); x.stroke(); x.setLineDash([]);
+    x.save(); x.translate(bx + bw - 66, y + 4); x.rotate(0.14);
+    x.strokeStyle = '#b03030'; x.lineWidth = 4; this.rr(x, -66, -20, 132, 38, 8); x.stroke();
+    x.fillStyle = '#b03030'; x.font = this.font(19, true); x.fillText('DIAGNOSIS', 0, 6); x.restore();
+    x.fillStyle = D.color; x.font = this.font(46, true); x.fillText(D.name, W / 2, y + 62);
+    x.fillStyle = '#8a5a4a'; x.font = this.font(21); x.fillText(D.short, W / 2, y + 98);
+    x.fillStyle = '#2c5a33'; x.font = this.font(20); x.fillText('“' + D.tag + '”', W / 2, y + 130);
+    y += 150 + 58;
+    // result headline
+    x.fillStyle = '#2c2333'; x.font = this.font(56, true);
+    x.fillText('REACHED WARD ' + opts.depth, W / 2, y);
+    x.fillStyle = '#6b5a4a'; x.font = this.font(23); x.fillText(DATA.floorName(opts.depth) + ' · ' + DATA.tierName(opts.depth), W / 2, y + 36);
+    y += 74;
+    if (opts.win) { x.fillStyle = '#c07818'; x.font = this.font(24, true); x.fillText('🦭 DEFEATED DR. WALRUS', W / 2, y); y += 40; }
+    if (opts.stats) {
+      const s = opts.stats;
+      x.fillStyle = '#55445e'; x.font = this.font(21);
+      x.fillText((s.kills || 0) + ' symptoms managed  ·  ' + (s.bosses || 0) + ' bosses  ·  ' + (s.pills || 0) + ' pills', W / 2, y);
+    }
+    // footer / link
+    x.fillStyle = '#8a7a68'; x.font = this.font(21, true); x.fillText('🦭  play free at', W / 2, H - m - 56);
+    x.fillStyle = '#3a2a4a'; x.font = this.font(20, true); x.fillText('chasegannon42-maker.github.io/everybodies-got-somethin', W / 2, H - m - 28);
+  },
+
   drawItemIcon(id, x, y) {
     const ctx = this.ctx;
     ctx.save();

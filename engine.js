@@ -11,18 +11,47 @@ const RY = 140;                      // room interior top
 const RW = COLS * TILE, RH = ROWS * TILE;
 const TAU = Math.PI * 2;
 
+/* ---------------- seedable rng ----------------
+   RAND is the source every U.* random helper (and DATA.pickEnemy) draws from.
+   Normally it's Math.random. For Daily Ward runs we temporarily swap in a seeded
+   generator around the deterministic sections (floor gen, room population, etc.)
+   via withSeed(), so the same day yields the same dungeon for everyone — while
+   moment-to-moment combat keeps using Math.random and stays lively. */
+let RAND = Math.random;
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+/* combine a base seed with label parts (numbers/strings) into a stable 32-bit int */
+function hashSeed(base, parts) {
+  let h = (base >>> 0) ^ 0x9e3779b9;
+  const s = (parts || []).join('|');
+  for (let i = 0; i < s.length; i++) { h = Math.imul(h ^ s.charCodeAt(i), 2654435761); h ^= h >>> 15; }
+  return h >>> 0;
+}
+/* run fn with RAND driven by a fresh seeded stream, then always restore the previous source */
+function withSeed(seedInt, fn) {
+  const prev = RAND;
+  RAND = mulberry32(seedInt >>> 0);
+  try { return fn(); } finally { RAND = prev; }
+}
+
 /* ---------------- utils ---------------- */
 const U = {
-  rand(a, b) { return a + Math.random() * (b - a); },
-  randi(a, b) { return Math.floor(a + Math.random() * (b - a + 1)); },
-  choice(arr) { return arr[Math.floor(Math.random() * arr.length)]; },
-  chance(p) { return Math.random() < p; },
+  rand(a, b) { return a + RAND() * (b - a); },
+  randi(a, b) { return Math.floor(a + RAND() * (b - a + 1)); },
+  choice(arr) { return arr[Math.floor(RAND() * arr.length)]; },
+  chance(p) { return RAND() < p; },
   clamp(v, a, b) { return v < a ? a : (v > b ? b : v); },
   lerp(a, b, t) { return a + (b - a) * t; },
   dist(x1, y1, x2, y2) { const dx = x2 - x1, dy = y2 - y1; return Math.sqrt(dx * dx + dy * dy); },
   ang(x1, y1, x2, y2) { return Math.atan2(y2 - y1, x2 - x1); },
   norm(x, y) { const l = Math.sqrt(x * x + y * y); return l > 0.0001 ? { x: x / l, y: y / l } : { x: 0, y: 0 }; },
-  shuffle(arr) { const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; },
+  shuffle(arr) { const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(RAND() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; },
   roman(n) { const R = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X']; return R[U.clamp(n, 0, 10)] || ('x' + n); },
   key(x, y) { return x + ',' + y; }
 };
@@ -54,7 +83,7 @@ function collideTiles(layout, x, y, rad) {
 
 /* ---------------- persistent meta ---------------- */
 const Meta = {
-  data: { runs: 0, deaths: 0, kills: 0, bestFloor: 0, walrusKills: 0, itemsSeen: 0, diagBest: {}, fineSeen: 0, unlocks: {}, diagsPlayed: {}, everOverRx: 0, everNoHitFloor: 0 },
+  data: { runs: 0, deaths: 0, kills: 0, bestFloor: 0, walrusKills: 0, itemsSeen: 0, diagBest: {}, fineSeen: 0, unlocks: {}, diagsPlayed: {}, everOverRx: 0, everNoHitFloor: 0, daily: null },
   load() { try { const j = localStorage.getItem('egs_meta'); if (j) Object.assign(this.data, JSON.parse(j)); } catch (e) { } },
   save() { try { localStorage.setItem('egs_meta', JSON.stringify(this.data)); } catch (e) { } }
 };

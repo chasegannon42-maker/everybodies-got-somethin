@@ -317,7 +317,7 @@ DATA.enemyPoolFor = function (depth) {
 DATA.pickEnemy = function (depth) {
   const P = DATA.enemyPoolFor(depth);
   let tot = 0; for (const e of P) tot += e.w;
-  let x = Math.random() * tot;
+  let x = RAND() * tot;   // RAND so seeded room population picks the same enemies
   for (const e of P) { x -= e.w; if (x <= 0) return e.id; }
   return P[P.length - 1].id;
 };
