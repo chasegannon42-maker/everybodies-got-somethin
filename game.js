@@ -212,7 +212,7 @@ const G = {
     const chronicOn = !!m.chronicUnlocked, bossRushOn = this.codexTabComplete('bosses');
     const ngRow = (chronicOn || bossRushOn) ? `<div class="btnrow">${chronicOn ? '<button class="btn minor" id="bChronic">🩸 CHRONIC MODE</button>' : ''}${bossRushOn ? '<button class="btn minor" id="bBossRush">☠ BOSS RUSH</button>' : ''}</div>` : '';
     const statsLine = m.runs > 0
-      ? `<div class="stats-line">runs: ${m.runs} · deepest ward: ${m.bestFloor} · walruses defeated: ${m.walrusKills}</div>`
+      ? `<button class="btn minor" id="bRunHist" style="margin-top:6px">📊 runs: ${m.runs} · deepest ward: ${m.bestFloor} · tap for history</button>`
       : '';
     this.overlay(`
       <div class="panel">
@@ -245,6 +245,7 @@ const G = {
     document.getElementById('bHow').onclick = () => { SFX.init(); SFX.play('ui'); this.showHow(); };
     document.getElementById('bUnlocksT').onclick = () => { SFX.init(); SFX.play('ui'); this.showUnlocks(() => this.showTitle()); };
     document.getElementById('bSettings').onclick = () => { SFX.init(); SFX.play('ui'); this.showSettings(() => this.showTitle()); };
+    const brh = document.getElementById('bRunHist'); if (brh) brh.onclick = () => { SFX.init(); SFX.play('ui'); this.showStats(() => this.showTitle()); };
   },
 
   /* settings overlay with SFX + music volume sliders; returnTo() restores the prior screen */
@@ -484,6 +485,9 @@ const G = {
     this.runUnlocks = [];
     this.floorHits = 0;
     this._deathRecorded = false;
+    this._runLogged = false;
+    this._runCured = false;
+    this._runStart = Date.now();
     this.larperToastShown = false;
     this.deathT = 0;
     this.newFloor();
@@ -491,6 +495,33 @@ const G = {
     this.hideOverlay();
     SFX.setMusic('run');
     document.body.classList.add('inrun');
+  },
+
+  // Silent run-stats logger: one record per run (death / cure / quit) to localStorage.
+  // Powers the Run History screen and accumulates real win-rate data over time.
+  recordRun(out) {
+    if (this._runLogged || !this.player) return;
+    this._runLogged = true;
+    const p = this.player;
+    const mode = this.chronic ? 'chronic' : this.bossRush ? 'bossrush' : this.dailyKind === 'daily' ? 'daily' : this.dailyKind === 'challenge' ? 'challenge' : 'normal';
+    const cured = !!this._runCured || out === 'cured';
+    const walrus = (Meta.data.walrusKills || 0) > (this._startWalrusKills || 0);
+    const cause = out === 'dead' ? (p._lastSrc || 'unknown') : out;
+    const secs = Math.max(0, Math.round((Date.now() - (this._runStart || Date.now())) / 1000));
+    const rec = { t: this.todayKey(), diag: p.diag, mode, ward: this.depth, out, cause, cured: cured ? 1 : 0, walrus: walrus ? 1 : 0, kills: this.stats.kills, bosses: this.stats.bosses, items: this.stats.items, pills: this.stats.pills, secs };
+    const log = Meta.data.runlog || (Meta.data.runlog = []);
+    log.push(rec);
+    while (log.length > 200) log.shift();
+    const A = Meta.data.runAgg || (Meta.data.runAgg = {});
+    const a = A[p.diag] || (A[p.diag] = { runs: 0, dead: 0, quit: 0, cured: 0, walrus: 0, wardSum: 0, bestWard: 0 });
+    a.runs++;
+    if (out === 'quit') a.quit++; else if (out === 'dead') a.dead++;
+    if (cured) a.cured++;
+    if (walrus) a.walrus++;
+    a.wardSum += this.depth;
+    a.bestWard = Math.max(a.bestWard, this.depth);
+    if (out === 'dead') { const C = Meta.data.causeAgg || (Meta.data.causeAgg = {}); C[cause] = (C[cause] || 0) + 1; }
+    Meta.save();
   },
 
   newFloor() {
@@ -722,6 +753,7 @@ const G = {
     // THE CURE (Ward 25): the (non-)finale — mark cured, unlock Chronic Mode
     if (this.bossId === 'thecure') {
       this._cureBeaten = true;
+      this._runCured = true;   // run log: this run reached the ending
       if (!Meta.data.cured) { Meta.data.cured = 1; Meta.data.chronicUnlocked = 1; }
       if (this.chronic) Meta.data.chronicBest = Math.max(Meta.data.chronicBest || 0, this.depth);
     }
@@ -767,7 +799,7 @@ const G = {
     this.shake = Math.max(this.shake, 12);
     for (let i = 0; i < 26; i++) this.parts.push(new Particle(x, y, U.rand(-240, 240), U.rand(-240, 240), U.rand(0.3, 0.7), U.choice(['#e0a03a', '#e06a3a', '#8a8078', '#f0e8d0']), U.rand(3, 6)));
     const p = this.player;
-    if (U.dist(x, y, p.x, p.y) < rad - 15) p.hurt(2, this);
+    if (U.dist(x, y, p.x, p.y) < rad - 15) p.hurt(2, this, 'explosion');
     for (const e of this.enemies) {
       if (e.dying) continue;
       if (U.dist(x, y, e.x, e.y) < rad + e.r) e.hurt(dmg, this, true);
@@ -992,7 +1024,7 @@ const G = {
         s.done = true;
         SFX.play('stamp');
         this.shake = Math.max(this.shake, 6);
-        if (U.dist(s.x, s.y, p.x, p.y) < s.r) p.hurt(1, this);
+        if (U.dist(s.x, s.y, p.x, p.y) < s.r) p.hurt(1, this, 'adjuster');
       }
     }
     this.stamps = this.stamps.filter(s => s.t > -0.2);
@@ -1107,7 +1139,7 @@ const G = {
       </div>`);
     document.getElementById('bResume').onclick = () => { SFX.play('ui'); this.hideOverlay(); this.state = 'run'; };
     document.getElementById('bSettings2').onclick = () => { SFX.play('ui'); this.showSettings(() => this.showPause()); };
-    document.getElementById('bQuit').onclick = () => { SFX.play('ui'); this.showTitle(); };
+    document.getElementById('bQuit').onclick = () => { SFX.play('ui'); this.recordRun('quit'); this.showTitle(); };
   },
 
   showDead() {
@@ -1132,6 +1164,7 @@ const G = {
       }
       Meta.save();
       this.checkUnlocks(); // catch kills/ward/etc. milestones reached this run
+      this.recordRun('dead');   // silent run-stats log (ward, cause of death, mode)
       this._deathQuip = U.choice(DATA.DEATH_LINES);
     }
     this.state = 'dead';
@@ -1178,6 +1211,7 @@ const G = {
         <div class="btnrow">
           <button class="btn minor" id="bAgainNew">RE-DIAGNOSE</button>
           <button class="btn minor" id="bUnlocks">🏆 UNLOCKS</button>
+          <button class="btn minor" id="bHist">📊 HISTORY</button>
         </div>
         <button class="btn minor" id="bTitle">TITLE</button>
       </div>`);
@@ -1187,6 +1221,7 @@ const G = {
     document.getElementById('bShare').onclick = () => { SFX.play('ui'); Render.shareCard({ diag: diagId, depth: this.depth, daily, key: dkind === 'challenge' ? dcode : dkey, label: dkind === 'challenge' ? 'CHALLENGE' : 'DAILY WARD', win: dailyWin, stats: { kills: st.kills, bosses: st.bosses, pills: st.pills }, code: dcode }); };
     document.getElementById('bAgainNew').onclick = () => { SFX.play('ui'); this.startQuiz(); };
     document.getElementById('bUnlocks').onclick = () => { SFX.play('ui'); this.showUnlocks(() => this.showDead()); };
+    document.getElementById('bHist').onclick = () => { SFX.play('ui'); this.showStats(() => this.showDead()); };
     document.getElementById('bTitle').onclick = () => { SFX.play('ui'); this.showTitle(); };
   },
 
@@ -1216,7 +1251,7 @@ const G = {
     this.paintWalrus('endWalrus');
     document.getElementById('bEndKeep').onclick = () => { SFX.play('ui'); this.hideOverlay(); this.state = 'run'; };
     document.getElementById('bEndShare').onclick = () => { SFX.play('ui'); Render.shareCard({ diag: this.player.diag, depth: this.depth, daily: true, key: 'WARD 25', label: this.chronic ? 'CURED · CHRONIC' : 'CURED (ALLEGEDLY)', win: true, stats: { kills: this.stats.kills, bosses: this.stats.bosses, pills: this.stats.pills } }); };
-    document.getElementById('bEndTitle').onclick = () => { SFX.play('ui'); this.showTitle(); };
+    document.getElementById('bEndTitle').onclick = () => { SFX.play('ui'); this.recordRun('cured'); this.showTitle(); };
   },
 
   /* ---------- patient chart (codex) ---------- */
@@ -1287,6 +1322,61 @@ const G = {
         <button class="btn" id="bUnlBack">BACK</button>
       </div>`);
     document.getElementById('bUnlBack').onclick = () => { SFX.play('ui'); (returnTo || (() => this.showTitle()))(); };
+  },
+
+  /* ---------- run history / real win-rate data ---------- */
+  _causeName(c) {
+    const map = { spikes: 'Spike pit', ember: 'Burnout embers', explosion: 'an explosion', adjuster: "The Adjuster's stamp", bullet: 'a stray bullet', unknown: 'unknown causes', quit: 'walked away', cured: 'reached the Cure' };
+    if (map[c]) return map[c];
+    if (DATA.ENEMIES[c]) return DATA.ENEMIES[c].name;
+    if (DATA.BOSSES[c]) return DATA.BOSSES[c].name;
+    return c;
+  },
+  showStats(returnTo) {
+    this.state = 'stats';
+    const A = Meta.data.runAgg || {}, C = Meta.data.causeAgg || {}, log = Meta.data.runlog || [];
+    let tRuns = 0, tCured = 0, tWalrus = 0, tWardSum = 0, tBest = 0;
+    for (const k in A) { const a = A[k]; tRuns += a.runs; tCured += a.cured; tWalrus += a.walrus; tWardSum += a.wardSum; tBest = Math.max(tBest, a.bestWard); }
+    const pct = (n, d) => d > 0 ? Math.round(n / d * 100) + '%' : '—';
+    const row = (l, v) => `<div class="sumrow"><span>${l}</span><b>${v}</b></div>`;
+    let body;
+    if (tRuns === 0) {
+      body = `<div class="stats-line" style="margin:18px 4px">No runs logged yet — your ward-by-ward history, causes of death, and per-diagnosis win-rates will build up here as you and your friends play. (Runs from before this update aren't counted.)</div>`;
+    } else {
+      const overall = `<div class="summary">
+        ${row('Runs logged', tRuns)}
+        ${row('Avg ward reached', (tWardSum / tRuns).toFixed(1))}
+        ${row('Deepest ward', tBest)}
+        ${row('Beat Dr. Walrus', tWalrus + ' (' + pct(tWalrus, tRuns) + ')')}
+        ${row('Reached THE CURE', tCured + ' (' + pct(tCured, tRuns) + ')')}
+      </div>`;
+      const diagRows = Object.keys(DATA.DIAG).map(id => {
+        const a = A[id]; if (!a || !a.runs) return '';
+        return row(DATA.DIAG[id].name, `${a.runs}× · avg ${(a.wardSum / a.runs).toFixed(1)} · best ${a.bestWard} · ${pct(a.cured, a.runs)} cure`);
+      }).join('');
+      const causeKeys = Object.keys(C).sort((x, y) => C[y] - C[x]).slice(0, 6);
+      const causeRows = causeKeys.length
+        ? causeKeys.map(c => row(this._causeName(c), C[c])).join('')
+        : `<div class="stats-line">no deaths logged (nice)</div>`;
+      const recent = log.slice(-8).reverse().map(r => {
+        const tag = (r.out === 'cured' || r.cured) ? '✓ cured' : r.out === 'quit' ? 'left' : '☠ ' + this._causeName(r.cause);
+        const mode = (r.mode && r.mode !== 'normal') ? ` <i style="color:#8a7a68">[${r.mode}]</i>` : '';
+        return row(`${DATA.DIAG[r.diag] ? DATA.DIAG[r.diag].name : r.diag}${mode}`, `ward ${r.ward} · ${tag}`);
+      }).join('');
+      const head = t => `<div class="stats-line" style="font-weight:bold;letter-spacing:1px;color:#2c2333;margin:14px 4px 2px">${t}</div>`;
+      body = `${overall}
+        ${head('BY DIAGNOSIS')}<div class="summary">${diagRows}</div>
+        ${head('TOP CAUSES OF DEATH')}<div class="summary">${causeRows}</div>
+        ${head('RECENT RUNS')}<div class="summary">${recent}</div>`;
+    }
+    this.overlay(`
+      <div class="panel wide">
+        <h1 class="logo" style="font-size:26px">RUN HISTORY</h1>
+        <div class="tagline">real playthrough data — stored on this device only</div>
+        <div class="achlist" style="gap:0">${body}</div>
+        <button class="btn" id="bStatsBack">BACK</button>
+      </div>`);
+    document.getElementById('bStatsBack').onclick = () => { SFX.play('ui'); (returnTo || (() => this.showTitle()))(); };
   },
 
   /* ---------- overlay plumbing ---------- */

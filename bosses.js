@@ -88,6 +88,7 @@ class Boss {
   bullet(a, spd, clr, opts) {
     const b = new EBullet(this.x + Math.cos(a) * this.r * 0.7, this.y + Math.sin(a) * this.r * 0.7,
       Math.cos(a) * spd, Math.sin(a) * spd, this.dmg, clr);
+    b._src = this.id;
     if (opts && opts.home) b.home = opts.home;
     if (opts && opts.r) b.r = opts.r;
     if (opts && opts.life) b.life = opts.life;
@@ -360,7 +361,7 @@ class Boss {
         if (this.enrage > 0) {
           this.enrage -= dt;
           this.moveToward(p.x, p.y, 190, dt);
-          if (p.iframes <= 0 && U.dist(this.x, this.y, p.x, p.y) < this.r + p.r) p.hurt(2, G);
+          if (p.iframes <= 0 && U.dist(this.x, this.y, p.x, p.y) < this.r + p.r) p.hurt(2, G, this.id);
         } else {
           this.x = CW / 2 + Math.sin(this.t * 0.5) * 230;
           this.y = RY + 130 + Math.sin(this.t * 0.9) * 55;
@@ -498,6 +499,7 @@ class Boss {
                 if (Math.abs(bx - gapX) < 70) continue;
                 const b = new EBullet(bx, RY + 20, 0, 170 + (P2 ? 40 : 0), this.dmg, DATA.PILL_COLORS[U.randi(0, 9)]);
                 b.r = 8;
+                b._src = this.id;
                 G.eBullets.push(b);
               }
               SFX.play('pop');
@@ -544,7 +546,7 @@ class Boss {
 
     // contact damage (generic)
     if (this.id !== 'burnout' && p.iframes <= 0 && U.dist(this.x, this.y, p.x, p.y) < this.r + p.r - 6) {
-      p.hurt(this.dmg, G);
+      p.hurt(this.dmg, G, this.id);
     }
   }
 

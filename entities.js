@@ -78,6 +78,7 @@ class Player {
     this.aimAng = -Math.PI / 2;
     this.moving = false;
     this.hurtFlash = 0;
+    this._lastSrc = null;
     this.dead = false;
     this.itemHold = 0; this.itemHoldName = ''; this.itemHoldQuote = '';
     this.inZoneSlow = false;
@@ -253,7 +254,7 @@ class Player {
     for (const z of G.zones) {
       if (U.dist(this.x, this.y, z.x, z.y) < z.r + this.r * 0.4) {
         if (z.kind === 'slow' || z.kind === 'ash' || z.kind === 'tolerance') this.inZoneSlow = true;
-        if (z.kind === 'ember' && this.iframes <= 0) this.hurt(1, G);
+        if (z.kind === 'ember' && this.iframes <= 0) this.hurt(1, G, 'ember');
       }
     }
 
@@ -265,7 +266,7 @@ class Player {
 
     // spikes
     const t = pxToTile(this.x, this.y);
-    if (t.c >= 0 && t.r >= 0 && t.c < COLS && t.r < ROWS && G.room.layout[t.r][t.c] === 3 && this.iframes <= 0) this.hurt(1, G);
+    if (t.c >= 0 && t.r >= 0 && t.c < COLS && t.r < ROWS && G.room.layout[t.r][t.c] === 3 && this.iframes <= 0) this.hurt(1, G, 'spikes');
 
     // shooting
     const aim = Input.getAim(this.x, this.y);
@@ -289,7 +290,7 @@ class Player {
     for (const f of this.familiars) f.update(dt, G);
   }
 
-  hurt(n, G) {
+  hurt(n, G, src) {
     if (this.iframes > 0 || this.dead) return;
     if (this.diag === 'depression' && this.blanket) {
       this.blanket = false;
@@ -301,6 +302,7 @@ class Player {
     }
     if (this.diag === 'bipolar' && !this.flags.stable && !this.mania) n = Math.max(1, Math.floor(n / 2));
     if (G.easy) n = Math.max(1, Math.ceil(n * 0.5));   // 'Second Opinion' easy mode
+    if (src) this._lastSrc = src;   // cause-of-death tracking for run log
     this.hp -= n;
     this.iframes = this.iframeTime;
     this.hurtFlash = 0.35;
@@ -387,6 +389,7 @@ class EBullet {
     this.fake = !!fake;
     this.dud = false; this.dead = false;
     this.t = 0;
+    this._src = 'bullet';   // overwritten with the shooter's id at spawn (cause-of-death)
   }
   update(dt, G) {
     this.t += dt;
@@ -417,7 +420,7 @@ class EBullet {
     const p = G.player;
     if (U.dist(this.x, this.y, p.x, p.y) < this.r + p.r - 3) {
       if (this.fake) { this.fizzle(G); return; }
-      p.hurt(this.dmg, G);
+      p.hurt(this.dmg, G, this._src);
       this.dead = true;
     }
   }
@@ -640,13 +643,14 @@ class Enemy {
     // contact damage (dmg > 0 skips harmless props like Prior Auth forms)
     const p2 = G.player;
     if (!this.fake && this.dmg > 0 && p2.iframes <= 0 && U.dist(this.x, this.y, p2.x, p2.y) < this.r + p2.r - 4) {
-      p2.hurt(this.dmg, G);
+      p2.hurt(this.dmg, G, this.id);
     }
   }
 
   fireAt(G, tx, ty, spd, clr, angOff) {
     const a = U.ang(this.x, this.y, tx, ty) + (angOff || 0);
     const b = new EBullet(this.x, this.y, Math.cos(a) * spd, Math.sin(a) * spd, this.dmg, clr, this.fake);
+    b._src = this.id;
     if (G.player.flags.tinfoil && (this.beh === 'shooter' || this.beh === 'mirror' || this.beh === 'larper') && U.chance(0.25)) b.dud = true;
     G.eBullets.push(b);
   }
@@ -673,7 +677,7 @@ class Enemy {
     G.shake = Math.max(G.shake, 10);
     for (let i = 0; i < 20; i++) G.parts.push(new Particle(this.x, this.y, U.rand(-220, 220), U.rand(-220, 220), 0.6, U.choice(['#e06a3a', '#e0a03a', '#d04040']), 5));
     const p = G.player;
-    if (!this.fake && U.dist(this.x, this.y, p.x, p.y) < 85 + p.r) p.hurt(1, G);
+    if (!this.fake && U.dist(this.x, this.y, p.x, p.y) < 85 + p.r) p.hurt(1, G, this.id);
     for (const e of G.enemies) {
       if (e === this || e.dying) continue;
       if (U.dist(this.x, this.y, e.x, e.y) < 85 + e.r) e.hurt(18, G, true);
