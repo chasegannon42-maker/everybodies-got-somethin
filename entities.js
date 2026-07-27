@@ -81,6 +81,12 @@ class Player {
     this.dead = false;
     this.itemHold = 0; this.itemHoldName = ''; this.itemHoldQuote = '';
     this.inZoneSlow = false;
+    // signature ability
+    this.abil = (DATA.ABILITIES && DATA.ABILITIES[diagId]) || null;
+    this.abilCd = 0; this.abilMax = this.abil ? this.abil.cd : 0;
+    this.dashT = 0; this.dashDir = { x: 0, y: 0 };  // ADHD blink
+    this.cocoonT = 0;                                // Depression cocoon (invuln + slow)
+    this._transforms = []; this.transformTint = null;
 
     if (diagId === 'adhd') { this.spd *= 1.22; this.tearDelay *= 0.88; this.wobble = 0.11; }
     if (diagId === 'depression') { this.spd *= 0.85; this.maxhp = 8; this.hp = 8; this.dmg *= 1.3; this.range *= 0.92; }
@@ -104,6 +110,19 @@ class Player {
       SFX.play('item');
       Haptics.buzz([20, 40, 30], 0);
     }
+    // prescription transformations: 3 of a theme -> transform
+    if (G && DATA.TRANSFORMS) {
+      for (const t of DATA.TRANSFORMS) {
+        if (this._transforms.includes(t.name)) continue;
+        const owned = this.items.filter(x => DATA.ITEM_THEMES[t.theme].indexOf(x) >= 0).length;
+        if (owned >= t.need) {
+          this._transforms.push(t.name); this.transformTint = t.tint;
+          try { t.apply(this); } catch (e) { }
+          G.toast('✨ TRANSFORMATION: ' + t.name + '!', '#e8c84c');
+          SFX.play('item'); Haptics.buzz([30, 40, 60], 0);
+        }
+      }
+    }
   }
 
   effSpd() {
@@ -115,7 +134,60 @@ class Player {
     if (this.adren) s *= 1.2;
     if (this.tempSlow > 0) s *= 0.6;
     if (this.inZoneSlow) s *= 0.62;
+    if (this.cocoonT > 0) s *= 0.4;   // Under The Covers
     return s;
+  }
+  /* signature 'PRN' ability, one per diagnosis */
+  useAbility(G) {
+    if (!this.abil || this.abilCd > 0 || this.dead) return;
+    this.abilCd = this.abilMax;
+    Haptics.buzz([15, 30, 20], 0);
+    switch (this.diag) {
+      case 'adhd': {   // Blink — dash in the current move/aim direction, briefly untouchable
+        const mv = Input.getMove();
+        let dx = mv.x, dy = mv.y;
+        if (Math.abs(dx) < 0.1 && Math.abs(dy) < 0.1) { dx = Math.cos(this.aimAng); dy = Math.sin(this.aimAng); }
+        const n = U.norm(dx, dy); this.dashDir = n; this.dashT = 0.16; this.iframes = Math.max(this.iframes, 0.35);
+        SFX.play('whoosh');
+        for (let i = 0; i < 8; i++) G.parts.push(new Particle(this.x, this.y, U.rand(-120, 120), U.rand(-120, 120), 0.3, '#f7b32b', 3));
+        break;
+      }
+      case 'bipolar': {   // Mood Swing — force a fresh mania high
+        this.flags.stable = false; this.mania = true; this.moodT = 0;
+        this.iframes = Math.max(this.iframes, 0.4);
+        G.toast('▲ MANIA — on demand', '#e8c84c'); SFX.play('voice');
+        for (let i = 0; i < 10; i++) G.parts.push(new Particle(this.x, this.y, U.rand(-160, 160), U.rand(-160, 160), 0.4, '#e8c84c', 3));
+        break;
+      }
+      case 'depression': {   // Under The Covers — cocoon: invulnerable but slowed
+        this.cocoonT = 1.6; this.iframes = Math.max(this.iframes, 1.6);
+        G.toast('🛏 under the covers…', '#5d8aa8'); SFX.play('whoosh');
+        break;
+      }
+      case 'anxiety': {   // Panic — nova that wipes nearby bullets and shoves enemies
+        this.iframes = Math.max(this.iframes, 0.4);
+        for (const b of G.eBullets) if (U.dist(this.x, this.y, b.x, b.y) < 170) b.fizzle(G);
+        for (const e of G.enemies) { if (e.dying) continue; const d = U.dist(this.x, this.y, e.x, e.y); if (d < 170 && d > 0.01) { const a = U.ang(this.x, this.y, e.x, e.y); e.x += Math.cos(a) * 60; e.y += Math.sin(a) * 60; e.hurt(4, G, true); } }
+        G.shake = Math.max(G.shake, 8);
+        for (let i = 0; i < 24; i++) { const a = (i / 24) * TAU; G.parts.push(new Particle(this.x, this.y, Math.cos(a) * 260, Math.sin(a) * 260, 0.4, '#43b8a5', 4)); }
+        G.toast('!!! PANIC !!!', '#43b8a5'); SFX.play('boom');
+        break;
+      }
+      case 'schizo': {   // Reality Check — pop every hallucination in the room
+        let popped = 0;
+        for (const e of G.enemies) if (e.fake && !e.dying) { e.hurt(1, G); popped++; }
+        this.iframes = Math.max(this.iframes, 0.3);
+        G.toast(popped ? ('the voice was right: ' + popped + ' weren\'t real') : 'nothing here is fake… this time', '#cbb8e8');
+        SFX.play('pop');
+        break;
+      }
+      case 'fine': {   // Denial — briefly refuse to take damage
+        this.iframes = Math.max(this.iframes, 1.5);
+        G.toast('"I\'m FINE."', '#9e9e9e'); SFX.play('ui');
+        for (let i = 0; i < 8; i++) G.parts.push(new Particle(this.x, this.y, U.rand(-80, 80), U.rand(-80, 80), 0.4, '#c8c8c8', 3));
+        break;
+      }
+    }
   }
   effDmg() {
     let d = this.dmg;
@@ -139,6 +211,8 @@ class Player {
   update(dt, G) {
     this.iframes -= dt; this.hurtFlash -= dt; this.itemHold -= dt;
     this.tempSlow -= dt; this.tearTimer -= dt;
+    if (this.abilCd > 0) this.abilCd -= dt;
+    if (this.cocoonT > 0) { this.cocoonT -= dt; this.iframes = Math.max(this.iframes, 0.05); }
 
     // mood cycle
     if (this.diag === 'bipolar' && !this.flags.stable) {
@@ -149,7 +223,11 @@ class Player {
     // movement
     const mv = Input.getMove();
     this.moving = (Math.abs(mv.x) > 0.05 || Math.abs(mv.y) > 0.05);
-    if (this.itemHold > 0.6) { /* holding item up: brief pause */ }
+    if (this.dashT > 0) {   // ADHD Blink: fast, brief, invincible
+      this.dashT -= dt;
+      this.x += this.dashDir.x * 900 * dt;
+      this.y += this.dashDir.y * 900 * dt;
+    } else if (this.itemHold > 0.6) { /* holding item up: brief pause */ }
     else {
       const s = this.effSpd();
       this.x += mv.x * s * dt;
@@ -751,10 +829,12 @@ function spawnEnemiesForRoom(room, depth, G) {
   const p = G.player;
   const dif = DATA.difficulty(depth);
   const mods = G.floorMods || {};
-  const hpMult = (p.flags.fineMode ? 1.15 : 1) * (mods.hpMul || 1) * (G.chronic ? 1.5 : 1) * (G.easy ? 0.7 : 1);
+  const wp = (DATA.WARD_PATHS && DATA.WARD_PATHS[G.wardPath]) || null;
+  const hpMult = (p.flags.fineMode ? 1.15 : 1) * (mods.hpMul || 1) * (G.chronic ? 1.5 : 1) * (G.easy ? 0.7 : 1) * (wp ? wp.hpMul : 1);
   let count = dif.count;
   if (mods.countMul) count = Math.round(count * mods.countMul);
   if (G.chronic) count = Math.round(count * 1.2);
+  if (wp) count += (wp.countAdd || 0);
   count = U.clamp(count + U.randi(-1, 1), 3, G.chronic ? 18 : 16);
   const champChance = U.clamp(dif.champChance + (mods.champAdd || 0), 0, 0.75);
   const spots = [];

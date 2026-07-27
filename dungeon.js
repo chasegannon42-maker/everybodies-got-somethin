@@ -157,6 +157,12 @@ function generateFloor(depth, lastBoss) {
     }
   }
 
+  // mini-event room: convert a spare normal room into a non-combat choice room
+  if (depth >= 2) {
+    const normals = [...grid.values()].filter(r => r.type === 'normal');
+    if (normals.length > 3 && U.chance(0.7)) U.choice(normals).type = 'event';
+  }
+
   // build layouts
   for (const room of grid.values()) buildLayout(room, depth);
 

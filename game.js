@@ -459,6 +459,7 @@ const G = {
     this.chronic = !!this._startChronic; this._startChronic = false;
     this.bossRush = !!this._startBossRush; this._startBossRush = false;
     this.easy = !!(Meta.data.a11y && Meta.data.a11y.easy);
+    this.wardPath = 'day';   // set by the Treatment Plan each descent
     this._cureBeaten = false;
     // daily streak (real daily only, counted once per day on first play)
     if (this.dailyKind === 'daily') {
@@ -621,11 +622,15 @@ const G = {
         } else {
           room.peds.push({ x: CW / 2, y: RY + RH / 2, itemId: id1, kind: 'item', taken: false });
         }
+        if (this.wardPath === 'inpatient') {   // tougher ward, richer loot
+          room.pickups.push(new Pickup('full', CW / 2 - 60, RY + RH / 2 + 64));
+          room.pickups.push(new Pickup('nickel', CW / 2 + 60, RY + RH / 2 + 64));
+        }
         break;
       }
       case 'shop': {
         room.cleared = true;
-        const disc = p.flags.discount ? 0.5 : 1;
+        const disc = p.flags.discount ? 0.5 : (this.wardPath === 'outpatient' ? 0.75 : 1);
         const px = (n) => Math.max(1, Math.ceil(n * disc));
         const y = RY + RH / 2 - 20;
         room.stock = [
@@ -657,6 +662,12 @@ const G = {
         room.cleared = true;
         const pool = DATA.pickPool('oon', p.items);
         room.peds.push({ x: CW / 2, y: RY + RH / 2, itemId: U.choice(pool.length ? pool : DATA.POOLS.oon), kind: 'oon', price: 1, taken: false });
+        break;
+      }
+      case 'event': {
+        room.cleared = true;
+        const ev = U.randi(0, DATA.EVENTS.length - 1);
+        room.peds.push({ x: CW / 2, y: RY + RH / 2, kind: 'event', eventId: ev, taken: false });
         break;
       }
     }
@@ -850,35 +861,64 @@ const G = {
     this._descended = false;
     SFX.play('descend');
   },
-  offerComorbidity() {
+  offerComorbidity() {   // the Treatment Plan: choose your next ward (each bundles a comorbidity)
     if (!DATA.COMORBIDITIES || !DATA.COMORBIDITIES.length) { this.doDescend(); return; }
-    // seeded 3-card offer so a daily's options match for everyone — the pick is still yours
-    const pool = this.genSeed(['comorbid', this.depth], () => U.shuffle(DATA.COMORBIDITIES).slice(0, 3));
+    // seeded so a daily's options match for everyone — the pick is still yours
+    const picks = this.genSeed(['ward', this.depth], () => {
+      const cos = U.shuffle(DATA.COMORBIDITIES).slice(0, 3);
+      return ['inpatient', 'outpatient', 'day'].map((pk, i) => ({ path: pk, co: cos[i] }));
+    });
     this.state = 'comorbid';
     SFX.play('voice');
-    const cards = pool.map((c, i) => `
-      <button class="cmcard" data-i="${i}">
-        <div class="cmname">${c.name}</div>
-        <div class="cmdesc">${c.desc}</div>
-      </button>`).join('');
+    const cards = picks.map((it, i) => {
+      const w = DATA.WARD_PATHS[it.path];
+      return `<button class="cmcard wardcard" data-i="${i}">
+        <div class="wardname">${w.name}</div>
+        <div class="cmdesc">${w.desc}</div>
+        <div class="cmtag">🧬 ${it.co.name} — ${it.co.desc}</div>
+      </button>`;
+    }).join('');
     this.overlay(`
       <div class="panel wide">
-        <h1 class="logo" style="font-size:26px">SECOND OPINION</h1>
-        <div class="tagline">the doctor found something ELSE — take a comorbidity into the next ward</div>
+        <h1 class="logo" style="font-size:26px">TREATMENT PLAN</h1>
+        <div class="tagline">choose your next ward — each comes with a comorbidity</div>
         <div class="cmgrid">${cards}</div>
-        <button class="btn minor" id="bComorbidSkip">DECLINE (take nothing)</button>
+        <button class="btn minor" id="bComorbidSkip">walk it off (no ward bonus, no comorbidity)</button>
       </div>`);
-    document.querySelectorAll('.cmcard').forEach(b => b.onclick = () => {
-      const c = pool[+b.dataset.i];
+    document.querySelectorAll('.wardcard').forEach(b => b.onclick = () => {
+      const it = picks[+b.dataset.i];
       SFX.play('item');
-      try { c.apply(this.player, this); } catch (e) { }
-      (this.player.comorbidities || (this.player.comorbidities = [])).push(c.id);
-      this.toast('Comorbidity acquired: ' + c.name, '#b8e0a0');
+      this.wardPath = it.path;
+      try { it.co.apply(this.player, this); } catch (e) { }
+      (this.player.comorbidities || (this.player.comorbidities = [])).push(it.co.id);
       this.checkComorbidSynergy();
+      this.toast('→ ' + DATA.WARD_PATHS[it.path].name + ' · ' + it.co.name, '#b8e0a0');
       this.hideOverlay();
       this.doDescend();
     });
-    document.getElementById('bComorbidSkip').onclick = () => { SFX.play('ui'); this.hideOverlay(); this.doDescend(); };
+    document.getElementById('bComorbidSkip').onclick = () => { SFX.play('ui'); this.wardPath = 'day'; this.hideOverlay(); this.doDescend(); };
+  },
+
+  /* ---------- mini-event choice room ---------- */
+  showEvent(ev, ped) {
+    this.state = 'event';
+    SFX.play('voice');
+    const cards = ev.choices.map((c, i) => `<button class="cmcard" data-i="${i}"><div class="cmname">${c.label}</div><div class="cmdesc">${c.note}</div></button>`).join('');
+    this.overlay(`
+      <div class="panel wide">
+        <h1 class="logo" style="font-size:26px">${ev.name}</h1>
+        <div class="tagline">${ev.prompt}</div>
+        <div class="cmgrid">${cards}</div>
+      </div>`);
+    document.querySelectorAll('.cmcard').forEach(b => b.onclick = () => {
+      const c = ev.choices[+b.dataset.i];
+      SFX.play('ui');
+      try { c.apply(this.player, this); } catch (e) { }
+      ped.taken = true;
+      this.hideOverlay();
+      this.state = 'run';
+      this.toast('“' + c.label + '”', '#b8e0a0');
+    });
   },
 
   /* ---------- update ---------- */
@@ -915,6 +955,7 @@ const G = {
     p.update(dt, this);
 
     // inputs
+    if (Input.take('ability')) p.useAbility(this);
     if (Input.take('pill')) this.usePill();
     if (Input.take('bomb') && p.bombs > 0 && this.state === 'run') {
       p.bombs--;
@@ -968,7 +1009,10 @@ const G = {
     for (const ped of this.peds) {
       if (ped.taken) continue;
       if (U.dist(ped.x, ped.y, p.x, p.y) > 26 + p.r) continue;
-      if (ped.kind === 'oon') {
+      if (ped.kind === 'event') {
+        this.showEvent(DATA.EVENTS[ped.eventId], ped);
+        return;   // pause the loop; modal is up
+      } else if (ped.kind === 'oon') {
         if (p.maxhp >= 4) {
           p.maxhp -= 2; p.hp = Math.min(p.hp, p.maxhp);
           ped.taken = true;

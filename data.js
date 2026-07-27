@@ -405,6 +405,74 @@ DATA.COMORBID_SYNERGY = [
   { need: ['sensory', 'oversharing'], name: "Meltdown", note: "+ a grounding nova when hit", apply(p) { p.flags.hurtNova = true; } }
 ];
 
+/* ============ SIGNATURE ('PRN') ABILITIES ============
+   One chargeable active per diagnosis. cd = cooldown seconds; the effect itself
+   lives in Player.useAbility(). Names/blurbs also show on the diagnosis card. */
+DATA.ABILITIES = {
+  adhd:       { name: "Blink", cd: 5, blurb: "Dash a short burst — briefly untouchable." },
+  bipolar:    { name: "Mood Swing", cd: 12, blurb: "Force a fresh MANIA high on demand." },
+  depression: { name: "Under The Covers", cd: 10, blurb: "Cocoon up: invincible but slowed, a moment's rest." },
+  anxiety:    { name: "Panic", cd: 9, blurb: "A nova that wipes nearby bullets and shoves enemies back." },
+  schizo:     { name: "Reality Check", cd: 10, blurb: "Pop every hallucination in the room and see through the rest." },
+  fine:       { name: "Denial", cd: 11, blurb: "\"I'm FINE.\" Briefly refuse to take damage." }
+};
+
+/* ============ PRESCRIPTION TRANSFORMATIONS ============
+   Collect 3 items sharing a theme → transform, Isaac-style. */
+DATA.ITEM_THEMES = {
+  coping: ['dog', 'plush', 'journal', 'gym', 'coldshower', 'grounding', 'pillow', 'crystals', 'oils', 'blanket'],
+  stimulant: ['brand', 'generic', 'amps', 'juice', 'detox'],
+  pharma: ['ssri', 'lithium', 'beta', 'antipsy', 'melatonin', 'sideeffects', 'offlabel']
+};
+DATA.TRANSFORMS = [
+  { theme: 'coping', need: 3, name: "In Therapy", tint: '#8fd05a', apply(p) { p.maxhp += 4; p.hp += 4; p.dmg += 0.5; } },
+  { theme: 'stimulant', need: 3, name: "Tweaking", tint: '#f7b32b', apply(p) { p.spd *= 1.12; p.tearDelay *= 0.85; } },
+  { theme: 'pharma', need: 3, name: "Fully Medicated", tint: '#b86bff', apply(p) { p.dmg += 1.5; p.maxhp += 2; p.hp += 2; } }
+];
+
+/* ============ BRANCHING WARDS (treatment plans) ============
+   Each descent offers a choice of ward; the path tunes the next floor. */
+DATA.WARD_PATHS = {
+  inpatient: { name: "🏥 Inpatient", desc: "Tougher ward — but the loot's worth it.", hpMul: 1.28, countAdd: 1, bonusLoot: true },
+  outpatient: { name: "🏃 Outpatient", desc: "Lighter ward — cheaper meds, calmer halls.", hpMul: 0.8, countAdd: -1, shopDiscount: true },
+  day: { name: "☀️ Day Program", desc: "A normal ward. No surprises. Allegedly.", hpMul: 1, countAdd: 0 }
+};
+
+/* ============ MINI-EVENTS (non-combat choice rooms) ============ */
+DATA.EVENTS = [
+  {
+    name: "Support Group", prompt: "A circle of folding chairs. They actually want to listen.",
+    choices: [
+      { label: "Share honestly", note: "heal 1 heart + a little luck", apply(p) { p.heal(2); p.luck += 1; } },
+      { label: "Just listen", note: "+0.4 damage (you learned something)", apply(p) { p.dmg += 0.4; } },
+      { label: "Slip out early", note: "nothing ventured", apply() { } }
+    ]
+  },
+  {
+    name: "3 A.M. Self-Diagnosis", prompt: "The search bar glows. \"my symptoms\" it waits. It's never good news.",
+    choices: [
+      { label: "Trust the internet", note: "gamble: a boon… or a new symptom", apply(p) { if (U.chance(0.5)) { p.dmg += 1.2; } else { p.spd *= 0.9; p.tearDelay *= 1.08; } } },
+      { label: "Close the laptop", note: "sleep, actually (heal 1)", apply(p) { p.heal(1); } }
+    ]
+  },
+  {
+    name: "Wellness MLM Pitch", prompt: "\"Hey hun! This oil cures literally everything. Buy in?\"",
+    choices: [
+      { label: "Buy the starter kit (5¢)", note: "gamble on +luck & +damage", apply(p, G) { if (p.coins >= 5) { p.coins -= 5; if (U.chance(0.6)) { p.luck += 1; p.dmg += 0.5; } } } },
+      { label: "\"I'm good, thanks\"", note: "keep your copays", apply() { } },
+      { label: "Report the pyramid", note: "+3 copays (civic duty)", apply(p) { p.coins += 3; } }
+    ]
+  },
+  {
+    name: "Wellness Retreat", prompt: "Incense. A gong. A suspiciously expensive silence.",
+    choices: [
+      { label: "Meditate", note: "bullets near you slow this run", apply(p) { p.flags.slowBullets = true; } },
+      { label: "Do the cleanse", note: "-half heart now, +0.8 damage", apply(p) { p.hp = Math.max(1, p.hp - 1); p.dmg += 0.8; } },
+      { label: "Leave (it's a scam)", note: "nothing", apply() { } }
+    ]
+  }
+];
+
 /* ============ ENDLESS DIFFICULTY CURVE ============
    One place that scales every threat axis with depth. Early wards (1-5)
    match the tuned baseline; growth is mostly linear with a gentle

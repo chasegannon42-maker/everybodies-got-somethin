@@ -358,3 +358,9 @@ body.touch.inrun #padLand { display: block; }
 .cmcard:active { transform: translateY(2px); box-shadow: 0 1px 0 #2c2333; }
 .cmname { font-weight: bold; font-size: clamp(15px, 3.6vw, 18px); color: #7a3a8a; }
 .cmdesc { font-size: clamp(12.5px, 3vw, 14.5px); color: #55445e; margin-top: 3px; }
+/* treatment-plan ward cards (extend .cmcard) */
+.wardname { font-weight: bold; font-size: clamp(15px, 3.6vw, 18px); color: #3a2a4a; }
+.wardcard .cmdesc { color: #6b5a4a; }
+.cmtag { font-size: clamp(11px, 2.8vw, 13px); color: #2c5a33; margin-top: 5px; font-style: italic; }
+/* keep the portrait deck's 4 action buttons compact */
+.deckmid .deckbtn { padding: 8px 6px; }

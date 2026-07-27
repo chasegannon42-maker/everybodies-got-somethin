@@ -364,6 +364,21 @@ const Render = {
     // pedestals
     for (const ped of G.peds) {
       if (ped.taken) continue;
+      if (ped.kind === 'event') {   // a mysterious clipboard shrine
+        const eb = Math.sin(G.t * 2 + ped.x) * 3;
+        const eg = ctx.createRadialGradient(ped.x, ped.y - 10, 4, ped.x, ped.y - 10, 50);
+        eg.addColorStop(0, 'rgba(200,170,240,0.28)'); eg.addColorStop(1, 'rgba(200,170,240,0)');
+        ctx.fillStyle = eg; ctx.beginPath(); ctx.arc(ped.x, ped.y - 10, 50, 0, TAU); ctx.fill();
+        this.shadow(ped.x, ped.y + 14, 18, 6, 0.26);
+        ctx.save(); ctx.translate(ped.x, ped.y - 6 + eb);
+        ctx.fillStyle = '#8a6a3a'; this.rr(ctx, -16, -20, 32, 40, 4); ctx.fill();
+        ctx.fillStyle = '#f4ecd8'; this.rr(ctx, -13, -16, 26, 34, 2); ctx.fill();
+        ctx.fillStyle = '#b06be0'; this.rr(ctx, -7, -22, 14, 6, 2); ctx.fill();
+        ctx.fillStyle = '#7a3a8a'; ctx.font = this.font(22, true); ctx.textAlign = 'center'; ctx.fillText('?', 0, 6);
+        ctx.restore();
+        if (U.dist(G.player.x, G.player.y, ped.x, ped.y) < 80) { ctx.fillStyle = '#e0c8f0'; ctx.font = this.font(12, true); ctx.textAlign = 'center'; ctx.fillText('walk up to examine', ped.x, ped.y - 40); }
+        continue;
+      }
       const bob = Math.sin(G.t * 2.4 + ped.x) * 3;
       // spotlight glow from above
       const gg = ctx.createRadialGradient(ped.x, ped.y - 26, 4, ped.x, ped.y - 26, 46);
@@ -539,6 +554,20 @@ const Render = {
     ctx.translate(p.x, p.y);
     if (blink) ctx.globalAlpha = 0.45;
 
+    // depression cocoon (Under The Covers) — a protective bubble
+    if (p.cocoonT > 0) {
+      ctx.fillStyle = 'rgba(93,138,168,0.22)';
+      ctx.beginPath(); ctx.arc(0, 0, 30 + Math.sin(G.t * 6) * 2, 0, TAU); ctx.fill();
+      ctx.strokeStyle = 'rgba(140,180,210,0.7)'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(0, 0, 30 + Math.sin(G.t * 6) * 2, 0, TAU); ctx.stroke();
+    }
+    // transformation aura
+    if (p.transformTint) {
+      ctx.strokeStyle = p.transformTint; ctx.globalAlpha *= 0.5;
+      ctx.lineWidth = 2;
+      for (let i = 0; i < 3; i++) { const a = G.t * 2 + i * TAU / 3; ctx.beginPath(); ctx.arc(Math.cos(a) * 22, Math.sin(a) * 22 - 4, 2.5, 0, TAU); ctx.stroke(); }
+      ctx.globalAlpha = blink ? 0.45 : 1;
+    }
     // hyperfocus ring
     if (p.focused) {
       ctx.strokeStyle = 'rgba(247,179,43,0.7)';
@@ -1637,6 +1666,23 @@ const Render = {
     this.drawBombIcon(302, 24);
     ctx.textAlign = 'left'; ctx.fillStyle = '#f0e8d8'; ctx.fillText(String(p.bombs), 316, 29);
 
+    // signature ability pip (bottom-left)
+    if (p.abil) {
+      const ax = 42, ay = CH - 44, ar = 22, ready = p.abilCd <= 0;
+      ctx.fillStyle = 'rgba(20,14,22,0.7)'; ctx.beginPath(); ctx.arc(ax, ay, ar, 0, TAU); ctx.fill();
+      if (!ready && p.abilMax > 0) {
+        ctx.fillStyle = 'rgba(232,200,76,0.18)';
+        ctx.beginPath(); ctx.moveTo(ax, ay); ctx.arc(ax, ay, ar, -Math.PI / 2, -Math.PI / 2 + TAU * (1 - p.abilCd / p.abilMax)); ctx.closePath(); ctx.fill();
+      }
+      ctx.strokeStyle = ready ? '#e8c84c' : 'rgba(240,232,216,0.35)'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(ax, ay, ar, 0, TAU); ctx.stroke();
+      ctx.textAlign = 'center';
+      ctx.fillStyle = ready ? '#e8c84c' : 'rgba(240,232,216,0.5)'; ctx.font = this.font(17, true); ctx.fillText('⚡', ax, ay + 6);
+      ctx.fillStyle = ready ? 'rgba(240,232,216,0.85)' : 'rgba(240,232,216,0.5)'; ctx.font = this.font(10, true);
+      ctx.fillText(p.abil.name, ax, ay + ar + 12);
+      if (!Input.usingTouch) { ctx.fillStyle = 'rgba(240,232,216,0.45)'; ctx.font = this.font(9); ctx.fillText('SPACE', ax, ay - ar - 6); }
+    }
+
     // pill slot
     ctx.strokeStyle = 'rgba(240,232,216,0.5)'; ctx.lineWidth = 2;
     this.rr(ctx, 350, 8, 66, 34, 8); ctx.stroke();
@@ -1760,6 +1806,7 @@ const Render = {
       else if (room.type === 'item') ctx.fillText('✚', cx2, cy2);
       else if (room.type === 'shop') ctx.fillText('$', cx2, cy2);
       else if (room.type === 'secret') ctx.fillText('?', cx2, cy2);
+      else if (room.type === 'event') ctx.fillText('‽', cx2, cy2);
       else if (room.type === 'oon') ctx.fillText('♥', cx2, cy2);
     }
     ctx.restore();

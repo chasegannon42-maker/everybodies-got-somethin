@@ -9,7 +9,7 @@
   <title>Everybodies Got Somethin</title>
   <meta name="description" content="A satirical Binding-of-Isaac-style roguelike where Dr. Walrus diagnoses you with Something™ and sends you into the infinite wards.">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🦭</text></svg>">
-  <link rel="stylesheet" href="style.css?v=11">
+  <link rel="stylesheet" href="style.css?v=12">
 </head>
 <body>
   <div id="wrap">
@@ -21,6 +21,7 @@
       <div id="deckControls">
         <div class="pad" id="deckMove"><div class="padbase"></div><div class="nub" id="nubMove"></div><span class="plabel">MOVE</span></div>
         <div class="deckmid">
+          <button class="deckbtn" id="btnAbilD">⚡<span>PRN</span></button>
           <button class="deckbtn" id="btnPillD">💊<span>PILL</span></button>
           <button class="deckbtn" id="btnBombD">📄<span>CLAIM</span></button>
           <button class="deckbtn small" id="btnPauseD">❚❚</button>
@@ -38,6 +39,7 @@
     <div class="stick" id="stickRvis"><div class="nub"></div></div>
     <div id="landBtns">
       <button class="tbtn" id="btnPauseL">❚❚</button>
+      <button class="tbtn" id="btnAbilL">⚡<br>PRN</button>
       <button class="tbtn" id="btnPillL">💊<br>PILL</button>
       <button class="tbtn" id="btnBombL">📄<br>CLAIM</button>
     </div>

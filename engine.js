@@ -341,7 +341,7 @@ const Input = {
   usingTouch: false,
   moveStick: { active: false, id: -1, ax: 0, ay: 0, dx: 0, dy: 0 },
   aimStick: { active: false, id: -1, ax: 0, ay: 0, dx: 0, dy: 0 },
-  _edge: { pill: false, bomb: false, pause: false, confirm: false, mute: false, map: false },
+  _edge: { pill: false, bomb: false, pause: false, confirm: false, mute: false, map: false, ability: false },
   canvas: null,
 
   init(canvas) {
@@ -354,6 +354,7 @@ const Input = {
       if (e.code === 'KeyP' || e.code === 'Escape') this._edge.pause = true;
       if (e.code === 'Enter' || e.code === 'Space') this._edge.confirm = true;
       if (e.code === 'KeyM') this._edge.mute = true;
+      if (e.code === 'Space' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') this._edge.ability = true;
       if (e.code === 'Tab') { this._edge.map = true; e.preventDefault(); }
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
     });
@@ -433,6 +434,7 @@ const Input = {
     };
     ['btnPillL', 'btnPillD'].forEach(id => bind(id, 'pill'));
     ['btnBombL', 'btnBombD'].forEach(id => bind(id, 'bomb'));
+    ['btnAbilL', 'btnAbilD'].forEach(id => bind(id, 'ability'));
     ['btnPauseL', 'btnPauseD'].forEach(id => bind(id, 'pause'));
   },
 
