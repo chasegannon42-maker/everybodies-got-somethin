@@ -299,7 +299,8 @@ DATA.ENEMIES = {
   redflag:   { name: "Red Flag", hp: 7, spd: 88, r: 14, dmg: 1, beh: 'bomber', clr: '#d04040' },
   fog:       { name: "Brain Fog", hp: 30, spd: 26, r: 28, dmg: 1, beh: 'fog', clr: '#9aa8a0' },
   enabler:   { name: "The Enabler", hp: 16, spd: 62, r: 16, dmg: 1, beh: 'buffer', clr: '#e0c95a' },
-  sideeffect:{ name: "Side Effect", hp: 16, spd: 54, r: 18, dmg: 1, beh: 'splitter', clr: '#d06ba0' }
+  sideeffect:{ name: "Side Effect", hp: 16, spd: 54, r: 18, dmg: 1, beh: 'splitter', clr: '#d06ba0' },
+  form:      { name: "Prior Auth Form", hp: 4, spd: 0, r: 16, dmg: 0, beh: 'idle', clr: '#f4eee0' }
 };
 DATA.enemyPoolFor = function (depth) {
   // deeper enemies get relatively more common the further past their unlock you go,
@@ -331,17 +332,63 @@ DATA.BOSSES = {
   stigma:     { name: "THE STIGMA", sub: "“What will people think?”", hp: 195 },
   burnout:    { name: "BURNOUT", sub: "“Just push through it.”", hp: 240 },
   dsm:        { name: "THE MANUAL", sub: "“Everybody's in here somewhere.”", hp: 265 },
+  priorauth:  { name: "PRIOR AUTHORIZATION", sub: "“Please hold.”", hp: 250 },
   walrus:     { name: "DR. WALRUS, M.D.*", sub: "*mail-order", hp: 300 }
 };
 DATA.bossFor = function (depth, lastBoss) {
   if (depth % 5 === 0) return 'walrus';
   let pool = ['gatekeeper', 'larperking'];
-  if (depth >= 2) pool.push('adjuster');
+  if (depth >= 2) pool.push('adjuster', 'priorauth');
   if (depth >= 3) pool.push('stigma', 'dsm');
   if (depth >= 4) pool.push('withdrawal', 'burnout');
   const filtered = pool.filter(b => b !== lastBoss);
   return U.choice(filtered.length ? filtered : pool);
 };
+
+/* ============ PATIENT CHART (codex) flavor ============
+   Satirical clinical notes — aimed at the over-labeling machine, not people. */
+DATA.CODEX_CHART = {
+  enemies: {
+    scroller: "Chronically online. Prognosis: one more scroll.",
+    notif: "Demands your attention. Refuses to be marked as read.",
+    larper: "Read one (1) article. Now an expert. Sincerity: guarded.",
+    ad: "Ask your doctor if being a walking commercial is right for you.",
+    doubt: "Are you SURE it's real? It isn't sure either.",
+    deadline: "Was due yesterday. Charges without warning.",
+    intrusive: "Arrives uninvited. Means nothing by it, allegedly.",
+    redflag: "Everyone saw it coming except you. Detonates on contact.",
+    fog: "Where were we? Slows everything, thoughts included.",
+    enabler: "Insists everyone is SO valid. Heals its friends to prove it.",
+    sideeffect: "May cause: more of itself. Multiplies when disturbed.",
+    form: "Please complete all fields. Then, if approved, complete them again."
+  },
+  bosses: {
+    gatekeeper: "Guards the diagnosis you already have. You don't LOOK sick enough.",
+    adjuster: "Reviews your suffering for billing errors. Finds them.",
+    larperking: "Wears every diagnosis at once. Owns the group chat.",
+    withdrawal: "The refill that never comes. Shakes the whole room.",
+    stigma: "The look you get. Fights best in the dark, where no one sees.",
+    burnout: "A candle lit at both ends and handed a third end.",
+    dsm: "The book that has a name for you. All of them, actually.",
+    priorauth: "Your treatment is denied pending paperwork. Fill the forms to be seen.",
+    walrus: "Board-certified in Confidence. The doctor will see you now. Forever."
+  }
+};
+
+/* ============ COMORBIDITIES (between-floor modifier cards) ============
+   A satirical 'second symptom' you pick up descending. Mild risk/reward. */
+DATA.COMORBIDITIES = [
+  { id: 'racing',   name: "Racing Thoughts",       desc: "+18% fire rate, but your aim gets jittery.",           apply(p) { p.tearDelay *= 0.82; p.wobble += 0.06; } },
+  { id: 'hyperfix', name: "Hyperfixation Spiral",  desc: "+30% damage, −12% range. Tunnel vision, weaponized.",  apply(p) { p.dmg *= 1.3; p.range *= 0.88; } },
+  { id: 'rumination', name: "Rumination",          desc: "Tears gently home in, −12% damage. You can't let go.", apply(p) { p.dmg *= 0.88; p.flags.homingTears = true; } },
+  { id: 'paralysis', name: "Analysis Paralysis",   desc: "Enemies −12% speed, you −8% speed. Everyone overthinks.", apply(p) { p.spd *= 0.92; p.flags.slowField = true; } },
+  { id: 'sensory',  name: "Sensory Overload",      desc: "+1 heart, but enemy bullets fly 10% faster.",         apply(p) { p.maxhp += 2; p.hp += 2; p.flags.fastBullets = true; } },
+  { id: 'executive', name: "Executive Dysfunction", desc: "Start each floor with a free pill, −6% speed.",       apply(p) { p.spd *= 0.94; p.flags.floorPill = true; } },
+  { id: 'catastro', name: "Catastrophizing",       desc: "See enemy health; +15% damage to full-health foes.",   apply(p) { p.flags.hpBars = true; } },
+  { id: 'rsd',      name: "Rejection Sensitivity", desc: "+22% damage while at full health. Prove them wrong.",  apply(p) { p.flags.rsd = true; } },
+  { id: 'insomnia', name: "Insomnia",              desc: "+15% speed & fire rate. You will pay for this later.", apply(p) { p.spd *= 1.15; p.tearDelay *= 0.85; } },
+  { id: 'oversharing', name: "Oversharing",        desc: "Taking a hit drops copays everywhere. Trauma dumping.", apply(p) { p.flags.hurtCoins = true; } }
+];
 
 /* ============ ENDLESS DIFFICULTY CURVE ============
    One place that scales every threat axis with depth. Early wards (1-5)

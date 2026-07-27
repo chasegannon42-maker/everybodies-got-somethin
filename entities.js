@@ -97,6 +97,7 @@ class Player {
     this.items.push(id);
     it.apply(this, G);
     Meta.data.itemsSeen++;
+    Meta.see('items', id);
     if (!silent) {
       this.itemHold = 2.0; this.itemHoldName = it.name; this.itemHoldQuote = it.quote;
       this.iframes = Math.max(this.iframes, 2.0);
@@ -124,6 +125,7 @@ class Player {
     }
     if (this.focused) d *= 1.5;
     if (this.flags.fineMode) d *= 1.15;
+    if (this.flags.rsd && this.hp >= this.maxhp) d *= 1.22;   // rejection sensitivity: prove them wrong at full HP
     return d;
   }
   effTearDelay() {
@@ -198,7 +200,9 @@ class Player {
       const vx = Math.cos(a) * this.shotSpd + mv.x * this.effSpd() * mvBoost;
       const vy = Math.sin(a) * this.shotSpd + mv.y * this.effSpd() * mvBoost;
       const big = this.diag === 'depression';
-      G.tears.push(new Tear(this.x + Math.cos(a) * 12, this.y + Math.sin(a) * 12 - 6, vx, vy, this.effDmg(), this.range, big));
+      const tear = new Tear(this.x + Math.cos(a) * 12, this.y + Math.sin(a) * 12 - 6, vx, vy, this.effDmg(), this.range, big);
+      if (this.flags.homingTears) tear.home = 2.2;   // rumination: the tears can't let go
+      G.tears.push(tear);
       G.playerFired = true;
       SFX.play('shot');
     }
@@ -230,6 +234,7 @@ class Player {
         G.tears.push(new Tear(this.x, this.y, Math.cos(a) * 380, Math.sin(a) * 380, this.effDmg(), 0.5, false));
       }
     }
+    if (this.flags.hurtCoins) { for (let i = 0; i < 3; i++) G.pickups.push(new Pickup('coin', this.x + U.rand(-30, 30), this.y + U.rand(-30, 30))); }   // oversharing: trauma-dump copays
     if (this.hp <= 0) { this.dead = true; SFX.play('die'); Haptics.buzz([90, 60, 150], 0); }
   }
   heal(n) { this.hp = Math.min(this.maxhp, this.hp + n); }
@@ -243,8 +248,21 @@ class Tear {
     this.r = big ? 10 : U.clamp(5 + dmg * 0.35, 5, 9);
     this.big = big;
     this.dead = false;
+    this.home = 0;
   }
   update(dt, G) {
+    if (this.home) {   // homing tears (Rumination comorbidity)
+      let tx = null, ty = null, bd = 1e9;
+      for (const e of G.enemies) { if (e.dying || e.fake || e.spawnT > 0) continue; const d = U.dist(this.x, this.y, e.x, e.y); if (d < bd) { bd = d; tx = e.x; ty = e.y; } }
+      if (tx == null && G.boss && !G.boss.dead) { tx = G.boss.x; ty = G.boss.y; }
+      if (tx != null) {
+        const want = U.ang(this.x, this.y, tx, ty), cur = Math.atan2(this.vy, this.vx);
+        const da = Math.atan2(Math.sin(want - cur), Math.cos(want - cur));
+        const turn = U.clamp(da, -this.home * dt, this.home * dt);
+        const spd = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+        this.vx = Math.cos(cur + turn) * spd; this.vy = Math.sin(cur + turn) * spd;
+      }
+    }
     this.x += this.vx * dt; this.y += this.vy * dt;
     this.life -= dt;
     if (this.life <= 0) { this.splash(G); return; }
@@ -295,6 +313,7 @@ class EBullet {
     let f = 1;
     if (G.enemySlow > 0) f *= 0.6;
     if (G.player.flags.slowBullets && U.dist(this.x, this.y, G.player.x, G.player.y) < 140) f *= 0.7;
+    if (G.player.flags.fastBullets) f *= 1.1;   // Sensory Overload comorbidity
     if (this.home) {
       const want = U.ang(this.x, this.y, G.player.x, G.player.y);
       const cur = Math.atan2(this.vy, this.vx);
@@ -335,6 +354,7 @@ class Enemy {
     const dif = DATA.difficulty(depth);
     const E = elite ? DATA.ELITES.find(e => e.id === elite) : null;
     this.id = id;
+    if (!fake) Meta.see('enemies', id);   // codex: record the encounter
     this.depth = depth; this._hpMult = hpMult || 1;
     this.elite = E ? E.id : null;
     this.eliteTint = E ? E.tint : null;
@@ -368,7 +388,7 @@ class Enemy {
     if (this.spawnT > 0) { this.spawnT -= dt; return; }
     if (this.dying) return;
     const p = G.player;
-    const slowF = G.enemySlow > 0 ? 0.55 : 1;
+    const slowF = (G.enemySlow > 0 ? 0.55 : 1) * (p.flags.slowField ? 0.88 : 1);   // Analysis Paralysis slows the room
     const S = this.spd * slowF;
 
     switch (this.beh) {
@@ -537,9 +557,9 @@ class Enemy {
       }
     }
 
-    // contact damage
+    // contact damage (dmg > 0 skips harmless props like Prior Auth forms)
     const p2 = G.player;
-    if (!this.fake && p2.iframes <= 0 && U.dist(this.x, this.y, p2.x, p2.y) < this.r + p2.r - 4) {
+    if (!this.fake && this.dmg > 0 && p2.iframes <= 0 && U.dist(this.x, this.y, p2.x, p2.y) < this.r + p2.r - 4) {
       p2.hurt(this.dmg, G);
     }
   }

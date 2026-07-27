@@ -69,6 +69,30 @@ const G = {
     const key = this.todayKey(), seed = this.seedFromKey(key);
     return { key, seed, diag: this.DAILY_DIAGS[seed % this.DAILY_DIAGS.length] };
   },
+  seedCode(n) { return (n >>> 0).toString(36); },
+  parseSeedCode(s) { const n = parseInt(String(s || '').trim().toLowerCase().replace(/[^a-z0-9]/g, ''), 36); return isNaN(n) ? null : (n >>> 0); },
+  prevDayKey(key) {
+    const p = key.split('-').map(Number);
+    const d = new Date(p[0], p[1] - 1, p[2]); d.setDate(d.getDate() - 1);
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  },
+  _dailyCalendar() {
+    const now = new Date();
+    const Y = now.getFullYear(), M = now.getMonth();
+    const first = new Date(Y, M, 1).getDay();
+    const days = new Date(Y, M + 1, 0).getDate();
+    const hist = Meta.data.dailyHistory || {};
+    const todayD = now.getDate();
+    let cells = ['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(d => `<div class="calh">${d}</div>`).join('');
+    for (let i = 0; i < first; i++) cells += `<div class="calcell empty"></div>`;
+    for (let d = 1; d <= days; d++) {
+      const key = Y + '-' + String(M + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+      const rec = hist[key];
+      const cls = 'calcell' + (rec ? ' played' : '') + (d === todayD ? ' today' : '');
+      cells += `<div class="${cls}">${rec ? `<span class="calward">${rec.best}</span>` : `<span class="caldd">${d}</span>`}</div>`;
+    }
+    return `<div class="calgrid">${cells}</div>`;
+  },
   showDaily() {
     this.state = 'daily';
     SFX.setMusic('menu');
@@ -79,6 +103,9 @@ const G = {
     const bestLine = rec
       ? `<div class="stats-line">today's best: <b>Ward ${rec.best}</b>${rec.win ? ' · 🦭 beat the Walrus' : ''}</div>`
       : `<div class="stats-line">not attempted yet today — go set the bar</div>`;
+    const ds = Meta.data.dailyStreak || { count: 0, best: 0 };
+    const streakLine = (ds.count > 0)
+      ? `<div class="stats-line">🔥 ${ds.count}-day streak${ds.best > ds.count ? ` · best ${ds.best}` : ''}</div>` : '';
     this.overlay(`
       <div class="panel">
         <h1 class="logo" style="font-size:28px">🗓️ DAILY WARD</h1>
@@ -87,18 +114,64 @@ const G = {
           <canvas width="84" height="84" id="dailyPortrait" style="width:92px;height:92px;flex:0 0 auto"></canvas>
           <div class="bubble">Today you're <b style="color:${D.color}">${D.name}</b>. Same rooms, same items, same bosses for every player — combat's still live, so it's pure skill. Screenshot your card and dare your friends.</div>
         </div>
-        ${bestLine}
+        ${bestLine}${streakLine}
+        ${this._dailyCalendar()}
         <button class="btn" id="bDailyPlay">▶ PLAY TODAY'S WARD</button>
-        ${rec ? `<button class="btn minor" id="bDailyShare">📤 SHARE MY RESULT</button>` : ''}
+        <div class="btnrow">
+          ${rec ? `<button class="btn minor" id="bDailyShare">📤 SHARE</button>` : ''}
+          <button class="btn minor" id="bDailyChallenge">🔗 CHALLENGE</button>
+        </div>
         <button class="btn minor" id="bDailyBack">BACK</button>
         <div class="smallprint">Seed resets at local midnight. Replays allowed — only your best counts.</div>
       </div>`);
     const pc = document.getElementById('dailyPortrait');
     if (pc) Render.drawCharPortrait(pc.getContext('2d'), info.diag);
-    document.getElementById('bDailyPlay').onclick = () => { SFX.init(); SFX.play('ui'); this.beginRun(info.diag, { seed: info.seed, key: info.key }); };
+    document.getElementById('bDailyPlay').onclick = () => { SFX.init(); SFX.play('ui'); this.beginRun(info.diag, { seed: info.seed, key: info.key, isDaily: true }); };
     const sh = document.getElementById('bDailyShare');
-    if (sh) sh.onclick = () => { SFX.play('ui'); Render.shareCard({ diag: info.diag, depth: rec.best, daily: true, key: info.key, win: rec.win, stats: rec.stats }); };
+    if (sh) sh.onclick = () => { SFX.play('ui'); Render.shareCard({ diag: info.diag, depth: rec.best, daily: true, key: info.key, win: rec.win, stats: rec.stats, code: this.seedCode(info.seed) }); };
+    document.getElementById('bDailyChallenge').onclick = () => { SFX.play('ui'); this.showChallenge(() => this.showDaily()); };
     document.getElementById('bDailyBack').onclick = () => { SFX.play('ui'); this.showTitle(); };
+  },
+
+  /* copy/paste an arbitrary dungeon seed to challenge a friend */
+  showChallenge(returnTo) {
+    this.state = 'challenge';
+    const info = this.dailyInfo();
+    const code = this.seedCode(info.seed);
+    this.overlay(`
+      <div class="panel">
+        <h1 class="logo" style="font-size:26px">🔗 CHALLENGE</h1>
+        <div class="tagline">play a friend's exact dungeon</div>
+        <div class="rx" style="border-color:#3a6ad0">
+          <div class="mech">Today's code: <b class="seedcode" id="todayCode">${code}</b></div>
+          <div class="presc">Send it to a friend — anyone who plays it gets this identical run.</div>
+        </div>
+        <button class="btn" id="bCopyCode">📋 COPY TODAY'S CODE</button>
+        <div class="setrow" style="margin-top:14px">
+          <label>Got a code? Play it:</label>
+          <input type="text" id="seedInput" class="seedfield" placeholder="e.g. ${code}" autocomplete="off" autocapitalize="off" spellcheck="false">
+        </div>
+        <button class="btn" id="bPlayCode">▶ PLAY THIS SEED</button>
+        <div class="smallprint" id="seedMsg">The code is just the dungeon seed — the diagnosis is baked in too.</div>
+        <button class="btn minor" id="bChalBack">BACK</button>
+      </div>`);
+    document.getElementById('bCopyCode').onclick = (e) => {
+      SFX.play('ui');
+      const txt = 'Beat my dungeon in Everybodies Got Somethin — code ' + code + '  →  https://chasegannon42-maker.github.io/everybodies-got-somethin/';
+      const done = () => { e.target.textContent = '✓ COPIED — SEND IT'; };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done).catch(done);
+      else { const s = document.getElementById('seedMsg'); if (s) s.textContent = 'Copy this code: ' + code; }
+    };
+    const play = () => {
+      const seed = this.parseSeedCode(document.getElementById('seedInput').value);
+      if (seed == null) { SFX.play('error'); const s = document.getElementById('seedMsg'); if (s) { s.textContent = "That code doesn't look right — try again."; s.style.color = '#b03030'; } return; }
+      SFX.init(); SFX.play('ui');
+      const diag = this.DAILY_DIAGS[seed % this.DAILY_DIAGS.length];
+      this.beginRun(diag, { seed, key: 'seed-' + this.seedCode(seed), isDaily: false });
+    };
+    document.getElementById('bPlayCode').onclick = play;
+    document.getElementById('seedInput').addEventListener('keydown', (ev) => { if (ev.key === 'Enter') play(); });
+    document.getElementById('bChalBack').onclick = () => { SFX.play('ui'); (returnTo || (() => this.showDaily()))(); };
   },
 
   /* ---------- flow: title / quiz / card ---------- */
@@ -121,6 +194,7 @@ const G = {
         <button class="btn" id="bStart">🩺 START CHECKUP</button>
         <button class="btn" id="bDaily">🗓️ DAILY WARD</button>
         <button class="btn minor" id="bFiles">📁 PATIENT FILES (choose your diagnosis)</button>
+        <button class="btn minor" id="bChart">📋 PATIENT CHART (codex)</button>
         <div class="btnrow">
           <button class="btn minor" id="bHow">HOW TO PLAY</button>
           <button class="btn minor" id="bUnlocksT">🏆 UNLOCKS</button>
@@ -133,6 +207,7 @@ const G = {
     document.getElementById('bStart').onclick = () => { SFX.init(); SFX.play('ui'); this.startQuiz(); };
     document.getElementById('bDaily').onclick = () => { SFX.init(); SFX.play('ui'); this.showDaily(); };
     document.getElementById('bFiles').onclick = () => { SFX.init(); SFX.play('ui'); this.showFiles(); };
+    document.getElementById('bChart').onclick = () => { SFX.init(); SFX.play('ui'); this.showCodex(() => this.showTitle()); };
     document.getElementById('bHow').onclick = () => { SFX.init(); SFX.play('ui'); this.showHow(); };
     document.getElementById('bUnlocksT').onclick = () => { SFX.init(); SFX.play('ui'); this.showUnlocks(() => this.showTitle()); };
     document.getElementById('bSettings').onclick = () => { SFX.init(); SFX.play('ui'); this.showSettings(() => this.showTitle()); };
@@ -307,9 +382,19 @@ const G = {
   /* ---------- run setup ---------- */
   beginRun(diagId, daily) {
     this.daily = !!daily;
+    this.dailyKind = daily ? (daily.isDaily ? 'daily' : 'challenge') : null;
     this.seed = daily ? (daily.seed >>> 0) : null;
     this.dailyKey = daily ? daily.key : null;
     this._startWalrusKills = Meta.data.walrusKills || 0;   // for daily "beat the Walrus" flag
+    // daily streak (real daily only, counted once per day on first play)
+    if (this.dailyKind === 'daily') {
+      const ds = Meta.data.dailyStreak || (Meta.data.dailyStreak = { last: null, count: 0, best: 0 });
+      if (ds.last !== daily.key) {
+        ds.count = (ds.last === this.prevDayKey(daily.key)) ? (ds.count + 1) : 1;
+        ds.last = daily.key;
+        ds.best = Math.max(ds.best || 0, ds.count);
+      }
+    }
     Meta.data.runs++;
     if (!Meta.data.diagsPlayed) Meta.data.diagsPlayed = {};
     Meta.data.diagsPlayed[diagId] = 1;
@@ -356,6 +441,7 @@ const G = {
     if (p._gymAdd) { p.dmg -= p._gymAdd; }
     p._gymAdd = 0;
     if (p.flags.pillowHeal) p.heal(2);
+    if (p.flags.floorPill && p.pill == null) { p.pill = U.randi(0, 9); }   // Executive Dysfunction: a free pill each floor
     if (p.flags.crystals) {
       const roll = U.choice(['dmg', 'spd', 'tears', 'luck']);
       if (roll === 'dmg') p.dmg += 0.3;
@@ -654,6 +740,7 @@ const G = {
     pill.apply(p, this);
     const known = this.pillKnown.has(pillIdx) || p.flags.pillsKnown;
     this.pillKnown.add(pillIdx);
+    Meta.see('pills', pillIdx);   // codex
     this.toast((known ? '' : 'It was... ') + pill.name + '! ' + pill.msg, pill.bad ? '#e0a05a' : '#b8e0a0');
     if (p.pillsThisFloor >= 4) {
       if (!Meta.data.everOverRx) { Meta.data.everOverRx = 1; this.checkUnlocks(); }
@@ -670,6 +757,43 @@ const G = {
         this.toast('Placebo Effect: no side effects!', '#b8e0a0');
       }
     }
+  },
+
+  /* ---------- comorbidity choice on descent ---------- */
+  doDescend() {
+    this.state = 'descend';
+    this.descendT = 0;
+    this._descended = false;
+    SFX.play('descend');
+  },
+  offerComorbidity() {
+    if (!DATA.COMORBIDITIES || !DATA.COMORBIDITIES.length) { this.doDescend(); return; }
+    // seeded 3-card offer so a daily's options match for everyone — the pick is still yours
+    const pool = this.genSeed(['comorbid', this.depth], () => U.shuffle(DATA.COMORBIDITIES).slice(0, 3));
+    this.state = 'comorbid';
+    SFX.play('voice');
+    const cards = pool.map((c, i) => `
+      <button class="cmcard" data-i="${i}">
+        <div class="cmname">${c.name}</div>
+        <div class="cmdesc">${c.desc}</div>
+      </button>`).join('');
+    this.overlay(`
+      <div class="panel wide">
+        <h1 class="logo" style="font-size:26px">SECOND OPINION</h1>
+        <div class="tagline">the doctor found something ELSE — take a comorbidity into the next ward</div>
+        <div class="cmgrid">${cards}</div>
+        <button class="btn minor" id="bComorbidSkip">DECLINE (take nothing)</button>
+      </div>`);
+    document.querySelectorAll('.cmcard').forEach(b => b.onclick = () => {
+      const c = pool[+b.dataset.i];
+      SFX.play('item');
+      try { c.apply(this.player, this); } catch (e) { }
+      (this.player.comorbidities || (this.player.comorbidities = [])).push(c.id);
+      this.toast('Comorbidity acquired: ' + c.name, '#b8e0a0');
+      this.hideOverlay();
+      this.doDescend();
+    });
+    document.getElementById('bComorbidSkip').onclick = () => { SFX.play('ui'); this.hideOverlay(); this.doDescend(); };
   },
 
   /* ---------- update ---------- */
@@ -805,10 +929,7 @@ const G = {
     // trapdoor
     if (this.trapdoor && U.dist(this.trapdoor.x, this.trapdoor.y, p.x, p.y) < 26) {
       if (this.floorHits === 0 && !Meta.data.everNoHitFloor) { Meta.data.everNoHitFloor = 1; this.checkUnlocks(); }
-      this.state = 'descend';
-      this.descendT = 0;
-      this._descended = false;
-      SFX.play('descend');
+      this.offerComorbidity();
       return;
     }
 
@@ -870,19 +991,24 @@ const G = {
       if (!Meta.data.diagBest) Meta.data.diagBest = {};
       this._prevBest = Meta.data.diagBest[diagId] || 0;
       Meta.data.diagBest[diagId] = Math.max(this._prevBest, this.depth);
-      // daily ward: keep the deepest result for today
-      if (this.daily && this.dailyKey) {
+      // daily ward: keep the deepest result for today (real daily only, not challenges)
+      if (this.dailyKind === 'daily' && this.dailyKey) {
         const prev = (Meta.data.daily && Meta.data.daily.key === this.dailyKey) ? Meta.data.daily : null;
         const best = Math.max(prev ? prev.best : 0, this.depth);
         const win = !!(prev && prev.win) || (Meta.data.walrusKills > (this._startWalrusKills || 0));
-        Meta.data.daily = { key: this.dailyKey, diag: diagId, best, win, stats: { kills: this.stats.kills, bosses: this.stats.bosses, pills: this.stats.pills, rooms: this.stats.rooms } };
+        const stats = { kills: this.stats.kills, bosses: this.stats.bosses, pills: this.stats.pills, rooms: this.stats.rooms };
+        Meta.data.daily = { key: this.dailyKey, diag: diagId, best, win, stats };
+        if (!Meta.data.dailyHistory) Meta.data.dailyHistory = {};
+        Meta.data.dailyHistory[this.dailyKey] = { best, diag: diagId, win };
       }
       Meta.save();
       this.checkUnlocks(); // catch kills/ward/etc. milestones reached this run
       this._deathQuip = U.choice(DATA.DEATH_LINES);
     }
     this.state = 'dead';
-    const daily = this.daily, dseed = this.seed, dkey = this.dailyKey;
+    const daily = this.daily, dkind = this.dailyKind, dseed = this.seed, dkey = this.dailyKey;
+    const dcode = dseed != null ? this.seedCode(dseed) : '';
+    const ribbon = dkind === 'daily' ? ('🗓️ DAILY WARD · ' + dkey) : dkind === 'challenge' ? ('🔗 CHALLENGE · ' + dcode) : '';
     const dailyWin = Meta.data.walrusKills > (this._startWalrusKills || 0);
     const prevBest = this._prevBest, newBest = this.depth > prevBest;
     SFX.setMusic('menu');
@@ -898,7 +1024,7 @@ const G = {
       <div class="panel wide">
         <div class="rx" style="border-color:#8a3030">
           <div class="stamp">DISCHARGED</div>
-          ${daily ? `<div class="sub" style="color:#e0a05a;font-weight:bold">🗓️ DAILY WARD · ${dkey}</div>` : ''}
+          ${ribbon ? `<div class="sub" style="color:#e0a05a;font-weight:bold">${ribbon}</div>` : ''}
           <h2 style="color:${D.color}">${D.name}</h2>
           <div class="sub">Reached ${DATA.floorName(this.depth)} · Ward ${this.depth} · ${DATA.tierName(this.depth)}${newBest ? ' &nbsp;⭐ NEW BEST' : (prevBest ? ' (best: ward ' + prevBest + ')' : '')}</div>
         </div>
@@ -914,9 +1040,11 @@ const G = {
           <canvas class="walrusCanvas" width="132" height="132" id="deadWalrus"></canvas>
           <div class="bubble"><i>“${this._deathQuip}”</i></div>
         </div>
-        ${daily
+        ${dkind === 'daily'
           ? `<button class="btn" id="bRetryDaily">🗓️ RETRY TODAY'S DAILY</button>`
-          : `<button class="btn" id="bAgainSame">SAME DIAGNOSIS, RUN IT BACK</button>`}
+          : dkind === 'challenge'
+            ? `<button class="btn" id="bRetryDaily">🔗 RETRY THIS SEED</button>`
+            : `<button class="btn" id="bAgainSame">SAME DIAGNOSIS, RUN IT BACK</button>`}
         <button class="btn" id="bShare">📤 SHARE DIAGNOSIS CARD</button>
         <div class="btnrow">
           <button class="btn minor" id="bAgainNew">RE-DIAGNOSE</button>
@@ -925,12 +1053,50 @@ const G = {
         <button class="btn minor" id="bTitle">TITLE</button>
       </div>`);
     this.paintWalrus('deadWalrus');
-    if (daily) document.getElementById('bRetryDaily').onclick = () => { SFX.play('ui'); this.beginRun(diagId, { seed: dseed, key: dkey }); };
+    if (daily) document.getElementById('bRetryDaily').onclick = () => { SFX.play('ui'); this.beginRun(diagId, { seed: dseed, key: dkey, isDaily: dkind === 'daily' }); };
     else document.getElementById('bAgainSame').onclick = () => { SFX.play('ui'); this.beginRun(diagId); };
-    document.getElementById('bShare').onclick = () => { SFX.play('ui'); Render.shareCard({ diag: diagId, depth: this.depth, daily, key: dkey, win: dailyWin, stats: { kills: st.kills, bosses: st.bosses, pills: st.pills } }); };
+    document.getElementById('bShare').onclick = () => { SFX.play('ui'); Render.shareCard({ diag: diagId, depth: this.depth, daily, key: dkind === 'challenge' ? dcode : dkey, label: dkind === 'challenge' ? 'CHALLENGE' : 'DAILY WARD', win: dailyWin, stats: { kills: st.kills, bosses: st.bosses, pills: st.pills }, code: dcode }); };
     document.getElementById('bAgainNew').onclick = () => { SFX.play('ui'); this.startQuiz(); };
     document.getElementById('bUnlocks').onclick = () => { SFX.play('ui'); this.showUnlocks(() => this.showDead()); };
     document.getElementById('bTitle').onclick = () => { SFX.play('ui'); this.showTitle(); };
+  },
+
+  /* ---------- patient chart (codex) ---------- */
+  showCodex(returnTo) {
+    this.state = 'codex';
+    this._codexReturn = returnTo || (() => this.showTitle());
+    if (!this._codexTab) this._codexTab = 'enemies';
+    this._renderCodex();
+  },
+  _renderCodex() {
+    const tab = this._codexTab;
+    const seen = Meta.data.seen || { enemies: {}, bosses: {}, items: {}, pills: {} };
+    const tabs = [['enemies', '🧟 Patients'], ['bosses', '☠ Bosses'], ['items', '℞ Meds'], ['pills', '💊 Pills']];
+    let entries = [];
+    if (tab === 'enemies') entries = Object.keys(DATA.ENEMIES).filter(id => id !== 'form').map(id => ({ id, name: DATA.ENEMIES[id].name, text: (DATA.CODEX_CHART.enemies[id] || ''), seen: !!(seen.enemies && seen.enemies[id]) }));
+    else if (tab === 'bosses') entries = Object.keys(DATA.BOSSES).map(id => ({ id, name: DATA.BOSSES[id].name, text: (DATA.CODEX_CHART.bosses[id] || ''), seen: !!(seen.bosses && seen.bosses[id]) }));
+    else if (tab === 'items') entries = Object.keys(DATA.ITEMS).map(id => ({ id, name: DATA.ITEMS[id].name, text: DATA.ITEMS[id].desc, seen: !!(seen.items && seen.items[id]) }));
+    else entries = DATA.PILLS.map((p, idx) => ({ id: idx, name: p.name, text: p.msg, seen: !!(seen.pills && seen.pills[idx]) }));
+    const total = entries.length, got = entries.filter(e => e.seen).length;
+    const rows = entries.map(e => {
+      if (!e.seen) return `<div class="ach locked"><div class="codexicon locked">?</div><div class="achbody"><div class="achname">???</div><div class="achdesc">not yet encountered</div></div></div>`;
+      return `<div class="ach got"><canvas class="codexicon" width="48" height="48" data-kind="${tab}" data-id="${e.id}"></canvas><div class="achbody"><div class="achname">${e.name}</div><div class="achdesc">${e.text}</div></div></div>`;
+    }).join('');
+    const tabBtns = tabs.map(([k, label]) => `<button class="btn minor codextab${k === tab ? ' active' : ''}" data-tab="${k}">${label}</button>`).join('');
+    this.overlay(`
+      <div class="panel wide">
+        <h1 class="logo" style="font-size:26px">PATIENT CHART</h1>
+        <div class="tagline">${got} / ${total} ${tab === 'items' ? 'meds' : tab} documented</div>
+        <div class="codextabs">${tabBtns}</div>
+        <div class="achlist">${rows}</div>
+        <button class="btn" id="bCodexBack">BACK</button>
+      </div>`);
+    document.querySelectorAll('canvas.codexicon').forEach(c => {
+      const kind = c.dataset.kind;
+      Render.drawCodexIcon(c.getContext('2d'), kind, kind === 'pills' ? parseInt(c.dataset.id, 10) : c.dataset.id, 48);
+    });
+    document.querySelectorAll('.codextab').forEach(b => b.onclick = () => { SFX.play('ui'); this._codexTab = b.dataset.tab; this._renderCodex(); });
+    document.getElementById('bCodexBack').onclick = () => { SFX.play('ui'); this._codexReturn(); };
   },
 
   /* ---------- unlocks / achievements screen ---------- */

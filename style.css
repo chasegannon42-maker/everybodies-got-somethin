@@ -312,3 +312,49 @@ body.touch.inrun #padLand { display: block; }
 .deckbtn span { font-size: 11px; }
 .deckbtn.small { padding: 8px; font-size: 17px; background: #cfc6ba; }
 .deckbtn:active { transform: translateY(3px); box-shadow: 0 1px 0 #0d0a12; }
+
+/* ---------- patient chart (codex) ---------- */
+.codextabs { display: flex; gap: 6px; margin: 6px 0 4px; }
+.codextabs .codextab { margin: 0; flex: 1; padding: 8px 4px; font-size: 13px; }
+.codextab.active { background: #e8b64c; box-shadow: 0 2px 0 #2c2333; transform: translateY(1px); }
+.codexicon { width: 48px; height: 48px; flex: 0 0 auto; image-rendering: auto; }
+.codexicon.locked {
+  display: flex; align-items: center; justify-content: center;
+  font-size: 26px; font-weight: bold; color: #8a8078;
+  background: #cfc7ba; border-radius: 10px;
+}
+
+/* ---------- daily calendar ---------- */
+.calgrid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin: 8px auto 12px; max-width: 320px; }
+.calh { font-size: 11px; color: #8a7a68; text-align: center; padding-bottom: 2px; }
+.calcell {
+  height: 32px; border-radius: 6px; background: #e6ddcb;
+  display: flex; align-items: center; justify-content: center; position: relative;
+  border: 2px solid transparent;
+}
+.calcell.empty { background: transparent; }
+.calcell .caldd { font-size: 11px; color: #a89a84; }
+.calcell.played { background: #e8b64c; }
+.calcell.played .calward { font-size: 13px; font-weight: bold; color: #2c2333; }
+.calcell.today { border-color: #b03030; }
+
+/* ---------- challenge (seed sharing) ---------- */
+.seedcode { font-family: "Courier New", monospace; font-size: 20px; letter-spacing: 2px; color: #3a5ac8; }
+.seedfield {
+  width: 100%; margin-top: 6px; padding: 12px 14px; font-family: "Courier New", monospace;
+  font-size: 18px; letter-spacing: 1px; text-align: center;
+  background: #fff; color: #2c2333; border: 3px solid #2c2333; border-radius: 10px; outline: none;
+}
+.seedfield:focus { border-color: #3a5ac8; }
+
+/* ---------- comorbidity cards ---------- */
+.cmgrid { display: flex; flex-direction: column; gap: 10px; margin: 12px 0; }
+.cmcard {
+  font-family: inherit; text-align: left; cursor: pointer;
+  background: #fff; color: #2c2333; border: 3px solid #2c2333; border-radius: 12px;
+  box-shadow: 0 4px 0 #2c2333; padding: 12px 14px; transition: transform .07s;
+}
+.cmcard:hover { background: #ffe9bd; transform: translateY(-2px); }
+.cmcard:active { transform: translateY(2px); box-shadow: 0 1px 0 #2c2333; }
+.cmname { font-weight: bold; font-size: clamp(15px, 3.6vw, 18px); color: #7a3a8a; }
+.cmdesc { font-size: clamp(12.5px, 3vw, 14.5px); color: #55445e; margin-top: 3px; }

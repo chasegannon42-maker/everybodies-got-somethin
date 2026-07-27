@@ -77,7 +77,10 @@ class Boss {
     this.dashDir = null;
     this.pullT = 0;
     this.page = 0; this.pageT = 2.6; this._sub = false; // THE MANUAL
+    this._paInit = false; // PRIOR AUTHORIZATION form state
     this.introT = 1.6; // brief intro pause
+    Meta.see('bosses', id);
+    if (id === 'priorauth') this.vulnerable = false; // must "fill the forms" before it can be hit
   }
 
   bullet(a, spd, clr, opts) {
@@ -111,6 +114,18 @@ class Boss {
       G.enemies.push(e);
     }
     SFX.play('whoosh');
+  }
+  /* PRIOR AUTHORIZATION: scatter n one-hit "form" props the player must clear to un-deny the boss */
+  _scatterForms(G, n) {
+    const spots = [];
+    for (let r = 1; r < ROWS - 1; r++) for (let c = 2; c < COLS - 2; c++) if (G.room.layout[r][c] === 0) spots.push(tileToPx(c, r));
+    const chosen = U.shuffle(spots).slice(0, n);
+    for (const s of chosen) {
+      const e = new Enemy('form', s.x, s.y, this.depth, false, 1);
+      e._form = true; e.noDrop = true; e.spawnT = 0.3;
+      G.enemies.push(e);
+    }
+    SFX.play('stamp');
   }
   moveToward(tx, ty, spd, dt) {
     const a = U.ang(this.x, this.y, tx, ty);
@@ -386,6 +401,32 @@ class Boss {
         if (this.atkT <= 0) { this.atkT = pg.cd * (P2 ? 0.72 : 1); pg.fire(this, G, P2); SFX.play('pop'); }
         // depression page darkness fades otherwise
         if (this.page !== 4) G.darkTarget = Math.max(0, (G.darkTarget || 0) - dt * 0.6);
+        this.clampPos();
+        break;
+      }
+      /* ---------- PRIOR AUTHORIZATION ---------- */
+      case 'priorauth': {
+        this.x = CW / 2 + Math.sin(this.t * 0.5) * 170;
+        this.y = RY + 118 + Math.sin(this.t * 1.0) * 26;
+        const formCount = P2 ? 5 : 4;
+        if (!this._paInit) { this._paInit = true; this.state = 0; this.vulnerable = false; this._scatterForms(G, formCount); }
+        const formsLeft = G.enemies.filter(e => e._form && !e.dying).length;
+        if (this.state === 0) {
+          // DENIED: cannot be damaged (hurt() shows "DENIED"); clear all forms to force approval
+          this.vulnerable = false;
+          this.atkT -= dt;
+          if (this.atkT <= 0) { this.atkT = P2 ? 1.3 : 1.9; for (const off of [-0.28, 0, 0.28]) this.bullet(this.aimP(G) + off, 175, '#7a86b8', { r: 8 }); SFX.play('pop'); }
+          // occasionally demand MORE paperwork
+          this.spT -= dt;
+          if (this.spT <= 0) { this.spT = P2 ? 4.5 : 6.5; if (formsLeft > 0 && formsLeft < formCount) { this._scatterForms(G, 1); G.toast('“Additional documentation required.”', '#e0955a'); SFX.play('error'); } }
+          if (formsLeft === 0) { this.state = 1; this.stateT = P2 ? 3.5 : 4.5; this.vulnerable = true; G.toast('APPROVED. Briefly.', '#8fd05a'); SFX.play('heal'); }
+        } else {
+          // APPROVED: vulnerable window, lighter fire, then it denies you again
+          this.stateT -= dt;
+          this.atkT -= dt;
+          if (this.atkT <= 0) { this.atkT = 0.6; this.bullet(this.aimP(G), 150, '#e8c84c'); }
+          if (this.stateT <= 0) { this.state = 0; this.vulnerable = false; this._scatterForms(G, formCount); G.toast(U.choice(['“Claim denied.”', '“Please hold.”', '“Resubmit in triplicate.”']), '#e05a5a'); SFX.play('error'); }
+        }
         this.clampPos();
         break;
       }

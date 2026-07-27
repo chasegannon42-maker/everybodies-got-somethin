@@ -945,6 +945,24 @@ const Render = {
         }
         break;
       }
+      case 'form': { // Prior Auth form — a sheet of checkboxes to complete
+        const done = e.maxhp > 0 ? U.clamp(1 - e.hp / e.maxhp, 0, 1) : 0;
+        ctx.save();
+        ctx.fillStyle = 'rgba(0,0,0,0.22)'; this.rr(ctx, -13, -15, 26, 34, 3); ctx.fill();
+        ctx.fillStyle = flash ? '#ffffff' : '#f6f0e2'; this.rr(ctx, -14, -16, 26, 34, 3); ctx.fill();
+        ctx.strokeStyle = '#b03030'; ctx.lineWidth = 1.5; this.rr(ctx, -14, -16, 26, 34, 3); ctx.stroke();
+        ctx.fillStyle = '#b03030'; ctx.font = this.font(6, true); ctx.textAlign = 'center'; ctx.fillText('℞ FORM', -1, -10);
+        // 4 checkbox rows; fill in as it takes damage
+        const boxes = 4, filled = Math.round(done * boxes);
+        for (let i = 0; i < boxes; i++) {
+          const by = -4 + i * 7;
+          ctx.strokeStyle = '#4a4a52'; ctx.lineWidth = 1; ctx.strokeRect(-10, by, 5, 5);
+          if (i < filled) { ctx.strokeStyle = '#2c8a3a'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(-9.5, by + 2.5); ctx.lineTo(-8, by + 4.5); ctx.lineTo(-5.5, by + 0.5); ctx.stroke(); }
+          ctx.strokeStyle = '#9c9080'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-3, by + 2.5); ctx.lineTo(9, by + 2.5); ctx.stroke();
+        }
+        ctx.restore();
+        break;
+      }
     }
     ctx.restore();
 
@@ -1205,6 +1223,38 @@ const Render = {
         ctx.fillText('THE MANUAL', 0, -48);
         break;
       }
+      case 'priorauth': { // a rubber-stamp bureaucrat guarding your treatment
+        const approved = b.vulnerable;
+        // manila folder torso
+        const fg = ctx.createLinearGradient(0, 6, 0, 56);
+        fg.addColorStop(0, flash ? '#fff' : '#d8b46a'); fg.addColorStop(1, flash ? '#eee' : '#b8923f');
+        ctx.fillStyle = flash ? '#fff' : '#e6c886'; this.rr(ctx, -46, 0, 52, 12, 5); ctx.fill(); // folder tab
+        ctx.fillStyle = fg; this.rr(ctx, -48, 8, 96, 50, 8); ctx.fill();
+        ctx.strokeStyle = '#7a5f28'; ctx.lineWidth = 2; this.rr(ctx, -48, 8, 96, 50, 8); ctx.stroke();
+        // papers poking out
+        ctx.fillStyle = '#f4efe0'; this.rr(ctx, -32, 4, 64, 10, 2); ctx.fill();
+        ctx.strokeStyle = '#c8bfa4'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-26, 9); ctx.lineTo(26, 9); ctx.stroke();
+        // rubber-stamp head: wooden handle + plate
+        const bob = Math.sin(b.t * 3) * 3;
+        ctx.fillStyle = '#7a4a2a'; this.rr(ctx, -9, -54 + bob, 18, 16, 5); ctx.fill(); // handle knob
+        ctx.fillStyle = '#5a3720'; ctx.fillRect(-4, -40 + bob, 8, 12); // stem
+        ctx.fillStyle = flash ? '#fff' : (approved ? '#2c8a3a' : '#b03030');
+        this.rr(ctx, -42, -32 + bob, 84, 32, 6); ctx.fill();
+        ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 2; this.rr(ctx, -42, -32 + bob, 84, 32, 6); ctx.stroke();
+        // stamped verdict
+        ctx.save(); ctx.translate(0, -16 + bob); ctx.rotate(-0.05);
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; this.rr(ctx, -36, -10, 72, 20, 3); ctx.stroke();
+        ctx.fillStyle = '#fff'; ctx.font = this.font(14, true); ctx.textAlign = 'center';
+        ctx.fillText(approved ? 'APPROVED' : 'DENIED', 0, 5);
+        ctx.restore();
+        // peering eyes + mouth on the folder
+        ctx.fillStyle = '#2c2333';
+        ctx.beginPath(); ctx.arc(-13, 28, 2.6, 0, TAU); ctx.arc(13, 28, 2.6, 0, TAU); ctx.fill();
+        ctx.strokeStyle = '#2c2333'; ctx.lineWidth = 2; ctx.beginPath();
+        if (approved) ctx.arc(0, 42, 6, Math.PI + 0.3, TAU - 0.3); else { ctx.moveTo(-7, 42); ctx.lineTo(7, 42); }
+        ctx.stroke();
+        break;
+      }
     }
     ctx.restore();
   },
@@ -1294,8 +1344,9 @@ const Render = {
     this.ctx = prev;
     const D = DATA.DIAG[opts.diag] || { name: 'Something' };
     const url = 'https://chasegannon42-maker.github.io/everybodies-got-somethin/';
+    const codeTag = opts.code ? ` (code ${opts.code})` : '';
     const text = opts.daily
-      ? `🗓️ Daily Ward ${opts.key}: I'm ${D.name} and reached Ward ${opts.depth} in Everybodies Got Somethin. Can you beat me? ${url}`
+      ? `🗓️ ${opts.label === 'CHALLENGE' ? 'Challenge' : 'Daily Ward'} — I'm ${D.name} and reached Ward ${opts.depth} in Everybodies Got Somethin. Beat me${codeTag}: ${url}`
       : `Diagnosed with ${D.name} — reached Ward ${opts.depth} in Everybodies Got Somethin. ${url}`;
     const fname = `egs-${opts.diag}-ward${opts.depth}.png`;
     const finish = (blob) => {
@@ -1339,7 +1390,7 @@ const Render = {
       x.fillStyle = '#e8b64c'; this.rr(x, W / 2 - 200, topY, 400, 44, 22); x.fill();
       x.strokeStyle = '#2c2333'; x.lineWidth = 4; this.rr(x, W / 2 - 200, topY, 400, 44, 22); x.stroke();
       x.fillStyle = '#2c2333'; x.font = this.font(23, true);
-      x.fillText('🗓️ DAILY WARD · ' + opts.key, W / 2, topY + 30);
+      x.fillText((opts.label === 'CHALLENGE' ? '🔗 ' : '🗓️ ') + (opts.label || 'DAILY WARD') + ' · ' + opts.key, W / 2, topY + 30);
       topY += 70;
     } else topY += 6;
     // walrus portrait
@@ -1370,6 +1421,33 @@ const Render = {
     // footer / link
     x.fillStyle = '#8a7a68'; x.font = this.font(21, true); x.fillText('🦭  play free at', W / 2, H - m - 56);
     x.fillStyle = '#3a2a4a'; x.font = this.font(20, true); x.fillText('chasegannon42-maker.github.io/everybodies-got-somethin', W / 2, H - m - 28);
+  },
+
+  /* Patient Chart icon: render an enemy/boss/item/pill sprite into a small square.
+     ONLY call for already-seen entries — constructing an Enemy/Boss marks it seen. */
+  drawCodexIcon(ctx, kind, id, size) {
+    const prev = this.ctx; this.ctx = ctx;
+    ctx.clearRect(0, 0, size, size);
+    ctx.save();
+    ctx.translate(size / 2, size / 2);
+    const stubG = { t: 0.6, player: { x: 0, y: -140, flags: {}, diag: 'adhd' }, enemies: [], boss: null };
+    try {
+      if (kind === 'enemies') {
+        const e = new Enemy(id, 0, 0, 1, false, 1); e.spawnT = 0; e.hitFlash = 0; e.fuse = -1;
+        const s = Math.min(1, (size * 0.4) / (e.r + 8)); ctx.scale(s, s);
+        this.drawEnemy(e, stubG);
+      } else if (kind === 'bosses') {
+        const b = new Boss(id, 1, stubG); b.x = 0; b.y = 0; b.introT = 0; b.hitFlash = 0; b.t = 0.6; b.page = 0; b.dead = false;
+        ctx.scale(size / 150, size / 150);
+        this.drawBoss(b, stubG);
+      } else if (kind === 'items') {
+        this.drawItemIcon(id, 0, 2);
+      } else if (kind === 'pills') {
+        this.drawPillIcon(0, 0, DATA.PILL_COLORS[id % DATA.PILL_COLORS.length]);
+      }
+    } catch (e) { }
+    ctx.restore();
+    this.ctx = prev;
   },
 
   drawItemIcon(id, x, y) {
