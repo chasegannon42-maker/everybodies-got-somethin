@@ -23,11 +23,35 @@ const Render = {
       this.drawEntities(G);
       if (G.dark > 0.02) this.drawDarkness(G);
       this.drawHUD(G);
+    } else {
+      this.drawMenuAmbient(G);   // atmospheric backdrop behind the menus (esp. the title)
     }
     ctx.restore();
     if (G.banner) this.drawBanner(G);
     if (G.toasts.length) this.drawToasts(G);
     if (G.state === 'descend') this.drawDescend(G);
+  },
+
+  /* atmospheric menu backdrop: warm lamp glow, drifting dust, vignette (shows through the title's lighter scrim) */
+  drawMenuAmbient(G) {
+    const ctx = this.ctx;
+    this._mt = (this._mt || 0) + 0.016;
+    const t = this._mt;
+    const glow = ctx.createRadialGradient(CW / 2, CH * 0.36, 40, CW / 2, CH * 0.42, CW * 0.72);
+    glow.addColorStop(0, 'rgba(78,64,52,0.55)'); glow.addColorStop(0.6, 'rgba(42,34,46,0.22)'); glow.addColorStop(1, 'rgba(23,19,26,0)');
+    ctx.fillStyle = glow; ctx.fillRect(0, 0, CW, CH);
+    const rm = Meta.data.a11y && Meta.data.a11y.reduceMotion;
+    ctx.fillStyle = 'rgba(212,200,222,0.14)';
+    for (let i = 0; i < 44; i++) {
+      const bx = (i * 97) % CW, by = (i * 57) % CH;
+      const x = (bx + (rm ? 0 : t * (6 + (i % 5)))) % CW;
+      const y = (by + (rm ? 0 : Math.sin(t * 0.4 + i) * 14) + CH) % CH;
+      const r = 0.7 + (i % 4) * 0.6;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+    }
+    const v = ctx.createRadialGradient(CW / 2, CH / 2, CH * 0.28, CW / 2, CH / 2, CH * 0.8);
+    v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,0.6)');
+    ctx.fillStyle = v; ctx.fillRect(0, 0, CW, CH);
   },
 
   /* ============ seeded rng for stable textures ============ */

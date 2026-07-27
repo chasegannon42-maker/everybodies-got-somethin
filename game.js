@@ -226,6 +226,7 @@ const G = {
         <button class="btn" id="bDaily">🗓️ DAILY WARD</button>
         <button class="btn minor" id="bFiles">📁 PATIENT FILES (choose your diagnosis)</button>
         <button class="btn minor" id="bChart">📋 PATIENT CHART (codex)</button>
+        <button class="btn minor" id="bStoryT">📖 CHART NOTES (story)</button>
         ${ngRow}
         <div class="btnrow">
           <button class="btn minor" id="bHow">HOW TO PLAY</button>
@@ -235,11 +236,13 @@ const G = {
         ${statsLine}
         <div class="smallprint">A satire about a system that hands out labels like candy — not about the people living with them. Be kind, including to yourself. ♥</div>
       </div>`);
+    document.getElementById('overlay').classList.add('lightbg');   // let the atmospheric backdrop show on the title
     this.paintWalrus('titleWalrus');
-    document.getElementById('bStart').onclick = () => { SFX.init(); SFX.play('ui'); if (!Meta.data.onboarded) this.showTutorial(() => this.startQuiz()); else this.startQuiz(); };
+    document.getElementById('bStart').onclick = () => { SFX.init(); SFX.play('ui'); this.startCheckup(); };
     document.getElementById('bDaily').onclick = () => { SFX.init(); SFX.play('ui'); this.showDaily(); };
     document.getElementById('bFiles').onclick = () => { SFX.init(); SFX.play('ui'); this.showFiles(); };
     document.getElementById('bChart').onclick = () => { SFX.init(); SFX.play('ui'); this.showCodex(() => this.showTitle()); };
+    document.getElementById('bStoryT').onclick = () => { SFX.init(); SFX.play('ui'); this.showStoryGallery(); };
     const bc = document.getElementById('bChronic'); if (bc) bc.onclick = () => { SFX.init(); SFX.play('ui'); this._startChronic = true; this.startQuiz(); };
     const bbr = document.getElementById('bBossRush'); if (bbr) bbr.onclick = () => { SFX.init(); SFX.play('ui'); this._startBossRush = true; this.startQuiz(); };
     document.getElementById('bHow').onclick = () => { SFX.init(); SFX.play('ui'); this.showHow(); };
@@ -271,6 +274,7 @@ const G = {
         <button class="btn minor" id="bA11yContrast">${ct(a.bulletContrast, 'High-contrast bullets')}</button>
         <button class="btn minor" id="bA11yMotion">${ct(a.reduceMotion, 'Reduced motion')}</button>
         <button class="btn minor" id="bA11yEasy">${ct(a.easy, 'Second Opinion (easier)')}</button>
+        <button class="btn minor" id="bStoryToggle">${ct(!Meta.data.storyOff, 'Story cutscenes')}</button>
         <button class="btn" id="bSetBack">BACK</button>
         <div class="smallprint">Tip: press <span class="kbd">M</span> anytime to mute. Easy mode applies to your next run. Settings are saved on this device.</div>
       </div>`);
@@ -285,6 +289,8 @@ const G = {
     tog('bA11yContrast', 'bulletContrast', 'High-contrast bullets');
     tog('bA11yMotion', 'reduceMotion', 'Reduced motion');
     tog('bA11yEasy', 'easy', 'Second Opinion (easier)');
+    const bst = document.getElementById('bStoryToggle');
+    if (bst) bst.onclick = () => { SFX.play('ui'); Meta.data.storyOff = Meta.data.storyOff ? 0 : 1; Meta.save(); bst.textContent = ct(!Meta.data.storyOff, 'Story cutscenes'); };
     document.getElementById('bSetBack').onclick = () => { SFX.play('ui'); returnTo(); };
   },
 
@@ -365,6 +371,22 @@ const G = {
         <button class="btn" id="bBack">BACK</button>
       </div>`);
     document.getElementById('bBack').onclick = () => { SFX.play('ui'); this.showTitle(); };
+  },
+
+  // first checkup: play the prologue cutscene once, then tutorial (once), then the quiz
+  startCheckup() {
+    const go = () => { if (!Meta.data.onboarded) this.showTutorial(() => this.startQuiz()); else this.startQuiz(); };
+    if (!Meta.data.storyOff && typeof Story !== 'undefined' && !(Meta.data.seenStory && Meta.data.seenStory.prologue)) {
+      Story.play('prologue', go);
+    } else go();
+  },
+  // story interlude when first reaching a milestone ward; returns true if one is now playing
+  maybeInterlude() {
+    if (Meta.data.storyOff || typeof Story === 'undefined' || this.bossRush) return false;
+    const id = { 5: 'ward5', 10: 'ward10', 15: 'ward15', 20: 'ward20', 50: 'ward50pre' }[this.depth];
+    // the interlude interrupts the descend animation, so its onDone must rebuild the floor AND restore play
+    if (id && !(Meta.data.seenStory && Meta.data.seenStory[id])) { Story.play(id, () => { this.newFloor(); this.state = 'run'; }); return true; }
+    return false;
   },
 
   startQuiz() {
@@ -525,6 +547,7 @@ const G = {
   },
 
   newFloor() {
+    if (this.maybeInterlude()) return;   // story beat first; it re-calls newFloor when done
     const gen = this.genSeed(['floor', this.depth], () => generateFloor(this.depth, this.lastBoss));
     this.grid = gen.grid;
     this.floorRooms = gen.rooms;
@@ -823,8 +846,9 @@ const G = {
       }
     });
     SFX.setMusic('run');
-    if (this._cureBeaten) { this._cureBeaten = false; setTimeout(() => { if (this.state === 'run') this.showEnding(); }, 900); }
-    if (this._founderBeaten) { this._founderBeaten = false; setTimeout(() => { if (this.state === 'run') this.showFounderEnding(); }, 900); }
+    const storyOn = !Meta.data.storyOff && typeof Story !== 'undefined';
+    if (this._cureBeaten) { this._cureBeaten = false; setTimeout(() => { if (this.state === 'run') { if (storyOn) Story.play('cure', () => this.showEnding()); else this.showEnding(); } }, 900); }
+    if (this._founderBeaten) { this._founderBeaten = false; setTimeout(() => { if (this.state === 'run') { if (storyOn) Story.play('founder', () => this.showFounderEnding()); else this.showFounderEnding(); } }, 900); }
   },
 
   /* ---------- explosions / paperwork ---------- */
@@ -1384,6 +1408,33 @@ const G = {
     document.getElementById('bCodexBack').onclick = () => { SFX.play('ui'); this._codexReturn(); };
   },
 
+  /* ---------- CHART NOTES story gallery (re-watch unlocked cutscenes) ---------- */
+  showStoryGallery(returnTo) {
+    this.state = 'storygallery';
+    const seen = Meta.data.seenStory || {};
+    const chapters = (typeof STORY_CHAPTERS !== 'undefined') ? STORY_CHAPTERS : [];
+    const rows = chapters.map(ch => {
+      const got = !!seen[ch.id];
+      return `<div class="ach ${got ? 'got' : 'locked'}" ${got ? `data-s="${ch.id}" style="cursor:pointer"` : ''}>
+        <div class="achicon">${got ? '📖' : '🔒'}</div>
+        <div class="achbody">
+          <div class="achname">${got ? ch.title : '??? — not yet reached'}</div>
+          <div class="achdesc">${got ? 'tap to re-read this chapter' : 'unfolds as you descend'}</div>
+        </div>
+      </div>`;
+    }).join('');
+    const done = chapters.filter(c => seen[c.id]).length;
+    this.overlay(`
+      <div class="panel wide">
+        <h1 class="logo" style="font-size:26px">CHART NOTES</h1>
+        <div class="tagline">${done} / ${chapters.length} chapters · the story under the satire</div>
+        <div class="achlist">${rows}</div>
+        <button class="btn" id="bStoryBack">BACK</button>
+      </div>`);
+    document.querySelectorAll('.ach[data-s]:not(.locked)').forEach(b => b.onclick = () => { SFX.play('ui'); Story.play(b.dataset.s, () => this.showStoryGallery(returnTo)); });
+    document.getElementById('bStoryBack').onclick = () => { SFX.play('ui'); (returnTo || (() => this.showTitle()))(); };
+  },
+
   /* ---------- unlocks / achievements screen ---------- */
   showUnlocks(returnTo) {
     this.state = 'unlocks';
@@ -1471,6 +1522,7 @@ const G = {
   overlay(html) {
     const o = document.getElementById('overlay');
     o.innerHTML = html;
+    o.classList.remove('lightbg');   // screens default to the dark scrim; the title opts into the lighter one
     o.classList.add('show');
   },
   hideOverlay() { document.getElementById('overlay').classList.remove('show'); },
@@ -1559,8 +1611,12 @@ const G = {
     let dt = (now - last) / 1000;
     last = now;
     if (dt > 0.05) dt = 0.05;
-    if (G.state === 'run' || G.state === 'descend') G.update(dt);
-    Render.draw(G);
+    if (G.state === 'cutscene' && typeof Story !== 'undefined' && Story.active) {
+      try { Story.update(dt); Story.draw(); } catch (e) { Story.active = false; if (G.showTitle) G.showTitle(); }
+    } else {
+      if (G.state === 'run' || G.state === 'descend') G.update(dt);
+      Render.draw(G);
+    }
     updateSticks();
     updateDeckStatus();
     requestAnimationFrame(frame);
@@ -1574,7 +1630,12 @@ const G = {
     warpBoss: () => { const br = G.floorRooms.find(r => r.type === 'boss'); if (br) G.enterRoom(br, null); },
     killAll: () => { for (const e of G.enemies) e.hurt(9999, G, true); if (G.boss && !G.boss.dead) G.boss.hurt(9999, G); },
     player: () => G.player,
-    depth: () => G.depth
+    depth: () => G.depth,
+    story: (id) => { SFX.muted = true; if (!G.player) G.beginRun('adhd'); Story.play(id || 'prologue', () => G.showTitle()); },
+    storyList: () => Object.keys(STORY),
+    storyTick: (n) => { for (let i = 0; i < (n || 40); i++) if (G.state === 'cutscene') Story.update(0.05); if (G.state === 'cutscene') Story.draw(); return G.state === 'cutscene' ? { idx: Story.idx, typed: Math.floor(Story.typed), of: Story.fullText.length } : { done: true }; },
+    storyPress: () => { if (G.state === 'cutscene') Story.press(); return G.state; },
+    storyGoto: (i) => { if (G.state === 'cutscene') { Story.idx = i; Story._loadPanel(); for (let k = 0; k < 60; k++) Story.update(0.05); Story.draw(); } }
   };
 
   G.showTitle();

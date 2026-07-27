@@ -34,6 +34,7 @@ html, body {
   padding: 12px;
 }
 #overlay.show { display: flex; }
+#overlay.lightbg { background: rgba(14, 10, 18, 0.5); }   /* title: let the atmospheric canvas backdrop breathe */
 
 .panel {
   background: #f6eedd;
