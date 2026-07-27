@@ -18,7 +18,7 @@ const Render = {
 
     if (G.state === 'run' || G.state === 'pause' || G.state === 'dead' || G.state === 'descend') {
       // screen shake
-      if (G.shake > 0.3) ctx.translate(U.rand(-G.shake, G.shake) * 0.5, U.rand(-G.shake, G.shake) * 0.5);
+      if (G.shake > 0.3 && !(Meta.data.a11y && Meta.data.a11y.reduceMotion)) ctx.translate(U.rand(-G.shake, G.shake) * 0.5, U.rand(-G.shake, G.shake) * 0.5);
       this.drawRoom(G);
       this.drawEntities(G);
       if (G.dark > 0.02) this.drawDarkness(G);
@@ -492,6 +492,10 @@ const Render = {
       ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, TAU); ctx.fill();
       ctx.strokeStyle = 'rgba(30,20,30,0.5)'; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, TAU); ctx.stroke();
+      if (Meta.data.a11y && Meta.data.a11y.bulletContrast) { // high-contrast outline for readability
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(b.x, b.y, b.r + 2, 0, TAU); ctx.stroke();
+        ctx.strokeStyle = '#000'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(b.x, b.y, b.r + 4, 0, TAU); ctx.stroke();
+      }
     }
 
     // particles + gibs
@@ -1253,6 +1257,59 @@ const Render = {
         ctx.strokeStyle = '#2c2333'; ctx.lineWidth = 2; ctx.beginPath();
         if (approved) ctx.arc(0, 42, 6, Math.PI + 0.3, TAU - 0.3); else { ctx.moveTo(-7, 42); ctx.lineTo(7, 42); }
         ctx.stroke();
+        break;
+      }
+      case 'algorithm': { // a glowing phone/feed that watches how you move
+        // phone body
+        ctx.fillStyle = flash ? '#fff' : '#1b1f2a';
+        this.rr(ctx, -34, -46, 68, 96, 12); ctx.fill();
+        ctx.strokeStyle = '#3a4152'; ctx.lineWidth = 3; this.rr(ctx, -34, -46, 68, 96, 12); ctx.stroke();
+        // glowing screen — a scrolling "feed"
+        const sg = ctx.createLinearGradient(0, -40, 0, 44);
+        sg.addColorStop(0, '#2a4a7a'); sg.addColorStop(1, '#12233f');
+        ctx.fillStyle = flash ? '#dfe' : sg; this.rr(ctx, -28, -40, 56, 84, 6); ctx.fill();
+        ctx.save(); this.rr(ctx, -28, -40, 56, 84, 6); ctx.clip();
+        const scroll = (b.t * 40) % 26;
+        for (let i = -1; i < 5; i++) {
+          const cy = -38 + i * 26 + scroll;
+          ctx.fillStyle = 'rgba(120,170,240,0.5)'; this.rr(ctx, -24, cy, 48, 10, 3); ctx.fill();
+          ctx.fillStyle = 'rgba(160,140,230,0.5)'; ctx.beginPath(); ctx.arc(-18, cy + 15, 4, 0, TAU); ctx.fill();
+          ctx.fillStyle = 'rgba(120,170,240,0.35)'; this.rr(ctx, -10, cy + 11, 32, 7, 2); ctx.fill();
+        }
+        ctx.restore();
+        // watching eyes tracking the player
+        const ea = U.ang(b.x, b.y, G.player.x, G.player.y);
+        ctx.fillStyle = '#dfeeff';
+        ctx.beginPath(); ctx.ellipse(-11, -6, 7, 9, 0, 0, TAU); ctx.ellipse(11, -6, 7, 9, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#1b2a3f';
+        ctx.beginPath(); ctx.arc(-11 + Math.cos(ea) * 3, -6 + Math.sin(ea) * 3, 3.6, 0, TAU); ctx.arc(11 + Math.cos(ea) * 3, -6 + Math.sin(ea) * 3, 3.6, 0, TAU); ctx.fill();
+        // a little "notification" badge
+        ctx.fillStyle = '#e05a5a'; ctx.beginPath(); ctx.arc(30, -44, 8, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#fff'; ctx.font = this.font(11, true); ctx.textAlign = 'center'; ctx.fillText('∞', 30, -40);
+        break;
+      }
+      case 'thecure': { // a radiant panacea capsule — hope, weaponized
+        const glow = 1 + Math.sin(b.t * 3) * 0.12;
+        const gg = ctx.createRadialGradient(0, 0, 6, 0, 0, 70 * glow);
+        gg.addColorStop(0, 'rgba(255,240,190,0.5)'); gg.addColorStop(1, 'rgba(255,240,190,0)');
+        ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(0, 0, 70 * glow, 0, TAU); ctx.fill();
+        // radiant rays
+        ctx.strokeStyle = 'rgba(255,220,120,0.4)'; ctx.lineWidth = 3;
+        for (let i = 0; i < 12; i++) { const a = b.t * 0.6 + i * TAU / 12; ctx.beginPath(); ctx.moveTo(Math.cos(a) * 40, Math.sin(a) * 40); ctx.lineTo(Math.cos(a) * (54 + Math.sin(b.t * 4 + i) * 4), Math.sin(a) * (54 + Math.sin(b.t * 4 + i) * 4)); ctx.stroke(); }
+        // capsule
+        ctx.save(); ctx.rotate(-0.5);
+        const cg = ctx.createLinearGradient(-34, 0, 34, 0);
+        cg.addColorStop(0, flash ? '#fff' : '#ffd86a'); cg.addColorStop(0.5, '#fff3cf'); cg.addColorStop(1, flash ? '#fff' : '#f0a840');
+        ctx.fillStyle = '#f4efe0'; this.rr(ctx, -34, -18, 34, 36, 18); ctx.fill();
+        ctx.fillStyle = flash ? '#fff' : '#ffcf5a'; this.rr(ctx, 0, -18, 34, 36, 18); ctx.fill();
+        ctx.strokeStyle = '#c89020'; ctx.lineWidth = 2.5; this.rr(ctx, -34, -18, 68, 36, 18); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, -18); ctx.lineTo(0, 18); ctx.stroke();
+        ctx.restore();
+        // serene little face
+        ctx.fillStyle = '#8a6a2a';
+        ctx.beginPath(); ctx.arc(-8, 2, 2.4, 0, TAU); ctx.arc(8, 2, 2.4, 0, TAU); ctx.fill();
+        ctx.strokeStyle = '#8a6a2a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 6, 6, 0.2, Math.PI - 0.2); ctx.stroke();
+        ctx.fillStyle = '#e8c84c'; ctx.font = this.font(11, true); ctx.textAlign = 'center'; ctx.fillText('THE CURE', 0, -40);
         break;
       }
     }

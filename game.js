@@ -36,6 +36,34 @@ const G = {
      Reseeding per floor/room/reward means the daily dungeon is identical for everyone
      regardless of play order, while combat keeps using Math.random. */
   genSeed(parts, fn) { return this.seed == null ? fn() : withSeed(hashSeed(this.seed, parts), fn); },
+  /* codex completion → perks. a tab counts complete when every listed id is seen. */
+  codexTabComplete(cat) {
+    const seen = (Meta.data.seen && Meta.data.seen[cat]) || {};
+    let ids;
+    if (cat === 'enemies') ids = Object.keys(DATA.ENEMIES).filter(id => id !== 'form');
+    else if (cat === 'bosses') ids = Object.keys(DATA.BOSSES);
+    else if (cat === 'items') ids = Object.keys(DATA.ITEMS);
+    else ids = DATA.PILLS.map((_, i) => i);
+    return ids.every(id => seen[id]);
+  },
+  applyCodexPerks(p) {
+    if (this.codexTabComplete('pills')) p.flags.pillsKnown = true;   // all pills documented → pre-identified
+    if (this.codexTabComplete('enemies')) p.flags.hpBars = true;     // all patients → Clinician's Eye (HP bars)
+  },
+  /* comorbidity synergies: fuse owned pairs into a named bonus condition */
+  checkComorbidSynergy() {
+    const owned = this.player.comorbidities || [];
+    this.player._synergies = this.player._synergies || [];
+    for (const s of (DATA.COMORBID_SYNERGY || [])) {
+      if (this.player._synergies.includes(s.name)) continue;
+      if (s.need.every(id => owned.includes(id))) {
+        this.player._synergies.push(s.name);
+        try { s.apply(this.player, this); } catch (e) { }
+        this.toast('🧬 SYNERGY: ' + s.name + ' — ' + s.note, '#e8c84c');
+        SFX.play('item');
+      }
+    }
+  },
   toast(txt, clr) {
     this.toasts.push({ txt, t: 0, dur: 2.8, clr });
     if (this.toasts.length > 3) this.toasts.shift();
@@ -180,6 +208,9 @@ const G = {
     SFX.setMusic('menu');
     document.body.classList.remove('inrun');
     const m = Meta.data;
+    this._startChronic = false; this._startBossRush = false;
+    const chronicOn = !!m.chronicUnlocked, bossRushOn = this.codexTabComplete('bosses');
+    const ngRow = (chronicOn || bossRushOn) ? `<div class="btnrow">${chronicOn ? '<button class="btn minor" id="bChronic">🩸 CHRONIC MODE</button>' : ''}${bossRushOn ? '<button class="btn minor" id="bBossRush">☠ BOSS RUSH</button>' : ''}</div>` : '';
     const statsLine = m.runs > 0
       ? `<div class="stats-line">runs: ${m.runs} · deepest ward: ${m.bestFloor} · walruses defeated: ${m.walrusKills}</div>`
       : '';
@@ -195,6 +226,7 @@ const G = {
         <button class="btn" id="bDaily">🗓️ DAILY WARD</button>
         <button class="btn minor" id="bFiles">📁 PATIENT FILES (choose your diagnosis)</button>
         <button class="btn minor" id="bChart">📋 PATIENT CHART (codex)</button>
+        ${ngRow}
         <div class="btnrow">
           <button class="btn minor" id="bHow">HOW TO PLAY</button>
           <button class="btn minor" id="bUnlocksT">🏆 UNLOCKS</button>
@@ -204,10 +236,12 @@ const G = {
         <div class="smallprint">A satire about a system that hands out labels like candy — not about the people living with them. Be kind, including to yourself. ♥</div>
       </div>`);
     this.paintWalrus('titleWalrus');
-    document.getElementById('bStart').onclick = () => { SFX.init(); SFX.play('ui'); this.startQuiz(); };
+    document.getElementById('bStart').onclick = () => { SFX.init(); SFX.play('ui'); if (!Meta.data.onboarded) this.showTutorial(() => this.startQuiz()); else this.startQuiz(); };
     document.getElementById('bDaily').onclick = () => { SFX.init(); SFX.play('ui'); this.showDaily(); };
     document.getElementById('bFiles').onclick = () => { SFX.init(); SFX.play('ui'); this.showFiles(); };
     document.getElementById('bChart').onclick = () => { SFX.init(); SFX.play('ui'); this.showCodex(() => this.showTitle()); };
+    const bc = document.getElementById('bChronic'); if (bc) bc.onclick = () => { SFX.init(); SFX.play('ui'); this._startChronic = true; this.startQuiz(); };
+    const bbr = document.getElementById('bBossRush'); if (bbr) bbr.onclick = () => { SFX.init(); SFX.play('ui'); this._startBossRush = true; this.startQuiz(); };
     document.getElementById('bHow').onclick = () => { SFX.init(); SFX.play('ui'); this.showHow(); };
     document.getElementById('bUnlocksT').onclick = () => { SFX.init(); SFX.play('ui'); this.showUnlocks(() => this.showTitle()); };
     document.getElementById('bSettings').onclick = () => { SFX.init(); SFX.play('ui'); this.showSettings(() => this.showTitle()); };
@@ -217,6 +251,8 @@ const G = {
   showSettings(returnTo) {
     SFX.init();
     const pct = v => Math.round(v * 100);
+    const a = Meta.data.a11y || (Meta.data.a11y = { bulletContrast: false, reduceMotion: false, easy: false });
+    const ct = (on, label) => (on ? '✅ ' : '⬜ ') + label;
     this.overlay(`
       <div class="panel">
         <h1 class="logo" style="font-size:30px">SETTINGS</h1>
@@ -230,8 +266,12 @@ const G = {
         </div>
         <button class="btn minor" id="bMuteAll">${SFX.muted ? '🔇 UNMUTE ALL' : '🔊 MUTE ALL'}</button>
         ${Haptics.supported ? `<button class="btn minor" id="bHaptics">${Haptics.enabled ? '📳 HAPTICS: ON' : '📴 HAPTICS: OFF'}</button>` : ''}
+        <div class="tagline" style="margin:10px 0 2px">Accessibility</div>
+        <button class="btn minor" id="bA11yContrast">${ct(a.bulletContrast, 'High-contrast bullets')}</button>
+        <button class="btn minor" id="bA11yMotion">${ct(a.reduceMotion, 'Reduced motion')}</button>
+        <button class="btn minor" id="bA11yEasy">${ct(a.easy, 'Second Opinion (easier)')}</button>
         <button class="btn" id="bSetBack">BACK</button>
-        <div class="smallprint">Tip: press <span class="kbd">M</span> anytime to mute. Settings are saved on this device.</div>
+        <div class="smallprint">Tip: press <span class="kbd">M</span> anytime to mute. Easy mode applies to your next run. Settings are saved on this device.</div>
       </div>`);
     const sfx = document.getElementById('sfxSlider'), mus = document.getElementById('musSlider');
     sfx.oninput = () => { SFX.init(); SFX.setSfxVol(sfx.value / 100); document.getElementById('sfxPct').textContent = sfx.value + '%'; };
@@ -240,7 +280,36 @@ const G = {
     document.getElementById('bMuteAll').onclick = (e) => { SFX.init(); const mu = SFX.toggleMute(); e.target.textContent = mu ? '🔇 UNMUTE ALL' : '🔊 MUTE ALL'; };
     const hb = document.getElementById('bHaptics');
     if (hb) hb.onclick = (e) => { Input.usingTouch = true; const on = Haptics.toggle(); e.target.textContent = on ? '📳 HAPTICS: ON' : '📴 HAPTICS: OFF'; };
+    const tog = (id, key, label) => { const b = document.getElementById(id); if (b) b.onclick = () => { SFX.play('ui'); a[key] = !a[key]; Meta.save(); b.textContent = ct(a[key], label); }; };
+    tog('bA11yContrast', 'bulletContrast', 'High-contrast bullets');
+    tog('bA11yMotion', 'reduceMotion', 'Reduced motion');
+    tog('bA11yEasy', 'easy', 'Second Opinion (easier)');
     document.getElementById('bSetBack').onclick = () => { SFX.play('ui'); returnTo(); };
+  },
+
+  /* first-run orientation, shown once before the first checkup */
+  showTutorial(then) {
+    this.state = 'tutorial';
+    Meta.data.onboarded = 1; Meta.save();
+    const touch = Input.usingTouch || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+    this.overlay(`
+      <div class="panel">
+        <h1 class="logo" style="font-size:28px">FIRST VISIT?</h1>
+        <div class="tagline">a 15-second orientation</div>
+        <div class="controls-grid">
+          <b>Goal:</b> clear each room, beat the ward's boss, take the trapdoor down — forever.<br><br>
+          <b>Move:</b> ${touch ? 'left thumb' : '<span class="kbd">W</span><span class="kbd">A</span><span class="kbd">S</span><span class="kbd">D</span>'}<br>
+          <b>Shoot:</b> ${touch ? 'right thumb' : 'arrow keys or the mouse'}<br>
+          <b>Pill / Claim:</b> ${touch ? 'the 💊 and 📄 buttons' : '<span class="kbd">Q</span> and <span class="kbd">E</span>'}<br><br>
+          Dr. Walrus gives a quick quiz, then a diagnosis — each one plays differently. Doors open once a room is clear. Copays (¢) buy refills; Referrals (🔑) open the Specialist.<br><br>
+          <i>It's a satire about over-diagnosis — be kind to yourself out there. ♥</i>
+        </div>
+        <button class="btn" id="bTutGo">GOT IT — SEE THE DOCTOR</button>
+        <button class="btn minor" id="bTutSkip">skip</button>
+      </div>`);
+    const go = () => { SFX.play('ui'); (then || (() => this.startQuiz()))(); };
+    document.getElementById('bTutGo').onclick = go;
+    document.getElementById('bTutSkip').onclick = go;
   },
 
   /* Isaac-style character select — every diagnosis is its own character */
@@ -386,6 +455,11 @@ const G = {
     this.seed = daily ? (daily.seed >>> 0) : null;
     this.dailyKey = daily ? daily.key : null;
     this._startWalrusKills = Meta.data.walrusKills || 0;   // for daily "beat the Walrus" flag
+    // run modifiers: Chronic Mode (NG+), Boss Rush, and the 'Second Opinion' easy toggle
+    this.chronic = !!this._startChronic; this._startChronic = false;
+    this.bossRush = !!this._startBossRush; this._startBossRush = false;
+    this.easy = !!(Meta.data.a11y && Meta.data.a11y.easy);
+    this._cureBeaten = false;
     // daily streak (real daily only, counted once per day on first play)
     if (this.dailyKind === 'daily') {
       const ds = Meta.data.dailyStreak || (Meta.data.dailyStreak = { last: null, count: 0, best: 0 });
@@ -400,6 +474,7 @@ const G = {
     Meta.data.diagsPlayed[diagId] = 1;
     Meta.save();
     this.player = this.genSeed(['player'], () => new Player(diagId));
+    this.applyCodexPerks(this.player);   // rewards earned by completing chart tabs
     this.pillAssign = this.genSeed(['pills'], () => U.shuffle(DATA.PILLS.map((_, i) => i)).slice(0, 10));
     this.pillKnown = new Set();
     this.depth = 1;
@@ -422,6 +497,8 @@ const G = {
     this.grid = gen.grid;
     this.floorRooms = gen.rooms;
     this.bossId = gen.bossId;
+    // Boss Rush: skip the fighting between rooms — empty every normal room so it's a straight shot to the boss
+    if (this.bossRush) this.floorRooms.forEach(r => { if (r.type === 'normal') { r.spawned = true; r.cleared = true; } r.discovered = true; });
     this.lastBoss = gen.bossId === 'walrus' ? this.lastBoss : gen.bossId;
     this.secretFound = false;
     this.boss = null;
@@ -631,6 +708,12 @@ const G = {
     Meta.data.bestFloor = Math.max(Meta.data.bestFloor, this.depth);
     if (!Meta.data.diagBest) Meta.data.diagBest = {};
     Meta.data.diagBest[p.diag] = Math.max(Meta.data.diagBest[p.diag] || 0, this.depth);
+    // THE CURE (Ward 25): the (non-)finale — mark cured, unlock Chronic Mode
+    if (this.bossId === 'thecure') {
+      this._cureBeaten = true;
+      if (!Meta.data.cured) { Meta.data.cured = 1; Meta.data.chronicUnlocked = 1; }
+      if (this.chronic) Meta.data.chronicBest = Math.max(Meta.data.chronicBest || 0, this.depth);
+    }
     Meta.save();
     this.checkUnlocks();
     // rewards (seeded per ward so a daily's boss loot & OON door match for everyone)
@@ -663,6 +746,7 @@ const G = {
       }
     });
     SFX.setMusic('run');
+    if (this._cureBeaten) { this._cureBeaten = false; setTimeout(() => { if (this.state === 'run') this.showEnding(); }, 900); }
   },
 
   /* ---------- explosions / paperwork ---------- */
@@ -790,6 +874,7 @@ const G = {
       try { c.apply(this.player, this); } catch (e) { }
       (this.player.comorbidities || (this.player.comorbidities = [])).push(c.id);
       this.toast('Comorbidity acquired: ' + c.name, '#b8e0a0');
+      this.checkComorbidSynergy();
       this.hideOverlay();
       this.doDescend();
     });
@@ -1061,6 +1146,35 @@ const G = {
     document.getElementById('bTitle').onclick = () => { SFX.play('ui'); this.showTitle(); };
   },
 
+  /* ---------- the (non-)ending ---------- */
+  showEnding() {
+    this.state = 'ending';
+    SFX.setMusic('menu'); SFX.play('item');
+    this.overlay(`
+      <div class="panel wide">
+        <h1 class="logo" style="font-size:32px">YOU REACHED<br>THE CURE</h1>
+        <div class="walrusbox">
+          <canvas class="walrusCanvas" width="132" height="132" id="endWalrus"></canvas>
+          <div class="bubble">There is no cure. There never was. But you fought all the way to Ward 25 through a system with a label for every breath you take — and you're still standing. That's not nothing. That's the whole thing.</div>
+        </div>
+        <div class="rx" style="border-color:#c8a020">
+          <div class="stamp" style="color:#c8a020;border-color:#c8a020">CURED*</div>
+          <div class="sub">*allegedly. ${DATA.DIAG[this.player.diag].name} · Ward ${this.depth}${this.chronic ? ' · CHRONIC MODE' : ''}</div>
+          <div class="mech">Everybody's got somethin. You've just got somethin AND a high score.</div>
+        </div>
+        ${Meta.data.chronicUnlocked ? `<div class="newunlocks"><div class="nutitle">🏆 CHRONIC MODE UNLOCKED</div><div class="nurow"><span>A harder New Game+ — find it on the title screen.</span></div></div>` : ''}
+        <button class="btn" id="bEndKeep">▶ KEEP CLIMBING (endless)</button>
+        <div class="btnrow">
+          <button class="btn minor" id="bEndShare">📤 SHARE</button>
+          <button class="btn minor" id="bEndTitle">TITLE</button>
+        </div>
+      </div>`);
+    this.paintWalrus('endWalrus');
+    document.getElementById('bEndKeep').onclick = () => { SFX.play('ui'); this.hideOverlay(); this.state = 'run'; };
+    document.getElementById('bEndShare').onclick = () => { SFX.play('ui'); Render.shareCard({ diag: this.player.diag, depth: this.depth, daily: true, key: 'WARD 25', label: this.chronic ? 'CURED · CHRONIC' : 'CURED (ALLEGEDLY)', win: true, stats: { kills: this.stats.kills, bosses: this.stats.bosses, pills: this.stats.pills } }); };
+    document.getElementById('bEndTitle').onclick = () => { SFX.play('ui'); this.showTitle(); };
+  },
+
   /* ---------- patient chart (codex) ---------- */
   showCodex(returnTo) {
     this.state = 'codex';
@@ -1083,10 +1197,15 @@ const G = {
       return `<div class="ach got"><canvas class="codexicon" width="48" height="48" data-kind="${tab}" data-id="${e.id}"></canvas><div class="achbody"><div class="achname">${e.name}</div><div class="achdesc">${e.text}</div></div></div>`;
     }).join('');
     const tabBtns = tabs.map(([k, label]) => `<button class="btn minor codextab${k === tab ? ' active' : ''}" data-tab="${k}">${label}</button>`).join('');
+    const rewardText = { enemies: "Clinician's Eye (always see enemy health)", bosses: 'Boss Rush mode', pills: 'pills always pre-identified' };
+    const done = this.codexTabComplete(tab);
+    const perkLine = rewardText[tab]
+      ? `<div class="stats-line" style="color:${done ? '#2c8a3a' : '#8a7a68'}">${done ? '✓ unlocked: ' : 'complete this tab → '}${rewardText[tab]}</div>` : '';
     this.overlay(`
       <div class="panel wide">
         <h1 class="logo" style="font-size:26px">PATIENT CHART</h1>
         <div class="tagline">${got} / ${total} ${tab === 'items' ? 'meds' : tab} documented</div>
+        ${perkLine}
         <div class="codextabs">${tabBtns}</div>
         <div class="achlist">${rows}</div>
         <button class="btn" id="bCodexBack">BACK</button>

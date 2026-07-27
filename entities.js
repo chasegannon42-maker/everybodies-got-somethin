@@ -221,6 +221,7 @@ class Player {
       return;
     }
     if (this.diag === 'bipolar' && !this.flags.stable && !this.mania) n = Math.max(1, Math.floor(n / 2));
+    if (G.easy) n = Math.max(1, Math.ceil(n * 0.5));   // 'Second Opinion' easy mode
     this.hp -= n;
     this.iframes = this.iframeTime;
     this.hurtFlash = 0.35;
@@ -750,10 +751,11 @@ function spawnEnemiesForRoom(room, depth, G) {
   const p = G.player;
   const dif = DATA.difficulty(depth);
   const mods = G.floorMods || {};
-  const hpMult = (p.flags.fineMode ? 1.15 : 1) * (mods.hpMul || 1);
+  const hpMult = (p.flags.fineMode ? 1.15 : 1) * (mods.hpMul || 1) * (G.chronic ? 1.5 : 1) * (G.easy ? 0.7 : 1);
   let count = dif.count;
   if (mods.countMul) count = Math.round(count * mods.countMul);
-  count = U.clamp(count + U.randi(-1, 1), 3, 16);
+  if (G.chronic) count = Math.round(count * 1.2);
+  count = U.clamp(count + U.randi(-1, 1), 3, G.chronic ? 18 : 16);
   const champChance = U.clamp(dif.champChance + (mods.champAdd || 0), 0, 0.75);
   const spots = [];
   for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {

@@ -259,7 +259,8 @@ DATA.ACHIEVEMENTS = [
   { id: 'kills500', name: "Symptom Management",     desc: "Defeat 500 enemies (all runs).",                hint: "Keep managing symptoms.",                  check: m => (m.kills || 0) >= 500 },
   { id: 'overRx',   name: "Overprescribed",        desc: "Get overprescribed — 4 pills on one floor.",    hint: "Take a LOT of pills at once.",             check: m => !!m.everOverRx },
   { id: 'nohit',    name: "Clean Bill of Health",  desc: "Clear a whole floor without taking a hit.",     hint: "Survive a floor untouched.",               check: m => !!m.everNoHitFloor },
-  { id: 'denial',   name: "Peak Denial",           desc: "Reach Ward 5 as Perfectly Fine.",               hint: "Insist nothing is wrong. Deeply.",         check: m => ((m.diagBest || {}).fine || 0) >= 5 }
+  { id: 'denial',   name: "Peak Denial",           desc: "Reach Ward 5 as Perfectly Fine.",               hint: "Insist nothing is wrong. Deeply.",         check: m => ((m.diagBest || {}).fine || 0) >= 5 },
+  { id: 'cured',    name: "The Cure (Allegedly)",  desc: "Defeat THE CURE at Ward 25. Unlocks Chronic Mode.", hint: "Descend all the way to Ward 25 and win.", check: m => !!m.cured, reward: "Chronic Mode (New Game+)" }
 ];
 DATA.checkAchievements = function (m) {
   if (!m.unlocks) m.unlocks = {};
@@ -333,13 +334,16 @@ DATA.BOSSES = {
   burnout:    { name: "BURNOUT", sub: "“Just push through it.”", hp: 240 },
   dsm:        { name: "THE MANUAL", sub: "“Everybody's in here somewhere.”", hp: 265 },
   priorauth:  { name: "PRIOR AUTHORIZATION", sub: "“Please hold.”", hp: 250 },
+  algorithm:  { name: "THE ALGORITHM", sub: "“You might also like: THIS.”", hp: 255 },
+  thecure:    { name: "THE CURE", sub: "“It was inside you all along. (It wasn't.)”", hp: 340 },
   walrus:     { name: "DR. WALRUS, M.D.*", sub: "*mail-order", hp: 300 }
 };
 DATA.bossFor = function (depth, lastBoss) {
+  if (depth === 25) return 'thecure';   // the (non-)finale
   if (depth % 5 === 0) return 'walrus';
   let pool = ['gatekeeper', 'larperking'];
   if (depth >= 2) pool.push('adjuster', 'priorauth');
-  if (depth >= 3) pool.push('stigma', 'dsm');
+  if (depth >= 3) pool.push('stigma', 'dsm', 'algorithm');
   if (depth >= 4) pool.push('withdrawal', 'burnout');
   const filtered = pool.filter(b => b !== lastBoss);
   return U.choice(filtered.length ? filtered : pool);
@@ -371,6 +375,8 @@ DATA.CODEX_CHART = {
     burnout: "A candle lit at both ends and handed a third end.",
     dsm: "The book that has a name for you. All of them, actually.",
     priorauth: "Your treatment is denied pending paperwork. Fill the forms to be seen.",
+    algorithm: "Learns how you move and serves you more of it. Engagement is the only cure it knows.",
+    thecure: "What everyone's chasing. Turns out it was the friends we diagnosed along the way.",
     walrus: "Board-certified in Confidence. The doctor will see you now. Forever."
   }
 };
@@ -388,6 +394,15 @@ DATA.COMORBIDITIES = [
   { id: 'rsd',      name: "Rejection Sensitivity", desc: "+22% damage while at full health. Prove them wrong.",  apply(p) { p.flags.rsd = true; } },
   { id: 'insomnia', name: "Insomnia",              desc: "+15% speed & fire rate. You will pay for this later.", apply(p) { p.spd *= 1.15; p.tearDelay *= 0.85; } },
   { id: 'oversharing', name: "Oversharing",        desc: "Taking a hit drops copays everywhere. Trauma dumping.", apply(p) { p.flags.hurtCoins = true; } }
+];
+/* Comorbidity synergies: hold both halves and the chart fuses them into a named
+   condition with a bonus. Checked whenever a new comorbidity is acquired. */
+DATA.COMORBID_SYNERGY = [
+  { need: ['racing', 'insomnia'], name: "Manic Episode", note: "+ speed & a burst of fire rate", apply(p) { p.spd *= 1.12; p.tearDelay *= 0.85; } },
+  { need: ['hyperfix', 'catastro'], name: "Obsessive Focus", note: "+ big damage vs full-health foes", apply(p) { p.dmg *= 1.2; } },
+  { need: ['rumination', 'rsd'], name: "Spiral", note: "+ homing damage restored and then some", apply(p) { p.dmg *= 1.25; } },
+  { need: ['paralysis', 'executive'], name: "Shutdown", note: "+ 1 heart for slowing to cope", apply(p) { p.maxhp += 2; p.hp += 2; } },
+  { need: ['sensory', 'oversharing'], name: "Meltdown", note: "+ a grounding nova when hit", apply(p) { p.flags.hurtNova = true; } }
 ];
 
 /* ============ ENDLESS DIFFICULTY CURVE ============

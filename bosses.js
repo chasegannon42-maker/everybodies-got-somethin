@@ -56,8 +56,10 @@ class Boss {
     this.id = id;
     this.name = M.name; this.sub = M.sub;
     const fineMult = G.player.flags.fineMode ? 1.15 : 1;
-    this.maxhp = this.hp = M.hp * dif.bossHp * fineMult;
+    this.maxhp = this.hp = M.hp * dif.bossHp * fineMult * (G.chronic ? 1.4 : 1) * (G.easy ? 0.75 : 1);
+    this.hp = this.maxhp;
     this.depth = depth;
+    this._feed = { x: 0, y: 0 };   // THE ALGORITHM: smoothed read of how the player moves
     this.aggr = dif.bossAggr;              // deeper bosses move & attack faster
     this.x = CW / 2; this.y = RY + 130;
     this.r = id === 'walrus' ? 46 : id === 'fogless' ? 40 : 40;
@@ -427,6 +429,56 @@ class Boss {
           if (this.atkT <= 0) { this.atkT = 0.6; this.bullet(this.aimP(G), 150, '#e8c84c'); }
           if (this.stateT <= 0) { this.state = 0; this.vulnerable = false; this._scatterForms(G, formCount); G.toast(U.choice(['“Claim denied.”', '“Please hold.”', '“Resubmit in triplicate.”']), '#e05a5a'); SFX.play('error'); }
         }
+        this.clampPos();
+        break;
+      }
+      /* ---------- THE ALGORITHM (adapts to how you move) ---------- */
+      case 'algorithm': {
+        this.x = CW / 2 + Math.sin(this.t * 0.6) * 180;
+        this.y = RY + 120 + Math.sin(this.t * 1.2) * 28;
+        const p2 = G.player;
+        const mvx = (this._px == null) ? 0 : (p2.x - this._px), mvy = (this._py == null) ? 0 : (p2.y - this._py);
+        this._px = p2.x; this._py = p2.y;
+        this._feed.x = U.lerp(this._feed.x, mvx, 0.15); this._feed.y = U.lerp(this._feed.y, mvy, 0.15);
+        const lead = P2 ? 26 : 18;
+        const pfx = U.clamp(p2.x + this._feed.x * lead, RX + 12, RX + RW - 12);
+        const pfy = U.clamp(p2.y + this._feed.y * lead, RY + 12, RY + RH - 12);
+        this.atkT -= dt;
+        if (this.atkT <= 0) {
+          this.atkT = P2 ? 0.9 : 1.3;
+          const a = U.ang(this.x, this.y, pfx, pfy);
+          for (const off of (P2 ? [-0.22, 0, 0.22] : [-0.16, 0.16])) this.bullet(a + off, 230, '#5a9de0');
+        }
+        this.spT -= dt;
+        if (this.spT <= 0) {
+          this.spT = P2 ? 3.2 : 4.6;
+          for (let i = 0; i < (P2 ? 5 : 3); i++) { const b = this.bullet(U.ang(this.x, this.y, pfx, pfy) + U.rand(-0.5, 0.5), 150, '#7a6be0', { life: 3.5 }); b.home = 0.7; }
+          G.toast('“You might also like: THIS.”', '#9db8e8');
+        }
+        this.clampPos();
+        break;
+      }
+      /* ---------- THE CURE (Ward 25 finale) ---------- */
+      case 'thecure': {
+        this.x = CW / 2 + Math.sin(this.t * 0.4) * 150;
+        this.y = RY + 120 + Math.sin(this.t * 0.8) * 30;
+        this.spiralA += dt * (P2 ? 2.6 : 1.9);
+        this.atkT -= dt;
+        if (this.atkT <= 0) {
+          const roll = Math.random();
+          if (roll < 0.45) {
+            this.atkT = P2 ? 1.2 : 1.7;
+            this.ring(P2 ? 20 : 14, 165, '#ffe6a0', U.rand(0, TAU), this.aimP(G) + Math.PI, 0.6);
+          } else if (roll < 0.8) {
+            this.atkT = 0.14;
+            for (const arm of [0, Math.PI]) this.bullet(this.spiralA + arm, 150, '#a0f0c0', { r: 8 });
+          } else {
+            this.atkT = P2 ? 1.1 : 1.6;
+            for (let i = 0; i < 5; i++) this.bullet(this.aimP(G) + (i - 2) * 0.2, 210, '#ffd070');
+          }
+        }
+        this.dashT -= dt;
+        if (this.dashT <= 0) { this.dashT = P2 ? 5 : 7; this.ring(P2 ? 12 : 8, 120, '#b0ffd0', U.rand(0, TAU)); SFX.play('boss'); }
         this.clampPos();
         break;
       }
