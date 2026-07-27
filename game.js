@@ -226,7 +226,10 @@ const G = {
         <button class="btn" id="bDaily">🗓️ DAILY WARD</button>
         <button class="btn minor" id="bFiles">📁 PATIENT FILES (choose your diagnosis)</button>
         <button class="btn minor" id="bChart">📋 PATIENT CHART (codex)</button>
-        <button class="btn minor" id="bStoryT">📖 CHART NOTES (story)</button>
+        <div class="btnrow">
+          <button class="btn minor" id="bStoryT">📖 CHART NOTES</button>
+          <button class="btn minor" id="bBestiaryT">☠ BESTIARY</button>
+        </div>
         ${ngRow}
         <div class="btnrow">
           <button class="btn minor" id="bHow">HOW TO PLAY</button>
@@ -243,6 +246,7 @@ const G = {
     document.getElementById('bFiles').onclick = () => { SFX.init(); SFX.play('ui'); this.showFiles(); };
     document.getElementById('bChart').onclick = () => { SFX.init(); SFX.play('ui'); this.showCodex(() => this.showTitle()); };
     document.getElementById('bStoryT').onclick = () => { SFX.init(); SFX.play('ui'); this.showStoryGallery(); };
+    document.getElementById('bBestiaryT').onclick = () => { SFX.init(); SFX.play('ui'); this.showBestiary(() => this.showTitle()); };
     const bc = document.getElementById('bChronic'); if (bc) bc.onclick = () => { SFX.init(); SFX.play('ui'); this._startChronic = true; this.startQuiz(); };
     const bbr = document.getElementById('bBossRush'); if (bbr) bbr.onclick = () => { SFX.init(); SFX.play('ui'); this._startBossRush = true; this.startQuiz(); };
     document.getElementById('bHow').onclick = () => { SFX.init(); SFX.play('ui'); this.showHow(); };
@@ -1435,6 +1439,45 @@ const G = {
     document.getElementById('bStoryBack').onclick = () => { SFX.play('ui'); (returnTo || (() => this.showTitle()))(); };
   },
 
+  /* ---------- BESTIARY: a rogues' gallery of live-animated boss portraits ---------- */
+  showBestiary(returnTo) {
+    this.state = 'bestiary';
+    const seen = (Meta.data.seen && Meta.data.seen.bosses) || {};
+    const order = ['gatekeeper', 'larperking', 'adjuster', 'priorauth', 'stigma', 'dsm', 'algorithm', 'withdrawal', 'burnout', 'walrus', 'thecure', 'founder'];
+    const got = order.filter(id => seen[id]).length;
+    const cards = order.map(id => {
+      const B = DATA.BOSSES[id];
+      const note = (DATA.CODEX_CHART.bosses && DATA.CODEX_CHART.bosses[id]) || '';
+      const s = !!seen[id];
+      return `<div class="bcard ${s ? 'got' : 'locked'}">
+        <div class="bframe">${s ? `<canvas class="bportrait" width="150" height="132" data-b="${id}"></canvas>` : '<div class="bqm">?</div>'}</div>
+        <div class="bname">${s ? B.name : '? ? ?'}</div>
+        <div class="bsub">${s ? B.sub : 'not yet encountered'}</div>
+        ${s ? `<div class="bnote">${note}</div>` : ''}
+      </div>`;
+    }).join('');
+    this.overlay(`
+      <div class="panel wide">
+        <h1 class="logo" style="font-size:26px">BESTIARY</h1>
+        <div class="tagline">${got} / ${order.length} adversaries catalogued · the management, itemized</div>
+        <div class="bgrid">${cards}</div>
+        <button class="btn" id="bBestBack">BACK</button>
+      </div>`);
+    // construct each SEEN boss once (unseen ones are never constructed, so they stay hidden) and animate live
+    this._bestiary = [];
+    const bstub = { player: { flags: {} }, chronic: false, easy: false };
+    document.querySelectorAll('canvas.bportrait').forEach(c => {
+      try {
+        const b = new Boss(c.dataset.b, 1, bstub);
+        b.x = 0; b.y = 0; b.page = 0; b.vulnerable = (c.dataset.b !== 'priorauth');
+        if (c.dataset.b === 'founder') b.hp = b.maxhp * 0.3;   // phase-3 pose (both fists of cash)
+        this._bestiary.push({ boss: b, ctx: c.getContext('2d'), w: 150, h: 132 });
+      } catch (e) { }
+    });
+    this._bestClock = 0;
+    document.getElementById('bBestBack').onclick = () => { SFX.play('ui'); this._bestiary = null; (returnTo || (() => this.showTitle()))(); };
+  },
+
   /* ---------- unlocks / achievements screen ---------- */
   showUnlocks(returnTo) {
     this.state = 'unlocks';
@@ -1520,6 +1563,7 @@ const G = {
 
   /* ---------- overlay plumbing ---------- */
   overlay(html) {
+    this._bestiary = null;   // stop animating any bestiary portraits from a prior screen
     const o = document.getElementById('overlay');
     o.innerHTML = html;
     o.classList.remove('lightbg');   // screens default to the dark scrim; the title opts into the lighter one
@@ -1617,6 +1661,10 @@ const G = {
       if (G.state === 'run' || G.state === 'descend') G.update(dt);
       Render.draw(G);
     }
+    if (G.state === 'bestiary' && G._bestiary) {
+      G._bestClock += dt;
+      for (const e of G._bestiary) Render.drawBossCard(e.ctx, e.boss, e.w, e.h, G._bestClock);
+    }
     updateSticks();
     updateDeckStatus();
     requestAnimationFrame(frame);
@@ -1632,6 +1680,7 @@ const G = {
     player: () => G.player,
     depth: () => G.depth,
     story: (id) => { SFX.muted = true; if (!G.player) G.beginRun('adhd'); Story.play(id || 'prologue', () => G.showTitle()); },
+    bestiary: (all) => { SFX.muted = true; if (all !== false) { if (!Meta.data.seen) Meta.data.seen = {}; if (!Meta.data.seen.bosses) Meta.data.seen.bosses = {}; for (const id in DATA.BOSSES) Meta.data.seen.bosses[id] = 1; } G.showBestiary(() => G.showTitle()); },
     storyList: () => Object.keys(STORY),
     storyTick: (n) => { for (let i = 0; i < (n || 40); i++) if (G.state === 'cutscene') Story.update(0.05); if (G.state === 'cutscene') Story.draw(); return G.state === 'cutscene' ? { idx: Story.idx, typed: Math.floor(Story.typed), of: Story.fullText.length } : { done: true }; },
     storyPress: () => { if (G.state === 'cutscene') Story.press(); return G.state; },

@@ -1618,6 +1618,23 @@ const Render = {
     this.ctx = prev;
   },
 
+  /* live-animated boss portrait for the Bestiary. The boss is constructed once
+     (by the caller) and re-drawn each frame with an advancing clock. */
+  drawBossCard(ctx, boss, w, h, t) {
+    const prev = this.ctx; this.ctx = ctx;
+    ctx.clearRect(0, 0, w, h);
+    ctx.save();
+    ctx.translate(w / 2, h / 2 + 10);
+    const s = Math.min(w, h) / 150;
+    ctx.scale(s, s);
+    boss.t = t; boss.hitFlash = 0; boss.introT = 0; boss.dead = false; boss.deathT = 0;
+    boss.spiralA = t * 2.2;
+    const stubG = { t: t, player: { x: 0, y: -140, flags: {}, diag: 'adhd' }, enemies: [], boss: null };
+    try { this.drawBoss(boss, stubG); } catch (e) { }
+    ctx.restore();
+    this.ctx = prev;
+  },
+
   drawItemIcon(id, x, y) {
     const ctx = this.ctx;
     ctx.save();
