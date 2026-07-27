@@ -36,6 +36,17 @@ and a starting prescription. (One of them is locked. Try telling the truth.)
 - Bosses are the real stuff: The Gatekeeper ("you don't LOOK sick"), The Adjuster ("claim denied"),
   The Larper King, Withdrawal, The Stigma, Burnout.
 
+## The Bestiary
+
+Twelve bosses stand between you and the "cure," each one a different failure of the system —
+gatekeeping, self-diagnosis culture, insurance denial, the pill mountain, shame, over-labeling,
+the attention economy… up through the fake finale and the tycoon at the very top of the ladder.
+
+[![The Bestiary — all twelve bosses](bestiary.jpg)](https://chasegannon42-maker.github.io/everybodies-got-somethin/)
+
+Browse the full, **live-animated** gallery in-game — **☠ BESTIARY** on the title screen — where each
+adversary reveals itself as you meet it. **[▶ Play now.](https://chasegannon42-maker.github.io/everybodies-got-somethin/)**
+
 ## Tech
 
 Plain HTML5 canvas + vanilla JS. No frameworks, no build step, no assets — all art is procedural
