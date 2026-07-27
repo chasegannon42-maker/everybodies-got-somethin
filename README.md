@@ -36,6 +36,18 @@ and a starting prescription. (One of them is locked. Try telling the truth.)
 - Bosses are the real stuff: The Gatekeeper ("you don't LOOK sick"), The Adjuster ("claim denied"),
   The Larper King, Withdrawal, The Stigma, Burnout.
 
+## The story
+
+Between the fighting, the game pulls back into hand-drawn **Chart Notes** — ink-and-wash cutscenes
+told as pages in your patient file. Someone walked in for something small and got swept into the
+machine; the whole story is finding the way back out.
+
+[![Chart Notes — the story cutscenes](cutscenes.jpg)](https://chasegannon42-maker.github.io/everybodies-got-somethin/)
+
+It unfolds as you descend — a prologue, interludes at the milestone wards, and the truth waiting at
+the bottom — and every chapter is re-readable from **📖 Chart Notes** on the title screen.
+**[▶ Play now.](https://chasegannon42-maker.github.io/everybodies-got-somethin/)**
+
 ## The Bestiary
 
 Twelve bosses stand between you and the "cure," each one a different failure of the system —
