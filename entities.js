@@ -63,7 +63,7 @@ class Player {
     this.tearDelay = 0.40; this.tearTimer = 0;
     this.dmg = 4.0; this.shotSpd = 440; this.range = 0.9;
     this.wobble = 0; this.luck = 0;
-    this.coins = 3; this.keys = 1; this.bombs = 1;
+    this.coins = 3; this.keys = 1; this.bombs = 1; this.coupons = 0;
     this.pill = U.randi(0, 9);
     this.flags = {};
     this.items = [];
@@ -72,6 +72,7 @@ class Player {
     this.tempSlow = 0;
     this.moodT = 0; this.mania = true;
     this.focusT = 0; this.focused = false;
+    this.compulsion = 0; this.buffT = 0; this._hadLive = false;   // OCD
     this.adren = false;
     this.blanket = (diagId === 'depression');
     this.pillsThisFloor = 0;
@@ -93,6 +94,7 @@ class Player {
     if (diagId === 'depression') { this.spd *= 0.85; this.maxhp = 8; this.hp = 8; this.dmg *= 1.3; this.range *= 0.92; }
     if (diagId === 'anxiety') { this.maxhp = 4; this.hp = 4; this.spd *= 1.1; }
     if (diagId === 'schizo') { this.dmg *= 1.2; }
+    if (diagId === 'ocd') { this.tearDelay *= 1.06; this.wobble = 0; this.flags.noWobble = true; }   // twin symmetric shot, no wander
     if (diagId === 'fine') { this.flags.fineMode = true; }
     const D = DATA.DIAG[diagId];
     if (D && D.rx) this.addItem(D.rx, null, true);
@@ -182,6 +184,14 @@ class Player {
         SFX.play('pop');
         break;
       }
+      case 'ocd': {   // Recheck — wipe nearby bullets, reset compulsion, lock in FOCUS
+        for (const b of G.eBullets) if (U.dist(this.x, this.y, b.x, b.y) < 150) b.fizzle(G);
+        this.compulsion = 0; this.buffT = 5; this.focused = true;
+        this.iframes = Math.max(this.iframes, 0.4);
+        for (let i = 0; i < 4; i++) { const a = (i / 4) * TAU + 0.4; G.parts.push(new Particle(this.x, this.y, Math.cos(a) * 150, Math.sin(a) * 150, 0.35, '#6c7ff0', 3)); }
+        G.toast('checked. everything\'s fine.', '#6c7ff0'); SFX.play('ui');
+        break;
+      }
       case 'fine': {   // Denial — briefly refuse to take damage
         this.iframes = Math.max(this.iframes, 1.5);
         G.toast('"I\'m FINE."', '#9e9e9e'); SFX.play('ui');
@@ -249,6 +259,17 @@ class Player {
       if (!this.adren && G.boss && !G.boss.dead && U.dist(this.x, this.y, G.boss.x, G.boss.y) < 190) this.adren = true;
     }
 
+    // OCD compulsion: clearing a room "clicks" (reset + FOCUS buff); dawdling with things
+    // left undone lets intrusive thoughts build until they bite.
+    if (this.diag === 'ocd') {
+      this.buffT -= dt; this.focused = this.buffT > 0;
+      const live = G.enemies.some(e => !e.dying);
+      if (this._hadLive && !live) { this.compulsion = 0; this.buffT = 4; this.focused = true; G.toast('…just right.', '#8fd05a'); SFX.play('ui'); }
+      this._hadLive = live;
+      this.compulsion = U.clamp(this.compulsion + dt * (live ? 7 : 2.2), 0, 100);
+      if (this.compulsion >= 100) { this.compulsion = 55; this.hurt(1, G, 'ocd-intrusive'); G.shake = Math.max(G.shake, 4); G.toast('intrusive thought', '#cbb8e8'); }
+    }
+
     // zone effects
     this.inZoneSlow = false;
     for (const z of G.zones) {
@@ -280,9 +301,15 @@ class Player {
       const vx = Math.cos(a) * this.shotSpd + mv.x * this.effSpd() * mvBoost;
       const vy = Math.sin(a) * this.shotSpd + mv.y * this.effSpd() * mvBoost;
       const big = this.diag === 'depression';
-      const tear = new Tear(this.x + Math.cos(a) * 12, this.y + Math.sin(a) * 12 - 6, vx, vy, this.effDmg(), this.range, big);
-      if (this.flags.homingTears) tear.home = 2.2;   // rumination: the tears can't let go
-      G.tears.push(tear);
+      // OCD fires a balanced PAIR (symmetry); each tear is weaker so a clean pair ~1.2x a normal shot
+      const shots = (this.diag === 'ocd') ? [{ a: a - 0.10, s: 0.6 }, { a: a + 0.10, s: 0.6 }] : [{ a: a, s: 1 }];
+      for (const sh of shots) {
+        const svx = Math.cos(sh.a) * this.shotSpd + mv.x * this.effSpd() * mvBoost;
+        const svy = Math.sin(sh.a) * this.shotSpd + mv.y * this.effSpd() * mvBoost;
+        const tear = new Tear(this.x + Math.cos(sh.a) * 12, this.y + Math.sin(sh.a) * 12 - 6, svx, svy, this.effDmg() * sh.s, this.range, big);
+        if (this.flags.homingTears) tear.home = 2.2;   // rumination: the tears can't let go
+        G.tears.push(tear);
+      }
       G.playerFired = true;
       SFX.play('shot');
     }
@@ -397,6 +424,7 @@ class EBullet {
     if (G.enemySlow > 0) f *= 0.6;
     if (G.player.flags.slowBullets && U.dist(this.x, this.y, G.player.x, G.player.y) < 140) f *= 0.7;
     if (G.player.flags.fastBullets) f *= 1.1;   // Sensory Overload comorbidity
+    if (G.sideEffect === 'hypervigilance') f *= 1.12;   // ward side-effect: everything feels sharper
     if (this.home) {
       const want = U.ang(this.x, this.y, G.player.x, G.player.y);
       const cur = Math.atan2(this.vy, this.vx);
@@ -856,6 +884,7 @@ function spawnEnemiesForRoom(room, depth, G) {
     const elite = (id !== 'redflag' && U.chance(champChance)) ? U.choice(DATA.ELITES).id : null;
     const e = new Enemy(id, s.x + U.rand(-8, 8), s.y + U.rand(-8, 8), depth, false, hpMult, elite);
     if (mods.spdMul) e.spd *= mods.spdMul;
+    if (G.sideEffect === 'restless') e.spd *= 1.15;   // ward side-effect: Restlessness
     if (mods.dmgAdd) e.dmg += mods.dmgAdd;
     if (mods.fastSpawn) e.spawnT = 0.22;
     G.enemies.push(e);

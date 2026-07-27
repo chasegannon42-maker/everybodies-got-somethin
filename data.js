@@ -46,7 +46,7 @@ DATA.QUESTIONS = [
     q: "Do you worry about things?",
     a: [
       { t: "Only things that could conceivably happen", w: { anxiety: 3 }, quip: "So... everything. Wonderful." },
-      { t: "I keep a spreadsheet of my worries", w: { anxiety: 3 }, quip: "Organized dread. I respect it clinically." },
+      { t: "I keep a spreadsheet of my worries", w: { anxiety: 3, ocd: 1 }, quip: "Organized dread. I respect it clinically." },
       { t: "Should I be worried? Is this about the worrying?", w: { anxiety: 2 }, quip: "Shh. Shhhh. Yes." },
       { t: "Not really", w: { fine: 2 }, quip: "Fascinating. And troubling. Mostly billable." }
     ]
@@ -91,9 +91,18 @@ DATA.QUESTIONS = [
     q: "Describe your desk.",
     a: [
       { t: "Organized chaos. I know where everything is.", w: { adhd: 2 }, quip: "You do not, and that's okay. Clinically." },
-      { t: "Sterile. Labeled. Alphabetized.", w: { anxiety: 2 }, quip: "The label maker is a cry for help I can bill." },
+      { t: "Sterile. Labeled. Alphabetized.", w: { ocd: 3, anxiety: 1 }, quip: "The label maker is a cry for help I can bill." },
       { t: "What desk?", w: { depression: 1, adhd: 1 }, quip: "The floor is a desk with commitment issues." },
       { t: "I reorganize it at 3 a.m. sometimes", w: { bipolar: 2 }, quip: "Ah, the 3 a.m. Feng Shui Event. Say no more." }
+    ]
+  },
+  {
+    q: "Before you can leave the house, you...",
+    a: [
+      { t: "Check the stove. Then check it again. Then again.", w: { ocd: 3 }, quip: "Third time's the charm. So is the fourth." },
+      { t: "Need everything symmetrical or I can't go", w: { ocd: 3 }, quip: "The universe should match. Agreed — but it's a symptom." },
+      { t: "Just leave? Like a normal person?", w: { fine: 2 }, quip: "Suspiciously breezy. Noted." },
+      { t: "Leave, panic, come back, re-panic", w: { anxiety: 2, ocd: 1 }, quip: "The round trip of the worried." }
     ]
   },
   {
@@ -161,6 +170,15 @@ DATA.DIAG = {
     blurb: "A new record for the practice. He seemed excited, which was worse.",
     mech: "+20% damage. Some enemies in every room AREN'T REAL — fakes pop in one hit and can't hurt you. You never know which. The Voice occasionally helps.",
     rx: "tinfoil"
+  },
+  ocd: {
+    name: "OCD (Obsessive-Compulsive)",
+    short: "Everything In Its Right Place",
+    tag: "precise & compulsive",
+    color: "#6c7ff0",
+    blurb: "You straightened his pens while answering. He noticed. He wrote it down. You wanted to straighten the note.",
+    mech: "SYMMETRY: you fire a balanced PAIR of tears. Keep order — fully clear a room and your COMPULSION resets, granting FOCUS (+50% damage). Let it build and the intrusive thoughts start to bite.",
+    rx: "webmd"
   },
   fine: {
     name: "Perfectly Fine",
@@ -255,7 +273,7 @@ DATA.ACHIEVEMENTS = [
   { id: 'ward22',   name: "No Known Cure",         desc: "Reach Ward 22.",                                hint: "Descend to Ward 22.",                      check: m => m.bestFloor >= 22 },
   { id: 'walrus1',  name: "Second Opinion, Denied", desc: "Defeat Dr. Walrus. Unlocks Perfectly Fine.",   hint: "Survive to Ward 5 and win.",               check: m => (m.walrusKills || 0) >= 1 },
   { id: 'walrus3',  name: "Malpractice Suit",      desc: "Defeat Dr. Walrus 3 times. Unlocks the Settlement.", hint: "Beat Dr. Walrus, repeatedly.",        check: m => (m.walrusKills || 0) >= 3, reward: "Malpractice Settlement" },
-  { id: 'allDiag',  name: "Hypochondriac",         desc: "Play all six diagnoses.",                       hint: "Get diagnosed with everything.",           check: m => Object.keys(m.diagsPlayed || {}).length >= 6 },
+  { id: 'allDiag',  name: "Hypochondriac",         desc: "Play all seven diagnoses.",                     hint: "Get diagnosed with everything.",           check: m => Object.keys(m.diagsPlayed || {}).length >= 7 },
   { id: 'kills500', name: "Symptom Management",     desc: "Defeat 500 enemies (all runs).",                hint: "Keep managing symptoms.",                  check: m => (m.kills || 0) >= 500 },
   { id: 'overRx',   name: "Overprescribed",        desc: "Get overprescribed — 4 pills on one floor.",    hint: "Take a LOT of pills at once.",             check: m => !!m.everOverRx },
   { id: 'nohit',    name: "Clean Bill of Health",  desc: "Clear a whole floor without taking a hit.",     hint: "Survive a floor untouched.",               check: m => !!m.everNoHitFloor },
@@ -336,10 +354,12 @@ DATA.BOSSES = {
   priorauth:  { name: "PRIOR AUTHORIZATION", sub: "“Please hold.”", hp: 205 },
   algorithm:  { name: "THE ALGORITHM", sub: "“You might also like: THIS.”", hp: 215 },
   thecure:    { name: "THE CURE", sub: "“It was inside you all along. (It wasn't.)”", hp: 300 },
+  founder:    { name: "THE FOUNDER", sub: "“I didn't invent the disease. I monetized the cure.”", hp: 400 },
   walrus:     { name: "DR. WALRUS, M.D.*", sub: "*mail-order", hp: 300 }
 };
 DATA.bossFor = function (depth, lastBoss) {
   if (depth === 25) return 'thecure';   // the (non-)finale
+  if (depth === 50) return 'founder';   // the (real) superboss, for those who keep climbing
   if (depth % 5 === 0) return 'walrus';
   let pool = ['gatekeeper', 'larperking'];
   if (depth >= 2) pool.push('adjuster', 'priorauth');
@@ -377,6 +397,7 @@ DATA.CODEX_CHART = {
     priorauth: "Your treatment is denied pending paperwork. Fill the forms to be seen.",
     algorithm: "Learns how you move and serves you more of it. Engagement is the only cure it knows.",
     thecure: "What everyone's chasing. Turns out it was the friends we diagnosed along the way.",
+    founder: "The man who turned every feeling into a market. Waits at the very top of the ladder — Ward 50.",
     walrus: "Board-certified in Confidence. The doctor will see you now. Forever."
   }
 };
@@ -414,6 +435,7 @@ DATA.ABILITIES = {
   depression: { name: "Under The Covers", cd: 10, blurb: "Cocoon up: invincible but slowed, a moment's rest." },
   anxiety:    { name: "Panic", cd: 9, blurb: "A nova that wipes nearby bullets and shoves enemies back." },
   schizo:     { name: "Reality Check", cd: 10, blurb: "Pop every hallucination in the room and see through the rest." },
+  ocd:        { name: "Recheck", cd: 9, blurb: "Check once more: wipe nearby bullets, reset the compulsion, lock in FOCUS." },
   fine:       { name: "Denial", cd: 11, blurb: "\"I'm FINE.\" Briefly refuse to take damage." }
 };
 
@@ -471,6 +493,16 @@ DATA.EVENTS = [
       { label: "Leave (it's a scam)", note: "nothing", apply() { } }
     ]
   }
+];
+
+/* ============ WARD SIDE-EFFECTS (floor-wide "curses") ============
+   A satirical whole-floor modifier rolled at some descents. Read by game logic
+   via G.sideEffect (the id); shown as a banner at the start of the ward. */
+DATA.SIDE_EFFECTS = [
+  { id: 'brainfog',       name: "Brain Fog",      icon: "🌫", desc: "The minimap's gone. Where were we, again?" },
+  { id: 'restless',       name: "Restlessness",   icon: "⚡", desc: "Akathisia — everything on this ward moves faster." },
+  { id: 'hypervigilance', name: "Hypervigilance", icon: "👁", desc: "You can't relax. Enemy shots fly sharper here." },
+  { id: 'rumination',     name: "Rumination",     icon: "🔁", desc: "You keep coming back to it — each room's threat returns once." }
 ];
 
 /* ============ ENDLESS DIFFICULTY CURVE ============

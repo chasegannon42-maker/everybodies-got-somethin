@@ -483,6 +483,46 @@ class Boss {
         this.clampPos();
         break;
       }
+      /* ---------- THE FOUNDER (Ward 50 superboss) ---------- */
+      case 'founder': {
+        const P3 = this.hp < this.maxhp * 0.34;   // "hostile takeover" phase
+        this.x = CW / 2 + Math.sin(this.t * 0.5) * 190;
+        this.y = RY + 120 + Math.sin(this.t * 0.9) * 32;
+        this.spiralA += dt * (P3 ? 3.2 : P2 ? 2.4 : 1.7);
+        this.atkT -= dt;
+        if (this.atkT <= 0) {
+          const roll = Math.random();
+          if (roll < 0.4) {   // "price hike" — aimed volley of green (money) bullets
+            this.atkT = P2 ? 1.0 : 1.5;
+            const a = this.aimP(G);
+            const spread = P3 ? [-0.3, -0.15, 0, 0.15, 0.3] : P2 ? [-0.22, 0, 0.22] : [-0.14, 0.14];
+            for (const off of spread) this.bullet(a + off, 235, '#8fd05a');
+            SFX.play('pop');
+          } else if (roll < 0.72) {   // "cash flow" — spinning arms of coins
+            this.atkT = 0.14;
+            const arms = P3 ? 4 : 2;
+            for (let i = 0; i < arms; i++) this.bullet(this.spiralA + i * TAU / arms, 155, '#e0c95a', { r: 8 });
+          } else {   // "acquisition" — summon subsidiaries
+            this.atkT = P2 ? 2.4 : 3.2;
+            this.summon(G, P3 ? 'ad' : 'larper', 2);
+            G.toast('“We\'re acquiring your competitors.”', '#8fd05a');
+          }
+        }
+        // "stock buyback": periodic ring burst aimed away from the player (leaves an out)
+        this.spT -= dt;
+        if (this.spT <= 0) {
+          this.spT = P2 ? 3.4 : 4.8;
+          this.ring(P3 ? 22 : P2 ? 16 : 12, 170, '#c8f0a0', U.rand(0, TAU), this.aimP(G) + Math.PI, 0.55);
+          SFX.play('boss');
+        }
+        // phase 3 "hostile takeover": homing buyout bullets
+        if (P3) {
+          this.dashT -= dt;
+          if (this.dashT <= 0) { this.dashT = 2.6; for (let i = 0; i < 3; i++) { const b = this.bullet(this.aimP(G) + U.rand(-0.4, 0.4), 150, '#5ad07a', { life: 3.5 }); b.home = 0.8; } G.toast('“Hostile takeover.”', '#5ad07a'); }
+        }
+        this.clampPos();
+        break;
+      }
       /* ---------- DR. WALRUS ---------- */
       case 'walrus': {
         this.atkT -= dt;

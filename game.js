@@ -317,7 +317,7 @@ const G = {
   showFiles() {
     this.state = 'files';
     const fineOpen = Meta.data.fineSeen || Meta.data.walrusKills > 0;
-    const order = ['adhd', 'bipolar', 'depression', 'anxiety', 'schizo', 'fine'];
+    const order = ['adhd', 'bipolar', 'depression', 'anxiety', 'schizo', 'ocd', 'fine'];
     const cards = order.map(id => {
       const D = DATA.DIAG[id];
       const locked = id === 'fine' && !fineOpen;
@@ -372,7 +372,7 @@ const G = {
     this.quiz = {
       qs: U.shuffle(DATA.QUESTIONS).slice(0, 5),
       idx: 0,
-      scores: { adhd: 0, bipolar: 0, depression: 0, anxiety: 0, schizo: 0, fine: 0 }
+      scores: { adhd: 0, bipolar: 0, depression: 0, anxiety: 0, schizo: 0, ocd: 0, fine: 0 }
     };
     this.overlay(`
       <div class="panel">
@@ -544,6 +544,10 @@ const G = {
     this.floorMods = {};
     for (const c of this.complications) Object.assign(this.floorMods, c.mods);
     this.floorDark = this.floorMods.dark || 0;
+    // ward side-effect (satirical "curse") — a whole-floor modifier rolled at deeper wards
+    this.sideEffect = (this.depth >= 3)
+      ? this.genSeed(['sideeffect', this.depth], () => U.chance(0.35) ? U.choice(DATA.SIDE_EFFECTS).id : null)
+      : null;
     const p = this.player;
     p.pillsThisFloor = 0;
     if (p.diag === 'depression') p.blanket = true;
@@ -570,11 +574,12 @@ const G = {
     }
     if (p.flags.mapReveal) this.floorRooms.forEach(r => r.discovered = true);
     this.enterRoom(gen.start, null);
-    // announce ward complications
-    if (this.complications.length) setTimeout(() => {
+    // announce ward complications + side-effect
+    if (this.complications.length || this.sideEffect) setTimeout(() => {
       if (this.state !== 'run') return;
       SFX.play('error');
       for (const c of this.complications) this.toast('⚠ ' + c.name + ' — ' + c.desc, '#e0955a');
+      if (this.sideEffect) { const se = DATA.SIDE_EFFECTS.find(s => s.id === this.sideEffect); if (se) this.toast(se.icon + ' SIDE EFFECT: ' + se.name + ' — ' + se.desc, '#b58ad0'); }
     }, 500);
     if (p.diag === 'schizo' && U.chance(0.5)) setTimeout(() => { if (this.state === 'run') { this.toast(U.choice(DATA.VOICE_LINES), '#cbb8e8'); SFX.play('voice'); } }, 2500);
   },
@@ -661,17 +666,23 @@ const G = {
       }
       case 'shop': {
         room.cleared = true;
+        const copayMul = 1 + (this.depth - 1) * 0.07;   // copays climb with the ward (it's the healthcare system, baby)
         const disc = p.flags.discount ? 0.5 : (this.wardPath === 'outpatient' ? 0.75 : 1);
-        const px = (n) => Math.max(1, Math.ceil(n * disc));
-        const y = RY + RH / 2 - 20;
+        const px = (n) => Math.max(1, Math.ceil(n * disc * copayMul));
+        const yc = RY + RH / 2 + 30, yi = RY + RH / 2 - 80;
         room.stock = [
-          { type: 'half', price: px(3), x: RX + 140, y, taken: false },
-          { type: 'pill', price: px(4), x: RX + 280, y, colorIdx: U.randi(0, 9), taken: false },
-          { type: 'bomb', price: px(5), x: RX + 420, y, taken: false },
-          { type: 'key', price: px(5), x: RX + 560, y, taken: false }
+          { type: 'half', price: px(3), x: RX + 90, y: yc, taken: false },
+          { type: 'pill', price: px(4), x: RX + 230, y: yc, colorIdx: U.randi(0, 9), taken: false },
+          { type: 'bomb', price: px(5), x: RX + 370, y: yc, taken: false },
+          { type: 'coupon', price: px(4), x: RX + 510, y: yc, taken: false },
+          { type: 'key', price: px(5), x: RX + 650, y: yc, taken: false }
         ];
-        const pool = DATA.pickPool('shop', p.items);
-        room.peds.push({ x: RX + 690, y: y + 6, itemId: U.choice(pool.length ? pool : DATA.POOLS.shop), kind: 'shop', price: px(12), taken: false });
+        // Generic vs Brand: two different meds — Brand (full price, clean) and Generic (cheaper, minor side-effect)
+        const pool = U.shuffle(DATA.pickPool('shop', p.items));
+        const src = pool.length ? pool : U.shuffle(DATA.POOLS.shop.slice());
+        room.peds.push({ x: RX + 500, y: yi, itemId: src[0], kind: 'shop', price: px(12), taken: false, variant: 'brand' });
+        room.peds.push({ x: RX + 300, y: yi, itemId: src[1] || src[0], kind: 'shop', price: px(7), taken: false, variant: 'generic' });
+        room.peds.push({ x: RX + 110, y: yi, kind: 'restock', price: px(6), taken: false });
         this.shopStock = room.stock;
         break;
       }
@@ -730,6 +741,23 @@ const G = {
 
   onRoomCleared() {
     const room = this.room, p = this.player;
+    // Rumination side-effect: the thought comes back once before the room truly clears
+    if (this.sideEffect === 'rumination' && room.spawned && !room._ruminated) {
+      room._ruminated = true;
+      const n = this.depth >= 5 ? 3 : 2;
+      this.genSeed(['ruminate', this.depth, room.gx, room.gy], () => {
+        for (let i = 0; i < n; i++) {
+          const a = U.rand(0, TAU);
+          const ex = U.clamp(CW / 2 + Math.cos(a) * 100, RX + 40, RX + RW - 40);
+          const ey = U.clamp(RY + RH / 2 + Math.sin(a) * 100, RY + 40, RY + RH - 40);
+          const e = new Enemy(DATA.pickEnemy(this.depth), ex, ey, this.depth, false, 0.7);
+          this.enemies.push(e);
+        }
+      });
+      this.toast('…but you keep coming back to it.', '#b58ad0');
+      SFX.play('voice');
+      return;   // room not cleared yet — deal with it again
+    }
     room.cleared = true;
     this.doorsOpen = true;
     this.stats.rooms++;
@@ -756,6 +784,12 @@ const G = {
       this._runCured = true;   // run log: this run reached the ending
       if (!Meta.data.cured) { Meta.data.cured = 1; Meta.data.chronicUnlocked = 1; }
       if (this.chronic) Meta.data.chronicBest = Math.max(Meta.data.chronicBest || 0, this.depth);
+    }
+    // THE FOUNDER (Ward 50): the real superboss — prestige
+    if (this.bossId === 'founder') {
+      this._founderBeaten = true;
+      this._runFounder = true;
+      Meta.data.founderKills = (Meta.data.founderKills || 0) + 1;
     }
     Meta.save();
     this.checkUnlocks();
@@ -790,6 +824,7 @@ const G = {
     });
     SFX.setMusic('run');
     if (this._cureBeaten) { this._cureBeaten = false; setTimeout(() => { if (this.state === 'run') this.showEnding(); }, 900); }
+    if (this._founderBeaten) { this._founderBeaten = false; setTimeout(() => { if (this.state === 'run') this.showFounderEnding(); }, 900); }
   },
 
   /* ---------- explosions / paperwork ---------- */
@@ -1052,14 +1087,35 @@ const G = {
           this.stats.items++;
           this.toast('Paid out of pocket. Literally.', '#e08a8a');
         } else if (this.lockCd <= 0) { this.lockCd = 1.4; this.toast(DATA.TOASTS.oonPoor, '#e08a8a'); SFX.play('error'); }
-      } else if (ped.price) { // shop item
+      } else if (ped.kind === 'restock') { // Pharmacy: pay to reroll the Brand/Generic shelf
         if (p.coins >= ped.price) {
           p.coins -= ped.price;
           ped.taken = true;
+          const pool = U.shuffle(DATA.pickPool('shop', p.items));
+          const src = pool.length ? pool : U.shuffle(DATA.POOLS.shop.slice());
+          let i = 0;
+          for (const o of this.peds) if (o.kind === 'shop' && o.variant) { o.itemId = src[i % src.length] || o.itemId; o.taken = false; i++; }
+          SFX.play('coin'); this.toast('Shelves restocked.', '#9db85a');
+        } else if (this.lockCd <= 0) { this.lockCd = 1.4; this.texts.push(new FloatText(ped.x, ped.y - 40, 'need ' + ped.price + '¢', '#e8c84c')); SFX.play('error'); }
+      } else if (ped.price) { // shop item (Brand or Generic), GoodRx coupon halves it
+        const useCoupon = (p.coupons || 0) > 0;
+        const price = useCoupon ? Math.max(1, Math.ceil(ped.price * 0.5)) : ped.price;
+        if (p.coins >= price) {
+          p.coins -= price;
+          ped.taken = true;
+          if (useCoupon) { p.coupons--; this.toast('🎟 GoodRx: 50% off!', '#9db85a'); }
           p.addItem(ped.itemId, this);
           this.stats.items++;
+          if (ped.variant === 'generic') {   // generics come with a little something extra
+            const se = U.choice([
+              () => { p.wobble += 0.05; return 'shaky hands'; },
+              () => { p.tearDelay *= 1.05; return 'dry mouth'; },
+              () => { p.spd *= 0.97; return 'drowsiness'; }
+            ])();
+            this.toast('Generic side effect: ' + se, '#e0a05a');
+          }
           SFX.play('coin');
-        } else if (this.lockCd <= 0) { this.lockCd = 1.4; this.texts.push(new FloatText(ped.x, ped.y - 40, 'need ' + ped.price + '¢', '#e8c84c')); SFX.play('error'); }
+        } else if (this.lockCd <= 0) { this.lockCd = 1.4; this.texts.push(new FloatText(ped.x, ped.y - 40, 'need ' + price + '¢', '#e8c84c')); SFX.play('error'); }
       } else {
         ped.taken = true;
         p.addItem(ped.itemId, this);
@@ -1078,6 +1134,7 @@ const G = {
       }
       if (s.type === 'half' && p.hp >= p.maxhp) continue;
       if (s.type === 'pill' && p.pill != null) continue;
+      if (s.type === 'coupon' && (p.coupons || 0) >= 3) continue;
       p.coins -= s.price;
       s.taken = true;
       SFX.play('coin');
@@ -1085,6 +1142,7 @@ const G = {
       if (s.type === 'pill') p.pill = s.colorIdx;
       if (s.type === 'bomb') p.bombs++;
       if (s.type === 'key') p.keys++;
+      if (s.type === 'coupon') { p.coupons = (p.coupons || 0) + 1; this.toast('🎟 GoodRx coupon — 50% off your next med', '#9db85a'); }
     }
 
     // trapdoor
@@ -1254,6 +1312,35 @@ const G = {
     document.getElementById('bEndTitle').onclick = () => { SFX.play('ui'); this.recordRun('cured'); this.showTitle(); };
   },
 
+  /* ---------- THE FOUNDER ending (Ward 50 superboss) ---------- */
+  showFounderEnding() {
+    this.state = 'ending';
+    SFX.setMusic('menu'); SFX.play('item');
+    const fk = Meta.data.founderKills || 1;
+    this.overlay(`
+      <div class="panel wide">
+        <h1 class="logo" style="font-size:30px">YOU TOPPLED<br>THE FOUNDER</h1>
+        <div class="walrusbox">
+          <canvas class="walrusCanvas" width="132" height="132" id="endWalrusF"></canvas>
+          <div class="bubble">Fifty wards. You climbed the whole ladder and found the man at the top — the one who turned every feeling into a product line. He's done. The machine isn't… but for one shining moment the stock is crashing, and you did that.</div>
+        </div>
+        <div class="rx" style="border-color:#4a8a3a">
+          <div class="stamp" style="color:#4a8a3a;border-color:#4a8a3a">DELISTED</div>
+          <div class="sub">${DATA.DIAG[this.player.diag].name} · Ward ${this.depth}${this.chronic ? ' · CHRONIC' : ''}</div>
+          <div class="mech">THE FOUNDER defeated ×${fk}. The rarest line on your chart.</div>
+        </div>
+        <button class="btn" id="bEndKeep">▶ KEEP CLIMBING (endless)</button>
+        <div class="btnrow">
+          <button class="btn minor" id="bEndShare">📤 SHARE</button>
+          <button class="btn minor" id="bEndTitle">TITLE</button>
+        </div>
+      </div>`);
+    this.paintWalrus('endWalrusF');
+    document.getElementById('bEndKeep').onclick = () => { SFX.play('ui'); this.hideOverlay(); this.state = 'run'; };
+    document.getElementById('bEndShare').onclick = () => { SFX.play('ui'); Render.shareCard({ diag: this.player.diag, depth: this.depth, daily: true, key: 'WARD 50', label: 'TOPPLED THE FOUNDER', win: true, stats: { kills: this.stats.kills, bosses: this.stats.bosses, pills: this.stats.pills } }); };
+    document.getElementById('bEndTitle').onclick = () => { SFX.play('ui'); this.recordRun('cured'); this.showTitle(); };
+  },
+
   /* ---------- patient chart (codex) ---------- */
   showCodex(returnTo) {
     this.state = 'codex';
@@ -1326,7 +1413,7 @@ const G = {
 
   /* ---------- run history / real win-rate data ---------- */
   _causeName(c) {
-    const map = { spikes: 'Spike pit', ember: 'Burnout embers', explosion: 'an explosion', adjuster: "The Adjuster's stamp", bullet: 'a stray bullet', unknown: 'unknown causes', quit: 'walked away', cured: 'reached the Cure' };
+    const map = { spikes: 'Spike pit', ember: 'Burnout embers', explosion: 'an explosion', adjuster: "The Adjuster's stamp", bullet: 'a stray bullet', 'ocd-intrusive': 'intrusive thoughts', unknown: 'unknown causes', quit: 'walked away', cured: 'reached the Cure' };
     if (map[c]) return map[c];
     if (DATA.ENEMIES[c]) return DATA.ENEMIES[c].name;
     if (DATA.BOSSES[c]) return DATA.BOSSES[c].name;
@@ -1349,6 +1436,7 @@ const G = {
         ${row('Deepest ward', tBest)}
         ${row('Beat Dr. Walrus', tWalrus + ' (' + pct(tWalrus, tRuns) + ')')}
         ${row('Reached THE CURE', tCured + ' (' + pct(tCured, tRuns) + ')')}
+        ${Meta.data.founderKills ? row('👑 Toppled THE FOUNDER', Meta.data.founderKills) : ''}
       </div>`;
       const diagRows = Object.keys(DATA.DIAG).map(id => {
         const a = A[id]; if (!a || !a.runs) return '';

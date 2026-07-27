@@ -379,6 +379,17 @@ const Render = {
         if (U.dist(G.player.x, G.player.y, ped.x, ped.y) < 80) { ctx.fillStyle = '#e0c8f0'; ctx.font = this.font(12, true); ctx.textAlign = 'center'; ctx.fillText('walk up to examine', ped.x, ped.y - 40); }
         continue;
       }
+      if (ped.kind === 'restock') {   // Pharmacy: reroll the shelf
+        const rb = Math.sin(G.t * 2.4 + ped.x) * 3;
+        this.shadow(ped.x, ped.y + 12, 20, 6, 0.28);
+        const pg2 = ctx.createLinearGradient(ped.x, ped.y - 12, ped.x, ped.y + 14);
+        pg2.addColorStop(0, '#c4bccc'); pg2.addColorStop(1, '#8a8296'); ctx.fillStyle = pg2;
+        this.rr(ctx, ped.x - 16, ped.y - 4, 32, 18, 5); ctx.fill();
+        ctx.fillStyle = '#9db85a'; ctx.font = this.font(20, true); ctx.textAlign = 'center'; ctx.fillText('🔄', ped.x, ped.y - 18 + rb);
+        ctx.fillStyle = '#e8c84c'; ctx.font = this.font(13, true); ctx.fillText(ped.price + '¢', ped.x, ped.y + 30);
+        ctx.fillStyle = '#9db85a'; ctx.font = this.font(9, true); ctx.fillText('RESTOCK', ped.x, ped.y + 42);
+        continue;
+      }
       const bob = Math.sin(G.t * 2.4 + ped.x) * 3;
       // spotlight glow from above
       const gg = ctx.createRadialGradient(ped.x, ped.y - 26, 4, ped.x, ped.y - 26, 46);
@@ -398,9 +409,12 @@ const Render = {
       this.rr(ctx, ped.x - 16, ped.y - 4, 32, 18, 5); ctx.stroke();
       this.drawItemIcon(ped.itemId, ped.x, ped.y - 26 + bob);
       if (ped.price) {
-        ctx.fillStyle = ped.kind === 'oon' ? '#e05a5a' : '#e8c84c';
+        const coup = (G.player.coupons || 0) > 0 && ped.variant;
+        const shown = coup ? Math.max(1, Math.ceil(ped.price * 0.5)) : ped.price;
+        ctx.fillStyle = ped.kind === 'oon' ? '#e05a5a' : coup ? '#9db85a' : '#e8c84c';
         ctx.font = this.font(14, true); ctx.textAlign = 'center';
-        ctx.fillText(ped.kind === 'oon' ? '♥ container' : ped.price + '¢', ped.x, ped.y + 30);
+        ctx.fillText(ped.kind === 'oon' ? '♥ container' : (shown + '¢' + (coup ? ' 🎟' : '')), ped.x, ped.y + 30);
+        if (ped.variant) { ctx.fillStyle = ped.variant === 'generic' ? '#9db85a' : '#e0c040'; ctx.font = this.font(9, true); ctx.fillText(ped.variant === 'generic' ? 'GENERIC' : 'BRAND®', ped.x, ped.y + 42); }
       }
       const it = DATA.ITEMS[ped.itemId];
       if (it && U.dist(G.player.x, G.player.y, ped.x, ped.y) < 70) {
@@ -416,7 +430,7 @@ const Render = {
     // shop stock
     for (const s of G.shopStock) {
       if (s.taken) continue;
-      const icons = { half: () => this.drawHeart(s.x, s.y - 8, 9, '#e05a5a', true), pill: () => this.drawPillIcon(s.x, s.y - 8, DATA.PILL_COLORS[s.colorIdx || 0]), key: () => this.drawKeyIcon(s.x, s.y - 8), bomb: () => this.drawBombIcon(s.x, s.y - 8) };
+      const icons = { half: () => this.drawHeart(s.x, s.y - 8, 9, '#e05a5a', true), pill: () => this.drawPillIcon(s.x, s.y - 8, DATA.PILL_COLORS[s.colorIdx || 0]), key: () => this.drawKeyIcon(s.x, s.y - 8), bomb: () => this.drawBombIcon(s.x, s.y - 8), coupon: () => { ctx.save(); ctx.fillStyle = '#c8e0a0'; this.rr(ctx, s.x - 12, s.y - 16, 24, 15, 3); ctx.fill(); ctx.strokeStyle = '#4a8a3a'; ctx.setLineDash([2, 2]); ctx.lineWidth = 1; this.rr(ctx, s.x - 12, s.y - 16, 24, 15, 3); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = '#356a2a'; ctx.font = this.font(11, true); ctx.textAlign = 'center'; ctx.fillText('%', s.x, s.y - 4); ctx.restore(); } };
       if (icons[s.type]) icons[s.type]();
       ctx.fillStyle = '#e8c84c';
       ctx.font = this.font(13, true); ctx.textAlign = 'center';
@@ -568,9 +582,9 @@ const Render = {
       for (let i = 0; i < 3; i++) { const a = G.t * 2 + i * TAU / 3; ctx.beginPath(); ctx.arc(Math.cos(a) * 22, Math.sin(a) * 22 - 4, 2.5, 0, TAU); ctx.stroke(); }
       ctx.globalAlpha = blink ? 0.45 : 1;
     }
-    // hyperfocus ring
+    // hyperfocus / OCD "just right" ring (tinted per diagnosis)
     if (p.focused) {
-      ctx.strokeStyle = 'rgba(247,179,43,0.7)';
+      ctx.strokeStyle = p.diag === 'ocd' ? 'rgba(106,127,240,0.75)' : 'rgba(247,179,43,0.7)';
       ctx.lineWidth = 3;
       ctx.setLineDash([5, 7]);
       ctx.beginPath(); ctx.arc(0, 0, 26 + Math.sin(G.t * 4) * 2, 0, TAU); ctx.stroke();
@@ -685,6 +699,14 @@ const Render = {
     } else if (p.diag === 'fine') {
       ctx.fillStyle = '#8a4a4a';
       ctx.beginPath(); ctx.moveTo(0, 1); ctx.lineTo(3.5, 8); ctx.lineTo(0, 16); ctx.lineTo(-3.5, 8); ctx.closePath(); ctx.fill();
+    } else if (p.diag === 'ocd') {
+      // three perfectly aligned tiles across the brow — symmetry, in its right place
+      ctx.fillStyle = '#6c7ff0';
+      this.rr(ctx, -13, -16, 5, 5, 1.2); ctx.fill();
+      this.rr(ctx, -2.5, -16, 5, 5, 1.2); ctx.fill();
+      this.rr(ctx, 8, -16, 5, 5, 1.2); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1;
+      ctx.strokeRect(-13, -16, 5, 5); ctx.strokeRect(-2.5, -16, 5, 5); ctx.strokeRect(8, -16, 5, 5);
     }
 
     // item held overhead
@@ -1341,6 +1363,42 @@ const Render = {
         ctx.fillStyle = '#e8c84c'; ctx.font = this.font(11, true); ctx.textAlign = 'center'; ctx.fillText('THE CURE', 0, -40);
         break;
       }
+      case 'founder': { // a pharma tycoon in a power suit, fists full of money
+        const P3 = b.hp < b.maxhp * 0.34;
+        // money-green aura
+        const gg = ctx.createRadialGradient(0, 0, 8, 0, 0, 66);
+        gg.addColorStop(0, `rgba(140,208,120,${P3 ? 0.34 : 0.22})`); gg.addColorStop(1, 'rgba(140,208,120,0)');
+        ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(0, 0, 66, 0, TAU); ctx.fill();
+        // power-suit torso
+        const sg = ctx.createLinearGradient(0, -10, 0, 46);
+        sg.addColorStop(0, flash ? '#fff' : '#2b2f3a'); sg.addColorStop(1, flash ? '#eee' : '#171a22');
+        ctx.fillStyle = sg;
+        ctx.beginPath(); ctx.moveTo(-46, 46); ctx.lineTo(-30, 2); ctx.lineTo(30, 2); ctx.lineTo(46, 46); ctx.closePath(); ctx.fill();
+        // white shirt V + golden tie
+        ctx.fillStyle = '#e8e4d8'; ctx.beginPath(); ctx.moveTo(-12, 4); ctx.lineTo(12, 4); ctx.lineTo(0, 34); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = flash ? '#fff' : '#e0c040'; ctx.beginPath(); ctx.moveTo(-5, 6); ctx.lineTo(5, 6); ctx.lineTo(3, 30); ctx.lineTo(0, 38); ctx.lineTo(-3, 30); ctx.closePath(); ctx.fill();
+        // lapels
+        ctx.strokeStyle = '#0e1016'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(-12, 4); ctx.lineTo(-24, 30); ctx.moveTo(12, 4); ctx.lineTo(24, 30); ctx.stroke();
+        // head
+        const hg = ctx.createRadialGradient(-5, -30, 4, 0, -24, 30);
+        hg.addColorStop(0, flash ? '#fff' : '#e8c9a6'); hg.addColorStop(1, flash ? '#eee' : '#b58e68');
+        ctx.fillStyle = hg; ctx.beginPath(); ctx.arc(0, -24, 22, 0, TAU); ctx.fill();
+        // slicked-back hair
+        ctx.fillStyle = '#2a2018'; ctx.beginPath(); ctx.arc(0, -30, 22, Math.PI * 1.05, Math.PI * 1.95); ctx.lineTo(16, -34); ctx.lineTo(-16, -34); ctx.closePath(); ctx.fill();
+        // money-green sunglasses
+        ctx.fillStyle = flash ? '#fff' : '#123018';
+        this.rr(ctx, -18, -30, 15, 9, 2); ctx.fill(); this.rr(ctx, 3, -30, 15, 9, 2); ctx.fill();
+        ctx.fillStyle = 'rgba(140,208,120,0.7)'; this.rr(ctx, -16, -29, 6, 3, 1); ctx.fill(); this.rr(ctx, 5, -29, 6, 3, 1); ctx.fill();
+        ctx.fillStyle = '#123018'; ctx.fillRect(-3, -27, 6, 2);
+        // smug grin
+        ctx.strokeStyle = '#6a4a38'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, -16, 7, 0.15, Math.PI - 0.15); ctx.stroke();
+        // fistful(s) of cash
+        const cash = (x) => { ctx.fillStyle = '#8fd05a'; this.rr(ctx, x, -6, 16, 11, 2); ctx.fill(); ctx.strokeStyle = '#4a8a3a'; ctx.lineWidth = 1; this.rr(ctx, x, -6, 16, 11, 2); ctx.stroke(); ctx.fillStyle = '#356a2a'; ctx.font = this.font(8, true); ctx.textAlign = 'center'; ctx.fillText('$', x + 8, 2); };
+        cash(30); if (P3) cash(-46);
+        // name
+        ctx.fillStyle = '#8fd05a'; ctx.font = this.font(11, true); ctx.textAlign = 'center'; ctx.fillText('THE FOUNDER', 0, -52);
+        break;
+      }
     }
     ctx.restore();
   },
@@ -1665,6 +1723,7 @@ const Render = {
     ctx.textAlign = 'left'; ctx.fillStyle = '#f0e8d8'; ctx.fillText(String(p.keys), 262, 29);
     this.drawBombIcon(302, 24);
     ctx.textAlign = 'left'; ctx.fillStyle = '#f0e8d8'; ctx.fillText(String(p.bombs), 316, 29);
+    if (p.coupons > 0) { ctx.textAlign = 'left'; ctx.fillStyle = '#9db85a'; ctx.font = this.font(12, true); ctx.fillText('🎟' + p.coupons, 300, 48); }
 
     // signature ability pip (bottom-left)
     if (p.abil) {
@@ -1681,6 +1740,20 @@ const Render = {
       ctx.fillStyle = ready ? 'rgba(240,232,216,0.85)' : 'rgba(240,232,216,0.5)'; ctx.font = this.font(10, true);
       ctx.fillText(p.abil.name, ax, ay + ar + 12);
       if (!Input.usingTouch) { ctx.fillStyle = 'rgba(240,232,216,0.45)'; ctx.font = this.font(9); ctx.fillText('SPACE', ax, ay - ar - 6); }
+    }
+
+    // OCD compulsion gauge (bottom-left, beside the ability pip)
+    if (p.diag === 'ocd') {
+      const gx = 74, gy = CH - 52, gw = 96, gh = 12;
+      const frac = Math.max(0, Math.min(1, p.compulsion / 100));
+      ctx.fillStyle = 'rgba(20,14,22,0.7)'; this.rr(ctx, gx, gy, gw, gh, 4); ctx.fill();
+      const r = Math.round(90 + frac * 150), g = Math.round(185 - frac * 130), b = Math.round(170 - frac * 100);
+      ctx.fillStyle = `rgb(${r},${g},${b})`;
+      this.rr(ctx, gx + 1.5, gy + 1.5, Math.max(0, (gw - 3) * frac), gh - 3, 3); ctx.fill();
+      ctx.strokeStyle = 'rgba(240,232,216,0.35)'; ctx.lineWidth = 1.5; this.rr(ctx, gx, gy, gw, gh, 4); ctx.stroke();
+      ctx.textAlign = 'left'; ctx.font = this.font(9, true);
+      ctx.fillStyle = p.focused ? '#8fd05a' : 'rgba(240,232,216,0.7)';
+      ctx.fillText(p.focused ? '◎ JUST RIGHT' : 'COMPULSION', gx, gy - 4);
     }
 
     // pill slot
@@ -1720,7 +1793,7 @@ const Render = {
     let status = '';
     if (p.diag === 'bipolar' && !p.flags.stable) status = p.mania ? '▲ MANIA' : '▼ the dip';
     if (p.diag === 'bipolar' && p.flags.stable) status = '― stable';
-    if (p.focused) status = '◎ hyperfocus';
+    if (p.focused) status = p.diag === 'ocd' ? '◎ just right' : '◎ hyperfocus';
     if (p.adren) status = '⚡ adrenaline';
     if (status) ctx.fillText(status, 464, 38);
     // mood cycle arc
@@ -1787,6 +1860,17 @@ const Render = {
 
   drawMinimap(G) {
     const ctx = this.ctx;
+    // active ward side-effect badge (persistent reminder)
+    if (G.sideEffect) {
+      const se = DATA.SIDE_EFFECTS.find(s => s.id === G.sideEffect);
+      if (se) { ctx.save(); ctx.font = this.font(10, true); ctx.textAlign = 'right'; ctx.fillStyle = 'rgba(181,138,208,0.9)'; ctx.fillText(se.icon + ' ' + se.name, CW - 20, 52); ctx.restore(); }
+    }
+    // Brain Fog side-effect: the minimap is gone
+    if (G.sideEffect === 'brainfog') {
+      ctx.save(); ctx.font = this.font(11, true); ctx.textAlign = 'right';
+      ctx.fillStyle = 'rgba(200,190,210,0.45)'; ctx.fillText('🌫 …where were we?', CW - 20, 74);
+      ctx.restore(); return;
+    }
     const cell = 17, gap = 2;
     const ax = CW - 105, ay = 64; // anchor for room (0,0)
     ctx.save();
@@ -1879,7 +1963,8 @@ const Render = {
     // status mood line (mania/dip/hyperfocus/adrenaline) when relevant
     let statusTxt = '';
     if (p.diag === 'bipolar' && !p.flags.stable) statusTxt = p.mania ? '▲ MANIA' : '▼ THE DIP';
-    if (p.focused) statusTxt = '◎ HYPERFOCUS';
+    if (p.focused) statusTxt = p.diag === 'ocd' ? '◎ JUST RIGHT' : '◎ HYPERFOCUS';
+    if (p.diag === 'ocd' && !p.focused && p.compulsion >= 70) statusTxt = '△ COMPULSION';
     if (p.adren) statusTxt = '⚡ ADRENALINE';
     if (statusTxt) { ctx.font = this.font(11, true); ctx.fillStyle = D.color; ctx.fillText(statusTxt, W / 2, y + 33); }
 
