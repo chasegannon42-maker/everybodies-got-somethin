@@ -1,8 +1,9 @@
 /* =========================================================
    EVERYBODIES GOT SOMETHIN — story.js
-   CHART NOTES: ink-&-wash storybook cutscenes.
-   A patient chart on a desk under a lamp; each panel is an
-   inked illustration + typewritten notes. State: 'cutscene'.
+   CHART NOTES: bright in-engine cutscenes. Each panel is a
+   staged scene built from the REAL game models (the walrus,
+   your patient, the bosses) with an RPG dialogue box below.
+   State: 'cutscene'.
    ========================================================= */
 'use strict';
 
@@ -11,6 +12,7 @@ const Story = {
   scene: null, sceneId: null, idx: 0, onDone: null,
   t: 0, panelT: 0, typed: 0, fullText: '', fade: 0, trans: 0,
   _init: false, ctx: null, _tickAt: 0,
+  _plCache: {}, _bossCache: {},
 
   init() {
     if (this._init) return; this._init = true;
@@ -75,7 +77,7 @@ const Story = {
     if (!rect.width) { this.press(); return; }
     const sx = (e.clientX - rect.left) / rect.width * CW;
     const sy = (e.clientY - rect.top) / rect.height * CH;
-    if (sx > CW - 150 && sy > CH - 52) { this.skipScene(); return; }  // skip button region
+    if (sx > CW - 150 && sy < 52) { this.skipScene(); return; }  // skip button (top-right)
     this.press();
   },
 
@@ -96,157 +98,215 @@ const Story = {
     }
   },
 
-  /* ---------- ink helpers (stable hand-drawn wobble, no per-frame jitter) ---------- */
-  _wob(x, y, k) { return Math.sin(x * 0.07 + y * 0.05 + (k || 0)) * 1.2 + Math.sin(x * 0.021 - y * 0.03) * 0.8; },
-  ink(ctx, x1, y1, x2, y2, w, k) {
-    ctx.lineWidth = w || 2.2; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    const dx = x2 - x1, dy = y2 - y1, len = Math.hypot(dx, dy) || 1;
-    const nx = -dy / len, ny = dx / len;
-    const segs = Math.max(2, Math.round(len / 16));
-    ctx.beginPath();
-    for (let i = 0; i <= segs; i++) {
-      const u = i / segs, x = x1 + dx * u, y = y1 + dy * u;
-      const n = (i === 0 || i === segs) ? 0 : this._wob(x, y, k);
-      const px = x + nx * n, py = y + ny * n;
-      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  /* ---------- actor helpers: the REAL in-game models ---------- */
+  _playerModel(diag) {
+    const key = diag || 'none';
+    if (!this._plCache[key]) {
+      const pl = new Player(key);
+      pl.x = 0; pl.y = 0; pl.aimAng = -Math.PI / 2; pl.iframes = 0; pl.moving = false;
+      if (key === 'bipolar') pl.mania = true;
+      this._plCache[key] = pl;
     }
-    ctx.stroke();
+    return this._plCache[key];
   },
-  inkPoly(ctx, pts, w, close, k) {
-    for (let i = 0; i < pts.length - 1; i++) this.ink(ctx, pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1], w, (k || 0) + i);
-    if (close && pts.length > 2) this.ink(ctx, pts[pts.length - 1][0], pts[pts.length - 1][1], pts[0][0], pts[0][1], w, (k || 0) + 99);
-  },
-  inkRect(ctx, x, y, w, h, lw, k) { this.inkPoly(ctx, [[x, y], [x + w, y], [x + w, y + h], [x, y + h]], lw, true, k); },
-  inkCircle(ctx, cx, cy, r, w, k) {
-    ctx.lineWidth = w || 2.2; ctx.lineCap = 'round';
-    ctx.beginPath();
-    const segs = 26;
-    for (let i = 0; i <= segs; i++) {
-      const a = (i / segs) * TAU, rr = r + Math.sin(a * 3 + (k || 0)) * (r * 0.02 + 0.6);
-      const x = cx + Math.cos(a) * rr, y = cy + Math.sin(a) * rr;
-      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-    }
-    ctx.stroke();
-  },
-  hatch(ctx, x, y, w, h, gap, ang, alpha) {
-    ctx.save(); ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
-    ctx.strokeStyle = 'rgba(28,24,32,' + (alpha == null ? 0.5 : alpha) + ')'; ctx.lineWidth = 1.1;
-    const a = ang == null ? -0.6 : ang, dx = Math.cos(a), dy = Math.sin(a);
-    const diag = (Math.abs(w) + Math.abs(h)) * 1.4;
-    for (let d = -diag; d < diag; d += (gap || 6)) {
-      const mx = x + w / 2 + (-dy) * d, my = y + h / 2 + dx * d;
-      ctx.beginPath(); ctx.moveTo(mx - dx * diag, my - dy * diag); ctx.lineTo(mx + dx * diag, my + dy * diag); ctx.stroke();
-    }
+  drawYou(x, y, s, opts) {
+    const ctx = this.ctx;
+    const diag = (opts && opts.diag) || (G.player ? G.player.diag : 'none');
+    const pl = this._playerModel(diag);
+    pl.lastHitT = 999; pl.wired = false; pl.napActive = 0; pl.hurtFlash = 0; pl.dashT = 0; pl.cocoonT = 0;
+    const prev = Render.ctx; Render.ctx = ctx;
+    ctx.save();
+    ctx.translate(x, y + Math.sin(this.panelT * 1.8) * 2);
+    if (opts && opts.flip) ctx.scale(-s, s); else ctx.scale(s, s);
+    try { Render.drawPlayer(pl, { t: this.panelT }); } catch (e) { }
     ctx.restore();
+    Render.ctx = prev;
   },
-  wash(ctx, cx, cy, r, alpha) {
-    const g = ctx.createRadialGradient(cx, cy, r * 0.2, cx, cy, r);
-    g.addColorStop(0, 'rgba(60,58,66,' + (alpha == null ? 0.35 : alpha) + ')');
-    g.addColorStop(1, 'rgba(60,58,66,0)');
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, r, 0, TAU); ctx.fill();
+  drawDoc(x, y, s, opts) {
+    const ctx = this.ctx;
+    // white coat under the good doctor's face
+    ctx.save(); ctx.translate(x, y);
+    const bob = Math.sin(this.panelT * 2) * 3 * s;
+    ctx.fillStyle = '#f0eee6';
+    Render.rr(ctx, -66 * s, 40 * s + bob, 132 * s, 96 * s, 26 * s); ctx.fill();
+    ctx.strokeStyle = '#c9c4b4'; ctx.lineWidth = 2.5 * s;
+    ctx.beginPath(); ctx.moveTo(0, 46 * s + bob); ctx.lineTo(0, 118 * s + bob); ctx.stroke();
+    ctx.fillStyle = '#8fb4c8';   // little clip-on badge
+    Render.rr(ctx, 26 * s, 62 * s + bob, 26 * s, 18 * s, 3 * s); ctx.fill();
+    ctx.restore();
+    Render.drawWalrusFace(ctx, x, y, s, this.panelT);
+  },
+  drawBossActor(id, x, y, s, pose) {
+    const ctx = this.ctx;
+    if (!this._bossCache[id]) {
+      try {
+        const b = new Boss(id, 1, { player: { flags: {} }, chronic: false, easy: false });
+        b.x = 0; b.y = 0; b.vulnerable = (id !== 'priorauth');
+        this._bossCache[id] = b;
+      } catch (e) { return; }
+    }
+    const b = this._bossCache[id];
+    if (pose === 'low') b.hp = b.maxhp * 0.3; else b.hp = b.maxhp;
+    b.t = this.panelT; b.introT = 0; b.dead = false; b.deathT = 0; b.hitFlash = 0;
+    b.spiralA = this.panelT * 2;
+    const prev = Render.ctx; Render.ctx = ctx;
+    ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
+    try { Render.drawBoss(b, { t: this.panelT, player: { x: 0, y: -140, flags: {}, diag: 'adhd' }, enemies: [], boss: null }); } catch (e) { }
+    ctx.restore();
+    Render.ctx = prev;
   },
 
-  /* ---------- main paint ---------- */
+  /* ---------- scene furniture (bright, chunky, game-styled) ---------- */
+  _room(wallA, wallB, floorA, floorB, horizon) {
+    const ctx = this.ctx, hz = horizon || CH * 0.58;
+    const wg = ctx.createLinearGradient(0, 0, 0, hz);
+    wg.addColorStop(0, wallA); wg.addColorStop(1, wallB);
+    ctx.fillStyle = wg; ctx.fillRect(0, 0, CW, hz);
+    const fg = ctx.createLinearGradient(0, hz, 0, CH);
+    fg.addColorStop(0, floorA); fg.addColorStop(1, floorB);
+    ctx.fillStyle = fg; ctx.fillRect(0, hz, CW, CH - hz);
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    ctx.fillRect(0, hz - 6, CW, 6);                        // baseboard highlight
+    ctx.fillStyle = 'rgba(40,30,45,0.18)';
+    ctx.fillRect(0, hz, CW, 4);                            // baseboard shadow
+    // soft ceiling light pools
+    for (let i = 0; i < 3; i++) {
+      const lx = CW * (0.22 + i * 0.28);
+      const lg = ctx.createRadialGradient(lx, 40, 10, lx, 40, 220);
+      lg.addColorStop(0, 'rgba(255,250,230,0.30)'); lg.addColorStop(1, 'rgba(255,250,230,0)');
+      ctx.fillStyle = lg; ctx.beginPath(); ctx.arc(lx, 40, 220, 0, TAU); ctx.fill();
+    }
+  },
+  _spot(x, y, rx, a) {
+    const ctx = this.ctx;
+    ctx.fillStyle = 'rgba(30,22,36,' + (a || 0.18) + ')';
+    ctx.beginPath(); ctx.ellipse(x, y, rx, rx * 0.3, 0, 0, TAU); ctx.fill();
+  },
+  _door(x, y, w, h, clr) {
+    const ctx = this.ctx;
+    ctx.fillStyle = 'rgba(40,30,45,0.16)'; Render.rr(ctx, x - w / 2 + 5, y - h + 8, w, h, 8); ctx.fill();
+    ctx.fillStyle = clr; Render.rr(ctx, x - w / 2, y - h, w, h, 8); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.25)'; Render.rr(ctx, x - w / 2 + 5, y - h + 5, w - 10, 12, 5); ctx.fill();
+    ctx.fillStyle = 'rgba(230,240,250,0.9)'; Render.rr(ctx, x - w * 0.22, y - h * 0.82, w * 0.44, h * 0.3, 5); ctx.fill();
+    ctx.strokeStyle = 'rgba(60,45,70,0.5)'; ctx.lineWidth = 2; Render.rr(ctx, x - w * 0.22, y - h * 0.82, w * 0.44, h * 0.3, 5); ctx.stroke();
+    ctx.fillStyle = '#e8c84c'; ctx.beginPath(); ctx.arc(x + w * 0.3, y - h * 0.42, 4.5, 0, TAU); ctx.fill();
+  },
+  _chair(x, y, s, clr) {
+    const ctx = this.ctx, c = clr || '#8a7a68';
+    const dark = 'rgba(40,30,45,0.25)';
+    ctx.fillStyle = dark; ctx.beginPath(); ctx.ellipse(x, y + 2 * s, 20 * s, 5 * s, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = c;
+    Render.rr(ctx, x - 17 * s, y - 46 * s, 8 * s, 46 * s, 3 * s); ctx.fill();     // back post
+    Render.rr(ctx, x - 17 * s, y - 52 * s, 34 * s, 16 * s, 5 * s); ctx.fill();    // back rest
+    Render.rr(ctx, x - 17 * s, y - 27 * s, 36 * s, 9 * s, 4 * s); ctx.fill();     // seat
+    ctx.fillStyle = 'rgba(255,255,255,0.22)';
+    Render.rr(ctx, x - 15 * s, y - 50 * s, 30 * s, 5 * s, 3 * s); ctx.fill();
+    ctx.fillStyle = c;
+    Render.rr(ctx, x - 15 * s, y - 19 * s, 6 * s, 19 * s, 2 * s); ctx.fill();     // legs
+    Render.rr(ctx, x + 11 * s, y - 19 * s, 6 * s, 19 * s, 2 * s); ctx.fill();
+  },
+  _pillProp(x, y, s, rot, cA, cB) {
+    const ctx = this.ctx;
+    ctx.save(); ctx.translate(x, y); ctx.rotate(rot || 0);
+    ctx.fillStyle = cA; Render.rr(ctx, -16 * s, -8 * s, 16 * s, 16 * s, 8 * s); ctx.fill();
+    ctx.fillStyle = cB; Render.rr(ctx, 0, -8 * s, 16 * s, 16 * s, 8 * s); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.45)';
+    ctx.beginPath(); ctx.ellipse(-6 * s, -3 * s, 5 * s, 2.6 * s, -0.5, 0, TAU); ctx.fill();
+    ctx.strokeStyle = 'rgba(60,45,70,0.35)'; ctx.lineWidth = 1.6 * s;
+    Render.rr(ctx, -16 * s, -8 * s, 32 * s, 16 * s, 8 * s); ctx.stroke();
+    ctx.restore();
+  },
+  _coin(x, y, s) {
+    const ctx = this.ctx;
+    ctx.fillStyle = '#e0b93e'; ctx.beginPath(); ctx.arc(x, y, 12 * s, 0, TAU); ctx.fill();
+    ctx.strokeStyle = '#a8862a'; ctx.lineWidth = 2.5 * s; ctx.beginPath(); ctx.arc(x, y, 12 * s, 0, TAU); ctx.stroke();
+    ctx.fillStyle = '#a8862a'; ctx.font = 'bold ' + Math.round(13 * s) + 'px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('¢', x, y + 4.5 * s);
+  },
+
+  /* ---------- master draw: scene + dialogue box ---------- */
   draw() {
     const ctx = this.ctx; if (!ctx || !this.active) return;
     const p = this.scene[this.idx];
-    // desk / lamp
-    ctx.fillStyle = '#0f0c12'; ctx.fillRect(0, 0, CW, CH);
-    const lamp = ctx.createRadialGradient(CW / 2, CH * 0.42, 60, CW / 2, CH * 0.42, CW * 0.62);
-    lamp.addColorStop(0, 'rgba(60,52,40,0.55)'); lamp.addColorStop(1, 'rgba(20,16,22,0)');
-    ctx.fillStyle = lamp; ctx.fillRect(0, 0, CW, CH);
+    ctx.save();
+    ctx.clearRect(0, 0, CW, CH);
+    ctx.fillStyle = '#17131a'; ctx.fillRect(0, 0, CW, CH);
 
-    // chart page (with a soft drop shadow), slight fade-in
+    // ---- the scene (fades in, slides slightly on panel turn) ----
+    ctx.save();
+    ctx.globalAlpha = this.fade * (1 - this.trans * 0.9);
+    ctx.translate(this.trans * 46, 0);
+    const fn = this.SCENES[p.art] || this.SCENES._placeholder;
+    try { fn.call(this, ctx, this.panelT, p); } catch (e) { }
+    ctx.restore();
+
+    // gentle vignette so the scene sits in the frame
+    const vig = ctx.createRadialGradient(CW / 2, CH * 0.4, CH * 0.35, CW / 2, CH * 0.4, CH * 0.95);
+    vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(12,9,16,0.42)');
+    ctx.fillStyle = vig; ctx.fillRect(0, 0, CW, CH);
+
+    // ---- dialogue box ----
+    const BX = 26, BH = 138, BY = CH - BH - 20, BW = CW - 52;
     ctx.globalAlpha = this.fade;
-    const PX = 66, PY = 40, PW = CW - 132, PH = CH - 84;
-    ctx.fillStyle = 'rgba(0,0,0,0.45)'; this._round(ctx, PX + 6, PY + 10, PW, PH, 8); ctx.fill();
-    const paper = ctx.createLinearGradient(0, PY, 0, PY + PH);
-    paper.addColorStop(0, '#efe9da'); paper.addColorStop(1, '#e2dac6');
-    ctx.fillStyle = paper; this._round(ctx, PX, PY, PW, PH, 8); ctx.fill();
-    // ruled chart lines + red margin
-    ctx.save(); this._round(ctx, PX, PY, PW, PH, 8); ctx.clip();
-    ctx.strokeStyle = 'rgba(90,120,150,0.18)'; ctx.lineWidth = 1;
-    for (let y = PY + 92; y < PY + PH; y += 26) { ctx.beginPath(); ctx.moveTo(PX, y); ctx.lineTo(PX + PW, y); ctx.stroke(); }
-    ctx.strokeStyle = 'rgba(190,70,70,0.35)'; ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.moveTo(PX + 118, PY); ctx.lineTo(PX + 118, PY + PH); ctx.stroke();
-    // coffee-ring / age stains
-    ctx.strokeStyle = 'rgba(150,110,60,0.12)'; ctx.lineWidth = 4;
-    ctx.beginPath(); ctx.arc(PX + PW - 70, PY + PH - 60, 34, 0.3, 5.6); ctx.stroke();
-    ctx.restore();
+    ctx.fillStyle = 'rgba(16,12,20,0.5)'; this._round(ctx, BX + 4, BY + 6, BW, BH, 14); ctx.fill();
+    const bg = ctx.createLinearGradient(0, BY, 0, BY + BH);
+    bg.addColorStop(0, 'rgba(38,30,46,0.97)'); bg.addColorStop(1, 'rgba(24,19,30,0.97)');
+    ctx.fillStyle = bg; this._round(ctx, BX, BY, BW, BH, 14); ctx.fill();
+    ctx.strokeStyle = 'rgba(240,232,216,0.85)'; ctx.lineWidth = 3;
+    this._round(ctx, BX, BY, BW, BH, 14); ctx.stroke();
+    ctx.strokeStyle = 'rgba(240,232,216,0.22)'; ctx.lineWidth = 1;
+    this._round(ctx, BX + 5, BY + 5, BW - 10, BH - 10, 10); ctx.stroke();
 
-    // page header
-    ctx.fillStyle = '#3a3038'; ctx.textAlign = 'left';
-    ctx.font = 'bold 15px ui-monospace, Menlo, Consolas, monospace';
-    ctx.fillText('PATIENT CHART', PX + 20, PY + 30);
-    ctx.font = '11px ui-monospace, Menlo, Consolas, monospace';
-    ctx.fillStyle = 'rgba(58,48,56,0.65)';
-    ctx.fillText('EVERYBODIES GOT SOMETHIN CLINIC  ·  CONFIDENTIAL', PX + 20, PY + 48);
-    ctx.textAlign = 'right';
-    ctx.fillText('SHEET ' + (this.idx + 1) + ' / ' + this.scene.length, PX + PW - 20, PY + 30);
-    ctx.textAlign = 'left';
-    ctx.strokeStyle = 'rgba(58,48,56,0.4)'; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(PX + 20, PY + 58); ctx.lineTo(PX + PW - 20, PY + 58); ctx.stroke();
-
-    // illustration box
-    const BX = PX + 150, BY = PY + 78, BW = PW - 200, BH = 250;
-    ctx.fillStyle = '#f6f1e4'; ctx.fillRect(BX, BY, BW, BH);
-    ctx.save(); ctx.beginPath(); ctx.rect(BX + 2, BY + 2, BW - 4, BH - 4); ctx.clip();
-    ctx.strokeStyle = '#1c1820'; ctx.fillStyle = '#1c1820';
-    const fn = this.ILLUS[p.art] || this.ILLUS._placeholder;
-    try { fn.call(this, ctx, BX, BY, BW, BH, this.panelT, p); } catch (e) { }
-    // page-turn wipe
-    if (this.trans > 0) {
-      ctx.fillStyle = '#e8e1d0';
-      const w = BW * this.trans;
-      ctx.fillRect(BX + BW - w, BY, w, BH);
-      ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(BX + BW - w, BY); ctx.lineTo(BX + BW - w, BY + BH); ctx.stroke();
-    }
-    ctx.restore();
-    ctx.strokeStyle = '#1c1820'; this.inkRect(ctx, BX, BY, BW, BH, 2.4, 7);
-
-    // stamped caption (red, slightly rotated)
+    // nameplate chip (the panel's chart stamp)
     if (p.stamp) {
-      ctx.save();
-      ctx.translate(BX + BW - 6, BY + 20); ctx.rotate(-0.14);
-      ctx.strokeStyle = 'rgba(178,54,54,0.85)'; ctx.fillStyle = 'rgba(178,54,54,0.9)';
-      ctx.lineWidth = 2; ctx.font = 'bold 13px ui-monospace, Menlo, Consolas, monospace';
-      const tw = ctx.measureText(p.stamp).width;
-      this.inkRect(ctx, -tw - 16, -18, tw + 20, 26, 2, 3);
-      ctx.textAlign = 'left'; ctx.fillText(p.stamp, -tw - 6, 0);
-      ctx.restore();
+      ctx.font = 'bold 13px "Comic Sans MS","Segoe Print",cursive,sans-serif';
+      const tw = ctx.measureText(p.stamp).width + 26;
+      ctx.fillStyle = '#e8c84c'; this._round(ctx, BX + 18, BY - 14, tw, 26, 8); ctx.fill();
+      ctx.strokeStyle = 'rgba(60,45,20,0.55)'; ctx.lineWidth = 2; this._round(ctx, BX + 18, BY - 14, tw, 26, 8); ctx.stroke();
+      ctx.fillStyle = '#3a2d10'; ctx.textAlign = 'center';
+      ctx.fillText(p.stamp, BX + 18 + tw / 2, BY + 4);
     }
 
-    // narration — typewritten notes
+    // typewritten narration
     const shown = this.fullText.slice(0, Math.floor(this.typed));
-    ctx.fillStyle = '#2a2028'; ctx.textAlign = 'left';
-    ctx.font = '17px ui-monospace, Menlo, Consolas, monospace';
-    const tx = PX + 40, ty0 = BY + BH + 42;
+    ctx.fillStyle = '#f0e8d8'; ctx.textAlign = 'left';
+    ctx.font = '17px "Comic Sans MS","Segoe Print",cursive,sans-serif';
+    const tx = BX + 26, ty0 = BY + 36;
     const lines = shown.split('\n');
-    for (let i = 0; i < lines.length; i++) ctx.fillText(lines[i], tx, ty0 + i * 26);
-    // caret
+    for (let i = 0; i < lines.length; i++) ctx.fillText(lines[i], tx, ty0 + i * 23);
     if (this.typed < this.fullText.length && Math.floor(this.t * 2) % 2 === 0) {
       const last = lines[lines.length - 1] || '';
-      const cw = ctx.measureText(last).width;
-      ctx.fillRect(tx + cw + 2, ty0 + (lines.length - 1) * 26 - 13, 9, 16);
+      const cw2 = ctx.measureText(last).width;
+      ctx.fillStyle = 'rgba(240,232,216,0.8)';
+      ctx.fillRect(tx + cw2 + 3, ty0 + (lines.length - 1) * 23 - 13, 9, 16);
     }
-    ctx.globalAlpha = 1;
 
-    // prompt + skip
+    // continue arrow + sheet counter
     if (this.typed >= this.fullText.length && this.trans <= 0) {
-      ctx.globalAlpha = 0.5 + Math.sin(this.t * 4) * 0.3;
-      ctx.fillStyle = '#8a7c68'; ctx.textAlign = 'center';
-      ctx.font = '13px ui-monospace, Menlo, Consolas, monospace';
-      const lastPanel = this.idx >= this.scene.length - 1;
-      ctx.fillText((Input && Input.usingTouch ? 'tap to continue' : '▸ space / click to continue') + (lastPanel ? '' : ''), CW / 2, CH - 22);
-      ctx.globalAlpha = 1;
+      ctx.globalAlpha = this.fade * (0.55 + Math.sin(this.t * 4) * 0.35);
+      ctx.fillStyle = '#e8c84c'; ctx.textAlign = 'right';
+      ctx.font = 'bold 17px "Comic Sans MS","Segoe Print",cursive,sans-serif';
+      ctx.fillText('▸', BX + BW - 20, BY + BH - 14);
+      ctx.globalAlpha = this.fade;
     }
-    // skip button
-    ctx.fillStyle = 'rgba(30,24,32,0.55)'; this._round(ctx, CW - 142, CH - 44, 118, 26, 6); ctx.fill();
-    ctx.fillStyle = 'rgba(240,232,216,0.8)'; ctx.textAlign = 'center';
-    ctx.font = '12px ui-monospace, Menlo, Consolas, monospace';
-    ctx.fillText('SKIP  ⏭', CW - 83, CH - 26);
-    ctx.textAlign = 'left';
+    ctx.fillStyle = 'rgba(240,232,216,0.4)'; ctx.textAlign = 'right';
+    ctx.font = '11px "Comic Sans MS","Segoe Print",cursive,sans-serif';
+    ctx.fillText(this.idx + 1 + ' / ' + this.scene.length, BX + BW - 18, BY + 18);
+
+    // hint under the box
+    ctx.globalAlpha = this.fade * 0.55;
+    ctx.fillStyle = '#8a7c68'; ctx.textAlign = 'center'; ctx.font = '12px "Comic Sans MS",cursive,sans-serif';
+    ctx.fillText((typeof Input !== 'undefined' && Input.usingTouch) ? 'tap to continue' : 'space / click to continue', CW / 2, CH - 6);
+    ctx.globalAlpha = this.fade;
+
+    // skip button (top-right)
+    ctx.fillStyle = 'rgba(30,24,32,0.62)'; this._round(ctx, CW - 138, 14, 116, 30, 8); ctx.fill();
+    ctx.strokeStyle = 'rgba(240,232,216,0.35)'; ctx.lineWidth = 1.5; this._round(ctx, CW - 138, 14, 116, 30, 8); ctx.stroke();
+    ctx.fillStyle = 'rgba(240,232,216,0.85)'; ctx.textAlign = 'center';
+    ctx.font = '13px "Comic Sans MS","Segoe Print",cursive,sans-serif';
+    ctx.fillText('SKIP ⏭', CW - 80, 34);
+    ctx.restore();
+    ctx.textAlign = 'left'; ctx.globalAlpha = 1;
   },
 
   _round(ctx, x, y, w, h, r) {
@@ -255,152 +315,317 @@ const Story = {
     ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
   },
 
-  ILLUS: {}   // filled below
+  SCENES: {}   // filled below
 };
 
-/* ============ ILLUSTRATIONS (ink & wash noir) ============
-   Each: fn(ctx, x, y, w, h, t, panel). Origin box is (x,y,w,h);
-   draw in black ink + grey wash + occasional red accent. */
+/* ============ SCENES (bright, in-engine staging) ============ */
 (function (S) {
-  const I = S.ILLUS;
-  const bg = (ctx, x, y, w, h) => { ctx.fillStyle = '#f6f1e4'; ctx.fillRect(x, y, w, h); };
+  const SC = S.SCENES;
+  const MIDY = 385;   // actor baseline (dialogue box starts ~CH-158)
 
-  I._placeholder = function (ctx, x, y, w, h) {
-    bg(ctx, x, y, w, h);
-    ctx.fillStyle = '#1c1820'; ctx.textAlign = 'center'; ctx.font = '20px ui-monospace, monospace';
-    ctx.fillText('[ chart note ]', x + w / 2, y + h / 2);
-    ctx.textAlign = 'left';
+  SC._placeholder = function (ctx, t) {
+    this._room('#c8bfd4', '#a89cc0', '#b0a894', '#948a76', CH * 0.58);
+    this.drawYou(CW / 2, MIDY, 1.6);
   };
 
-  // waiting room: rows of chairs, one small figure, a clock, fluorescent hum
-  I.intakeRoom = function (ctx, x, y, w, h, t) {
-    bg(ctx, x, y, w, h);
-    const cx = x + w / 2, fy = y + h - 40;
-    // floor line + wall
-    ctx.strokeStyle = '#1c1820';
-    S.ink(ctx, x + 10, fy, x + w - 10, fy, 2, 1);
-    // rows of empty chairs (simple L shapes)
-    ctx.lineWidth = 2;
-    for (let r = 0; r < 3; r++) {
-      const cy = y + 70 + r * 46, scale = 1 + r * 0.16;
-      for (let c = 0; c < 5; c++) {
-        const chx = x + 40 + c * (w - 80) / 4;
-        S.hatch(ctx, chx - 12 * scale, cy - 6, 24 * scale, 10 * scale, 5, -0.6, 0.18);
-        S.inkPoly(ctx, [[chx - 12 * scale, cy - 18 * scale], [chx - 12 * scale, cy], [chx + 12 * scale, cy], [chx + 12 * scale, cy - 18 * scale]], 2, false, r * 7 + c);
+  /* -- prologue -- */
+  SC.intakeRoom = function (ctx, t) {   // a bright waiting room, you in the middle of it
+    this._room('#cfe4e2', '#a8ccc8', '#cbbfa4', '#a89a7e', CH * 0.6);
+    for (let i = 0; i < 4; i++) this._chair(150 + i * 92, CH * 0.6 - 4, 1.15, '#7a8a90');
+    for (let i = 0; i < 3; i++) this._chair(640 + i * 92, CH * 0.6 - 4, 1.15, '#7a8a90');
+    // wall clock
+    ctx.strokeStyle = '#5a6a70'; ctx.lineWidth = 4; ctx.fillStyle = '#f2f4f0';
+    ctx.beginPath(); ctx.arc(CW / 2, 120, 34, 0, TAU); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = '#3a4a50'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(CW / 2, 120); ctx.lineTo(CW / 2, 98); ctx.moveTo(CW / 2, 120); ctx.lineTo(CW / 2 + 16, 128); ctx.stroke();
+    // PLEASE WAIT sign
+    ctx.fillStyle = '#e8dcc0'; Render.rr(ctx, CW / 2 - 92, 170, 184, 34, 6); ctx.fill();
+    ctx.fillStyle = '#7a6a4a'; ctx.font = 'bold 16px "Comic Sans MS",cursive,sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('PLEASE WAIT', CW / 2, 193);
+    this._spot(CW / 2, MIDY + 58, 90);
+    this.drawYou(CW / 2, MIDY, 1.9);
+  };
+
+  SC.walrusLoom = function (ctx, t) {   // the doctor looms across the desk
+    this._room('#d8cfc0', '#bcae9a', '#a09078', '#84765e', CH * 0.62);
+    // framed diploma
+    ctx.fillStyle = '#f0ead6'; Render.rr(ctx, 96, 96, 120, 86, 4); ctx.fill();
+    ctx.strokeStyle = '#8a6a3a'; ctx.lineWidth = 5; Render.rr(ctx, 96, 96, 120, 86, 4); ctx.stroke();
+    ctx.strokeStyle = 'rgba(90,70,50,0.4)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(112, 122); ctx.lineTo(200, 122); ctx.moveTo(112, 140); ctx.lineTo(200, 140); ctx.moveTo(130, 158); ctx.lineTo(182, 158); ctx.stroke();
+    // the desk
+    ctx.fillStyle = '#8a6a44'; Render.rr(ctx, CW / 2 - 30, CH * 0.62 - 6, 460, 120, 10); ctx.fill();
+    ctx.fillStyle = '#9d7c52'; Render.rr(ctx, CW / 2 - 30, CH * 0.62 - 18, 460, 22, 8); ctx.fill();
+    // clipboard on the desk
+    ctx.save(); ctx.translate(CW / 2 + 120, CH * 0.62 + 6); ctx.rotate(0.08);
+    ctx.fillStyle = '#8a6a3a'; Render.rr(ctx, -34, -24, 68, 48, 5); ctx.fill();
+    ctx.fillStyle = '#f4ecd8'; Render.rr(ctx, -29, -19, 58, 38, 3); ctx.fill();
+    ctx.strokeStyle = '#c05050'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-20, -6); ctx.lineTo(20, -6); ctx.moveTo(-20, 4); ctx.lineTo(8, 4); ctx.stroke();
+    ctx.restore();
+    // you, small, this side of the desk — him, enormous
+    this._spot(240, MIDY + 72, 80);
+    this.drawYou(240, MIDY + 16, 1.65);
+    this._spot(CW / 2 + 190, CH * 0.62 - 20, 150, 0.14);
+    this.drawDoc(CW / 2 + 190, 240, 1.55);
+  };
+
+  SC.labelStamp = function (ctx, t) {   // the diagnosis lands
+    const D = (typeof DATA !== 'undefined' && G.player && DATA.DIAG[G.player.diag]) ? DATA.DIAG[G.player.diag] : null;
+    const clr = D ? D.color : '#b86bff';
+    this._room('#d4cade', '#b2a4c6', '#b0a894', '#93897a', CH * 0.6);
+    this._spot(CW / 2, MIDY + 62, 96);
+    this.drawYou(CW / 2, MIDY, 2.0);
+    // the big label card swinging down overhead
+    const drop = Math.min(1, t * 1.6), yy = -80 + drop * 210 + Math.sin(Math.max(0, t - 0.8) * 2.2) * 4;
+    ctx.save(); ctx.translate(CW / 2, yy); ctx.rotate(Math.sin(t * 1.4) * 0.04);
+    ctx.fillStyle = 'rgba(30,22,38,0.25)'; Render.rr(ctx, -134, 66, 268, 16, 8); ctx.fill();
+    ctx.fillStyle = '#f6f1e2'; Render.rr(ctx, -140, -44, 280, 108, 12); ctx.fill();
+    ctx.strokeStyle = clr; ctx.lineWidth = 6; Render.rr(ctx, -140, -44, 280, 108, 12); ctx.stroke();
+    ctx.fillStyle = '#8a7c68'; ctx.font = 'bold 13px "Comic Sans MS",cursive,sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('HELLO, MY DIAGNOSIS IS', 0, -18);
+    ctx.fillStyle = clr; ctx.font = 'bold 26px "Comic Sans MS",cursive,sans-serif';
+    const nm = D ? D.name : 'SOMETHIN';
+    ctx.fillText(nm.length > 22 ? nm.slice(0, 21) + '…' : nm, 0, 18);
+    ctx.fillStyle = '#8a7c68'; ctx.font = '12px "Comic Sans MS",cursive,sans-serif';
+    ctx.fillText('(everybody\'s got somethin)', 0, 46);
+    ctx.restore();
+  };
+
+  SC.floorOpens = function (ctx, t) {   // the trapdoor yawns open
+    this._room('#c6ccd8', '#a2aabc', '#b0a894', '#8e8472', CH * 0.56);
+    this._door(180, CH * 0.56, 96, 170, '#7a8a99');
+    this._door(CW - 180, CH * 0.56, 96, 170, '#7a8a99');
+    // the hole
+    ctx.fillStyle = '#241c2e'; ctx.beginPath(); ctx.ellipse(CW / 2, MIDY + 66, 130, 42, 0, 0, TAU); ctx.fill();
+    ctx.strokeStyle = '#4a3c5a'; ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.ellipse(CW / 2, MIDY + 66, 130, 42, 0, 0, TAU); ctx.stroke();
+    ctx.fillStyle = 'rgba(120,100,150,0.28)';
+    ctx.beginPath(); ctx.ellipse(CW / 2, MIDY + 66, 96, 28, 0, 0, TAU); ctx.fill();
+    // a ladder into the dark
+    ctx.strokeStyle = '#8a6a44'; ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.moveTo(CW / 2 - 26, MIDY + 48); ctx.lineTo(CW / 2 - 26, MIDY + 96); ctx.moveTo(CW / 2 + 26, MIDY + 48); ctx.lineTo(CW / 2 + 26, MIDY + 96); ctx.stroke();
+    ctx.lineWidth = 4;
+    for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.moveTo(CW / 2 - 26, MIDY + 58 + i * 15); ctx.lineTo(CW / 2 + 26, MIDY + 58 + i * 15); ctx.stroke(); }
+    this._spot(CW / 2 - 190, MIDY + 62, 84);
+    this.drawYou(CW / 2 - 190, MIDY + 4, 1.8);
+  };
+
+  /* -- interludes -- */
+  SC.hallOfDoors = function (ctx, t) {   // ward 5: identical doors forever
+    this._room('#c2ccd6', '#9aa6ba', '#a89a82', '#877a64', CH * 0.58);
+    const xs = [120, 300, 480, 660, 840];
+    for (const dx of xs) this._door(dx, CH * 0.58, 88, 158, '#7a8a99');
+    for (const dx of xs) {   // ward plates
+      ctx.fillStyle = '#e8dcc0'; Render.rr(ctx, dx - 22, CH * 0.58 - 190, 44, 20, 4); ctx.fill();
+      ctx.fillStyle = '#7a6a4a'; ctx.font = 'bold 12px "Comic Sans MS",cursive,sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('5', dx, CH * 0.58 - 175);
+    }
+    this._spot(CW / 2, MIDY + 74, 86);
+    this.drawYou(CW / 2, MIDY + 16, 1.8);
+  };
+
+  SC.pillMountain = function (ctx, t) {   // ward 10: the prescriptions add up
+    this._room('#d8d0c2', '#bcae9c', '#b4a68c', '#93876e', CH * 0.6);
+    // a cheerful, horrible mound of pills
+    const combos = [['#e05a6a', '#f0f0e8'], ['#5a9de0', '#f0f0e8'], ['#8fd05a', '#ffffff'], ['#e8c84c', '#f0f0e8'], ['#b86bff', '#ffffff'], ['#43b8a5', '#f0ead8']];
+    let k = 0;
+    for (let row = 5; row >= 0; row--) {
+      const n = row + 3, y = CH * 0.6 + 26 - (5 - row) * 26;
+      for (let i = 0; i < n; i++) {
+        const x = CW / 2 + (i - (n - 1) / 2) * 42 + ((5 - row) % 2 ? 12 : -8);
+        const c = combos[(k++) % combos.length];
+        this._pillProp(x, y, 1.25, ((k * 37) % 10 - 5) * 0.06, c[0], c[1]);
       }
     }
-    // lone figure sitting in the front row, head down
-    const px = cx, py = fy - 22;
-    S.wash(ctx, px, py - 4, 46, 0.3);
-    ctx.fillStyle = '#1c1820';
-    ctx.beginPath(); ctx.ellipse(px, py, 12, 16, 0, 0, TAU); ctx.fill();       // hunched body
-    S.inkCircle(ctx, px, py - 22, 11, 2.4, 2); ctx.fillStyle = '#f6f1e4';       // head
-    ctx.beginPath(); ctx.arc(px, py - 22, 9, 0, TAU); ctx.fill();
-    ctx.fillStyle = '#1c1820'; S.ink(ctx, px - 5, py - 20, px + 5, py - 20, 1.6, 5); // downcast eyes line
-    // clock on the wall (time you'll never get back)
-    const clkx = x + 46, clky = y + 40;
-    S.inkCircle(ctx, clkx, clky, 17, 2.2, 9);
-    const ta = t * 0.6;
-    S.ink(ctx, clkx, clky, clkx + Math.cos(ta - 1.6) * 11, clky + Math.sin(ta - 1.6) * 11, 1.8, 3);
-    S.ink(ctx, clkx, clky, clkx + Math.cos(ta * 12) * 7, clky + Math.sin(ta * 12) * 7, 1.4, 4);
-    // flickering fluorescent glow
-    if (Math.sin(t * 9) > -0.3) S.wash(ctx, cx, y + 18, 120, 0.14);
+    this._spot(200, MIDY + 74, 84);
+    this.drawYou(200, MIDY + 16, 1.8);
   };
 
-  // Dr. Walrus looming behind a desk, clipboard raised
-  I.walrusLoom = function (ctx, x, y, w, h, t) {
-    bg(ctx, x, y, w, h);
-    const cx = x + w / 2;
-    S.wash(ctx, cx, y + 90, 150, 0.4);
-    // huge silhouette head (walrus)
-    ctx.fillStyle = '#1c1820';
-    ctx.beginPath(); ctx.ellipse(cx, y + 96, 92, 78, 0, 0, TAU); ctx.fill();
-    // muzzle
-    ctx.beginPath(); ctx.ellipse(cx, y + 128, 60, 40, 0, 0, TAU); ctx.fill();
-    // tusks (paper-white)
-    ctx.fillStyle = '#f6f1e4';
-    S.roundBar(ctx, cx - 30, y + 150, 14, 44); S.roundBar(ctx, cx + 16, y + 150, 14, 44);
-    // cold little glasses catching the light
-    ctx.fillStyle = '#f6f1e4';
-    ctx.beginPath(); ctx.arc(cx - 34, y + 70, 15, 0, TAU); ctx.arc(cx + 34, y + 70, 15, 0, TAU); ctx.fill();
-    ctx.fillStyle = '#1c1820';
-    ctx.beginPath(); ctx.arc(cx - 34, y + 70, 5, 0, TAU); ctx.arc(cx + 34, y + 70, 5, 0, TAU); ctx.fill();
-    ctx.strokeStyle = '#1c1820'; S.ink(ctx, cx - 19, y + 70, cx + 19, y + 70, 2.4, 2);
-    // glare streak on glasses
-    ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(cx - 40, y + 64); ctx.lineTo(cx - 30, y + 68); ctx.moveTo(cx + 28, y + 64); ctx.lineTo(cx + 38, y + 68); ctx.stroke();
-    // desk + a raised clipboard
-    ctx.fillStyle = '#1c1820';
-    ctx.fillRect(x + 6, y + h - 34, w - 12, 30);
-    ctx.save(); ctx.translate(x + w - 70, y + h - 70); ctx.rotate(0.2 + Math.sin(t * 1.5) * 0.03);
-    ctx.fillStyle = '#f6f1e4'; ctx.fillRect(-22, -30, 44, 58);
-    ctx.strokeStyle = '#1c1820'; S.inkRect(ctx, -22, -30, 44, 58, 2, 4);
-    ctx.strokeStyle = 'rgba(28,24,32,0.6)'; ctx.lineWidth = 1.4;
-    for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.moveTo(-16, -18 + i * 10); ctx.lineTo(14, -18 + i * 10); ctx.stroke(); }
-    ctx.restore();
-  };
-
-  // a rubber stamp coming down onto the chart — the DIAGNOSIS
-  I.labelStamp = function (ctx, x, y, w, h, t, panel) {
-    bg(ctx, x, y, w, h);
-    const cx = x + w / 2, cy = y + h / 2 + 20;
-    // the chart line being stamped
-    ctx.strokeStyle = 'rgba(28,24,32,0.5)'; ctx.lineWidth = 1.4;
-    for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.moveTo(cx - 120, cy + 20 + i * 16); ctx.lineTo(cx + 120, cy + 20 + i * 16); ctx.stroke(); }
-    // the stamp mark (bounces down)
-    const drop = Math.max(0, Math.sin(Math.min(t, 1.2) * 2.4)) * 40;
-    const dy = cy - 70 + (t > 1.2 ? 0 : (40 - drop));
-    const label = (typeof DATA !== 'undefined' && G.player && DATA.DIAG[G.player.diag]) ? DATA.DIAG[G.player.diag].name.toUpperCase() : 'A DIAGNOSIS';
-    ctx.save(); ctx.translate(cx, Math.max(dy, cy - 30)); ctx.rotate(-0.08);
-    ctx.strokeStyle = '#b23636'; ctx.fillStyle = '#b23636'; ctx.lineWidth = 3;
-    ctx.font = 'bold 20px ui-monospace, monospace'; ctx.textAlign = 'center';
-    const tw = Math.min(w - 40, ctx.measureText(label).width + 30);
-    S.inkRect(ctx, -tw / 2, -22, tw, 44, 3, 6);
-    ctx.fillText(label, 0, 7);
-    ctx.restore();
-    // the stamp handle above (retracting)
-    if (t < 1.2) {
-      ctx.fillStyle = '#1c1820';
-      const hy = dy - 90 + drop;
-      ctx.fillRect(cx - 34, hy - 40, 68, 26);
-      ctx.fillRect(cx - 10, hy - 14, 20, 30);
+  SC.copayRegister = function (ctx, t) {   // ward 15: every step has a copay
+    this._room('#cfd8cc', '#a8b8a6', '#b0a48a', '#8e8268', CH * 0.6);
+    // the counter + register
+    ctx.fillStyle = '#8a6a44'; Render.rr(ctx, CW / 2 + 10, CH * 0.6 - 40, 330, 150, 10); ctx.fill();
+    ctx.fillStyle = '#9d7c52'; Render.rr(ctx, CW / 2 + 2, CH * 0.6 - 54, 346, 24, 8); ctx.fill();
+    ctx.fillStyle = '#5a6a72'; Render.rr(ctx, CW / 2 + 60, CH * 0.6 - 128, 130, 80, 8); ctx.fill();
+    ctx.fillStyle = '#c8e0d8'; Render.rr(ctx, CW / 2 + 70, CH * 0.6 - 118, 110, 34, 4); ctx.fill();
+    ctx.fillStyle = '#3a5a4a'; ctx.font = 'bold 17px "Comic Sans MS",cursive,sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('¢ 9999', CW / 2 + 125, CH * 0.6 - 94);
+    // coins arcing from you to the register
+    for (let i = 0; i < 4; i++) {
+      const u = ((t * 0.55 + i * 0.25) % 1);
+      const cx = 300 + u * (CW / 2 - 190), cy = MIDY - 30 - Math.sin(u * Math.PI) * 90;
+      this._coin(cx, cy, 1 - u * 0.25);
     }
-    // impact dust
-    if (t > 1.1 && t < 1.5) { ctx.strokeStyle = 'rgba(178,54,54,0.5)'; for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; S.ink(ctx, cx + Math.cos(a) * 60, cy - 10 + Math.sin(a) * 20, cx + Math.cos(a) * 78, cy - 10 + Math.sin(a) * 26, 1.6, i); } }
+    this._spot(280, MIDY + 74, 84);
+    this.drawYou(280, MIDY + 16, 1.8);
   };
 
-  // the floor opens beneath a small figure — the descent begins
-  I.floorOpens = function (ctx, x, y, w, h, t) {
-    bg(ctx, x, y, w, h);
-    const cx = x + w / 2;
-    // the crack / hole (grows)
-    const open = Math.min(1, t * 0.7);
-    ctx.fillStyle = '#1c1820';
-    ctx.beginPath();
-    ctx.ellipse(cx, y + h - 40, (w * 0.42) * open + 10, (30) * open + 6, 0, 0, TAU); ctx.fill();
-    // darkness with faint doors below
-    if (open > 0.5) {
-      ctx.save(); ctx.beginPath(); ctx.ellipse(cx, y + h - 40, (w * 0.42) * open, 30 * open, 0, 0, TAU); ctx.clip();
-      ctx.strokeStyle = 'rgba(180,175,165,0.25)'; ctx.lineWidth = 1.5;
-      for (let i = -3; i <= 3; i++) { ctx.strokeRect(cx + i * 40 - 10, y + h - 30 + Math.abs(i) * 4, 20, 40); }
+  SC.mirrorWard = function (ctx, t) {   // ward 20: the chart wearing your face
+    this._room('#ccc4d8', '#a89cc0', '#aaa08c', '#8a8070', CH * 0.6);
+    // the mirror
+    ctx.fillStyle = '#8a6a44'; Render.rr(ctx, CW / 2 + 60, 120, 220, 300, 14); ctx.fill();
+    ctx.fillStyle = '#cfe0e8'; Render.rr(ctx, CW / 2 + 74, 134, 192, 272, 10); ctx.fill();
+    const sheen = ctx.createLinearGradient(CW / 2 + 74, 134, CW / 2 + 266, 406);
+    sheen.addColorStop(0, 'rgba(255,255,255,0.5)'); sheen.addColorStop(0.5, 'rgba(255,255,255,0)'); sheen.addColorStop(1, 'rgba(255,255,255,0.25)');
+    ctx.fillStyle = sheen; Render.rr(ctx, CW / 2 + 74, 134, 192, 272, 10); ctx.fill();
+    // in the mirror: a stack of forms wearing your silhouette
+    ctx.save(); Render.rr(ctx, CW / 2 + 74, 134, 192, 272, 10); ctx.clip();
+    for (let i = 0; i < 3; i++) {
+      ctx.save(); ctx.translate(CW / 2 + 170 + (i - 1) * 8, 300 + i * 6); ctx.rotate((i - 1) * 0.08);
+      ctx.fillStyle = '#f4ecd8'; Render.rr(ctx, -46, -62, 92, 124, 6); ctx.fill();
+      ctx.strokeStyle = 'rgba(90,70,50,0.35)'; ctx.lineWidth = 2;
+      for (let l = 0; l < 5; l++) { ctx.beginPath(); ctx.moveTo(-32, -40 + l * 20); ctx.lineTo(32, -40 + l * 20); ctx.stroke(); }
       ctx.restore();
     }
-    // small figure teetering at the edge, arms out
-    const px = cx, py = y + h - 70 - open * 8;
-    ctx.fillStyle = '#1c1820';
-    ctx.beginPath(); ctx.ellipse(px, py, 10, 13, 0, 0, TAU); ctx.fill();
-    S.inkCircle(ctx, px, py - 20, 10, 2.4, 2); ctx.fillStyle = '#f6f1e4';
-    ctx.beginPath(); ctx.arc(px, py - 20, 8, 0, TAU); ctx.fill();
-    ctx.strokeStyle = '#1c1820';
-    S.ink(ctx, px - 8, py - 4, px - 24, py - 14 - Math.sin(t * 6) * 4, 2.4, 1);  // arm
-    S.ink(ctx, px + 8, py - 4, px + 24, py - 14 + Math.sin(t * 6) * 4, 2.4, 2);
-    // motion lines (falling)
-    if (open > 0.7) { ctx.strokeStyle = 'rgba(28,24,32,0.4)'; for (let i = 0; i < 5; i++) { const lx = x + 30 + i * (w - 60) / 4; S.ink(ctx, lx, y + 20, lx, y + 20 + 30 + Math.sin(t * 5 + i) * 8, 1.4, i); } }
+    ctx.fillStyle = 'rgba(60,45,70,0.5)';
+    ctx.beginPath(); ctx.arc(CW / 2 + 170, 240, 26, 0, TAU); ctx.fill();   // the face-shaped hole in the paper
+    ctx.restore();
+    ctx.strokeStyle = '#6a5438'; ctx.lineWidth = 4; Render.rr(ctx, CW / 2 + 74, 134, 192, 272, 10); ctx.stroke();
+    this._spot(CW / 2 - 160, MIDY + 74, 86);
+    this.drawYou(CW / 2 - 160, MIDY + 16, 1.85);
   };
 
-  // helper used by walrusLoom
-  S.roundBar = function (ctx, x, y, w, h) { S.ILLUS._bar(ctx, x, y, w, h); };
-  I._bar = function (ctx, x, y, w, h) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + w, y); ctx.lineTo(x + w, y + h - w / 2); ctx.arc(x + w / 2, y + h - w / 2, w / 2, 0, Math.PI); ctx.closePath(); ctx.fill(); };
+  SC.foundersTower = function (ctx, t) {   // ward 50 approach
+    // dusk sky
+    const sky = ctx.createLinearGradient(0, 0, 0, CH);
+    sky.addColorStop(0, '#3a3454'); sky.addColorStop(0.55, '#6a5474'); sky.addColorStop(1, '#8a6a64');
+    ctx.fillStyle = sky; ctx.fillRect(0, 0, CW, CH);
+    ctx.fillStyle = '#4c4258'; ctx.fillRect(0, CH * 0.72, CW, CH * 0.28);
+    // the tower of money
+    const bx = CW / 2 + 120;
+    for (let i = 0; i < 6; i++) {
+      const w = 186 - i * 15, y = CH * 0.72 - (i + 1) * 56;
+      ctx.fillStyle = i % 2 ? '#4a7a4a' : '#568a56';
+      Render.rr(ctx, bx - w / 2, y, w, 52, 6); ctx.fill();
+      ctx.fillStyle = 'rgba(230,240,200,0.75)';
+      for (let wnd = 0; wnd < Math.max(2, 5 - i); wnd++) Render.rr(ctx, bx - w / 2 + 14 + wnd * 34, y + 14, 20, 24, 3), ctx.fill();
+      ctx.fillStyle = '#8fd05a'; ctx.font = 'bold 15px "Comic Sans MS",cursive,sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('$', bx + w / 2 - 16, y + 34);
+    }
+    // the founder at the top, in the last light
+    this.drawBossActor('founder', bx, CH * 0.72 - 6 * 56 - 40, 0.62, 'low');
+    this._spot(220, 470, 74, 0.26);
+    this.drawYou(220, 428, 1.7);
+  };
+
+  /* -- the cure -- */
+  SC.cureCapsule = function (ctx, t) {   // the radiant capsule
+    this._room('#d8d2c0', '#c0b49a', '#b4a68c', '#93876e', CH * 0.62);
+    const glow = ctx.createRadialGradient(CW / 2, 260, 30, CW / 2, 260, 300);
+    glow.addColorStop(0, 'rgba(255,225,140,0.55)'); glow.addColorStop(1, 'rgba(255,225,140,0)');
+    ctx.fillStyle = glow; ctx.fillRect(0, 0, CW, CH);
+    for (let i = 0; i < 10; i++) {   // rays
+      const a = (i / 10) * TAU + t * 0.25;
+      ctx.strokeStyle = 'rgba(255,220,120,0.35)'; ctx.lineWidth = 6;
+      ctx.beginPath(); ctx.moveTo(CW / 2 + Math.cos(a) * 96, 260 + Math.sin(a) * 96);
+      ctx.lineTo(CW / 2 + Math.cos(a) * (150 + Math.sin(t * 2 + i) * 12), 260 + Math.sin(a) * (150 + Math.sin(t * 2 + i) * 12)); ctx.stroke();
+    }
+    // pedestal
+    ctx.fillStyle = '#a89478'; Render.rr(ctx, CW / 2 - 70, CH * 0.62 - 6, 140, 74, 8); ctx.fill();
+    ctx.fillStyle = '#c0ac8c'; Render.rr(ctx, CW / 2 - 80, CH * 0.62 - 18, 160, 22, 8); ctx.fill();
+    // the capsule itself (big, gold and white)
+    ctx.save(); ctx.translate(CW / 2, 262 + Math.sin(t * 1.6) * 6); ctx.rotate(-0.5);
+    ctx.fillStyle = '#f6f0dc'; Render.rr(ctx, -84, -40, 84, 80, 40); ctx.fill();
+    ctx.fillStyle = '#e8c84c'; Render.rr(ctx, 0, -40, 84, 80, 40); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.beginPath(); ctx.ellipse(-38, -18, 24, 12, -0.5, 0, TAU); ctx.fill();
+    ctx.strokeStyle = 'rgba(120,90,30,0.4)'; ctx.lineWidth = 4; Render.rr(ctx, -84, -40, 168, 80, 40); ctx.stroke();
+    ctx.restore();
+    this._spot(CW / 2 - 210, MIDY + 74, 86);
+    this.drawYou(CW / 2 - 210, MIDY + 16, 1.85);
+  };
+
+  SC.cureEmpty = function (ctx, t) {   // opened: nothing inside but a mirror
+    this._room('#d0cabc', '#b2a795', '#aca084', '#8b7f66', CH * 0.62);
+    // capsule halves, discarded
+    ctx.save(); ctx.translate(CW / 2 - 150, CH * 0.62 + 26); ctx.rotate(0.5);
+    ctx.fillStyle = '#f6f0dc'; Render.rr(ctx, -60, -30, 60, 60, 30); ctx.fill();
+    ctx.strokeStyle = 'rgba(120,90,30,0.35)'; ctx.lineWidth = 3.5; Render.rr(ctx, -60, -30, 60, 60, 30); ctx.stroke();
+    ctx.restore();
+    ctx.save(); ctx.translate(CW / 2 + 170, CH * 0.62 + 40); ctx.rotate(-0.35);
+    ctx.fillStyle = '#e8c84c'; Render.rr(ctx, 0, -30, 60, 60, 30); ctx.fill();
+    ctx.strokeStyle = 'rgba(120,90,30,0.35)'; ctx.lineWidth = 3.5; Render.rr(ctx, 0, -30, 60, 60, 30); ctx.stroke();
+    ctx.restore();
+    // the little hand mirror between them
+    ctx.save(); ctx.translate(CW / 2, CH * 0.62 - 26);
+    ctx.strokeStyle = '#8a6a44'; ctx.lineWidth = 7; ctx.beginPath(); ctx.moveTo(0, 40); ctx.lineTo(0, 74); ctx.stroke();
+    ctx.fillStyle = '#8a6a44'; ctx.beginPath(); ctx.arc(0, 0, 46, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#cfe0e8'; ctx.beginPath(); ctx.arc(0, 0, 38, 0, TAU); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.beginPath(); ctx.ellipse(-12, -12, 14, 8, -0.6, 0, TAU); ctx.fill();
+    ctx.restore();
+    this._spot(CW / 2 - 240, MIDY + 74, 86);
+    this.drawYou(CW / 2 - 240, MIDY + 16, 1.85);
+  };
+
+  SC.daylight = function (ctx, t) {   // the way out is bright
+    const sky = ctx.createLinearGradient(0, 0, 0, CH);
+    sky.addColorStop(0, '#9ecbe8'); sky.addColorStop(0.6, '#cfe4ea'); sky.addColorStop(1, '#e8e2c8');
+    ctx.fillStyle = sky; ctx.fillRect(0, 0, CW, CH);
+    // sun + rays
+    const sunX = CW / 2 + 190, sunY = 150;
+    const sg = ctx.createRadialGradient(sunX, sunY, 8, sunX, sunY, 190);
+    sg.addColorStop(0, 'rgba(255,240,180,0.95)'); sg.addColorStop(1, 'rgba(255,240,180,0)');
+    ctx.fillStyle = sg; ctx.beginPath(); ctx.arc(sunX, sunY, 190, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#ffe9a0'; ctx.beginPath(); ctx.arc(sunX, sunY, 44, 0, TAU); ctx.fill();
+    // grass
+    ctx.fillStyle = '#9ec87e'; ctx.fillRect(0, CH * 0.68, CW, CH * 0.32);
+    ctx.fillStyle = '#8ab86e'; ctx.beginPath(); ctx.ellipse(CW / 2, CH * 0.68 + 8, CW * 0.6, 18, 0, 0, TAU); ctx.fill();
+    // the open door you came out of, standing alone
+    this._door(210, CH * 0.68, 100, 176, '#8a97a4');
+    ctx.fillStyle = 'rgba(40,32,52,0.55)'; Render.rr(ctx, 168, CH * 0.68 - 170, 42, 164, 6); ctx.fill();   // dark hallway behind
+    this._spot(CW / 2 + 40, CH * 0.68 + 52, 90, 0.14);
+    this.drawYou(CW / 2 + 40, CH * 0.68 - 4, 1.95);
+  };
+
+  /* -- the founder -- */
+  SC.towerFalls = function (ctx, t) {   // the tower comes down
+    const sky = ctx.createLinearGradient(0, 0, 0, CH);
+    sky.addColorStop(0, '#4a3450'); sky.addColorStop(1, '#8a5a54');
+    ctx.fillStyle = sky; ctx.fillRect(0, 0, CW, CH);
+    ctx.fillStyle = '#443a50'; ctx.fillRect(0, CH * 0.74, CW, CH * 0.26);
+    const bx = CW / 2 + 110, lean = Math.min(0.3, t * 0.05 + 0.14);
+    ctx.save(); ctx.translate(bx, CH * 0.74); ctx.rotate(lean);
+    for (let i = 0; i < 6; i++) {
+      const w = 180 - i * 14, y = -(i + 1) * 60;
+      ctx.fillStyle = i % 2 ? '#4a7a4a' : '#568a56';
+      Render.rr(ctx, -w / 2, y, w, 56, 6); ctx.fill();
+      ctx.strokeStyle = 'rgba(30,20,30,0.5)'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(-w / 2 + 8 + (i * 13) % 40, y + 8); ctx.lineTo(-w / 2 + 38 + (i * 13) % 40, y + 44); ctx.stroke();   // cracks
+    }
+    ctx.restore();
+    // red ticker arrows raining
+    for (let i = 0; i < 7; i++) {
+      const ax = (i * 137 + t * 60) % CW, ay = (i * 97 + t * 130) % (CH * 0.7);
+      ctx.strokeStyle = 'rgba(230,90,90,0.8)'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(ax + 26, ay + 26); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(ax + 26, ay + 10); ctx.lineTo(ax + 26, ay + 26); ctx.lineTo(ax + 10, ay + 26); ctx.stroke();
+      ctx.lineCap = 'butt';
+    }
+    // the founder, toppling
+    ctx.save(); ctx.translate(CW / 2 + 240, 190 + Math.min(t * 26, 90)); ctx.rotate(0.5 + Math.min(t * 0.2, 0.6));
+    this.drawBossActor('founder', 0, 0, 0.8, 'low');
+    ctx.restore();
+    this._spot(190, 470, 76, 0.26);
+    this.drawYou(190, 428, 1.75);
+  };
+
+  SC.kindness = function (ctx, t) {   // the note at the end
+    const sky = ctx.createLinearGradient(0, 0, 0, CH);
+    sky.addColorStop(0, '#f0d8b8'); sky.addColorStop(1, '#e0b898');
+    ctx.fillStyle = sky; ctx.fillRect(0, 0, CW, CH);
+    // a big warm heart
+    const beat = 1 + Math.sin(t * 2.4) * 0.04;
+    ctx.save(); ctx.translate(CW / 2, 218); ctx.scale(beat * 2.6, beat * 2.6);
+    ctx.fillStyle = '#e05a6a';
+    ctx.beginPath();
+    ctx.moveTo(0, 26); ctx.bezierCurveTo(-40, -6, -26, -34, 0, -16); ctx.bezierCurveTo(26, -34, 40, -6, 0, 26);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.beginPath(); ctx.ellipse(-10, -12, 8, 5, -0.5, 0, TAU); ctx.fill();
+    ctx.restore();
+    // you and the walrus, together, small
+    this._spot(CW / 2 - 130, MIDY + 70, 80, 0.12);
+    this.drawYou(CW / 2 - 130, MIDY + 14, 1.75);
+    this.drawDoc(CW / 2 + 150, MIDY - 40, 0.95);
+  };
 })(Story);
 
 /* ============ STORY DATA ============
@@ -453,210 +678,3 @@ const STORY_CHAPTERS = [
   { id: 'ward50pre', title: 'Ward 50 — The Tower' },
   { id: 'founder',   title: 'Ward 50 — The Fall' }
 ];
-
-/* ============ ILLUSTRATIONS, part 2 (interludes + climaxes) ============ */
-(function (S) {
-  const I = S.ILLUS;
-  const bg = (ctx, x, y, w, h) => { ctx.fillStyle = '#f6f1e4'; ctx.fillRect(x, y, w, h); };
-
-  // small ink helpers
-  S.pill = function (ctx, cx, cy, w, hh) {
-    const r = hh / 2;
-    ctx.beginPath();
-    ctx.moveTo(cx - w / 2 + r, cy - r); ctx.lineTo(cx + w / 2 - r, cy - r);
-    ctx.arc(cx + w / 2 - r, cy, r, -Math.PI / 2, Math.PI / 2);
-    ctx.lineTo(cx - w / 2 + r, cy + r);
-    ctx.arc(cx - w / 2 + r, cy, r, Math.PI / 2, Math.PI * 3 / 2);
-    ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = '#1c1820'; ctx.lineWidth = 2; ctx.stroke();
-  };
-  S.heart = function (ctx, cx, cy, s) {
-    ctx.beginPath();
-    ctx.moveTo(cx, cy + s * 0.85);
-    ctx.bezierCurveTo(cx - s * 1.2, cy - s * 0.2, cx - s * 0.5, cy - s * 1.0, cx, cy - s * 0.35);
-    ctx.bezierCurveTo(cx + s * 0.5, cy - s * 1.0, cx + s * 1.2, cy - s * 0.2, cx, cy + s * 0.85);
-    ctx.closePath(); ctx.fill();
-  };
-
-  // an endless corridor of identical clinical doors (one-point perspective)
-  I.hallOfDoors = function (ctx, x, y, w, h, t) {
-    bg(ctx, x, y, w, h);
-    const vx = x + w / 2, vy = y + h * 0.46;
-    ctx.strokeStyle = '#1c1820';
-    S.ink(ctx, x, y, vx, vy, 2, 1); S.ink(ctx, x + w, y, vx, vy, 2, 2);
-    S.ink(ctx, x, y + h, vx, vy, 2, 3); S.ink(ctx, x + w, y + h, vx, vy, 2, 4);
-    for (let i = 1; i <= 5; i++) {
-      const s = Math.pow(0.64, i);
-      const dw = (w * 0.15) * s, dh = (h * 0.52) * s;
-      const lx = vx - (w * 0.44) * s, rx = vx + (w * 0.44) * s;
-      S.inkRect(ctx, lx, vy - dh / 2, dw, dh, 2, i);
-      S.inkRect(ctx, rx - dw, vy - dh / 2, dw, dh, 2, i + 10);
-      if (i % 2 === 0) { S.hatch(ctx, lx, vy - dh / 2, dw, dh, 5, -0.6, 0.12); S.hatch(ctx, rx - dw, vy - dh / 2, dw, dh, 5, -0.6, 0.12); }
-      // door handles
-      ctx.fillStyle = '#1c1820'; ctx.beginPath(); ctx.arc(lx + dw - 4 * s, vy, 2 * s, 0, TAU); ctx.arc(rx - dw + 4 * s, vy, 2 * s, 0, TAU); ctx.fill();
-    }
-    // lone figure receding down the hall
-    ctx.fillStyle = '#1c1820'; ctx.beginPath(); ctx.ellipse(vx, vy + 30, 6, 9, 0, 0, TAU); ctx.fill();
-    S.inkCircle(ctx, vx, vy + 16, 6, 2, 5); ctx.fillStyle = '#f6f1e4'; ctx.beginPath(); ctx.arc(vx, vy + 16, 4.5, 0, TAU); ctx.fill();
-    // overhead lights receding (flicker)
-    ctx.fillStyle = 'rgba(28,24,32,' + (0.4 + (Math.sin(t * 8) > 0 ? 0.15 : 0)) + ')';
-    for (let i = 0; i < 4; i++) { const s = Math.pow(0.62, i + 1); ctx.fillRect(vx - 9 * s, vy - (h * 0.42) * Math.pow(0.74, i), 18 * s, 3 * s); }
-  };
-
-  // a mountain of prescriptions with a tiny figure dwarfed beside it
-  I.pillMountain = function (ctx, x, y, w, h, t) {
-    bg(ctx, x, y, w, h);
-    const cx = x + w / 2, base = y + h - 28;
-    ctx.fillStyle = 'rgba(60,58,66,0.16)';
-    ctx.beginPath(); ctx.moveTo(x + 44, base); ctx.quadraticCurveTo(cx, y + 44, x + w - 44, base); ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = '#1c1820'; ctx.lineWidth = 2;
-    for (let i = 0; i < 46; i++) {
-      const u = (i * 0.61803) % 1, v = (i * 4.32) % 1;
-      const px = x + 54 + u * (w - 108);
-      const hillY = base - (1 - Math.abs(px - cx) / (w / 2)) * (h - 96);
-      const py = hillY + v * (base - hillY);
-      const kind = i % 3;
-      if (kind === 0) { ctx.save(); ctx.translate(px, py); ctx.rotate(i * 0.7); ctx.fillStyle = '#f6f1e4'; S.pill(ctx, 0, 0, 12, 6); ctx.restore(); }
-      else if (kind === 1) { ctx.fillStyle = '#f6f1e4'; ctx.beginPath(); ctx.arc(px, py, 5, 0, TAU); ctx.fill(); S.inkCircle(ctx, px, py, 5, 1.6, i); }
-      else { ctx.fillStyle = '#f6f1e4'; ctx.beginPath(); ctx.arc(px, py, 4.5, 0, TAU); ctx.fill(); S.inkCircle(ctx, px, py, 4.5, 1.6, i); ctx.beginPath(); ctx.moveTo(px - 3, py); ctx.lineTo(px + 3, py); ctx.stroke(); }
-    }
-    // dwarfed figure at the foot of the pile
-    ctx.fillStyle = '#1c1820'; ctx.beginPath(); ctx.ellipse(x + 66, base - 8, 8, 11, 0, 0, TAU); ctx.fill();
-    S.inkCircle(ctx, x + 66, base - 24, 8, 2.2, 3); ctx.fillStyle = '#f6f1e4'; ctx.beginPath(); ctx.arc(x + 66, base - 24, 6, 0, TAU); ctx.fill();
-    // a couple pills tumbling down
-    for (let i = 0; i < 3; i++) { const px = cx + (i - 1) * 34; const py = y + 34 + ((t * 55 + i * 40) % 80); ctx.save(); ctx.translate(px, py); ctx.rotate(t * 3 + i); ctx.fillStyle = '#f6f1e4'; S.pill(ctx, 0, 0, 11, 5); ctx.restore(); }
-  };
-
-  // the copay counter — paying with a piece of yourself
-  I.copayRegister = function (ctx, x, y, w, h, t) {
-    bg(ctx, x, y, w, h);
-    const cx = x + w / 2, cty = y + h - 66;
-    ctx.strokeStyle = '#1c1820'; ctx.fillStyle = '#1c1820';
-    ctx.fillRect(x + 30, cty, w - 60, 8);
-    S.hatch(ctx, x + 30, cty + 8, w - 60, 38, 6, -0.6, 0.2);
-    const rx = x + 74, ry = cty - 66;
-    ctx.fillStyle = '#f6f1e4'; S.inkRect(ctx, rx, ry, 92, 66, 2.4, 1);
-    ctx.fillStyle = '#f6f1e4'; ctx.fillRect(rx + 10, ry - 26, 72, 26); S.inkRect(ctx, rx + 10, ry - 26, 72, 26, 2, 2);
-    ctx.fillStyle = '#b23636'; ctx.font = 'bold 16px ui-monospace, monospace'; ctx.textAlign = 'center'; ctx.fillText('$  ∞', rx + 46, ry - 7);
-    ctx.fillStyle = '#1c1820'; for (let r = 0; r < 3; r++) for (let c = 0; c < 4; c++) ctx.fillRect(rx + 14 + c * 18, ry + 14 + r * 15, 12, 10);
-    // a hand placing a HEART on the counter
-    const hy = cty - 26 + Math.sin(t * 2) * 4;
-    ctx.fillStyle = '#b23636'; S.heart(ctx, cx + 128, hy, 15);
-    ctx.strokeStyle = '#1c1820'; S.ink(ctx, x + w - 8, hy + 34, cx + 128, hy + 6, 6, 3);
-    ctx.save(); ctx.translate(x + 120, y + 42); ctx.rotate(0.05); ctx.fillStyle = '#f6f1e4'; S.inkRect(ctx, -54, -17, 108, 32, 2, 4); ctx.fillStyle = '#1c1820'; ctx.font = 'bold 14px ui-monospace, monospace'; ctx.textAlign = 'center'; ctx.fillText('PAY HERE', 0, 5); ctx.restore();
-    ctx.textAlign = 'left';
-  };
-
-  // a mirror whose reflection has become paperwork
-  I.mirrorWard = function (ctx, x, y, w, h) {
-    bg(ctx, x, y, w, h);
-    const cy = y + h / 2;
-    ctx.strokeStyle = '#1c1820'; S.ink(ctx, x + w / 2, y + 18, x + w / 2, y + h - 18, 3, 1);
-    // real figure (left)
-    const lx = x + w * 0.29;
-    ctx.fillStyle = '#1c1820'; ctx.beginPath(); ctx.ellipse(lx, cy + 36, 16, 22, 0, 0, TAU); ctx.fill();
-    S.inkCircle(ctx, lx, cy, 18, 2.6, 2); ctx.fillStyle = '#f6f1e4'; ctx.beginPath(); ctx.arc(lx, cy, 15, 0, TAU); ctx.fill();
-    ctx.fillStyle = '#1c1820'; ctx.beginPath(); ctx.arc(lx - 6, cy - 2, 2.4, 0, TAU); ctx.arc(lx + 6, cy - 2, 2.4, 0, TAU); ctx.fill();
-    ctx.strokeStyle = '#1c1820'; ctx.lineWidth = 1.8; ctx.beginPath(); ctx.arc(lx, cy + 6, 5, Math.PI + 0.3, TAU - 0.3); ctx.stroke();
-    // reflection made of forms (right)
-    const rx = x + w * 0.71;
-    ctx.fillStyle = '#f6f1e4'; S.inkRect(ctx, rx - 22, cy - 4, 44, 76, 2.4, 3);
-    ctx.strokeStyle = 'rgba(28,24,32,0.55)'; ctx.lineWidth = 1.4; for (let i = 0; i < 6; i++) { ctx.beginPath(); ctx.moveTo(rx - 14, cy + 8 + i * 10); ctx.lineTo(rx + 14, cy + 8 + i * 10); ctx.stroke(); }
-    ctx.save(); ctx.translate(rx, cy - 26); ctx.rotate(-0.1); ctx.strokeStyle = '#b23636'; ctx.fillStyle = '#b23636'; ctx.lineWidth = 2.4; S.inkRect(ctx, -30, -14, 60, 28, 2, 5); ctx.font = 'bold 13px ui-monospace, monospace'; ctx.textAlign = 'center'; ctx.fillText('PATIENT', 0, 5); ctx.restore();
-    ctx.textAlign = 'left';
-  };
-
-  // the radiant "cure" capsule on a pedestal
-  I.cureCapsule = function (ctx, x, y, w, h, t) {
-    bg(ctx, x, y, w, h);
-    const cx = x + w / 2, cy = y + h / 2 - 8;
-    ctx.strokeStyle = 'rgba(28,24,32,0.32)';
-    for (let i = 0; i < 16; i++) { const a = i / 16 * TAU + t * 0.2; const r1 = 46, r2 = 46 + 18 + Math.sin(t * 3 + i) * 5; S.ink(ctx, cx + Math.cos(a) * r1, cy + Math.sin(a) * r1, cx + Math.cos(a) * r2, cy + Math.sin(a) * r2, 1.6, i); }
-    S.wash(ctx, cx, cy, 72, 0.2);
-    ctx.fillStyle = '#1c1820'; ctx.beginPath(); ctx.moveTo(cx - 42, y + h - 22); ctx.lineTo(cx - 24, cy + 40); ctx.lineTo(cx + 24, cy + 40); ctx.lineTo(cx + 42, y + h - 22); ctx.closePath(); ctx.fill();
-    ctx.save(); ctx.translate(cx, cy); ctx.rotate(-0.5);
-    ctx.fillStyle = '#f6f1e4'; S.pill(ctx, 0, 0, 66, 32);
-    ctx.strokeStyle = '#1c1820'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(0, -15); ctx.lineTo(0, 15); ctx.stroke();
-    ctx.restore();
-  };
-
-  // the capsule opened — empty, just a small mirror inside
-  I.cureEmpty = function (ctx, x, y, w, h, t) {
-    bg(ctx, x, y, w, h);
-    const cx = x + w / 2, cy = y + h / 2 - 4;
-    ctx.fillStyle = '#f6f1e4';
-    ctx.save(); ctx.translate(cx - 44, cy + 10); ctx.rotate(-0.4); S.pill(ctx, 0, 0, 44, 30); ctx.restore();
-    ctx.save(); ctx.translate(cx + 44, cy - 10); ctx.rotate(-0.4); S.pill(ctx, 0, 0, 44, 30); ctx.restore();
-    // the mirror + a faint tired face
-    ctx.fillStyle = '#cfc9bb'; S.inkRect(ctx, cx - 17, cy - 26, 34, 52, 2.4, 3);
-    ctx.strokeStyle = 'rgba(28,24,32,0.45)'; ctx.lineWidth = 1.6; S.inkCircle(ctx, cx, cy - 2, 12, 1.6, 5);
-    ctx.fillStyle = 'rgba(28,24,32,0.45)'; ctx.beginPath(); ctx.arc(cx - 4, cy - 4, 1.6, 0, TAU); ctx.arc(cx + 4, cy - 4, 1.6, 0, TAU); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(cx - 4, cy + 4); ctx.lineTo(cx + 4, cy + 4); ctx.stroke();
-    ctx.fillStyle = 'rgba(28,24,32,0.28)'; for (let i = 0; i < 8; i++) { const a = i * 0.9 + t; ctx.beginPath(); ctx.arc(cx + Math.cos(a) * 42, cy + Math.sin(a * 1.3) * 30 - ((t * 9) % 40), 1.4, 0, TAU); ctx.fill(); }
-  };
-
-  // the founder's tower — a ladder of copays & slogans
-  I.foundersTower = function (ctx, x, y, w, h, t) {
-    bg(ctx, x, y, w, h);
-    const cx = x + w / 2, levels = 7, seg = (h - 56) / levels;
-    for (let i = 0; i < levels; i++) {
-      const bw = (w * 0.5) * (1 - i * 0.09), by = y + h - 26 - i * seg, bh = seg - 3;
-      ctx.fillStyle = '#f6f1e4'; S.inkRect(ctx, cx - bw / 2, by - bh, bw, bh, 2, i);
-      ctx.fillStyle = '#1c1820'; ctx.font = 'bold ' + Math.max(11, Math.round(bh * 0.42)) + 'px ui-monospace, monospace'; ctx.textAlign = 'center';
-      ctx.fillText(i % 2 ? '$ $ $' : '℞ ℞ ℞', cx, by - bh / 2 + bh * 0.16);
-    }
-    const topY = y + h - 26 - (levels - 1) * seg - seg;
-    ctx.fillStyle = '#1c1820'; ctx.fillRect(cx - 6, topY - 16, 12, 16);
-    S.inkCircle(ctx, cx, topY - 22, 6, 2, 3); ctx.fillStyle = '#f6f1e4'; ctx.beginPath(); ctx.arc(cx, topY - 22, 4.5, 0, TAU); ctx.fill();
-    ctx.strokeStyle = '#1c1820'; S.ink(ctx, x + 10, y + h - 14, x + w - 10, y + h - 14, 1.6, 9);
-    ctx.fillStyle = '#2c7a3a'; ctx.font = 'bold 12px ui-monospace, monospace'; ctx.textAlign = 'left'; ctx.fillText('▲ FEELINGS INC.  +' + (Math.floor(t * 37) % 89 + 10) + '%', x + 16, y + h - 3);
-    ctx.textAlign = 'left';
-  };
-
-  // the tower coming down
-  I.towerFalls = function (ctx, x, y, w, h, t) {
-    bg(ctx, x, y, w, h);
-    const cx = x + w / 2;
-    for (let i = 0; i < 7; i++) {
-      const p = (i * 0.61803) % 1;
-      const bx = cx + (p - 0.5) * w * 0.7 + Math.sin(t * 2 + i) * 10;
-      const by = y + 34 + ((t * 70 + i * 34) % (h - 50));
-      ctx.save(); ctx.translate(bx, by); ctx.rotate(t * 1.4 + i);
-      ctx.fillStyle = '#f6f1e4'; S.inkRect(ctx, -18, -12, 36, 24, 2, i);
-      ctx.fillStyle = '#1c1820'; ctx.font = 'bold 12px ui-monospace, monospace'; ctx.textAlign = 'center'; ctx.fillText('$', 0, 4); ctx.restore();
-    }
-    for (let i = 0; i < 5; i++) { const px = cx + Math.sin(t * 3 + i * 2) * w * 0.4; const py = y + 26 + ((t * 46 + i * 50) % (h - 34)); ctx.save(); ctx.translate(px, py); ctx.rotate(t * 4 + i); ctx.fillStyle = '#f6f1e4'; S.inkRect(ctx, -8, -10, 16, 20, 1.4, i); ctx.restore(); }
-    ctx.strokeStyle = '#b23636'; S.ink(ctx, x + 34, y + 40, x + w - 44, y + h - 44, 4, 1);
-    ctx.fillStyle = '#b23636'; ctx.beginPath(); ctx.moveTo(x + w - 44, y + h - 44); ctx.lineTo(x + w - 70, y + h - 46); ctx.lineTo(x + w - 50, y + h - 68); ctx.closePath(); ctx.fill();
-    ctx.font = 'bold 13px ui-monospace, monospace'; ctx.textAlign = 'left'; ctx.fillText('▼ FEELINGS INC.  DELISTED', x + 16, y + 24); ctx.textAlign = 'left';
-  };
-
-  // a doorway to daylight, a figure stepping out
-  I.daylight = function (ctx, x, y, w, h, t) {
-    ctx.fillStyle = '#1c1820'; ctx.fillRect(x, y, w, h);
-    const cx = x + w / 2, dw = w * 0.38, dh = h * 0.84, dx = cx - dw / 2, dy = y + h - dh;
-    const grd = ctx.createLinearGradient(0, dy, 0, dy + dh); grd.addColorStop(0, '#fbf6e8'); grd.addColorStop(1, '#efe6cf');
-    ctx.fillStyle = grd; ctx.fillRect(dx, dy, dw, dh);
-    ctx.strokeStyle = 'rgba(255,240,200,0.45)'; ctx.lineWidth = 3;
-    for (let i = 0; i < 7; i++) { const a = -0.55 + i * 0.18; ctx.beginPath(); ctx.moveTo(cx, dy + 18); ctx.lineTo(cx + Math.cos(a) * w, dy + 18 + Math.sin(a) * h); ctx.stroke(); }
-    ctx.strokeStyle = '#000'; S.inkRect(ctx, dx, dy, dw, dh, 3, 1);
-    ctx.fillStyle = '#1c1820'; ctx.beginPath(); ctx.ellipse(cx, dy + dh - 42, 14, 20, 0, 0, TAU); ctx.fill();
-    S.inkCircle(ctx, cx, dy + dh - 66, 15, 2.6, 2); ctx.fillStyle = '#1c1820'; ctx.beginPath(); ctx.arc(cx, dy + dh - 66, 13, 0, TAU); ctx.fill();
-  };
-
-  // the warm closing note — a small sun and a figure at peace
-  I.kindness = function (ctx, x, y, w, h, t) {
-    bg(ctx, x, y, w, h);
-    const cx = x + w / 2, cy = y + h / 2 + 22, sy = y + 66;
-    S.wash(ctx, cx, sy, 72, 0.18);
-    ctx.strokeStyle = 'rgba(200,150,60,0.55)';
-    for (let i = 0; i < 12; i++) { const a = i / 12 * TAU + t * 0.3; S.ink(ctx, cx + Math.cos(a) * 34, sy + Math.sin(a) * 34, cx + Math.cos(a) * (46 + Math.sin(t * 2 + i) * 4), sy + Math.sin(a) * (46 + Math.sin(t * 2 + i) * 4), 1.4, i); }
-    ctx.strokeStyle = '#1c1820'; S.inkCircle(ctx, cx, sy, 26, 2.4, 3);
-    ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(cx, sy + 1, 12, 0.25, Math.PI - 0.25); ctx.stroke();
-    ctx.fillStyle = '#1c1820'; ctx.beginPath(); ctx.arc(cx - 9, sy - 5, 2, 0, TAU); ctx.arc(cx + 9, sy - 5, 2, 0, TAU); ctx.fill();
-    ctx.fillStyle = '#1c1820'; ctx.beginPath(); ctx.ellipse(cx, cy + 30, 13, 18, 0, 0, TAU); ctx.fill();
-    S.inkCircle(ctx, cx, cy, 15, 2.6, 5); ctx.fillStyle = '#f6f1e4'; ctx.beginPath(); ctx.arc(cx, cy, 12, 0, TAU); ctx.fill();
-    ctx.fillStyle = '#1c1820'; ctx.beginPath(); ctx.arc(cx - 5, cy - 2, 2.2, 0, TAU); ctx.arc(cx + 5, cy - 2, 2.2, 0, TAU); ctx.fill();
-    ctx.strokeStyle = '#1c1820'; ctx.lineWidth = 1.8; ctx.beginPath(); ctx.arc(cx, cy + 2, 5, 0.15, Math.PI - 0.15); ctx.stroke();
-  };
-})(Story);

@@ -573,6 +573,76 @@ class Boss {
         this.clampPos();
         break;
       }
+      /* ---------- THE SYSTEM (Ward 100 — everything at once) ---------- */
+      case 'thesystem': {
+        const CRIT = this.hp < this.maxhp * 0.25;   // "escalation" — the machine drops the pleasantries
+        this.x = CW / 2 + Math.sin(this.t * 0.4) * 150;
+        this.y = RY + 132 + Math.sin(this.t * 0.8) * 18;
+        // department cycle: DENIAL → PHARMACY → THE FEED
+        this.pageT -= dt;
+        if (this.pageT <= 0) {
+          this.page = (this.page + 1) % 3;
+          this.pageT = CRIT ? 5 : 7.5;
+          G.toast(['📋 DEPT. OF DENIAL', '💊 DEPT. OF PHARMACY', '▶ DEPT. OF THE FEED'][this.page], '#c8b8d8');
+          SFX.play('boss');
+        }
+        if (this.page === 0) {   // DENIAL: stamped audits + gap rings
+          this.atkT -= dt;
+          if (this.atkT <= 0) {
+            this.atkT = CRIT ? 1.3 : 1.9;
+            const n = CRIT ? 3 : 2;
+            for (let i = 0; i < n; i++) {
+              const tx = U.clamp(p.x + U.rand(-80, 80), RX + 30, RX + RW - 30);
+              const ty = U.clamp(p.y + U.rand(-80, 80), RY + 30, RY + RH - 30);
+              G.stamps.push({ x: tx, y: ty, t: 0.9, r: 54, done: false });
+            }
+            SFX.play('stamp');
+          }
+          this.spT -= dt;
+          if (this.spT <= 0) { this.spT = CRIT ? 2.6 : 3.6; this.ring(CRIT ? 20 : 14, 165, '#e08a8a', U.rand(0, TAU), this.aimP(G) + Math.PI, 0.6); }
+        } else if (this.page === 1) {   // PHARMACY: pill volleys + side-effect spills
+          this.atkT -= dt;
+          if (this.atkT <= 0) {
+            this.atkT = CRIT ? 0.85 : 1.2;
+            const a = this.aimP(G);
+            const clrs = ['#e05a6a', '#5a9de0', '#8fd05a', '#e8c84c', '#b86bff'];
+            for (let i = -2; i <= 2; i++) this.bullet(a + i * 0.17, 205, clrs[(i + 2) % clrs.length], { r: 8 });
+            SFX.play('pop');
+          }
+          this.spT -= dt;
+          if (this.spT <= 0) {
+            this.spT = CRIT ? 3.4 : 4.8;
+            const zx = U.clamp(p.x + U.rand(-60, 60), RX + 70, RX + RW - 70);
+            const zy = U.clamp(p.y + U.rand(-60, 60), RY + 70, RY + RH - 70);
+            G.zones.push(new Zone(zx, zy, 58, 5, 'slow', 'rgba(184,107,255,0.30)'));
+            G.toast('side-effect spill', '#b86bff');
+          }
+        } else {   // THE FEED: predictive aim + homing engagement
+          const mvx = (this._px == null) ? 0 : (p.x - this._px), mvy = (this._py == null) ? 0 : (p.y - this._py);
+          this._px = p.x; this._py = p.y;
+          this._feed.x = U.lerp(this._feed.x, mvx, 0.15); this._feed.y = U.lerp(this._feed.y, mvy, 0.15);
+          const pfx = U.clamp(p.x + this._feed.x * (CRIT ? 26 : 18), RX + 12, RX + RW - 12);
+          const pfy = U.clamp(p.y + this._feed.y * (CRIT ? 26 : 18), RY + 12, RY + RH - 12);
+          this.atkT -= dt;
+          if (this.atkT <= 0) {
+            this.atkT = CRIT ? 0.8 : 1.1;
+            const a = U.ang(this.x, this.y, pfx, pfy);
+            for (const off of (CRIT ? [-0.2, 0, 0.2] : [-0.14, 0.14])) this.bullet(a + off, 235, '#5a9de0');
+          }
+          this.spT -= dt;
+          if (this.spT <= 0) {
+            this.spT = CRIT ? 2.8 : 4.2;
+            for (let i = 0; i < (CRIT ? 4 : 3); i++) { const b = this.bullet(U.ang(this.x, this.y, pfx, pfy) + U.rand(-0.5, 0.5), 150, '#7a6be0', { life: 3.5 }); b.home = 0.8; }
+          }
+        }
+        // escalation: hold music becomes a constant slow spiral of paperwork
+        if (CRIT) {
+          this.dashT -= dt;
+          if (this.dashT <= 0) { this.dashT = 0.2; this.spiralA += 0.5; this.bullet(this.spiralA, 120, '#d8cfc0', { r: 7, life: 4.5 }); }
+        }
+        this.clampPos();
+        break;
+      }
       /* ---------- DR. WALRUS ---------- */
       case 'walrus': {
         this.atkT -= dt;

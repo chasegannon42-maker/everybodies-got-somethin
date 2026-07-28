@@ -333,7 +333,8 @@ DATA.ACHIEVEMENTS = [
   { id: 'therapyGrad', name: "Modality Mastered",  desc: "Learn every talent in one therapy branch.",       hint: "Max out a Treatment Plan column.",         check: m => m.talents && ['cbt3', 'dbt3', 'emdr3', 'meds3', 'grp3'].some(id => m.talents[id]) },
   { id: 'prognosisAll', name: "Worst-Case Scenarios", desc: "Attempt all five Prognosis challenge runs.",   hint: "Try every way to make it harder.",         check: m => m.prognosisBest && Object.keys(m.prognosisBest).length >= 5 },
   { id: 'crisisPro', name: "Crisis Counselor",     desc: "Earn the payout from 3 CODE GRAY ward crises.",   hint: "Hazard pay, three times.",                 check: m => (m.crisesSurvived || 0) >= 3 },
-  { id: 'keystone', name: "Off-Label Use",         desc: "Pick up a keystone prescription.",                hint: "Some meds change everything about you.",   check: m => !!m.everKeystone }
+  { id: 'keystone', name: "Off-Label Use",         desc: "Pick up a keystone prescription.",                hint: "Some meds change everything about you.",   check: m => !!m.everKeystone },
+  { id: 'systemDown', name: "Out of Network",      desc: "Dismantle THE SYSTEM at Ward 100.",               hint: "Descend one hundred wards. All of them.",  check: m => (m.systemKills || 0) >= 1 }
 ];
 DATA.checkAchievements = function (m) {
   if (!m.unlocks) m.unlocks = {};
@@ -374,7 +375,14 @@ DATA.ENEMIES = {
   fog:       { name: "Brain Fog", hp: 30, spd: 26, r: 28, dmg: 1, beh: 'fog', clr: '#9aa8a0' },
   enabler:   { name: "The Enabler", hp: 16, spd: 62, r: 16, dmg: 1, beh: 'buffer', clr: '#e0c95a' },
   sideeffect:{ name: "Side Effect", hp: 16, spd: 54, r: 18, dmg: 1, beh: 'splitter', clr: '#d06ba0' },
-  form:      { name: "Prior Auth Form", hp: 4, spd: 0, r: 16, dmg: 0, beh: 'idle', clr: '#f4eee0' }
+  form:      { name: "Prior Auth Form", hp: 4, spd: 0, r: 16, dmg: 0, beh: 'idle', clr: '#f4eee0' },
+  gaslighter:{ name: "The Gaslighter", hp: 12, spd: 76, r: 15, dmg: 1, beh: 'gaslight', clr: '#b8a8d8' },
+  projection:{ name: "The Projection", hp: 11, spd: 0, r: 15, dmg: 1, beh: 'mimic', clr: '#7ac0d8' },
+  copaycollector: { name: "Copay Collector", hp: 13, spd: 122, r: 14, dmg: 0, beh: 'thief', clr: '#e0c95a' },
+  wellnessbot: { name: "Wellness Bot", hp: 18, spd: 46, r: 16, dmg: 1, beh: 'shieldbot', clr: '#8fd0c8' },
+  spiral:    { name: "The Spiral", hp: 9, spd: 0, r: 13, dmg: 1, beh: 'orbit', clr: '#d08ab0' },
+  comparison:{ name: "The Comparison", hp: 14, spd: 62, r: 16, dmg: 1, beh: 'compare', clr: '#9ab86a' },
+  waitingnum:{ name: "Now Serving", hp: 10, spd: 0, r: 16, dmg: 1, beh: 'ticket', clr: '#e8dcc0' }
 };
 DATA.enemyPoolFor = function (depth) {
   // deeper enemies get relatively more common the further past their unlock you go,
@@ -384,7 +392,10 @@ DATA.enemyPoolFor = function (depth) {
     { id: 'ad', d: 2, w: 2.4 }, { id: 'doubt', d: 2, w: 2 },
     { id: 'deadline', d: 3, w: 2 }, { id: 'intrusive', d: 3, w: 2 },
     { id: 'redflag', d: 4, w: 1.8 }, { id: 'fog', d: 4, w: 1.4 }, { id: 'sideeffect', d: 4, w: 1.8 },
-    { id: 'enabler', d: 5, w: 1.4 }
+    { id: 'enabler', d: 5, w: 1.4 },
+    { id: 'copaycollector', d: 3, w: 1.6 }, { id: 'gaslighter', d: 4, w: 1.6 }, { id: 'spiral', d: 4, w: 1.7 },
+    { id: 'projection', d: 5, w: 1.5 }, { id: 'wellnessbot', d: 5, w: 1.3 }, { id: 'waitingnum', d: 5, w: 1.2 },
+    { id: 'comparison', d: 6, w: 1.5 }
   ].filter(e => depth >= e.d);
   for (const e of P) e.w *= 1 + 0.12 * Math.max(0, depth - e.d);
   return P;
@@ -411,11 +422,13 @@ DATA.BOSSES = {
   influencer: { name: "THE INFLUENCER", sub: "“This ring light cured me. Use code WALRUS10.”", hp: 210 },
   thecure:    { name: "THE CURE", sub: "“It was inside you all along. (It wasn't.)”", hp: 300 },
   founder:    { name: "THE FOUNDER", sub: "“I didn't invent the disease. I monetized the cure.”", hp: 400 },
+  thesystem:  { name: "THE SYSTEM", sub: "“Your call is important to us. Estimated wait: forever.”", hp: 620 },
   walrus:     { name: "DR. WALRUS, M.D.*", sub: "*mail-order", hp: 300 }
 };
 DATA.bossFor = function (depth, lastBoss) {
   if (depth === 25) return 'thecure';   // the (non-)finale
   if (depth === 50) return 'founder';   // the (real) superboss, for those who keep climbing
+  if (depth === 100) return 'thesystem';   // the whole machine at once — the true ceiling
   if (depth % 5 === 0) return 'walrus';
   let pool = ['gatekeeper', 'larperking'];
   if (depth >= 2) pool.push('adjuster', 'priorauth');
@@ -440,7 +453,14 @@ DATA.CODEX_CHART = {
     fog: "Where were we? Slows everything, thoughts included.",
     enabler: "Insists everyone is SO valid. Heals its friends to prove it.",
     sideeffect: "May cause: more of itself. Multiplies when disturbed.",
-    form: "Please complete all fields. Then, if approved, complete them again."
+    form: "Please complete all fields. Then, if approved, complete them again.",
+    gaslighter: "You're imagining it. It was never there. (It was there.)",
+    projection: "It's not doing anything. YOU'RE doing something. Mirrors your every move.",
+    copaycollector: "Runs up, takes its share, runs off. In-network, allegedly.",
+    wellnessbot: "Beep boop, have you tried yoga? Shields its friends from your progress.",
+    spiral: "It starts wide and gets closer. It always gets closer.",
+    comparison: "Everyone's doing better than you. The healthier you look, the harder it tries.",
+    waitingnum: "NOW SERVING #47. You are #112. When the counter hits zero, everyone loses it."
   },
   bosses: {
     gatekeeper: "Guards the diagnosis you already have. You don't LOOK sick enough.",
@@ -455,6 +475,7 @@ DATA.CODEX_CHART = {
     influencer: "Healed, and monetizing it. The crystals are load-bearing. The discount code is not.",
     thecure: "What everyone's chasing. Turns out it was the friends we diagnosed along the way.",
     founder: "The man who turned every feeling into a market. Waits at the very top of the ladder — Ward 50.",
+    thesystem: "Not a person. All of it at once — the denials, the pharmacy, the feed. Ward 100. The last argument.",
     walrus: "Board-certified in Confidence. The doctor will see you now. Forever."
   }
 };
@@ -656,6 +677,38 @@ DATA.CRISES = [
   { id: 'firedrill',  name: "FIRE DRILL",          icon: "🔥", desc: "This is not a drill (it is). Rooms catch fire behind you — don't linger." },
   { id: 'inspection', name: "SURPRISE INSPECTION", icon: "📋", desc: "Contraband sweep. Any pill you're holding may be confiscated — reach the trapdoor with one to pass." },
   { id: 'outage',     name: "POWER OUTAGE",        icon: "🔦", desc: "The lights are out ward-wide. Maintenance has been notified. Maintenance is not coming." }
+];
+
+/* ============ THE COMMISSARY (machines) ============
+   Horoscope fortunes: a printed slip that applies a real (small) blessing or curse. */
+DATA.HOROSCOPES = [
+  { text: "“Great fortune finds the well-hydrated.” +1 heart container? No. But heal up.", apply(p) { p.heal(2); } },
+  { text: "“Mercury is in retrograde. Your aim is not.”  Shots steady.", apply(p) { p.wobble = Math.max(0, p.wobble - 0.06); } },
+  { text: "“A windfall approaches.” +5 copays.", apply(p) { p.coins += 5; } },
+  { text: "“You will meet a tall, dark prescription.” +0.5 damage.", apply(p) { p.dmg += 0.5; } },
+  { text: "“The stars recommend cardio.” +6% speed.", apply(p) { p.spd *= 1.06; } },
+  { text: "“Luck is a skill. You are unskilled.” −1 luck, +4 copays.", apply(p) { p.luck -= 1; p.coins += 4; } },
+  { text: "“Beware small print.” Your next med may bite. −0.5 luck.", apply(p) { p.luck -= 0.5; } },
+  { text: "“The universe owes you nothing. Here's a pill.”", apply(p) { if (p.pill == null) p.pill = U.randi(0, 9); } },
+  { text: "“Today's energy: ✨chaotic✨.” Fire rate up, aim wanders.", apply(p) { p.tearDelay *= 0.92; p.wobble += 0.05; } }
+];
+
+/* ============ TREATMENT GOALS (per-run objectives) ============
+   3 rolled per run; each pays ◆ Insight the moment it completes.
+   ev = the G.goalEvent key that advances it, n = target count. */
+DATA.GOALS = [
+  { id: 'kills25',   name: "Symptom Sweep",       desc: "Manage 25 symptoms.",              ev: 'kill',       n: 25, insight: 4 },
+  { id: 'rooms8',    name: "Making Rounds",       desc: "Clear 8 rooms.",                   ev: 'room',       n: 8,  insight: 4 },
+  { id: 'pills2',    name: "As Prescribed",       desc: "Swallow 2 pills.",                 ev: 'pill',       n: 2,  insight: 4 },
+  { id: 'items3',    name: "Treatment Adherent",  desc: "Collect 3 prescriptions.",         ev: 'item',       n: 3,  insight: 4 },
+  { id: 'boss1',     name: "Second Opinion",      desc: "Defeat a boss.",                   ev: 'boss',       n: 1,  insight: 5 },
+  { id: 'clean1',    name: "Clean Bill",          desc: "Finish a floor untouched.",        ev: 'floorclean', n: 1,  insight: 8 },
+  { id: 'ally1',     name: "Buddy Up",            desc: "Recruit a Support Group ally.",    ev: 'ally',       n: 1,  insight: 5 },
+  { id: 'buy2',      name: "Retail Therapy",      desc: "Buy 2 things at the pharmacy.",    ev: 'buy',        n: 2,  insight: 4 },
+  { id: 'bombs3',    name: "Filed in Triplicate", desc: "File 3 Claim Forms (bombs).",      ev: 'bomb',       n: 3,  insight: 4 },
+  { id: 'coins15',   name: "Out of Pocket",       desc: "Collect 15 copays.",               ev: 'coin',       n: 15, insight: 4 },
+  { id: 'secret1',   name: "Off the Record",      desc: "Find a secret room.",              ev: 'secret',     n: 1,  insight: 6 },
+  { id: 'hazard1',   name: "High Acuity",         desc: "Enter a special hazard room.",     ev: 'hazard',     n: 1,  insight: 5 }
 ];
 
 /* ============ ENDLESS DIFFICULTY CURVE ============

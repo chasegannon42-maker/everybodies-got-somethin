@@ -190,6 +190,7 @@ class Player {
       }
     }
     if (G && G.checkUnlocks) G.checkUnlocks();   // item-driven achievements land immediately
+    if (G && G.goalEvent && !silent) G.goalEvent('item');   // Treatment Adherent (starters don't count)
   }
 
   effSpd() {
@@ -485,6 +486,7 @@ class Player {
     if (this.flags.allyTough) { ally.maxhp = 4; ally.hp = 4; ally.dmgMul = 1.35; }   // Facilitator talent
     this.allies.push(ally);
     if (this.allies.length >= 3 && !Meta.data.everFullGroup) { Meta.data.everFullGroup = 1; Meta.save(); if (G && G.checkUnlocks) G.checkUnlocks(); }   // Group Session
+    if (G && G.goalEvent) G.goalEvent('ally');
     if (G) { G.toast('🤝 ' + ally.name + ' joined the group!', ally.tint); SFX.play('item'); }
     return true;
   }
@@ -723,6 +725,11 @@ class Enemy {
     this.fuse = -1; // redflag
     this.dashDir = null;
     this.wanderA = U.rand(0, TAU);
+    this.stolen = 0;                      // Copay Collector loot
+    this.count = 9;                       // Now Serving countdown
+    this.orbA = U.rand(0, TAU);           // The Spiral
+    this._ghost = 1;                      // Gaslighter visibility
+    this._shieldT = 0; this._enraged = 0; // Wellness Bot aura / ticket enrage
     if (this.beh === 'bounce') { const a = U.choice([1, 3, 5, 7]) * Math.PI / 4; this.vx = Math.cos(a) * this.spd; this.vy = Math.sin(a) * this.spd; }
   }
 
@@ -750,8 +757,10 @@ class Enemy {
       this.x = U.clamp(this.x, RX + this.r, RX + RW - this.r); this.y = U.clamp(this.y, RY + this.r, RY + RH - this.r);
       return;
     }
+    if (this._shieldT > 0) this._shieldT -= dt;   // Wellness Bot aura fades if the bot stops tending you
+    if (this._enraged > 0) this._enraged -= dt;   // Now Serving enrage wears off
     const slowF = (G.enemySlow > 0 ? 0.55 : 1) * (p.flags.slowField ? 0.88 : 1);   // Analysis Paralysis slows the room
-    const S = this.spd * slowF;
+    const S = this.spd * slowF * (this._enraged > 0 ? 1.45 : 1);
 
     switch (this.beh) {
       case 'chase': {
@@ -898,6 +907,91 @@ class Enemy {
         }
         break;
       }
+      case 'gaslight': {   // The Gaslighter: fades in and out of the record
+        this.stateT -= dt;
+        if (this.stateT <= 0) {
+          this.state = this.state ? 0 : 1;
+          this.stateT = this.state ? U.rand(1.4, 1.9) : U.rand(1.8, 2.4);
+        }
+        this._ghost = U.lerp(this._ghost, this.state ? 0.16 : 1, Math.min(1, dt * 5));
+        const a = U.ang(this.x, this.y, p.x, p.y) + Math.sin(this.t * 2.2) * 0.4;
+        const sneak = this.state ? 1.35 : 0.85;   // moves faster while you can't quite see it
+        this.x += Math.cos(a) * S * sneak * dt; this.y += Math.sin(a) * S * sneak * dt;
+        break;
+      }
+      case 'mimic': {   // The Projection: mirrors your every move back at you
+        if (this._ppx != null) {
+          this.x -= (p.x - this._ppx);   // your motion, reflected
+          this.y -= (p.y - this._ppy);
+        }
+        this._ppx = p.x; this._ppy = p.y;
+        // slow drift toward you so standing still doesn't stalemate forever
+        const a = U.ang(this.x, this.y, p.x, p.y);
+        this.x += Math.cos(a) * 26 * slowF * dt; this.y += Math.sin(a) * 26 * slowF * dt;
+        break;
+      }
+      case 'thief': {   // Copay Collector: grab your change and run
+        if (this.state === 0) {   // closing in
+          const a = U.ang(this.x, this.y, p.x, p.y);
+          this.x += Math.cos(a) * S * dt; this.y += Math.sin(a) * S * dt;
+          if (U.dist(this.x, this.y, p.x, p.y) < this.r + p.r + 2) {
+            const take = Math.min(p.coins, 2);
+            if (take > 0) { p.coins -= take; this.stolen += take; G.texts.push(new FloatText(p.x, p.y - 24, '-' + take + '¢ collected!', '#e8c84c')); SFX.play('coin'); }
+            else { G.texts.push(new FloatText(this.x, this.y - 22, 'nothing to collect', '#e8c84c')); }
+            this.state = 1; this.stateT = 2.6;
+          }
+        } else {   // fleeing with the goods
+          this.stateT -= dt;
+          const a = U.ang(p.x, p.y, this.x, this.y);
+          this.x += Math.cos(a + Math.sin(this.t * 4) * 0.3) * S * 0.9 * dt;
+          this.y += Math.sin(a + Math.sin(this.t * 4) * 0.3) * S * 0.9 * dt;
+          if (this.stateT <= 0) this.state = 0;
+        }
+        break;
+      }
+      case 'shieldbot': {   // Wellness Bot: drones around casting a protective bubble on its friends
+        this.wanderA += 0.7 * dt;
+        const cx = RX + RW / 2 + Math.cos(this.wanderA) * 150;
+        const cy = RY + RH / 2 + Math.sin(this.wanderA * 1.3) * 90;
+        const a = U.ang(this.x, this.y, cx, cy);
+        this.x += Math.cos(a) * S * dt; this.y += Math.sin(a) * S * dt;
+        if (!this.fake) for (const e of G.enemies) {
+          if (e === this || e.dying || e.fake) continue;
+          if (U.dist(this.x, this.y, e.x, e.y) < 120) e._shieldT = 0.25;   // namaste, protected
+        }
+        break;
+      }
+      case 'orbit': {   // The Spiral: circles you, tightening
+        this.orbA += dt * 2.1;
+        const R = Math.max(44, 195 - this.t * 22);
+        const tx = p.x + Math.cos(this.orbA) * R, ty = p.y + Math.sin(this.orbA) * R;
+        this.x += (tx - this.x) * Math.min(1, dt * 6);
+        this.y += (ty - this.y) * Math.min(1, dt * 6);
+        break;
+      }
+      case 'compare': {   // The Comparison: the healthier you are, the harder it comes
+        const vigor = 0.72 + (p.hp / Math.max(1, p.maxhp)) * 0.75;
+        const a = U.ang(this.x, this.y, p.x, p.y) + Math.sin(this.t * 2.6) * 0.22;
+        this.x += Math.cos(a) * S * vigor * dt; this.y += Math.sin(a) * S * vigor * dt;
+        break;
+      }
+      case 'ticket': {   // Now Serving: a countdown the whole room is waiting on
+        this.stateT -= dt;
+        if (this.stateT <= 0) {
+          this.stateT = 1;
+          this.count--;
+          if (this.count <= 0) {
+            this.count = 9;
+            if (!this.fake) {
+              for (const e of G.enemies) if (e !== this && !e.dying) e._enraged = 3;   // the waiting room loses it
+              for (let i = 0; i < 8; i++) { const a2 = (i / 8) * TAU; const b = new EBullet(this.x, this.y, Math.cos(a2) * 160, Math.sin(a2) * 160, this.dmg, '#e0c060'); b._src = this.id; G.eBullets.push(b); }
+              G.toast('“NOW SERVING: NOBODY.”', '#e0c060');
+              G.shake = Math.max(G.shake, 5); SFX.play('boss');
+            }
+          } else if (this.count <= 3) SFX.play('tick');
+        }
+        break;
+      }
     }
 
     // stay in bounds + tile collide (except bounce/charger handle their own walls)
@@ -943,8 +1037,18 @@ class Enemy {
       G.texts.push(new FloatText(this.x, this.y - 20, "wasn't real", '#cbb8e8'));
       return;
     }
+    if (this._shieldT > 0) d *= 0.55;   // Wellness Bot's bubble takes the edge off
     this.hp -= d;
     this.hitFlash = 0.12;
+    // The Gaslighter denies the hit ever happened — and isn't where you thought it was
+    if (this.id === 'gaslighter' && !quiet && this.hp > 0 && U.chance(0.4)) {
+      const p3 = G.player;
+      const a = U.rand(0, TAU), dd = U.rand(90, 150);
+      for (let i = 0; i < 5; i++) G.parts.push(new Particle(this.x, this.y, U.rand(-60, 60), U.rand(-60, 60), 0.35, this.clr, 3));
+      this.x = U.clamp(p3.x + Math.cos(a) * dd, RX + 26, RX + RW - 26);
+      this.y = U.clamp(p3.y + Math.sin(a) * dd, RY + 26, RY + RH - 26);
+      if (U.chance(0.5)) G.texts.push(new FloatText(this.x, this.y - 22, 'that never happened', '#b8a8d8'));
+    }
     if (!quiet) SFX.play('hit');
     if (this.hp <= 0) this.die(G);
   }
@@ -967,6 +1071,7 @@ class Enemy {
     this.dying = true; this.deadDone = true;
     Meta.data.kills++;
     G.stats.kills++;
+    if (G.goalEvent) G.goalEvent('kill');
     if (!G.hyperfixType) G.hyperfixType = this.id;
     Haptics.buzz(this.elite ? 30 : 14, 45); // kill tick; throttled so a burst of deaths = one bump
     makeGibs(G, this.x, this.y, this.clr, Math.round(6 + this.r * 0.4));
@@ -980,6 +1085,11 @@ class Enemy {
       }
     }
     if (this.beh === 'bomber') { this.explode(G); return; }
+    // Copay Collector coughs it all back up (plus interest)
+    if (this.id === 'copaycollector' && !this.fake) {
+      const n = Math.min(this.stolen + 1, 5);
+      for (let i = 0; i < n; i++) G.pickups.push(new Pickup('coin', this.x + U.rand(-20, 20), this.y + U.rand(-16, 16)));
+    }
     if (this.id === 'larper') {
       if (!G.larperToastShown) { G.larperToastShown = true; G.toast(DATA.TOASTS.larper); }
       return; // larpers drop nothing
@@ -1040,8 +1150,8 @@ class Pickup {
     const p = G.player;
     if (U.dist(this.x, this.y, p.x, p.y) < 20 + p.r) {
       switch (this.type) {
-        case 'coin': p.coins++; SFX.play('coin'); break;
-        case 'nickel': p.coins += 5; SFX.play('coin'); G.texts.push(new FloatText(this.x, this.y, '+5', '#e8c84c')); break;
+        case 'coin': p.coins++; SFX.play('coin'); if (G.goalEvent) G.goalEvent('coin', 1); break;
+        case 'nickel': p.coins += 5; SFX.play('coin'); G.texts.push(new FloatText(this.x, this.y, '+5', '#e8c84c')); if (G.goalEvent) G.goalEvent('coin', 5); break;
         case 'half': if (p.hp >= p.maxhp) return; p.heal(1); SFX.play('heal'); break;
         case 'full': if (p.hp >= p.maxhp) return; p.heal(2); SFX.play('heal'); break;
         case 'pill':

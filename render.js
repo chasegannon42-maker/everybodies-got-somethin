@@ -592,6 +592,63 @@ const Render = {
         if (U.dist(G.player.x, G.player.y, ped.x, ped.y) < 84) { ctx.fillStyle = '#c8e0a0'; ctx.font = this.font(11, true); ctx.fillText('🤝 walk up to recruit', ped.x, ped.y + 34); }
         continue;
       }
+      if (ped.kind === 'vending') {   // Commissary vending machine
+        this.shadow(ped.x, ped.y + 30, 22, 7, 0.28);
+        ctx.save(); ctx.translate(ped.x, ped.y);
+        ctx.fillStyle = '#b04848'; this.rr(ctx, -22, -34, 44, 64, 5); ctx.fill();
+        ctx.strokeStyle = '#7a2e2e'; ctx.lineWidth = 2.5; this.rr(ctx, -22, -34, 44, 64, 5); ctx.stroke();
+        ctx.fillStyle = 'rgba(200,230,240,0.85)'; this.rr(ctx, -16, -28, 24, 38, 3); ctx.fill();
+        for (let r2 = 0; r2 < 3; r2++) for (let c2 = 0; c2 < 3; c2++) {
+          ctx.fillStyle = ['#e8c84c', '#8fd05a', '#b86bff', '#e0a05a', '#5a9de0', '#e05a6a'][(r2 * 3 + c2) % 6];
+          this.rr(ctx, -13 + c2 * 7.5, -25 + r2 * 12, 5.5, 8, 1.5); ctx.fill();
+        }
+        ctx.fillStyle = '#2c2333'; this.rr(ctx, 11, -24, 8, 22, 2); ctx.fill();   // coin panel
+        ctx.fillStyle = '#e8c84c'; ctx.beginPath(); ctx.arc(15, -18, 2.2, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#3a2a2a'; this.rr(ctx, -14, 16, 22, 9, 2); ctx.fill();   // flap
+        ctx.restore();
+        ctx.fillStyle = '#e0a89a'; ctx.font = this.font(10, true); ctx.textAlign = 'center';
+        ctx.fillText('SNACKS', ped.x, ped.y - 40);
+        if (U.dist(G.player.x, G.player.y, ped.x, ped.y) < 80) { ctx.fillStyle = '#e8c84c'; ctx.font = this.font(11, true); ctx.fillText('3¢ · take your chances', ped.x, ped.y + 46); }
+        continue;
+      }
+      if (ped.kind === 'claw') {   // Commissary claw machine
+        this.shadow(ped.x, ped.y + 30, 22, 7, 0.28);
+        ctx.save(); ctx.translate(ped.x, ped.y);
+        ctx.fillStyle = '#4a6a9a'; this.rr(ctx, -24, -36, 48, 66, 5); ctx.fill();
+        ctx.strokeStyle = '#2e4668'; ctx.lineWidth = 2.5; this.rr(ctx, -24, -36, 48, 66, 5); ctx.stroke();
+        ctx.fillStyle = 'rgba(210,235,245,0.75)'; this.rr(ctx, -19, -30, 38, 40, 3); ctx.fill();
+        // plushes inside
+        ctx.fillStyle = '#c8a078'; ctx.beginPath(); ctx.arc(-8, 2, 6, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#9a6f52'; ctx.beginPath(); ctx.arc(6, 4, 7, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#f0e8d0'; this.rr(ctx, 3, 6, 3, 6, 1.5); ctx.fill(); this.rr(ctx, 8, 6, 3, 6, 1.5); ctx.fill();   // little tusks
+        // the claw, swaying
+        const cx3 = Math.sin(G.t * 1.6 + ped.x) * 10;
+        ctx.strokeStyle = '#c8ccd2'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(cx3, -30); ctx.lineTo(cx3, -14); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(cx3, -14); ctx.lineTo(cx3 - 5, -7); ctx.moveTo(cx3, -14); ctx.lineTo(cx3 + 5, -7); ctx.stroke();
+        ctx.restore();
+        ctx.fillStyle = '#9ab8e0'; ctx.font = this.font(10, true); ctx.textAlign = 'center';
+        ctx.fillText('CLAW', ped.x, ped.y - 42);
+        if (U.dist(G.player.x, G.player.y, ped.x, ped.y) < 80) { ctx.fillStyle = '#e8c84c'; ctx.font = this.font(11, true); ctx.fillText('5¢ · win a friend (' + ped.uses + ' tries)', ped.x, ped.y + 46); }
+        continue;
+      }
+      if (ped.kind === 'horoscope') {   // Commissary horoscope dispenser
+        this.shadow(ped.x, ped.y + 30, 20, 7, 0.28);
+        ctx.save(); ctx.translate(ped.x, ped.y);
+        ctx.fillStyle = '#5a3a7a'; this.rr(ctx, -20, -34, 40, 62, 6); ctx.fill();
+        ctx.strokeStyle = '#c8a24a'; ctx.lineWidth = 2.5; this.rr(ctx, -20, -34, 40, 62, 6); ctx.stroke();
+        const tw2 = 0.5 + Math.sin(G.t * 2.6) * 0.4;
+        ctx.fillStyle = 'rgba(232,200,76,' + (0.5 + tw2 * 0.5) + ')';
+        ctx.font = this.font(16, true); ctx.textAlign = 'center'; ctx.fillText('★', 0, -14);
+        ctx.fillStyle = 'rgba(200,176,224,0.9)'; ctx.font = this.font(8, true);
+        ctx.fillText('YOUR', 0, 0); ctx.fillText('FORTUNE', 0, 9);
+        ctx.fillStyle = '#2c2333'; this.rr(ctx, -10, 16, 20, 6, 2); ctx.fill();   // slip slot
+        ctx.restore();
+        ctx.fillStyle = '#c8b0e0'; ctx.font = this.font(10, true); ctx.textAlign = 'center';
+        ctx.fillText('HOROSCOPE', ped.x, ped.y - 40);
+        if (U.dist(G.player.x, G.player.y, ped.x, ped.y) < 80) { ctx.fillStyle = '#e8c84c'; ctx.font = this.font(11, true); ctx.fillText('2¢ · it\'s binding', ped.x, ped.y + 46); }
+        continue;
+      }
       const bob = Math.sin(G.t * 2.4 + ped.x) * 3;
       // spotlight glow from above
       const gg = ctx.createRadialGradient(ped.x, ped.y - 26, 4, ped.x, ped.y - 26, 46);
@@ -1283,8 +1340,123 @@ const Render = {
         ctx.restore();
         break;
       }
+      case 'gaslighter': { // fades from the record; you're imagining it
+        ctx.globalAlpha *= Math.max(0.15, e._ghost != null ? e._ghost : 1);
+        this.orb(ctx, 0, 0, e.r, e.clr, flash);
+        // sweet, unbothered face
+        ctx.fillStyle = '#2c2333';
+        ctx.beginPath(); ctx.arc(-5, -3, 2, 0, TAU); ctx.arc(5, -3, 2, 0, TAU); ctx.fill();
+        ctx.strokeStyle = '#2c2333'; ctx.lineWidth = 1.8; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.arc(0, 3, 5, 0.3, Math.PI - 0.3); ctx.stroke(); ctx.lineCap = 'butt';
+        // little "?" wisps trailing off
+        ctx.fillStyle = 'rgba(184,168,216,0.8)'; ctx.font = this.font(10, true); ctx.textAlign = 'center';
+        ctx.fillText('?', -e.r - 5, -6 + Math.sin(G.t * 3) * 3);
+        break;
+      }
+      case 'projection': { // a watery copy of YOU
+        ctx.globalAlpha *= 0.85;
+        const pg = ctx.createLinearGradient(0, -14, 0, 14);
+        pg.addColorStop(0, flash ? '#fff' : '#a8dcec'); pg.addColorStop(1, flash ? '#eee' : '#6aacc4');
+        ctx.fillStyle = pg;
+        ctx.beginPath(); ctx.ellipse(0, 4, e.r * 0.72, e.r * 0.62, 0, 0, TAU); ctx.fill();   // body
+        ctx.beginPath(); ctx.arc(0, -7, e.r * 0.62, 0, TAU); ctx.fill();                     // head
+        ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(0, -7, e.r * 0.62, 0, TAU); ctx.stroke();
+        ctx.fillStyle = '#1c4a5c';   // your face, wrong
+        ctx.beginPath(); ctx.arc(-4, -8, 1.8, 0, TAU); ctx.arc(4, -8, 1.8, 0, TAU); ctx.fill();
+        ctx.strokeStyle = '#1c4a5c'; ctx.lineWidth = 1.6;
+        ctx.beginPath(); ctx.arc(0, -3, 3.5, Math.PI + 0.4, TAU - 0.4); ctx.stroke();        // upside-down frown
+        // ripple
+        ctx.strokeStyle = 'rgba(122,192,216,' + (0.4 + Math.sin(G.t * 4) * 0.2) + ')'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(0, 0, e.r + 3 + Math.sin(G.t * 4) * 2, 0, TAU); ctx.stroke();
+        break;
+      }
+      case 'copaycollector': { // a scurrying collections agent with a coin sack
+        ctx.rotate(Math.sin(G.t * 10) * 0.08);   // busy little legs energy
+        this.orb(ctx, 0, 2, e.r, e.clr, flash);
+        // visor
+        ctx.fillStyle = '#3a5a3a'; this.rr(ctx, -9, -9, 18, 6, 3); ctx.fill();
+        // grabby smile
+        ctx.strokeStyle = '#5a4a20'; ctx.lineWidth = 1.6; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.arc(0, 3, 4.5, 0.2, Math.PI - 0.2); ctx.stroke(); ctx.lineCap = 'butt';
+        // the sack (bulges with your copays)
+        const bulge = 1 + Math.min(0.5, (e.stolen || 0) * 0.12);
+        ctx.save(); ctx.translate(e.r * 0.85, -e.r * 0.5); ctx.rotate(0.3);
+        ctx.fillStyle = flash ? '#fff' : '#c8a24a';
+        ctx.beginPath(); ctx.ellipse(0, 4, 7 * bulge, 8.5 * bulge, 0, 0, TAU); ctx.fill();
+        ctx.strokeStyle = '#8a6a2a'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(0, 4, 7 * bulge, 8.5 * bulge, 0, 0, TAU); ctx.stroke();
+        ctx.fillStyle = '#8a6a2a'; ctx.font = this.font(9, true); ctx.textAlign = 'center'; ctx.fillText('¢', 0, 7);
+        ctx.restore();
+        break;
+      }
+      case 'wellnessbot': { // a serene little service robot
+        this.orb(ctx, 0, 3, e.r, e.clr, flash);
+        // glass dome
+        ctx.fillStyle = 'rgba(220,245,240,0.55)';
+        ctx.beginPath(); ctx.arc(0, -e.r * 0.55, e.r * 0.62, Math.PI, TAU); ctx.fill();
+        ctx.strokeStyle = 'rgba(120,170,160,0.8)'; ctx.lineWidth = 1.6;
+        ctx.beginPath(); ctx.arc(0, -e.r * 0.55, e.r * 0.62, Math.PI, TAU); ctx.stroke();
+        // leaf antenna
+        ctx.strokeStyle = '#4a8a6a'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(0, -e.r - 2); ctx.lineTo(0, -e.r - 9); ctx.stroke();
+        ctx.fillStyle = '#6ab87a';
+        ctx.beginPath(); ctx.ellipse(4, -e.r - 11, 5, 3, -0.5, 0, TAU); ctx.fill();
+        // screen face: calm closed eyes
+        ctx.strokeStyle = '#2c4a44'; ctx.lineWidth = 1.8; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.arc(-5, -2, 3, 0.2, Math.PI - 0.2); ctx.arc(5, -2, 3, 0.2, Math.PI - 0.2); ctx.stroke();
+        ctx.beginPath(); ctx.arc(0, 4, 4, 0.3, Math.PI - 0.3); ctx.stroke(); ctx.lineCap = 'butt';
+        // projecting rings while the aura's on
+        ctx.strokeStyle = 'rgba(143,208,200,' + (0.35 + Math.sin(G.t * 3) * 0.2) + ')'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(0, 0, e.r + 7 + Math.sin(G.t * 3) * 3, 0, TAU); ctx.stroke();
+        break;
+      }
+      case 'spiral': { // a rotating pink swirl, tightening
+        ctx.rotate(G.t * 3);
+        this.orb(ctx, 0, 0, e.r, e.clr, flash);
+        ctx.strokeStyle = flash ? '#fff' : '#f0d0e0'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+        ctx.beginPath();
+        for (let a = 0; a < 4.2; a += 0.18) { const rr2 = 2 + a * 2.6; ctx.lineTo(Math.cos(a * 1.8) * rr2, Math.sin(a * 1.8) * rr2); }
+        ctx.stroke(); ctx.lineCap = 'butt';
+        break;
+      }
+      case 'comparison': { // smug and thriving (the healthier you are, the bigger it flexes)
+        const frac = G.player.maxhp > 0 ? G.player.hp / G.player.maxhp : 1;
+        ctx.scale(0.9 + frac * 0.25, 0.9 + frac * 0.25);
+        this.orb(ctx, 0, 2, e.r, e.clr, flash);
+        // sunglasses of superiority
+        ctx.fillStyle = '#2c3a24'; this.rr(ctx, -10, -7, 8, 5, 2); ctx.fill(); this.rr(ctx, 2, -7, 8, 5, 2); ctx.fill();
+        ctx.fillRect(-2, -6, 4, 2);
+        // smug grin
+        ctx.strokeStyle = '#2c3a24'; ctx.lineWidth = 1.8; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.arc(-1, 3, 5, 0.1, Math.PI * 0.55); ctx.stroke(); ctx.lineCap = 'butt';
+        // ⬆ doing-better-than-you badge
+        ctx.fillStyle = '#6ab84a'; ctx.beginPath();
+        ctx.moveTo(e.r * 0.8, -e.r * 0.75); ctx.lineTo(e.r * 0.8 + 5, -e.r * 0.75 + 8); ctx.lineTo(e.r * 0.8 - 5, -e.r * 0.75 + 8); ctx.closePath(); ctx.fill();
+        break;
+      }
+      case 'waitingnum': { // the deli-counter ticket of doom
+        const urgent = e.count <= 3;
+        ctx.rotate(Math.sin(G.t * (urgent ? 14 : 2)) * (urgent ? 0.06 : 0.02));
+        ctx.fillStyle = 'rgba(0,0,0,0.22)'; this.rr(ctx, -15, -17, 30, 36, 4); ctx.fill();
+        ctx.fillStyle = flash ? '#fff' : '#f2ead2'; this.rr(ctx, -16, -18, 30, 36, 4); ctx.fill();
+        ctx.strokeStyle = urgent ? '#c04040' : '#a08a5a'; ctx.lineWidth = 2; this.rr(ctx, -16, -18, 30, 36, 4); ctx.stroke();
+        // perforation
+        ctx.strokeStyle = 'rgba(160,138,90,0.6)'; ctx.lineWidth = 1; ctx.setLineDash([2.5, 2.5]);
+        ctx.beginPath(); ctx.moveTo(-16, -10); ctx.lineTo(14, -10); ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle = '#8a7248'; ctx.font = this.font(6.5, true); ctx.textAlign = 'center';
+        ctx.fillText('NOW SERVING', -1, -13);
+        ctx.fillStyle = urgent ? '#c04040' : '#3a3040'; ctx.font = this.font(17, true);
+        ctx.fillText(String(Math.max(0, e.count)), -1, 8);
+        break;
+      }
     }
     ctx.restore();
+    // Wellness Bot's blessing: a soft bubble around shielded patients
+    if (e._shieldT > 0 && !e.dying && e.spawnT <= 0) {
+      ctx.strokeStyle = 'rgba(143,208,200,' + (0.35 + Math.sin(G.t * 5) * 0.15) + ')';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(e.x, e.y, e.r + 6, 0, TAU); ctx.stroke();
+    }
 
     // hp bar (webmd item)
     if (G.player.flags.hpBars && !e.fake && !e.dying && e.hp < e.maxhp) {
@@ -1602,6 +1774,46 @@ const Render = {
         // a little "notification" badge
         ctx.fillStyle = '#e05a5a'; ctx.beginPath(); ctx.arc(30, -44, 8, 0, TAU); ctx.fill();
         ctx.fillStyle = '#fff'; ctx.font = this.font(11, true); ctx.textAlign = 'center'; ctx.fillText('∞', 30, -40);
+        break;
+      }
+      case 'thesystem': { // the whole machine: a monolithic hospital tower, departments lit by phase
+        const page = b.page || 0;
+        // looming shadow-glow
+        const mg = ctx.createRadialGradient(0, 0, 20, 0, 0, 95);
+        mg.addColorStop(0, 'rgba(120,110,140,0.35)'); mg.addColorStop(1, 'rgba(120,110,140,0)');
+        ctx.fillStyle = mg; ctx.beginPath(); ctx.arc(0, 0, 95, 0, TAU); ctx.fill();
+        // tower body
+        const tg = ctx.createLinearGradient(-38, 0, 38, 0);
+        tg.addColorStop(0, flash ? '#fff' : '#4a4658'); tg.addColorStop(0.5, flash ? '#fff' : '#6a6478'); tg.addColorStop(1, flash ? '#eee' : '#3c3848');
+        ctx.fillStyle = tg; this.rr(ctx, -38, -58, 76, 118, 8); ctx.fill();
+        ctx.strokeStyle = '#2a2634'; ctx.lineWidth = 3; this.rr(ctx, -38, -58, 76, 118, 8); ctx.stroke();
+        // three department floors — the active one glows
+        const floors = [
+          { y: -46, clr: '#e08a8a', label: 'DENIED' },
+          { y: -6, clr: '#8fd05a', label: '℞' },
+          { y: 34, clr: '#5a9de0', label: '▶' }
+        ];
+        floors.forEach((f, i) => {
+          const on = i === page;
+          ctx.fillStyle = on ? f.clr : 'rgba(200,195,210,0.16)';
+          if (on) { ctx.save(); ctx.shadowColor = f.clr; ctx.shadowBlur = 14; }
+          this.rr(ctx, -30, f.y, 60, 26, 4); ctx.fill();
+          if (on) ctx.restore();
+          ctx.fillStyle = on ? '#241c28' : 'rgba(230,225,240,0.4)';
+          ctx.font = this.font(on ? 11 : 10, true); ctx.textAlign = 'center';
+          ctx.fillText(f.label, 0, f.y + 18);
+          // little windows beside the label
+          ctx.fillStyle = on ? 'rgba(30,24,36,0.45)' : 'rgba(230,225,240,0.25)';
+          ctx.fillRect(-26, f.y + 6, 6, 8); ctx.fillRect(20, f.y + 6, 6, 8);
+        });
+        // caduceus sign + antenna up top
+        ctx.strokeStyle = '#8a8498'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(0, -58); ctx.lineTo(0, -78); ctx.stroke();
+        ctx.fillStyle = Math.floor(b.t * 2) % 2 ? '#e05a5a' : '#7a2a2a';
+        ctx.beginPath(); ctx.arc(0, -82, 4, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#e8e2f0'; this.rr(ctx, -20, -76, 40, 16, 4); ctx.fill();
+        ctx.strokeStyle = '#4a4458'; ctx.lineWidth = 1.5; this.rr(ctx, -20, -76, 40, 16, 4); ctx.stroke();
+        ctx.fillStyle = '#4a4458'; ctx.font = this.font(11, true); ctx.textAlign = 'center'; ctx.fillText('☤', 0, -63.5);
         break;
       }
       case 'influencer': { // wellness guru mid-photoshoot: ring light, shades, phone, crystals
@@ -2108,6 +2320,17 @@ const Render = {
       ctx.textAlign = 'left'; ctx.font = this.font(9, true);
       ctx.fillStyle = p.focused ? '#8fd05a' : 'rgba(240,232,216,0.7)';
       ctx.fillText(p.focused ? '◎ JUST RIGHT' : 'COMPULSION', gx, gy - 4);
+    }
+
+    // Treatment Goals (bottom-right, quiet checklist)
+    if (G.goals && G.goals.length) {
+      ctx.textAlign = 'right'; ctx.font = this.font(10.5, true);
+      for (let i = 0; i < G.goals.length; i++) {
+        const g = G.goals[i], y = CH - 16 - (G.goals.length - 1 - i) * 15;
+        ctx.fillStyle = g.done ? 'rgba(143,208,90,0.85)' : 'rgba(240,232,216,0.5)';
+        const prog = g.n > 1 && !g.done ? ' ' + Math.min(g.prog, g.n) + '/' + g.n : '';
+        ctx.fillText((g.done ? '✓ ' : '🎯 ') + g.name + prog, CW - 16, y);
+      }
     }
 
     // Insomnia sleep meter (bottom-left, beside the ability pip)
