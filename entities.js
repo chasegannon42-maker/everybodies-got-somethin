@@ -52,6 +52,64 @@ class Familiar {
   }
 }
 
+/* ---------------- Support Group allies ----------------
+   Recruited patients that trail the player and lay down diagnosis-flavored fire.
+   They take chip damage from enemy shots; at 0 HP they're "downed" until you
+   clear the room (revive()). Persist on p.allies across rooms and floors. */
+class Ally {
+  constructor(id) {
+    const A = DATA.ALLIES.find(a => a.id === id) || DATA.ALLIES[0];
+    this.id = A.id; this.name = A.name; this.diag = A.diag; this.tint = A.tint; this.kind = A.kind;
+    this.x = CW / 2; this.y = CH / 2;
+    this.maxhp = 3; this.hp = 3; this.dmgMul = 1;   // dmgMul bumped by the Facilitator talent
+    this.fireCd = U.rand(0, 0.8); this.downT = 0;   // downT >= 999 = knocked out until room clear
+    this.t = U.rand(0, TAU); this.hitFlash = 0; this.orbit = U.rand(0, TAU);
+  }
+  fireRate() { return this.kind === 'anxious' ? 0.5 : this.kind === 'manic' ? 0.95 : this.kind === 'heavy' ? 1.5 : this.kind === 'paranoid' ? 1.2 : 1.05; }
+  fire(G, tgt) {
+    const a = U.ang(this.x, this.y, tgt.x, tgt.y);
+    const mk = (ang, spd, dmg, big) => { const tr = new Tear(this.x, this.y, Math.cos(ang) * spd, Math.sin(ang) * spd, dmg * this.dmgMul, 0.85, big); tr._ally = true; tr.clr = this.tint; G.tears.push(tr); };
+    if (this.kind === 'anxious') mk(a + U.rand(-0.22, 0.22), 380, 1.8);
+    else if (this.kind === 'manic') { for (let i = -1; i <= 1; i++) mk(a + i * 0.17, 400, 2.0); }
+    else if (this.kind === 'heavy') mk(a, 300, 6, true);
+    else if (this.kind === 'paranoid') { const tr = new Tear(this.x, this.y, Math.cos(a) * 340, Math.sin(a) * 340, 3 * this.dmgMul, 1.1, false); tr._ally = true; tr.home = 2.4; tr.clr = this.tint; G.tears.push(tr); }
+    else if (this.kind === 'precise') { mk(a - 0.09, 360, 2.3); mk(a + 0.09, 360, 2.3); }
+    else mk(a, 360, 3);
+    SFX.play('shot');
+  }
+  revive() { if (this.downT >= 999) { this.downT = 0; this.hp = this.maxhp; } }
+  update(dt, G) {
+    this.t += dt; this.hitFlash -= dt;
+    const p = G.player;
+    if (this.downT > 0) {   // knocked out: slump near the player, wait for the room to clear
+      const a2 = U.ang(this.x, this.y, p.x, p.y);
+      if (U.dist(this.x, this.y, p.x, p.y) > 70) { this.x += Math.cos(a2) * 60 * dt; this.y += Math.sin(a2) * 60 * dt; }
+      return;
+    }
+    // trail the player at a comfortable orbit
+    this.orbit += dt * 0.6;
+    const tx = p.x + Math.cos(this.orbit) * 60, ty = p.y + Math.sin(this.orbit) * 48;
+    this.x += (tx - this.x) * Math.min(1, dt * 4); this.y += (ty - this.y) * Math.min(1, dt * 4);
+    this.x = U.clamp(this.x, RX + 12, RX + RW - 12); this.y = U.clamp(this.y, RY + 12, RY + RH - 12);
+    // pick a target and lay down fire
+    let best = null, bd = 1e9;
+    for (const e of G.enemies) { if (e.fake || e.dying || e.spawnT > 0 || e.charmed) continue; const d = U.dist(this.x, this.y, e.x, e.y); if (d < bd) { bd = d; best = e; } }
+    if (!best && G.boss && !G.boss.dead && G.boss.vulnerable !== false) { best = G.boss; }
+    this.fireCd -= dt;
+    if (best && this.fireCd <= 0) { this.fireCd = this.fireRate(); this.fire(G, best); }
+    // enemy fire can wear an ally down
+    for (const b of G.eBullets) {
+      if (b.fake || b.dead) continue;
+      if (U.dist(this.x, this.y, b.x, b.y) < 12 + b.r) {
+        b.dead = true; this.hp -= 1; this.hitFlash = 0.3; SFX.play('hurt');
+        for (let i = 0; i < 3; i++) G.parts.push(new Particle(this.x, this.y, U.rand(-50, 50), U.rand(-50, 50), 0.3, this.tint, 2.5));
+        if (this.hp <= 0) { this.downT = 999; G.toast(this.name + ' is overwhelmed…', this.tint); for (let i = 0; i < 6; i++) G.parts.push(new Particle(this.x, this.y, U.rand(-90, 90), U.rand(-90, 90), 0.5, this.tint, 3)); }
+        break;
+      }
+    }
+  }
+}
+
 /* ---------------- player ---------------- */
 class Player {
   constructor(diagId) {
@@ -68,12 +126,14 @@ class Player {
     this.flags = {};
     this.items = [];
     this.familiars = [];
+    this.allies = [];   // The Support Group (recruited AI companions)
     this.iframes = 0; this.iframeTime = 1.2;
     this.tempSlow = 0;
     this.moodT = 0; this.mania = true;
     this.focusT = 0; this.focused = false;
     this.compulsion = 0; this.buffT = 0; this._hadLive = false;   // OCD
     this.lastHitT = 999; this.startleT = 0;   // PTSD (On Edge timer + startle cooldown)
+    this.sleep = 100; this.wired = false; this.napActive = 0; this._halluCd = 0; this._microCd = 0;   // Insomnia
     this.adren = false;
     this.blanket = (diagId === 'depression');
     this.pillsThisFloor = 0;
@@ -97,6 +157,7 @@ class Player {
     if (diagId === 'schizo') { this.dmg *= 1.2; }
     if (diagId === 'ocd') { this.tearDelay *= 1.06; this.wobble = 0; this.flags.noWobble = true; }   // twin symmetric shot, no wander
     if (diagId === 'ptsd') { this.maxhp = 6; this.hp = 6; this.iframeTime = 1.4; }   // hypervigilant; a hit lingers longer
+    if (diagId === 'insomnia') { this.maxhp = 6; this.hp = 6; }   // you don't run on hearts, you run on Sleep
     if (diagId === 'fine') { this.flags.fineMode = true; }
     const D = DATA.DIAG[diagId];
     if (D && D.rx) this.addItem(D.rx, null, true);
@@ -137,6 +198,7 @@ class Player {
       else s *= this.mania ? 1.3 : 0.85;
     }
     if (this.adren) s *= 1.2;
+    if (this.diag === 'insomnia' && this.wired) s *= 1.08;   // jittery, running on fumes
     if (this.tempSlow > 0) s *= 0.6;
     if (this.inZoneSlow) s *= 0.62;
     if (this.cocoonT > 0) s *= 0.4;   // Under The Covers
@@ -204,6 +266,14 @@ class Player {
         G.toast('5… 4… 3… 2… 1.', '#c8a878'); SFX.play('whoosh');
         break;
       }
+      case 'insomnia': {   // Power Nap — refill Sleep, heal, phase out; but you're helpless for the moment
+        this.napActive = 1.0; this.iframes = Math.max(this.iframes, 1.1);
+        this.sleep = 100; this.wired = false; this._microCd = 0;
+        this.heal(1); G.darkTarget = 0;
+        G.toast('😴 power nap…', '#7fd4c8'); SFX.play('whoosh');
+        for (let i = 0; i < 6; i++) G.parts.push(new Particle(this.x + U.rand(-14, 14), this.y - 8 - i * 5, U.rand(-8, 8), -26, 1.0, '#7fd4c8', 3));
+        break;
+      }
       case 'fine': {   // Denial — briefly refuse to take damage
         this.iframes = Math.max(this.iframes, 1.5);
         G.toast('"I\'m FINE."', '#9e9e9e'); SFX.play('ui');
@@ -223,12 +293,14 @@ class Player {
     if (this.flags.fineMode) d *= 1.15;
     if (this.flags.rsd && this.hp >= this.maxhp) d *= 1.22;   // rejection sensitivity: prove them wrong at full HP
     if (this.diag === 'ptsd' && this.lastHitT > 4) d *= 1.25;   // On Edge: calm and sharp until you're hit
+    if (this.diag === 'insomnia' && this.wired) d *= 1.4;   // WIRED: sleep-deprived and dangerous
     if (G && G.rapidMods) d *= G.rapidMods.dmg;   // Rapid Cycling
     return d;
   }
   effTearDelay() {
     let t = this.tearDelay;
     if (this.adren) t *= 0.85;
+    if (this.diag === 'insomnia' && this.wired) t *= 0.8;   // WIRED: twitchy trigger finger
     if (this.flags.fineMode) t *= 0.94;
     if (G && G.tearsAura) t *= 1.3;
     if (G && G.rapidMods) t *= G.rapidMods.tears;   // Rapid Cycling (tears>1 = slower)
@@ -255,6 +327,7 @@ class Player {
       this.x += this.dashDir.x * 900 * dt;
       this.y += this.dashDir.y * 900 * dt;
     } else if (this.itemHold > 0.6) { /* holding item up: brief pause */ }
+    else if (this.napActive > 0) { /* Power Nap / microsleep: dead to the world */ }
     else {
       const s = this.effSpd();
       this.x += mv.x * s * dt;
@@ -298,6 +371,36 @@ class Player {
       }
     }
 
+    // Insomnia: Sleep drains as you go. Low Sleep = WIRED (buffed, but the ward dims and
+    // hallucinated shots drift in — harmless, but you can't tell). Empty = involuntary microsleeps.
+    if (this.diag === 'insomnia') {
+      if (this.napActive > 0) this.napActive -= dt;
+      const live = G.enemies.some(e => !e.dying && !e.fake);
+      this.sleep = U.clamp(this.sleep - dt * (live ? 4.0 : 2.6), 0, 100);
+      const wasWired = this.wired;
+      this.wired = this.sleep < 35;
+      if (this.wired && !wasWired) { G.toast('▲ WIRED', '#7fd4c8'); SFX.play('voice'); }
+      if (this.wired) {
+        this._halluCd -= dt;
+        if (this._halluCd <= 0 && G.eBullets.length < 85) {
+          this._halluCd = U.rand(0.45, 1.15) * (this.sleep < 12 ? 0.55 : 1);
+          const edge = U.randi(0, 3); let sx, sy;
+          if (edge === 0) { sx = RX + U.rand(0, RW); sy = RY + 4; }
+          else if (edge === 1) { sx = RX + U.rand(0, RW); sy = RY + RH - 4; }
+          else if (edge === 2) { sx = RX + 4; sy = RY + U.rand(0, RH); }
+          else { sx = RX + RW - 4; sy = RY + U.rand(0, RH); }
+          const a = U.ang(sx, sy, this.x + U.rand(-50, 50), this.y + U.rand(-50, 50));
+          const b = new EBullet(sx, sy, Math.cos(a) * 155, Math.sin(a) * 155, 1, '#7fd4c8', true);   // fake: harmless
+          b._src = 'hallucination'; b.life = 4.5;
+          G.eBullets.push(b);
+        }
+      }
+      if (this.sleep <= 0) {   // the body takes the sleep it isn't given
+        this._microCd -= dt;
+        if (this._microCd <= 0) { this._microCd = U.rand(2.6, 4.2); this.napActive = Math.max(this.napActive, 0.3); G.toast('😵 microsleep', '#7fd4c8'); SFX.play('hurt'); }
+      }
+    }
+
     // zone effects
     this.inZoneSlow = false;
     for (const z of G.zones) {
@@ -328,7 +431,7 @@ class Player {
     // shooting
     const aim = Input.getAim(this.x, this.y);
     if (aim) this.aimAng = Math.atan2(aim.y, aim.x);
-    if (aim && this.tearTimer <= 0 && this.itemHold <= 0.6 && !this.flags.pacifist) {   // Pacifist: no tears — familiars & Claim Forms only
+    if (aim && this.tearTimer <= 0 && this.itemHold <= 0.6 && this.napActive <= 0 && !this.flags.pacifist) {   // Pacifist: no tears — familiars & Claim Forms only
       this.tearTimer = this.effTearDelay();
       let a = Math.atan2(aim.y, aim.x);
       let wob = this.flags.noWobble ? 0 : this.wobble * (this.focused ? 0.3 : 1);
@@ -351,6 +454,21 @@ class Player {
     }
 
     for (const f of this.familiars) f.update(dt, G);
+    for (const a of this.allies) a.update(dt, G);
+  }
+
+  /* recruit a fellow patient into the Support Group (cap 3, no duplicates while there's fresh blood) */
+  recruitAlly(G, id) {
+    if (this.allies.length >= 3) { if (G) { G.toast('The group is full (3).', '#8fd05a'); } return false; }
+    let pool = DATA.ALLIES.filter(a => !this.allies.some(x => x.id === a.id));
+    if (!pool.length) pool = DATA.ALLIES;
+    const pick = id ? (DATA.ALLIES.find(a => a.id === id) || U.choice(pool)) : U.choice(pool);
+    const ally = new Ally(pick.id);
+    ally.x = this.x + U.rand(-40, 40); ally.y = this.y + U.rand(-40, 40);
+    if (this.flags.allyTough) { ally.maxhp = 4; ally.hp = 4; ally.dmgMul = 1.35; }   // Facilitator talent
+    this.allies.push(ally);
+    if (G) { G.toast('🤝 ' + ally.name + ' joined the group!', ally.tint); SFX.play('item'); }
+    return true;
   }
 
   hurt(n, G, src) {
@@ -396,6 +514,7 @@ class Tear {
     this.big = big;
     this.dead = false;
     this.home = 0;
+    this.bounces = 0;   // Padded Cell ricochets
   }
   update(dt, G) {
     if (this.home) {   // homing tears (Rumination comorbidity)
@@ -413,7 +532,14 @@ class Tear {
     this.x += this.vx * dt; this.y += this.vy * dt;
     this.life -= dt;
     if (this.life <= 0) { this.splash(G); return; }
-    if (this.x < RX - 8 || this.x > RX + RW + 8 || this.y < RY - 8 || this.y > RY + RH + 8) { this.splash(G); return; }
+    if (this.x < RX - 8 || this.x > RX + RW + 8 || this.y < RY - 8 || this.y > RY + RH + 8) {
+      if (G.room.bouncy && this.bounces < 3) {   // Padded Cell: ricochet off the walls
+        this.bounces++;
+        if (this.x < RX || this.x > RX + RW) this.vx = -this.vx;
+        if (this.y < RY || this.y > RY + RH) this.vy = -this.vy;
+        this.x = U.clamp(this.x, RX + 5, RX + RW - 5); this.y = U.clamp(this.y, RY + 5, RY + RH - 5);
+      } else { this.splash(G); return; }
+    }
     const t = pxToTile(this.x, this.y);
     if (t.c >= 0 && t.r >= 0 && t.c < COLS && t.r < ROWS) {
       const tile = G.room.layout[t.r][t.c];
@@ -481,7 +607,14 @@ class EBullet {
     this.life -= dt;
     if (this.dud && this.t > 0.5) { this.fizzle(G); return; }
     if (this.life <= 0) { this.dead = true; return; }
-    if (this.x < RX - 6 || this.x > RX + RW + 6 || this.y < RY - 6 || this.y > RY + RH + 6) { this.dead = true; return; }
+    if (this.x < RX - 6 || this.x > RX + RW + 6 || this.y < RY - 6 || this.y > RY + RH + 6) {
+      if (G.room.bouncy && !this.fake && (this._bounces || 0) < 3) {   // Padded Cell: enemy fire ricochets too
+        this._bounces = (this._bounces || 0) + 1;
+        if (this.x < RX || this.x > RX + RW) this.vx = -this.vx;
+        if (this.y < RY || this.y > RY + RH) this.vy = -this.vy;
+        this.x = U.clamp(this.x, RX + 5, RX + RW - 5); this.y = U.clamp(this.y, RY + 5, RY + RH - 5);
+      } else { this.dead = true; return; }
+    }
     const t = pxToTile(this.x, this.y);
     if (t.c >= 0 && t.r >= 0 && t.c < COLS && t.r < ROWS && G.room.layout[t.r][t.c] === 1) { this.fizzle(G); return; }
     // familiars block

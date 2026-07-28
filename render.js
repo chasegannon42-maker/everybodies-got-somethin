@@ -212,6 +212,52 @@ const Render = {
     }
   },
 
+  /* hazard-room set dressing + live threats (padded pads, ECT fixture, surveillance sweep) */
+  drawHazardRoom(G, room) {
+    const ctx = this.ctx;
+    if (room.type === 'padded') {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(230,224,205,0.12)'; ctx.lineWidth = 2; ctx.fillStyle = 'rgba(235,228,210,0.05)';
+      const pad = 24, step = 46;
+      for (let x = RX + 6; x < RX + RW - 30; x += step) { this.rr(ctx, x, RY + 6, step - 8, pad, 6); ctx.fill(); ctx.stroke(); this.rr(ctx, x, RY + RH - pad - 6, step - 8, pad, 6); ctx.fill(); ctx.stroke(); }
+      for (let y = RY + 6; y < RY + RH - 30; y += step) { this.rr(ctx, RX + 6, y, pad, step - 8, 6); ctx.fill(); ctx.stroke(); this.rr(ctx, RX + RW - pad - 6, y, pad, step - 8, 6); ctx.fill(); ctx.stroke(); }
+      ctx.restore();
+    } else if (room.type === 'ect') {
+      const cx = CW / 2, cy = RY + 40;
+      const charging = room._ectActive && (room._shockT || 0) < 0.6;
+      ctx.save();
+      ctx.strokeStyle = 'rgba(150,200,240,0.5)'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(cx - 26, RY + 2); ctx.lineTo(cx + 26, RY + 2); ctx.moveTo(cx, RY + 2); ctx.lineTo(cx, cy); ctx.stroke();
+      const glow = charging ? (0.5 + Math.sin(G.t * 30) * 0.5) : 0.3;
+      ctx.fillStyle = 'rgba(190,225,255,' + (0.3 + glow * 0.6) + ')';
+      ctx.beginPath(); ctx.arc(cx, cy, 12 + glow * 6, 0, TAU); ctx.fill();
+      if (charging) {
+        ctx.strokeStyle = 'rgba(190,225,255,' + glow + ')'; ctx.lineWidth = 1.5;
+        for (let i = 0; i < 5; i++) { const a = (i / 5) * TAU + G.t; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(a) * 40, cy + Math.sin(a) * 40); ctx.stroke(); }
+      }
+      ctx.restore();
+    } else if (room.type === 'observation' && !room._watchDone) {
+      const camX = CW / 2, camY = RY + 26;
+      const beamA = Math.sin(room._watchAng || 0) * 1.15 + Math.PI / 2;
+      const len = RH + 30;
+      ctx.save();
+      const g = ctx.createLinearGradient(camX, camY, camX + Math.cos(beamA) * len, camY + Math.sin(beamA) * len);
+      g.addColorStop(0, 'rgba(230,215,90,0.30)'); g.addColorStop(1, 'rgba(230,215,90,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.moveTo(camX, camY);
+      ctx.lineTo(camX + Math.cos(beamA - 0.13) * len, camY + Math.sin(beamA - 0.13) * len);
+      ctx.lineTo(camX + Math.cos(beamA + 0.13) * len, camY + Math.sin(beamA + 0.13) * len);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#2a2620'; this.rr(ctx, camX - 12, RY + 6, 24, 16, 4); ctx.fill();
+      ctx.fillStyle = Math.floor((room._watchT || 0) * 2) % 2 ? '#e04040' : '#601818';
+      ctx.beginPath(); ctx.arc(camX, camY, 4, 0, TAU); ctx.fill();
+      const frac = U.clamp((room._watchT || 0) / 9, 0, 1);
+      ctx.strokeStyle = 'rgba(143,208,90,0.9)'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(camX, RY + 46, 15, -Math.PI / 2, -Math.PI / 2 + TAU * frac); ctx.stroke();
+      ctx.restore();
+    }
+  },
+
   getDecals(room) {
     if (!room._decals) {
       const cv = document.createElement('canvas');
@@ -281,7 +327,12 @@ const Render = {
     if (room.type === 'secret') { ctx.fillStyle = 'rgba(160,120,220,0.11)'; ctx.fillRect(RX, RY, RW, RH); }
     if (room.type === 'oon') { ctx.fillStyle = 'rgba(220,80,80,0.13)'; ctx.fillRect(RX, RY, RW, RH); }
     if (room.type === 'boss') { ctx.fillStyle = 'rgba(150,40,40,0.09)'; ctx.fillRect(RX, RY, RW, RH); }
+    if (room.type === 'seclusion') { ctx.fillStyle = 'rgba(150,40,50,0.12)'; ctx.fillRect(RX, RY, RW, RH); }
+    if (room.type === 'ect') { ctx.fillStyle = 'rgba(120,180,230,0.10)'; ctx.fillRect(RX, RY, RW, RH); }
+    if (room.type === 'padded') { ctx.fillStyle = 'rgba(210,200,180,0.09)'; ctx.fillRect(RX, RY, RW, RH); }
+    if (room.type === 'observation') { ctx.fillStyle = 'rgba(220,205,90,0.08)'; ctx.fillRect(RX, RY, RW, RH); }
     ctx.restore();
+    this.drawHazardRoom(G, room);
 
     // zones under everything
     for (const z of G.zones) {
@@ -503,6 +554,44 @@ const Render = {
         ctx.fillStyle = '#9db85a'; ctx.font = this.font(9, true); ctx.fillText('RESTOCK', ped.x, ped.y + 42);
         continue;
       }
+      if (ped.kind === 'sacrifice') {   // Seclusion Room — a grim stone altar
+        const gl = 0.18 + Math.sin(G.t * 2) * 0.1;
+        const rg = ctx.createRadialGradient(ped.x, ped.y - 6, 4, ped.x, ped.y - 6, 60);
+        rg.addColorStop(0, 'rgba(200,60,70,' + (0.2 + gl) + ')'); rg.addColorStop(1, 'rgba(200,60,70,0)');
+        ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(ped.x, ped.y - 6, 60, 0, TAU); ctx.fill();
+        this.shadow(ped.x, ped.y + 18, 26, 8, 0.3);
+        ctx.save(); ctx.translate(ped.x, ped.y);
+        ctx.fillStyle = '#5a5258'; this.rr(ctx, -26, -6, 52, 24, 4); ctx.fill();
+        ctx.fillStyle = '#403a40'; this.rr(ctx, -26, 8, 52, 10, 4); ctx.fill();
+        ctx.fillStyle = '#6a626a'; this.rr(ctx, -22, -10, 44, 7, 3); ctx.fill();
+        ctx.strokeStyle = 'rgba(150,30,40,0.75)'; ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.moveTo(-14, -2); ctx.lineTo(0, 5); ctx.lineTo(14, -2); ctx.stroke();
+        ctx.fillStyle = 'rgba(150,30,40,0.6)'; ctx.beginPath(); ctx.arc(0, 7, 3, 0, TAU); ctx.fill();
+        ctx.restore();
+        if (U.dist(G.player.x, G.player.y, ped.x, ped.y) < 90) { ctx.fillStyle = '#e0a0a0'; ctx.font = this.font(11, true); ctx.textAlign = 'center'; ctx.fillText('🩸 offer a heart', ped.x, ped.y - 34); }
+        continue;
+      }
+      if (ped.kind === 'recruit') {   // Support Group — a patient hoping to join
+        const A = DATA.ALLIES.find(x => x.id === ped.allyId) || DATA.ALLIES[0];
+        const rb = Math.sin(G.t * 2.6 + ped.x) * 2.2;
+        const eg = ctx.createRadialGradient(ped.x, ped.y - 6, 4, ped.x, ped.y - 6, 48);
+        eg.addColorStop(0, 'rgba(143,208,90,0.22)'); eg.addColorStop(1, 'rgba(143,208,90,0)');
+        ctx.fillStyle = eg; ctx.beginPath(); ctx.arc(ped.x, ped.y - 6, 48, 0, TAU); ctx.fill();
+        this.shadow(ped.x, ped.y + 15, 12, 5, 0.24);
+        ctx.save(); ctx.translate(ped.x, ped.y + rb);
+        this.orb(ctx, 0, 3, 11, A.tint, false);
+        ctx.fillStyle = '#e8c9a6'; ctx.beginPath(); ctx.arc(0, -10, 8, 0, TAU); ctx.fill();
+        ctx.strokeStyle = 'rgba(40,30,40,0.3)'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(0, -10, 8, 0, TAU); ctx.stroke();
+        ctx.fillStyle = '#2c2333'; ctx.beginPath(); ctx.arc(-3, -11, 1.5, 0, TAU); ctx.arc(3, -11, 1.5, 0, TAU); ctx.fill();
+        ctx.strokeStyle = A.tint; ctx.lineWidth = 3; ctx.lineCap = 'round';
+        const wv = Math.sin(G.t * 6) * 0.5;
+        ctx.beginPath(); ctx.moveTo(8, 2); ctx.lineTo(15, -9 + wv * 8); ctx.stroke(); ctx.lineCap = 'butt';
+        ctx.restore();
+        ctx.fillStyle = '#8fd05a'; ctx.font = this.font(11, true); ctx.textAlign = 'center';
+        ctx.fillText(A.name + ' · ' + A.diag, ped.x, ped.y - 32);
+        if (U.dist(G.player.x, G.player.y, ped.x, ped.y) < 84) { ctx.fillStyle = '#c8e0a0'; ctx.font = this.font(11, true); ctx.fillText('🤝 walk up to recruit', ped.x, ped.y + 34); }
+        continue;
+      }
       const bob = Math.sin(G.t * 2.4 + ped.x) * 3;
       // spotlight glow from above
       const gg = ctx.createRadialGradient(ped.x, ped.y - 26, 4, ped.x, ped.y - 26, 46);
@@ -603,8 +692,9 @@ const Render = {
     // boss
     if (G.boss) this.drawBoss(G.boss, G);
 
-    // player + familiars
+    // player + familiars + support group
     for (const f of G.player.familiars) this.drawFamiliar(f, G);
+    for (const a of G.player.allies) this.drawAlly(a, G);
     this.drawPlayer(G.player, G);
 
     // tears — glossy droplets with shadow
@@ -832,6 +922,22 @@ const Render = {
         ctx.strokeStyle = 'rgba(194,90,82,' + (0.35 + Math.sin(G.t * 4) * 0.2) + ')'; ctx.lineWidth = 1.6;
         const sa = G.t * 3; ctx.beginPath(); ctx.arc(0, -6, 21, sa, sa + 1.1); ctx.stroke();
       }
+    } else if (p.diag === 'insomnia') {
+      // heavy dark eye-bags; WIRED snaps the eyes wide and bloodshot, calm droops the lids
+      ctx.strokeStyle = 'rgba(70,104,110,0.8)'; ctx.lineWidth = 1.7; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.arc(-11, -8, 5, 0.2, 1.05); ctx.stroke();
+      ctx.beginPath(); ctx.arc(11, -8, 5, Math.PI - 1.05, Math.PI - 0.2); ctx.stroke(); ctx.lineCap = 'butt';
+      if (p.wired) {
+        const jit = Math.sin(G.t * 42) * 0.7;   // caffeine tremor
+        ctx.fillStyle = 'rgba(240,110,110,0.95)';
+        ctx.beginPath(); ctx.arc(-11 + jit, -14, 1.5, 0, TAU); ctx.arc(11 + jit, -14, 1.5, 0, TAU); ctx.fill();   // bloodshot pinpoints
+        ctx.strokeStyle = '#3c6a66'; ctx.lineWidth = 2; ctx.lineCap = 'round';   // brows shot up
+        ctx.beginPath(); ctx.moveTo(-15, -18); ctx.lineTo(-6, -19.5); ctx.moveTo(15, -18); ctx.lineTo(6, -19.5); ctx.stroke(); ctx.lineCap = 'butt';
+      } else {
+        ctx.strokeStyle = 'rgba(70,104,110,0.9)'; ctx.lineWidth = 2.1; ctx.lineCap = 'round';   // droopy half-lids
+        ctx.beginPath(); ctx.moveTo(-15, -14); ctx.lineTo(-6, -12.5); ctx.moveTo(15, -14); ctx.lineTo(6, -12.5); ctx.stroke(); ctx.lineCap = 'butt';
+        if (p.napActive > 0) { ctx.fillStyle = 'rgba(127,212,200,0.9)'; ctx.font = 'bold 13px sans-serif'; ctx.fillText('z', 15, -20); }
+      }
     }
 
     // item held overhead
@@ -877,6 +983,30 @@ const Render = {
       this.drawWalrusFace(ctx, 0, 0, 0.22, G.t);
     }
     ctx.restore();
+  },
+
+  /* Support Group ally — a small tinted patient that trails and fires */
+  drawAlly(a, G) {
+    const ctx = this.ctx;
+    const downed = a.downT > 0;
+    this.shadow(a.x, a.y + 13, 11, 4, downed ? 0.12 : 0.22);
+    ctx.save(); ctx.translate(a.x, a.y);
+    if (downed) { ctx.rotate(1.2); ctx.globalAlpha = 0.5; }
+    this.orb(ctx, 0, 3, 10, a.tint, a.hitFlash > 0);
+    ctx.fillStyle = '#e8c9a6'; ctx.beginPath(); ctx.arc(0, -9, 7, 0, TAU); ctx.fill();
+    ctx.strokeStyle = 'rgba(40,30,40,0.3)'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(0, -9, 7, 0, TAU); ctx.stroke();
+    if (downed) {
+      ctx.strokeStyle = '#2c2333'; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.moveTo(-4, -11); ctx.lineTo(-1, -8); ctx.moveTo(-1, -11); ctx.lineTo(-4, -8); ctx.moveTo(2, -11); ctx.lineTo(5, -8); ctx.moveTo(5, -11); ctx.lineTo(2, -8); ctx.stroke();
+    } else {
+      ctx.fillStyle = '#2c2333'; ctx.beginPath(); ctx.arc(-2.5, -10, 1.4, 0, TAU); ctx.arc(2.5, -10, 1.4, 0, TAU); ctx.fill();
+    }
+    ctx.restore();
+    if (!downed) {
+      ctx.fillStyle = a.tint;
+      for (let i = 0; i < a.maxhp; i++) { ctx.globalAlpha = i < a.hp ? 1 : 0.22; ctx.fillRect(a.x - 8 + i * 6, a.y - 22, 4, 3); }
+      ctx.globalAlpha = 1;
+    }
   },
 
   /* shaded sphere body (fleshy Isaac look) */
@@ -1876,6 +2006,18 @@ const Render = {
     this.drawBombIcon(302, 24);
     ctx.textAlign = 'left'; ctx.fillStyle = '#f0e8d8'; ctx.fillText(String(p.bombs), 316, 29);
     if (p.coupons > 0) { ctx.textAlign = 'left'; ctx.fillStyle = '#9db85a'; ctx.font = this.font(12, true); ctx.fillText('🎟' + p.coupons, 300, 48); }
+    // Support Group roster (top-left, under the hearts)
+    if (p.allies && p.allies.length) {
+      ctx.textAlign = 'left'; ctx.font = this.font(11, true); ctx.fillStyle = 'rgba(240,232,216,0.65)'; ctx.fillText('🤝', 20, 66);
+      for (let i = 0; i < p.allies.length; i++) {
+        const a = p.allies[i], gx = 42 + i * 26, gy = 62;
+        ctx.fillStyle = a.downT > 0 ? 'rgba(120,110,120,0.5)' : a.tint;
+        ctx.beginPath(); ctx.arc(gx, gy, 7, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#e8c9a6'; ctx.beginPath(); ctx.arc(gx, gy - 1, 4, 0, TAU); ctx.fill();
+        if (a.downT > 0) { ctx.strokeStyle = '#2c2333'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(gx - 2, gy - 3); ctx.lineTo(gx + 2, gy + 1); ctx.moveTo(gx + 2, gy - 3); ctx.lineTo(gx - 2, gy + 1); ctx.stroke(); }
+        else { for (let h = 0; h < a.maxhp; h++) { ctx.fillStyle = h < a.hp ? '#e05a6a' : 'rgba(255,255,255,0.2)'; ctx.fillRect(gx - 6 + h * 5, gy + 8, 3, 2.5); } }
+      }
+    }
 
     // signature ability pip (bottom-left)
     if (p.abil) {
@@ -1906,6 +2048,22 @@ const Render = {
       ctx.textAlign = 'left'; ctx.font = this.font(9, true);
       ctx.fillStyle = p.focused ? '#8fd05a' : 'rgba(240,232,216,0.7)';
       ctx.fillText(p.focused ? '◎ JUST RIGHT' : 'COMPULSION', gx, gy - 4);
+    }
+
+    // Insomnia sleep meter (bottom-left, beside the ability pip)
+    if (p.diag === 'insomnia') {
+      const gx = 74, gy = CH - 52, gw = 96, gh = 12;
+      const frac = Math.max(0, Math.min(1, p.sleep / 100));
+      ctx.fillStyle = 'rgba(20,14,22,0.7)'; this.rr(ctx, gx, gy, gw, gh, 4); ctx.fill();
+      ctx.fillStyle = p.wired ? '#f07070' : '#7fd4c8';
+      this.rr(ctx, gx + 1.5, gy + 1.5, Math.max(0, (gw - 3) * frac), gh - 3, 3); ctx.fill();
+      // tick at the WIRED threshold (35%)
+      ctx.strokeStyle = 'rgba(255,120,120,0.6)'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(gx + gw * 0.35, gy); ctx.lineTo(gx + gw * 0.35, gy + gh); ctx.stroke();
+      ctx.strokeStyle = 'rgba(240,232,216,0.35)'; ctx.lineWidth = 1.5; this.rr(ctx, gx, gy, gw, gh, 4); ctx.stroke();
+      ctx.textAlign = 'left'; ctx.font = this.font(9, true);
+      ctx.fillStyle = p.wired ? '#f07070' : 'rgba(240,232,216,0.7)';
+      ctx.fillText(p.napActive > 0 ? '😴 ASLEEP' : p.wired ? '▲ WIRED' : '☾ SLEEP', gx, gy - 4);
     }
 
     // pill slot
@@ -1947,6 +2105,7 @@ const Render = {
     if (p.diag === 'bipolar' && p.flags.stable) status = '― stable';
     if (p.focused) status = p.diag === 'ocd' ? '◎ just right' : '◎ hyperfocus';
     if (p.diag === 'ptsd') status = p.lastHitT > 4 ? '◈ on edge' : '· rattled';
+    if (p.diag === 'insomnia') status = p.napActive > 0 ? '😴 asleep' : p.wired ? '▲ wired' : '· drowsy';
     if (p.adren) status = '⚡ adrenaline';
     if (G.slowmo > 0) status = '⏱ vigilant';
     if (status) ctx.fillText(status, 464, 38);
@@ -2051,6 +2210,10 @@ const Render = {
       else if (room.type === 'event') ctx.fillText('‽', cx2, cy2);
       else if (room.type === 'dayroom') ctx.fillText('☕', cx2, cy2);
       else if (room.type === 'oon') ctx.fillText('♥', cx2, cy2);
+      else if (room.type === 'seclusion') ctx.fillText('🩸', cx2, cy2);
+      else if (room.type === 'ect') ctx.fillText('⚡', cx2, cy2);
+      else if (room.type === 'padded') ctx.fillText('▨', cx2, cy2);
+      else if (room.type === 'observation') ctx.fillText('👁', cx2, cy2);
     }
     ctx.restore();
   },
@@ -2125,6 +2288,7 @@ const Render = {
     if (p.focused) statusTxt = p.diag === 'ocd' ? '◎ JUST RIGHT' : '◎ HYPERFOCUS';
     if (p.diag === 'ptsd' && p.lastHitT > 4) statusTxt = '◈ ON EDGE';
     if (p.diag === 'ocd' && !p.focused && p.compulsion >= 70) statusTxt = '△ COMPULSION';
+    if (p.diag === 'insomnia' && p.wired) statusTxt = p.napActive > 0 ? '😴 ASLEEP' : '▲ WIRED';
     if (p.adren) statusTxt = '⚡ ADRENALINE';
     if (statusTxt) { ctx.font = this.font(11, true); ctx.fillStyle = D.color; ctx.fillText(statusTxt, W / 2, y + 33); }
 

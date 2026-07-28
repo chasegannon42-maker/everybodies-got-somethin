@@ -81,7 +81,7 @@ DATA.QUESTIONS = [
   {
     q: "How do you sleep?",
     a: [
-      { t: "4 hours, victoriously", w: { bipolar: 2, adhd: 1 }, quip: "Victory sleep. The manic classic." },
+      { t: "4 hours, victoriously", w: { bipolar: 2, adhd: 1, insomnia: 1 }, quip: "Victory sleep. The manic classic." },
       { t: "12 hours, somehow still tired", w: { depression: 2 }, quip: "Sleep debt with interest. Very modern." },
       { t: "With one eye open", w: { anxiety: 2, schizo: 1, ptsd: 1 }, quip: "Vigilance! The eyelids of the anxious." },
       { t: "At night, like a person", w: { fine: 2 }, quip: "'Like a person.' Rehearsed. Noted." }
@@ -112,6 +112,15 @@ DATA.QUESTIONS = [
       { t: "Am instantly, fully awake. For hours.", w: { ptsd: 2, anxiety: 1 }, quip: "Hypervigilance: unpaid overtime for the nervous system." },
       { t: "Am briefly somewhere in 2009", w: { ptsd: 3 }, quip: "Dissociation. A frequent flyer here." },
       { t: "Say 'jumpy today, huh' and move on", w: { fine: 2 }, quip: "'Jumpy.' We'll be monitoring that." }
+    ]
+  },
+  {
+    q: "It's 3 a.m. You are...",
+    a: [
+      { t: "Awake, doing math on how much sleep I can still get", w: { insomnia: 3 }, quip: "'If I fall asleep RIGHT now…' The insomniac's rosary." },
+      { t: "Just now drifting off. Alarm's in 90 minutes.", w: { insomnia: 3 }, quip: "We'll bill that as a nap." },
+      { t: "Asleep. Obviously. It's 3 a.m.", w: { fine: 2 }, quip: "Must be nice. Suspicious. Noted." },
+      { t: "Wide awake — but that's when the ideas come!", w: { insomnia: 2, bipolar: 1 }, quip: "The muse and the mania share a shift." }
     ]
   },
   {
@@ -198,6 +207,15 @@ DATA.DIAG = {
     mech: "HYPERVIGILANT: enemy shots are always outlined, and a near-miss slows time for a heartbeat. ON EDGE: +25% damage while you stay untouched — but every hit is a FLASHBACK, and rooms you clear don't stay safe.",
     rx: "beta"
   },
+  insomnia: {
+    name: "Chronic Insomnia",
+    short: "Tired & Wired",
+    tag: "running on empty",
+    color: "#7fd4c8",
+    blurb: "You told him you hadn't slept since Tuesday. He asked which Tuesday. You couldn't say. He wrote that down, underlined, twice.",
+    mech: "SLEEP DEBT: your Sleep drains as you go. Run it low and you go WIRED — +40% damage & fire rate — but the ward dims and things that aren't there start shooting at you. POWER NAP restores sleep and heals — if you can afford to stand perfectly still.",
+    rx: "melatonin"
+  },
   fine: {
     name: "Perfectly Fine",
     short: "DENIAL (severe)",
@@ -250,6 +268,7 @@ DATA.ITEMS = {
   pillow:    { name: "The Good Pillow", quote: "The cold side. Always.", desc: "Heal a full heart at the start of every floor. Sleep is medicine, who knew. (Everyone. Everyone knew.)", pools: ["special", "shop"], apply(p) { p.flags.pillowHeal = true; } },
   papertrail:{ name: "Paper Trail", quote: "Document EVERYTHING.", desc: "Paperwork piles always drop something when destroyed.", pools: ["special"], apply(p) { p.flags.paperTrail = true; } },
   grouptherapy:{ name: "Group Therapy", quote: "Have you considered… joining us?", desc: "Your tears sometimes RECRUIT an enemy to the group — they fight for you until they burn out.", pools: ["special", "boss"], apply(p) { p.flags.charm = true; } },
+  buddy:     { name: "Buddy System", quote: "Nobody walks the ward alone.", desc: "A fellow patient joins your Support Group and fights alongside you for the rest of the run.", pools: ["special", "boss"], apply(p, G) { p.recruitAlly(G); } },
   blanket:   { name: "Weighted Blanket", quote: "14 pounds of 'no thanks'.", desc: "+2 hearts, -10% speed. You are safe. You are also slow.", pools: ["special", "shop"], apply(p) { p.maxhp += 4; p.hp += 4; p.spd *= 0.9; } },
 
   /* --- boss drops (Dosage line) --- */
@@ -292,7 +311,7 @@ DATA.ACHIEVEMENTS = [
   { id: 'ward22',   name: "No Known Cure",         desc: "Reach Ward 22.",                                hint: "Descend to Ward 22.",                      check: m => m.bestFloor >= 22 },
   { id: 'walrus1',  name: "Second Opinion, Denied", desc: "Defeat Dr. Walrus. Unlocks Perfectly Fine.",   hint: "Survive to Ward 5 and win.",               check: m => (m.walrusKills || 0) >= 1 },
   { id: 'walrus3',  name: "Malpractice Suit",      desc: "Defeat Dr. Walrus 3 times. Unlocks the Settlement.", hint: "Beat Dr. Walrus, repeatedly.",        check: m => (m.walrusKills || 0) >= 3, reward: "Malpractice Settlement" },
-  { id: 'allDiag',  name: "Hypochondriac",         desc: "Play all eight diagnoses.",                     hint: "Get diagnosed with everything.",           check: m => Object.keys(m.diagsPlayed || {}).length >= 8 },
+  { id: 'allDiag',  name: "Hypochondriac",         desc: "Play all nine diagnoses.",                     hint: "Get diagnosed with everything.",           check: m => Object.keys(m.diagsPlayed || {}).length >= 9 },
   { id: 'kills500', name: "Symptom Management",     desc: "Defeat 500 enemies (all runs).",                hint: "Keep managing symptoms.",                  check: m => (m.kills || 0) >= 500 },
   { id: 'overRx',   name: "Overprescribed",        desc: "Get overprescribed — 4 pills on one floor.",    hint: "Take a LOT of pills at once.",             check: m => !!m.everOverRx },
   { id: 'nohit',    name: "Clean Bill of Health",  desc: "Clear a whole floor without taking a hit.",     hint: "Survive a floor untouched.",               check: m => !!m.everNoHitFloor },
@@ -456,6 +475,7 @@ DATA.ABILITIES = {
   schizo:     { name: "Reality Check", cd: 10, blurb: "Pop every hallucination in the room and see through the rest." },
   ocd:        { name: "Recheck", cd: 9, blurb: "Check once more: wipe nearby bullets, reset the compulsion, lock in FOCUS." },
   ptsd:       { name: "5-4-3-2-1", cd: 10, blurb: "Ground yourself: wipe nearby danger, slow the room to a crawl, and come back to now." },
+  insomnia:   { name: "Power Nap", cd: 13, blurb: "Steal forty winks: refill Sleep, heal, and phase out untouchable — but you can't move or fire while you're out." },
   fine:       { name: "Denial", cd: 11, blurb: "\"I'm FINE.\" Briefly refuse to take damage." }
 };
 
@@ -490,6 +510,52 @@ DATA.DAYROOM = [
   { name: "The Regular",    line: "They rotate the pills but never the posters.",       note: "+1 luck",         apply(p) { p.luck += 1; } },
   { name: "The Quiet One",  line: "…",                                                  note: "a free pill",     apply(p) { if (p.pill == null) p.pill = U.randi(0, 9); } },
   { name: "The Newcomer",   line: "First time? Don't let Dr. Walrus rush you.",         note: "heal a full heart",apply(p) { p.heal(2); } }
+];
+
+/* ============ THE SUPPORT GROUP (recruitable AI party allies) ============
+   Fellow patients who follow you the whole run, each fighting in a diagnosis-
+   flavored way. Stored on p.allies (cap 3). `kind` drives the fire pattern in
+   the Ally class; downed allies revive when you clear a room. */
+DATA.ALLIES = [
+  { id: 'vet',      name: "The Veteran",      diag: "PTSD",     tint: '#c25a52', kind: 'heavy',    blurb: "Slow, heavy covering fire." },
+  { id: 'worrier',  name: "The Worrier",      diag: "Anxiety",  tint: '#43b8a5', kind: 'anxious',  blurb: "Rapid, scattered nerves." },
+  { id: 'firework', name: "The Firecracker",  diag: "Bipolar",  tint: '#b86bff', kind: 'manic',    blurb: "Manic bursts of three." },
+  { id: 'watcher',  name: "The Watcher",      diag: "Schizo.",  tint: '#ff7a9e', kind: 'paranoid', blurb: "Homing suspicion — never misses for long." },
+  { id: 'checker',  name: "The Perfectionist",diag: "OCD",      tint: '#6c7ff0', kind: 'precise',  blurb: "Symmetric twin shots." },
+  { id: 'sponsor',  name: "The Sponsor",      diag: "in recovery", tint: '#8fd05a', kind: 'basic', blurb: "Steady, dependable fire." }
+];
+
+/* ============ THE TREATMENT PLAN (between-run skill tree) ============
+   Earn ◆ Insight per run (recordRun); spend it on a permanent therapy-modality
+   talent tree. Applied at run start by G.applyTalents(). Progress in Meta. */
+DATA.TALENT_BRANCHES = [
+  { id: 'cbt',   name: 'CBT',   icon: '🧠', blurb: 'Cognitive Behavioral — sharpen your output.' },
+  { id: 'dbt',   name: 'DBT',   icon: '🛡', blurb: 'Dialectical Behavior — endure more.' },
+  { id: 'emdr',  name: 'EMDR',  icon: '💨', blurb: 'Reprocessing — move & recover faster.' },
+  { id: 'meds',  name: 'Meds',  icon: '💊', blurb: 'Medication Management — economy & pills.' },
+  { id: 'group', name: 'Group', icon: '🤝', blurb: 'Group Work — a stronger Support Group.' }
+];
+DATA.TALENTS = [
+  // CBT — damage
+  { id: 'cbt1', branch: 'cbt', tier: 1, name: 'Thought Records', desc: '+0.6 damage.', cost: 3, req: null, apply(p) { p.dmg += 0.6; } },
+  { id: 'cbt2', branch: 'cbt', tier: 2, name: 'Cognitive Restructuring', desc: '+0.8 damage.', cost: 6, req: 'cbt1', apply(p) { p.dmg += 0.8; } },
+  { id: 'cbt3', branch: 'cbt', tier: 3, name: 'Core Beliefs', desc: '+1.2 damage; tears fly faster.', cost: 12, req: 'cbt2', apply(p) { p.dmg += 1.2; p.shotSpd *= 1.12; } },
+  // DBT — survivability
+  { id: 'dbt1', branch: 'dbt', tier: 1, name: 'Distress Tolerance', desc: '+1 heart.', cost: 3, req: null, apply(p) { p.maxhp += 2; p.hp += 2; } },
+  { id: 'dbt2', branch: 'dbt', tier: 2, name: 'Grounding Skills', desc: 'Longer i-frames after a hit.', cost: 6, req: 'dbt1', apply(p) { p.iframeTime += 0.25; } },
+  { id: 'dbt3', branch: 'dbt', tier: 3, name: 'Radical Acceptance', desc: '+2 hearts.', cost: 12, req: 'dbt2', apply(p) { p.maxhp += 4; p.hp += 4; } },
+  // EMDR — mobility
+  { id: 'emdr1', branch: 'emdr', tier: 1, name: 'Bilateral Stimulation', desc: '+10% move speed.', cost: 3, req: null, apply(p) { p.spd *= 1.10; } },
+  { id: 'emdr2', branch: 'emdr', tier: 2, name: 'Rapid Processing', desc: 'Ability recharges 20% faster.', cost: 6, req: 'emdr1', apply(p) { p.abilMax *= 0.8; p.abilCd = Math.min(p.abilCd, p.abilMax); } },
+  { id: 'emdr3', branch: 'emdr', tier: 3, name: 'Reprocessing', desc: '+10% speed; start each floor with a breath of i-frames.', cost: 12, req: 'emdr2', apply(p) { p.spd *= 1.10; p.flags.floorGrace = true; } },
+  // Meds — economy / pills
+  { id: 'meds1', branch: 'meds', tier: 1, name: 'Formulary Access', desc: '+4 copays & +1 luck.', cost: 3, req: null, apply(p) { p.coins += 4; p.luck += 1; } },
+  { id: 'meds2', branch: 'meds', tier: 2, name: 'Titration', desc: '+8% fire rate.', cost: 6, req: 'meds1', apply(p) { p.tearDelay *= 0.92; } },
+  { id: 'meds3', branch: 'meds', tier: 3, name: 'Maintenance Dose', desc: 'Start with an identified pill in your pocket.', cost: 12, req: 'meds2', apply(p) { if (p.pill == null) p.pill = U.randi(0, 9); p.flags.pillsKnown = true; } },
+  // Group — allies
+  { id: 'grp1', branch: 'group', tier: 1, name: 'Peer Support', desc: 'Begin each run with a Support Group ally.', cost: 4, req: null, apply(p, G) { p.recruitAlly(G); } },
+  { id: 'grp2', branch: 'group', tier: 2, name: 'Facilitator', desc: 'Allies are tougher and hit harder.', cost: 7, req: 'grp1', apply(p) { p.flags.allyTough = true; } },
+  { id: 'grp3', branch: 'group', tier: 3, name: 'Full Circle', desc: 'Begin each run with a second ally.', cost: 14, req: 'grp2', apply(p, G) { p.recruitAlly(G); } }
 ];
 
 /* ============ MINI-EVENTS (non-combat choice rooms) ============ */

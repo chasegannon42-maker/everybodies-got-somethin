@@ -226,6 +226,7 @@ const G = {
         <button class="btn" id="bDaily">🗓️ DAILY WARD</button>
         <button class="btn minor" id="bFiles">📁 PATIENT FILES (choose your diagnosis)</button>
         <button class="btn minor" id="bPrognosis">🎲 PROGNOSIS (challenge runs)</button>
+        <button class="btn minor" id="bTreatment">🧠 TREATMENT PLAN (skill tree) · ◆ ${Meta.data.insight || 0}</button>
         <button class="btn minor" id="bChart">📋 PATIENT CHART (codex)</button>
         <div class="btnrow">
           <button class="btn minor" id="bStoryT">📖 CHART NOTES</button>
@@ -246,6 +247,7 @@ const G = {
     document.getElementById('bDaily').onclick = () => { SFX.init(); SFX.play('ui'); this.showDaily(); };
     document.getElementById('bFiles').onclick = () => { SFX.init(); SFX.play('ui'); this.showFiles(); };
     document.getElementById('bPrognosis').onclick = () => { SFX.init(); SFX.play('ui'); this.showPrognosis(); };
+    document.getElementById('bTreatment').onclick = () => { SFX.init(); SFX.play('ui'); this.showTreatmentPlan(() => this.showTitle()); };
     document.getElementById('bChart').onclick = () => { SFX.init(); SFX.play('ui'); this.showCodex(() => this.showTitle()); };
     document.getElementById('bStoryT').onclick = () => { SFX.init(); SFX.play('ui'); this.showStoryGallery(); };
     document.getElementById('bBestiaryT').onclick = () => { SFX.init(); SFX.play('ui'); this.showBestiary(() => this.showTitle()); };
@@ -329,7 +331,7 @@ const G = {
   showFiles() {
     this.state = 'files';
     const fineOpen = Meta.data.fineSeen || Meta.data.walrusKills > 0;
-    const order = ['adhd', 'bipolar', 'depression', 'anxiety', 'schizo', 'ocd', 'ptsd', 'fine'];
+    const order = ['adhd', 'bipolar', 'depression', 'anxiety', 'schizo', 'ocd', 'ptsd', 'insomnia', 'fine'];
     const cards = order.map(id => {
       const D = DATA.DIAG[id];
       const locked = id === 'fine' && !fineOpen;
@@ -400,7 +402,7 @@ const G = {
     this.quiz = {
       qs: U.shuffle(DATA.QUESTIONS).slice(0, 5),
       idx: 0,
-      scores: { adhd: 0, bipolar: 0, depression: 0, anxiety: 0, schizo: 0, ocd: 0, ptsd: 0, fine: 0 }
+      scores: { adhd: 0, bipolar: 0, depression: 0, anxiety: 0, schizo: 0, ocd: 0, ptsd: 0, insomnia: 0, fine: 0 }
     };
     this.overlay(`
       <div class="panel">
@@ -508,6 +510,7 @@ const G = {
     this.player = this.genSeed(['player'], () => new Player(diagId));
     this.applyCodexPerks(this.player);   // rewards earned by completing chart tabs
     this.applyPrognosis(this.player);    // challenge-run start effects
+    this.applyTalents(this.player);      // Treatment Plan (permanent skill-tree perks)
     this.pillAssign = this.genSeed(['pills'], () => U.shuffle(DATA.PILLS.map((_, i) => i)).slice(0, 10));
     this.pillKnown = new Set();
     this.depth = 1;
@@ -526,6 +529,13 @@ const G = {
     this.hideOverlay();
     SFX.setMusic('run');
     document.body.classList.add('inrun');
+  },
+
+  // Treatment Plan: apply every learned talent's start-of-run effect
+  applyTalents(p) {
+    const tal = Meta.data.talents || {};
+    for (const t of (DATA.TALENTS || [])) if (tal[t.id]) { try { t.apply(p, this); } catch (e) { } }
+    if (p.flags.allyTough) for (const a of p.allies) { a.maxhp = 4; a.hp = 4; a.dmgMul = 1.35; }   // retro-apply Facilitator to starting allies
   },
 
   // challenge-run start effects (Prognosis)
@@ -566,6 +576,10 @@ const G = {
     a.wardSum += this.depth;
     a.bestWard = Math.max(a.bestWard, this.depth);
     if (out === 'dead') { const C = Meta.data.causeAgg || (Meta.data.causeAgg = {}); C[cause] = (C[cause] || 0) + 1; }
+    // Treatment Plan currency: Insight scales with how far you got this run
+    const gained = Math.max(1, Math.round(this.depth * 1.5 + this.stats.bosses * 3 + this.stats.kills * 0.05 + (cured ? 15 : 0) + (walrus ? 5 : 0)));
+    Meta.data.insight = (Meta.data.insight || 0) + gained;
+    this._insightGained = gained;
     Meta.save();
   },
 
@@ -600,6 +614,7 @@ const G = {
     if (p._gymAdd) { p.dmg -= p._gymAdd; }
     p._gymAdd = 0;
     if (p.flags.pillowHeal) p.heal(2);
+    if (p.flags.floorGrace) p.iframes = Math.max(p.iframes, 1.5);   // EMDR Reprocessing: a breath of grace each floor
     if (p.flags.floorPill && p.pill == null) { p.pill = U.randi(0, 9); }   // Executive Dysfunction: a free pill each floor
     if (p.flags.crystals) {
       const roll = U.choice(['dmg', 'spd', 'tears', 'luck']);
@@ -666,6 +681,7 @@ const G = {
     else if (entryDir === 'E') { p.x = RX + 42; p.y = midY; }
     else if (entryDir === 'W') { p.x = RX + RW - 42; p.y = midY; }
     else { p.x = midX; p.y = RY + RH - 90; }
+    if (p.allies) for (const a of p.allies) { a.x = p.x + U.rand(-36, 36); a.y = p.y + U.rand(-36, 36); }   // group files in with you
 
     if (!room.spawned) this.populateRoom(room);
     this.doorsOpen = room.cleared;
@@ -777,6 +793,30 @@ const G = {
         room.peds.push({ x: RX + 90, y: RY + RH / 2, kind: 'cooler', taken: false });
         const npcs = U.shuffle(DATA.DAYROOM.map((_, i) => i)).slice(0, 3);
         npcs.forEach((ni, k) => room.peds.push({ x: CW / 2 - 20 + k * 150, y: RY + RH / 2 + (k % 2 ? 40 : -20), kind: 'npc', npcId: ni, taken: false }));
+        // and one patient looking for a group to join (The Support Group)
+        room.peds.push({ x: RX + RW - 96, y: RY + RH / 2 - 30, kind: 'recruit', allyId: DATA.ALLIES[U.randi(0, DATA.ALLIES.length - 1)].id, taken: false });
+        break;
+      }
+      case 'seclusion': {   // Seclusion Room — a sacrifice altar: bleed for escalating loot
+        room.cleared = true;
+        room.peds.push({ x: CW / 2, y: RY + RH / 2, kind: 'sacrifice', taken: false, count: 0 });
+        break;
+      }
+      case 'ect': {   // ECT Suite — a prize under a pulsing electrical discharge
+        room.cleared = true; room._ectActive = true; room._shockT = 1.2;
+        const pool = DATA.pickPool('special', p.items);
+        room.peds.push({ x: CW / 2, y: RY + RH / 2 + 10, itemId: U.choice(pool.length ? pool : DATA.POOLS.special), kind: 'item', taken: false, ectGuard: true });
+        break;
+      }
+      case 'padded': {   // Padded Cell — every bullet bounces; a combat room with extra reward
+        room.cleared = false; room.bouncy = true;
+        spawnEnemiesForRoom(room, this.depth, this);
+        room.pickups.push(new Pickup('half', RX + 70, RY + 70));
+        room.pickups.push(new Pickup('nickel', RX + RW - 70, RY + RH - 70));
+        break;
+      }
+      case 'observation': {   // Observation Room — evade the surveillance sweep long enough and you're discharged
+        room.cleared = true; room._watchT = 0; room._watchAng = 0; room._watchDone = false;
         break;
       }
     }
@@ -830,6 +870,8 @@ const G = {
     this.stats.rooms++;
     SFX.play('door');
     if (p.flags.gratitude && U.chance(0.25)) { p.heal(1); this.texts.push(new FloatText(p.x, p.y - 24, 'grateful +♥', '#8fd05a')); }
+    if (p.diag === 'insomnia') { p.sleep = U.clamp(p.sleep + 16, 0, 100); }   // a moment's quiet lets you catch your breath
+    if (p.allies) for (const a of p.allies) a.revive();   // downed group members get back up between rooms
     if (p.flags.gym && p._gymAdd < 1.5) { p._gymAdd += 0.15; p.dmg += 0.15; }
     if (U.chance(0.4)) {
       const type = U.choice(['coin', 'coin', 'half', 'pill', 'coin', 'key', 'bomb']);
@@ -1088,6 +1130,7 @@ const G = {
     const bossDark = this.boss && !this.boss.dead && (this.boss.id === 'stigma' || this.boss.id === 'dsm');
     if (!bossDark) {
       dtarget = Math.max(this.player.diag === 'depression' ? 0.14 : 0, this.floorDark || 0);
+      if (this.player.diag === 'insomnia' && this.player.wired) dtarget = Math.max(dtarget, 0.16 + (1 - this.player.sleep / 35) * 0.34);   // the ward dims as you tire
       this.darkTarget = dtarget;
     }
     this.dark = U.lerp(this.dark, dtarget, U.clamp(dt * 2.5, 0, 1));
@@ -1145,10 +1188,38 @@ const G = {
     }
     this.stamps = this.stamps.filter(s => s.t > -0.2);
 
-    // room clear (charmed allies don't count as threats keeping the doors shut)
+    // hazard rooms — the per-frame threats
     const room = this.room;
+    if (room.type === 'ect') {   // ECT Suite: the fixture discharges on a cycle until the prize is claimed
+      room._ectActive = room.peds.some(pd => pd.ectGuard && !pd.taken);
+      if (room._ectActive) {
+        room._shockT = (room._shockT || 0) - dt;
+        if (room._shockT <= 0) {
+          room._shockT = 2.7;
+          const cx = CW / 2, cy = RY + 40, n = 10 + Math.min(9, this.depth);
+          for (let i = 0; i < n; i++) { const a = (i / n) * TAU + (room._spin = (room._spin || 0) + 0.35); const b = new EBullet(cx, cy, Math.cos(a) * 210, Math.sin(a) * 210, 1, '#bfe3ff'); b._src = 'ect'; this.eBullets.push(b); }
+          this.shake = Math.max(this.shake, 7); SFX.play('boom');
+        }
+      }
+    } else if (room.type === 'observation' && !room._watchDone) {   // Observation: dodge the surveillance sweep to earn discharge
+      room._watchAng = (room._watchAng || 0) + dt * 1.15;
+      room._watchT = (room._watchT || 0) + dt;
+      const camX = CW / 2, camY = RY + 26;
+      const beamA = Math.sin(room._watchAng) * 1.15 + Math.PI / 2;   // sweeps a cone across the floor
+      const toP = Math.atan2(p.y - camY, p.x - camX);
+      const da = Math.atan2(Math.sin(toP - beamA), Math.cos(toP - beamA));
+      if (Math.abs(da) < 0.12 && p.iframes <= 0) { p.hurt(1, this, 'observation'); room._watchT = Math.max(0, room._watchT - 3.5); this.toast('SEEN.', '#e0d060'); }
+      if (room._watchT >= 9) {
+        room._watchDone = true;
+        const pool = DATA.pickPool('special', this.player.items);
+        this.peds.push({ x: CW / 2, y: RY + RH / 2, itemId: U.choice(pool.length ? pool : DATA.POOLS.special), kind: 'item', taken: false });
+        this.toast('Cleared for discharge.', '#8fd05a'); SFX.play('item');
+      }
+    }
+
+    // room clear (charmed allies don't count as threats keeping the doors shut)
     const hostiles = this.enemies.some(e => !e.charmed);
-    if (!room.cleared && room.type === 'normal' && room.spawned && !hostiles) this.onRoomCleared();
+    if (!room.cleared && (room.type === 'normal' || room.type === 'padded') && room.spawned && !hostiles) this.onRoomCleared();
     if (!room.cleared && room.type === 'boss' && this.boss && this.boss.dead && this.enemies.length === 0 && !room.cleared) {
       // onBossDead already ran via boss.die
     }
@@ -1164,6 +1235,26 @@ const G = {
       } else if (ped.kind === 'cooler') {   // Day Room water cooler
         if (p.hp < p.maxhp) { p.heal(2); ped.taken = true; this.texts.push(new FloatText(ped.x, ped.y - 30, '+♥ hydrated', '#8fd0e0')); SFX.play('heal'); }
         else if (this.lockCd <= 0) { this.lockCd = 1.0; this.toast('You feel fine. Physically.', '#8fd0e0'); }
+      } else if (ped.kind === 'sacrifice') {   // Seclusion Room — bleed on the altar for escalating loot
+        if (p.iframes <= 0 && this.lockCd <= 0) {
+          this.lockCd = 0.6;
+          ped.count = (ped.count || 0) + 1;
+          if (ped.count >= 4 && U.chance(0.55)) {   // a deep sacrifice: the ward finally provides
+            const pool = DATA.pickPool('special', p.items);
+            this.peds.push({ x: ped.x, y: ped.y - 62, itemId: U.choice(pool.length ? pool : DATA.POOLS.special), kind: 'item', taken: false });
+            ped.taken = true;
+            this.toast('The ward provides.', '#d08a8a'); SFX.play('item');
+          } else {
+            const n = 1 + Math.floor(ped.count / 2);
+            for (let i = 0; i < n; i++) this.pickups.push(new Pickup(U.choice(['coin', 'coin', 'nickel', 'pill', 'bomb', 'key']), ped.x + U.rand(-46, 46), ped.y + U.rand(34, 64)));
+            this.texts.push(new FloatText(ped.x, ped.y - 30, '−♥ offered', '#d08a8a'));
+          }
+          p.hurt(1, this, 'sacrifice');   // hurt() sets i-frames, so you can't spam the altar
+          this.shake = Math.max(this.shake, 6);
+        }
+      } else if (ped.kind === 'recruit') {   // Support Group — a fellow patient asks to join your party
+        if (p.allies.length >= 3) { if (this.lockCd <= 0) { this.lockCd = 1.2; this.toast('Your group is full (3).', '#8fd05a'); SFX.play('error'); } }
+        else { ped.taken = true; p.recruitAlly(this, ped.allyId); this.texts.push(new FloatText(ped.x, ped.y - 34, 'joined the group', '#8fd05a')); }
       } else if (ped.kind === 'npc') {   // Day Room patient — a line + a one-time boon
         const npc = DATA.DAYROOM[ped.npcId] || DATA.DAYROOM[0];
         ped.taken = true;
@@ -1563,6 +1654,41 @@ const G = {
     document.getElementById('bPrognBack').onclick = () => { SFX.play('ui'); (returnTo || (() => this.showTitle()))(); };
   },
 
+  /* ---------- Treatment Plan (between-run skill tree) ---------- */
+  showTreatmentPlan(returnTo) {
+    this.state = 'treatment';
+    const tal = Meta.data.talents || (Meta.data.talents = {});
+    const insight = Meta.data.insight || 0;
+    const owned = id => !!tal[id];
+    const canBuy = t => !owned(t.id) && insight >= t.cost && (!t.req || owned(t.req));
+    const cols = DATA.TALENT_BRANCHES.map(br => {
+      const nodes = DATA.TALENTS.filter(t => t.branch === br.id).sort((a, b) => a.tier - b.tier).map((t, i) => {
+        const state = owned(t.id) ? 'owned' : canBuy(t) ? 'avail' : 'locked';
+        return `${i ? '<div class="tallink"></div>' : ''}<button class="talnode ${state}" data-t="${t.id}" ${state === 'avail' ? '' : 'disabled'}>
+          <div class="talname">${t.name}</div>
+          <div class="taldesc">${t.desc}</div>
+          <div class="talcost">${owned(t.id) ? '✓ learned' : '◆ ' + t.cost}</div>
+        </button>`;
+      }).join('');
+      return `<div class="talcol"><div class="talhead">${br.icon} ${br.name}</div>${nodes}</div>`;
+    }).join('');
+    this.overlay(`
+      <div class="panel wide treat">
+        <h1 class="logo" style="font-size:26px">TREATMENT PLAN</h1>
+        <div class="tagline">permanent therapy skills · you have <b style="color:#8fd0e0">◆ ${insight} Insight</b></div>
+        <div class="talgrid">${cols}</div>
+        <button class="btn minor" id="bTreatBack">BACK</button>
+      </div>`);
+    document.querySelectorAll('.talnode[data-t]').forEach(b => b.onclick = () => {
+      const t = DATA.TALENTS.find(x => x.id === b.dataset.t);
+      if (!t || !canBuy(t)) { SFX.play('error'); return; }
+      Meta.data.insight -= t.cost; tal[t.id] = 1; Meta.save();
+      SFX.play('item');
+      this.showTreatmentPlan(returnTo);
+    });
+    document.getElementById('bTreatBack').onclick = () => { SFX.play('ui'); (returnTo || (() => this.showTitle()))(); };
+  },
+
   /* ---------- unlocks / achievements screen ---------- */
   showUnlocks(returnTo) {
     this.state = 'unlocks';
@@ -1592,7 +1718,7 @@ const G = {
 
   /* ---------- run history / real win-rate data ---------- */
   _causeName(c) {
-    const map = { spikes: 'Spike pit', ember: 'Burnout embers', explosion: 'an explosion', adjuster: "The Adjuster's stamp", bullet: 'a stray bullet', 'ocd-intrusive': 'intrusive thoughts', flashback: 'a flashback', unknown: 'unknown causes', quit: 'walked away', cured: 'reached the Cure' };
+    const map = { spikes: 'Spike pit', ember: 'Burnout embers', explosion: 'an explosion', adjuster: "The Adjuster's stamp", bullet: 'a stray bullet', 'ocd-intrusive': 'intrusive thoughts', flashback: 'a flashback', sacrifice: 'the Seclusion altar', ect: 'the ECT Suite', observation: 'the Observation sweep', unknown: 'unknown causes', quit: 'walked away', cured: 'reached the Cure' };
     if (map[c]) return map[c];
     if (DATA.ENEMIES[c]) return DATA.ENEMIES[c].name;
     if (DATA.BOSSES[c]) return DATA.BOSSES[c].name;
@@ -1769,7 +1895,10 @@ const G = {
     storyList: () => Object.keys(STORY),
     storyTick: (n) => { for (let i = 0; i < (n || 40); i++) if (G.state === 'cutscene') Story.update(0.05); if (G.state === 'cutscene') Story.draw(); return G.state === 'cutscene' ? { idx: Story.idx, typed: Math.floor(Story.typed), of: Story.fullText.length } : { done: true }; },
     storyPress: () => { if (G.state === 'cutscene') Story.press(); return G.state; },
-    storyGoto: (i) => { if (G.state === 'cutscene') { Story.idx = i; Story._loadPanel(); for (let k = 0; k < 60; k++) Story.update(0.05); Story.draw(); } }
+    storyGoto: (i) => { if (G.state === 'cutscene') { Story.idx = i; Story._loadPanel(); for (let k = 0; k < 60; k++) Story.update(0.05); Story.draw(); } },
+    treatment: () => { G.showTreatmentPlan(() => G.showTitle()); },
+    grantInsight: (n) => { Meta.data.insight = (Meta.data.insight || 0) + (n || 100); Meta.save(); return Meta.data.insight; },
+    learn: (id) => { (Meta.data.talents || (Meta.data.talents = {}))[id] = 1; Meta.save(); }
   };
 
   G.showTitle();

@@ -386,5 +386,24 @@ body.touch.inrun #padLand { display: block; }
 .wardname { font-weight: bold; font-size: clamp(15px, 3.6vw, 18px); color: #3a2a4a; }
 .wardcard .cmdesc { color: #6b5a4a; }
 .cmtag { font-size: clamp(11px, 2.8vw, 13px); color: #2c5a33; margin-top: 5px; font-style: italic; }
+/* Treatment Plan skill tree */
+.panel.treat { max-width: 880px; width: min(97vw, 880px); }
+.talgrid { display: flex; gap: 8px; margin: 14px 0; justify-content: center; overflow-x: auto; padding-bottom: 6px; }
+.talcol { display: flex; flex-direction: column; align-items: stretch; min-width: 120px; flex: 1 1 0; }
+.talhead { font-weight: bold; font-size: 14px; color: #2c2333; text-align: center; padding: 6px; background: #efe4d0; border: 2px solid #2c2333; border-radius: 8px; margin-bottom: 8px; }
+.tallink { width: 3px; height: 12px; background: #2c2333; opacity: 0.35; align-self: center; }
+.talnode { font-family: inherit; text-align: left; cursor: default; background: #fff; color: #2c2333; border: 3px solid #2c2333; border-radius: 10px; box-shadow: 0 3px 0 #2c2333; padding: 8px 10px; transition: transform .07s; }
+.talnode .talname { font-weight: bold; font-size: 13.5px; color: #3a2a4a; }
+.talnode .taldesc { font-size: 11.5px; color: #55445e; margin-top: 2px; line-height: 1.25; }
+.talnode .talcost { font-size: 12px; font-weight: bold; margin-top: 4px; }
+.talnode.avail { cursor: pointer; background: #fffef2; }
+.talnode.avail:hover { background: #ffe9bd; transform: translateY(-2px); }
+.talnode.avail:active { transform: translateY(2px); box-shadow: 0 1px 0 #2c2333; }
+.talnode.avail .talcost { color: #2c5a33; }
+.talnode.owned { background: #e6f3e0; border-color: #3a7a3a; box-shadow: 0 3px 0 #3a7a3a; }
+.talnode.owned .talname { color: #2c5a2c; }
+.talnode.owned .talcost { color: #3a7a3a; }
+.talnode.locked { opacity: 0.5; }
+.talnode.locked .talcost { color: #8a5a5a; }
 /* keep the portrait deck's 4 action buttons compact */
 .deckmid .deckbtn { padding: 8px 6px; }
