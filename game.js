@@ -208,7 +208,7 @@ const G = {
     SFX.setMusic('menu');
     document.body.classList.remove('inrun');
     const m = Meta.data;
-    this._startChronic = false; this._startBossRush = false;
+    this._startChronic = false; this._startBossRush = false; this._startPrognosis = null;
     const chronicOn = !!m.chronicUnlocked, bossRushOn = this.codexTabComplete('bosses');
     const ngRow = (chronicOn || bossRushOn) ? `<div class="btnrow">${chronicOn ? '<button class="btn minor" id="bChronic">🩸 CHRONIC MODE</button>' : ''}${bossRushOn ? '<button class="btn minor" id="bBossRush">☠ BOSS RUSH</button>' : ''}</div>` : '';
     const statsLine = m.runs > 0
@@ -225,6 +225,7 @@ const G = {
         <button class="btn" id="bStart">🩺 START CHECKUP</button>
         <button class="btn" id="bDaily">🗓️ DAILY WARD</button>
         <button class="btn minor" id="bFiles">📁 PATIENT FILES (choose your diagnosis)</button>
+        <button class="btn minor" id="bPrognosis">🎲 PROGNOSIS (challenge runs)</button>
         <button class="btn minor" id="bChart">📋 PATIENT CHART (codex)</button>
         <div class="btnrow">
           <button class="btn minor" id="bStoryT">📖 CHART NOTES</button>
@@ -244,6 +245,7 @@ const G = {
     document.getElementById('bStart').onclick = () => { SFX.init(); SFX.play('ui'); this.startCheckup(); };
     document.getElementById('bDaily').onclick = () => { SFX.init(); SFX.play('ui'); this.showDaily(); };
     document.getElementById('bFiles').onclick = () => { SFX.init(); SFX.play('ui'); this.showFiles(); };
+    document.getElementById('bPrognosis').onclick = () => { SFX.init(); SFX.play('ui'); this.showPrognosis(); };
     document.getElementById('bChart').onclick = () => { SFX.init(); SFX.play('ui'); this.showCodex(() => this.showTitle()); };
     document.getElementById('bStoryT').onclick = () => { SFX.init(); SFX.play('ui'); this.showStoryGallery(); };
     document.getElementById('bBestiaryT').onclick = () => { SFX.init(); SFX.play('ui'); this.showBestiary(() => this.showTitle()); };
@@ -327,7 +329,7 @@ const G = {
   showFiles() {
     this.state = 'files';
     const fineOpen = Meta.data.fineSeen || Meta.data.walrusKills > 0;
-    const order = ['adhd', 'bipolar', 'depression', 'anxiety', 'schizo', 'ocd', 'fine'];
+    const order = ['adhd', 'bipolar', 'depression', 'anxiety', 'schizo', 'ocd', 'ptsd', 'fine'];
     const cards = order.map(id => {
       const D = DATA.DIAG[id];
       const locked = id === 'fine' && !fineOpen;
@@ -398,7 +400,7 @@ const G = {
     this.quiz = {
       qs: U.shuffle(DATA.QUESTIONS).slice(0, 5),
       idx: 0,
-      scores: { adhd: 0, bipolar: 0, depression: 0, anxiety: 0, schizo: 0, ocd: 0, fine: 0 }
+      scores: { adhd: 0, bipolar: 0, depression: 0, anxiety: 0, schizo: 0, ocd: 0, ptsd: 0, fine: 0 }
     };
     this.overlay(`
       <div class="panel">
@@ -485,6 +487,8 @@ const G = {
     // run modifiers: Chronic Mode (NG+), Boss Rush, and the 'Second Opinion' easy toggle
     this.chronic = !!this._startChronic; this._startChronic = false;
     this.bossRush = !!this._startBossRush; this._startBossRush = false;
+    this.prognosis = this._startPrognosis || null; this._startPrognosis = null;   // challenge-run modifier
+    this.rapidMods = { dmg: 1, spd: 1, tears: 1, def: 1 };
     this.easy = !!(Meta.data.a11y && Meta.data.a11y.easy);
     this.wardPath = 'day';   // set by the Treatment Plan each descent
     this._cureBeaten = false;
@@ -503,6 +507,7 @@ const G = {
     Meta.save();
     this.player = this.genSeed(['player'], () => new Player(diagId));
     this.applyCodexPerks(this.player);   // rewards earned by completing chart tabs
+    this.applyPrognosis(this.player);    // challenge-run start effects
     this.pillAssign = this.genSeed(['pills'], () => U.shuffle(DATA.PILLS.map((_, i) => i)).slice(0, 10));
     this.pillKnown = new Set();
     this.depth = 1;
@@ -523,13 +528,27 @@ const G = {
     document.body.classList.add('inrun');
   },
 
+  // challenge-run start effects (Prognosis)
+  applyPrognosis(p) {
+    const pr = this.prognosis; if (!pr) return;
+    if (pr === 'glass') { p.maxhp = 2; p.hp = 2; p.dmg *= 3; }
+    if (pr === 'coldturkey') { p.pill = null; p.flags.noPills = true; }
+    if (pr === 'untreated') { p.flags.untreated = true; }
+    if (pr === 'pacifist') {
+      p.flags.pacifist = true;
+      ['dog', 'spinner', 'plush'].forEach(t => p.familiars.push(new Familiar(t)));   // a support crew, since you can't fire
+      p.bombs += 3;
+    }
+  },
+
   // Silent run-stats logger: one record per run (death / cure / quit) to localStorage.
   // Powers the Run History screen and accumulates real win-rate data over time.
   recordRun(out) {
     if (this._runLogged || !this.player) return;
     this._runLogged = true;
     const p = this.player;
-    const mode = this.chronic ? 'chronic' : this.bossRush ? 'bossrush' : this.dailyKind === 'daily' ? 'daily' : this.dailyKind === 'challenge' ? 'challenge' : 'normal';
+    const mode = this.prognosis ? this.prognosis : this.chronic ? 'chronic' : this.bossRush ? 'bossrush' : this.dailyKind === 'daily' ? 'daily' : this.dailyKind === 'challenge' ? 'challenge' : 'normal';
+    if (this.prognosis) { const pb = Meta.data.prognosisBest || (Meta.data.prognosisBest = {}); pb[this.prognosis] = Math.max(pb[this.prognosis] || 0, this.depth); }
     const cured = !!this._runCured || out === 'cured';
     const walrus = (Meta.data.walrusKills || 0) > (this._startWalrusKills || 0);
     const cause = out === 'dead' ? (p._lastSrc || 'unknown') : out;
@@ -623,9 +642,15 @@ const G = {
     // clear transients; contents live on the room object (shared refs)
     this.tears = []; this.eBullets = []; this.enemies = []; this.bombs = [];
     this.parts = []; this.texts = []; this.zones = []; this.stamps = [];
-    this.playerFired = false; this.healBeam = null;
+    this.playerFired = false; this.healBeam = null; this.slowmo = 0;
     this.tearsAura = false;
     this.hyperfixType = null;
+    // Rapid Cycling: every room re-prescribes you
+    if (this.prognosis === 'rapid') {
+      const sw = U.choice(DATA.RAPID_SWINGS);
+      this.rapidMods = Object.assign({ dmg: 1, spd: 1, tears: 1, def: 1 }, sw.mods);
+      this.toast('℞ ' + sw.name + ' — ' + sw.note, '#b86bff');
+    }
     this.boss = null;
     this.trapdoor = room.trapdoor || null;
     this.pickups = room.pickups;
@@ -675,6 +700,11 @@ const G = {
       }
       case 'item': {
         room.cleared = true;
+        if (p.flags.untreated) {   // Untreated: the Specialist has nothing for you — just a copay refund
+          room.pickups.push(new Pickup('pill', CW / 2, RY + RH / 2));
+          for (let i = 0; i < 3; i++) room.pickups.push(new Pickup('coin', CW / 2 + U.rand(-70, 70), RY + RH / 2 + U.rand(-40, 40)));
+          break;
+        }
         const pool = DATA.pickPool('special', p.items);
         const id1 = U.choice(pool.length ? pool : DATA.POOLS.special);
         if (p.flags.twoChoice) {
@@ -705,11 +735,13 @@ const G = {
           { type: 'key', price: px(5), x: RX + 650, y: yc, taken: false }
         ];
         // Generic vs Brand: two different meds — Brand (full price, clean) and Generic (cheaper, minor side-effect)
-        const pool = U.shuffle(DATA.pickPool('shop', p.items));
-        const src = pool.length ? pool : U.shuffle(DATA.POOLS.shop.slice());
-        room.peds.push({ x: RX + 500, y: yi, itemId: src[0], kind: 'shop', price: px(12), taken: false, variant: 'brand' });
-        room.peds.push({ x: RX + 300, y: yi, itemId: src[1] || src[0], kind: 'shop', price: px(7), taken: false, variant: 'generic' });
-        room.peds.push({ x: RX + 110, y: yi, kind: 'restock', price: px(6), taken: false });
+        if (!p.flags.untreated) {   // Untreated keeps the consumables shelf, but no med pedestals
+          const pool = U.shuffle(DATA.pickPool('shop', p.items));
+          const src = pool.length ? pool : U.shuffle(DATA.POOLS.shop.slice());
+          room.peds.push({ x: RX + 500, y: yi, itemId: src[0], kind: 'shop', price: px(12), taken: false, variant: 'brand' });
+          room.peds.push({ x: RX + 300, y: yi, itemId: src[1] || src[0], kind: 'shop', price: px(7), taken: false, variant: 'generic' });
+          room.peds.push({ x: RX + 110, y: yi, kind: 'restock', price: px(6), taken: false });
+        }
         this.shopStock = room.stock;
         break;
       }
@@ -721,7 +753,7 @@ const G = {
       case 'secret': {
         room.cleared = true;
         for (let i = 0; i < U.randi(2, 4); i++) room.pickups.push(new Pickup(U.choice(['coin', 'coin', 'nickel', 'pill']), CW / 2 + U.rand(-90, 90), RY + RH / 2 + U.rand(-60, 60)));
-        if (U.chance(0.3)) {
+        if (U.chance(0.3) && !p.flags.untreated) {
           const pool = DATA.pickPool('special', p.items);
           room.peds.push({ x: CW / 2, y: RY + RH / 2, itemId: U.choice(pool.length ? pool : DATA.POOLS.special), kind: 'item', taken: false });
         }
@@ -729,6 +761,7 @@ const G = {
       }
       case 'oon': {
         room.cleared = true;
+        if (p.flags.untreated) { for (let i = 0; i < 4; i++) room.pickups.push(new Pickup('nickel', CW / 2 + U.rand(-70, 70), RY + RH / 2 + U.rand(-40, 40))); break; }
         const pool = DATA.pickPool('oon', p.items);
         room.peds.push({ x: CW / 2, y: RY + RH / 2, itemId: U.choice(pool.length ? pool : DATA.POOLS.oon), kind: 'oon', price: 1, taken: false });
         break;
@@ -737,6 +770,13 @@ const G = {
         room.cleared = true;
         const ev = U.randi(0, DATA.EVENTS.length - 1);
         room.peds.push({ x: CW / 2, y: RY + RH / 2, kind: 'event', eventId: ev, taken: false });
+        break;
+      }
+      case 'dayroom': {   // The Day Room — a sanctuary: a water cooler + a few other patients
+        room.cleared = true;
+        room.peds.push({ x: RX + 90, y: RY + RH / 2, kind: 'cooler', taken: false });
+        const npcs = U.shuffle(DATA.DAYROOM.map((_, i) => i)).slice(0, 3);
+        npcs.forEach((ni, k) => room.peds.push({ x: CW / 2 - 20 + k * 150, y: RY + RH / 2 + (k % 2 ? 40 : -20), kind: 'npc', npcId: ni, taken: false }));
         break;
       }
     }
@@ -795,6 +835,15 @@ const G = {
       const type = U.choice(['coin', 'coin', 'half', 'pill', 'coin', 'key', 'bomb']);
       this.pickups.push(new Pickup(type, CW / 2 + U.rand(-40, 40), RY + RH / 2 + U.rand(-30, 30)));
     }
+    // PTSD: the room you just fought in doesn't stay safe — flashback trigger-zones linger
+    if (p.diag === 'ptsd' && room.spawned) {
+      for (let i = 0; i < 2; i++) {
+        const zx = U.clamp(CW / 2 + U.rand(-RW * 0.32, RW * 0.32), RX + 60, RX + RW - 60);
+        const zy = U.clamp(RY + RH / 2 + U.rand(-RH * 0.28, RH * 0.28), RY + 60, RY + RH - 60);
+        if (U.dist(zx, zy, p.x, p.y) < 90) continue;   // don't drop one on top of you
+        this.zones.push(new Zone(zx, zy, 26, 40, 'trigger', '#c25a52'));
+      }
+    }
   },
 
   onBossDead() {
@@ -823,8 +872,9 @@ const G = {
     // rewards (seeded per ward so a daily's boss loot & OON door match for everyone)
     this.genSeed(['reward', this.depth], () => {
       const bossPool = DATA.POOLS.boss;
-      room.peds.push({ x: CW / 2 - 90, y: RY + RH / 2 + 40, itemId: U.choice(bossPool), kind: 'boss', taken: false });
-      if (this.bossId === 'walrus') {
+      if (p.flags.untreated) { for (let i = 0; i < 4; i++) this.pickups.push(new Pickup(i ? 'coin' : 'pill', CW / 2 + U.rand(-70, 70), RY + RH / 2 + U.rand(-30, 30))); }
+      else room.peds.push({ x: CW / 2 - 90, y: RY + RH / 2 + 40, itemId: U.choice(bossPool), kind: 'boss', taken: false });
+      if (this.bossId === 'walrus' && !p.flags.untreated) {
         const pool = DATA.pickPool('special', p.items);
         room.peds.push({ x: CW / 2 + 90, y: RY + RH / 2 + 40, itemId: U.choice(pool.length ? pool : DATA.POOLS.special), kind: 'boss', taken: false });
       }
@@ -920,6 +970,7 @@ const G = {
   /* ---------- pills ---------- */
   usePill() {
     const p = this.player;
+    if (p.flags.noPills) { if (this.lockCd <= 0) { this.lockCd = 1.2; this.toast('Cold turkey. No pills.', '#8ab0d0'); SFX.play('error'); } return; }
     if (p.pill == null) return;
     const pillIdx = this.pillAssign[p.pill];
     const pill = DATA.PILLS[pillIdx];
@@ -1047,7 +1098,9 @@ const G = {
 
     const p = this.player;
     this.playerFired = false;
-    p.update(dt, this);
+    this.slowmo = Math.max(0, (this.slowmo || 0) - dt);
+    p.update(dt, this);   // PTSD near-miss / 5-4-3-2-1 may bump this.slowmo
+    const smf = this.slowmo > 0 ? 0.4 : 1;   // hypervigilance: the threats crawl, you don't
 
     // inputs
     if (Input.take('ability')) p.useAbility(this);
@@ -1060,13 +1113,13 @@ const G = {
     if (Input.take('pause')) { this.showPause(); return; }
     if (Input.take('mute')) { const mu = SFX.toggleMute(); this.toast(mu ? 'muted' : 'unmuted'); }
 
-    // entities
-    for (const e of this.enemies) e.update(dt, this);
+    // entities (slowmo scales the threats; the player and their tears stay at full speed)
+    for (const e of this.enemies) e.update(dt * smf, this);
     this.enemies = this.enemies.filter(e => !e.dying);
-    if (this.boss) this.boss.update(dt, this);
+    if (this.boss) this.boss.update(dt * smf, this);
     for (const t of this.tears) t.update(dt, this);
     this.tears = this.tears.filter(t => !t.dead);
-    for (const b of this.eBullets) b.update(dt, this);
+    for (const b of this.eBullets) b.update(dt * smf, this);
     this.eBullets = this.eBullets.filter(b => !b.dead);
     for (const b of this.bombs) b.update(dt, this);
     this.bombs = this.bombs.filter(b => !b.dead);
@@ -1092,9 +1145,10 @@ const G = {
     }
     this.stamps = this.stamps.filter(s => s.t > -0.2);
 
-    // room clear
+    // room clear (charmed allies don't count as threats keeping the doors shut)
     const room = this.room;
-    if (!room.cleared && room.type === 'normal' && room.spawned && this.enemies.length === 0) this.onRoomCleared();
+    const hostiles = this.enemies.some(e => !e.charmed);
+    if (!room.cleared && room.type === 'normal' && room.spawned && !hostiles) this.onRoomCleared();
     if (!room.cleared && room.type === 'boss' && this.boss && this.boss.dead && this.enemies.length === 0 && !room.cleared) {
       // onBossDead already ran via boss.die
     }
@@ -1107,6 +1161,16 @@ const G = {
       if (ped.kind === 'event') {
         this.showEvent(DATA.EVENTS[ped.eventId], ped);
         return;   // pause the loop; modal is up
+      } else if (ped.kind === 'cooler') {   // Day Room water cooler
+        if (p.hp < p.maxhp) { p.heal(2); ped.taken = true; this.texts.push(new FloatText(ped.x, ped.y - 30, '+♥ hydrated', '#8fd0e0')); SFX.play('heal'); }
+        else if (this.lockCd <= 0) { this.lockCd = 1.0; this.toast('You feel fine. Physically.', '#8fd0e0'); }
+      } else if (ped.kind === 'npc') {   // Day Room patient — a line + a one-time boon
+        const npc = DATA.DAYROOM[ped.npcId] || DATA.DAYROOM[0];
+        ped.taken = true;
+        try { npc.apply(p, this); } catch (e) { }
+        this.toast('“' + npc.line + '”', '#c8b0e0');
+        this.texts.push(new FloatText(ped.x, ped.y - 34, npc.note, '#8fd05a'));
+        SFX.play('voice');
       } else if (ped.kind === 'oon') {
         if (p.maxhp >= 4) {
           p.maxhp -= 2; p.hp = Math.min(p.hp, p.maxhp);
@@ -1478,6 +1542,27 @@ const G = {
     document.getElementById('bBestBack').onclick = () => { SFX.play('ui'); this._bestiary = null; (returnTo || (() => this.showTitle()))(); };
   },
 
+  /* ---------- PROGNOSIS: challenge-run picker ---------- */
+  showPrognosis(returnTo) {
+    this.state = 'prognosis';
+    const best = Meta.data.prognosisBest || {};
+    const cards = DATA.PROGNOSES.map(pr => `
+      <button class="cmcard" data-p="${pr.id}">
+        <div class="cmname">${pr.icon} ${pr.name}</div>
+        <div class="cmdesc">${pr.desc}</div>
+        <div class="cmtag">${best[pr.id] ? '★ best: ward ' + best[pr.id] : 'unattempted'}</div>
+      </button>`).join('');
+    this.overlay(`
+      <div class="panel wide">
+        <h1 class="logo" style="font-size:26px">PROGNOSIS</h1>
+        <div class="tagline">challenge runs · pick your poison, then your patient</div>
+        <div class="cmgrid">${cards}</div>
+        <button class="btn minor" id="bPrognBack">BACK</button>
+      </div>`);
+    document.querySelectorAll('.cmcard[data-p]').forEach(b => b.onclick = () => { SFX.play('ui'); this._startPrognosis = b.dataset.p; this.showFiles(); });
+    document.getElementById('bPrognBack').onclick = () => { SFX.play('ui'); (returnTo || (() => this.showTitle()))(); };
+  },
+
   /* ---------- unlocks / achievements screen ---------- */
   showUnlocks(returnTo) {
     this.state = 'unlocks';
@@ -1507,7 +1592,7 @@ const G = {
 
   /* ---------- run history / real win-rate data ---------- */
   _causeName(c) {
-    const map = { spikes: 'Spike pit', ember: 'Burnout embers', explosion: 'an explosion', adjuster: "The Adjuster's stamp", bullet: 'a stray bullet', 'ocd-intrusive': 'intrusive thoughts', unknown: 'unknown causes', quit: 'walked away', cured: 'reached the Cure' };
+    const map = { spikes: 'Spike pit', ember: 'Burnout embers', explosion: 'an explosion', adjuster: "The Adjuster's stamp", bullet: 'a stray bullet', 'ocd-intrusive': 'intrusive thoughts', flashback: 'a flashback', unknown: 'unknown causes', quit: 'walked away', cured: 'reached the Cure' };
     if (map[c]) return map[c];
     if (DATA.ENEMIES[c]) return DATA.ENEMIES[c].name;
     if (DATA.BOSSES[c]) return DATA.BOSSES[c].name;

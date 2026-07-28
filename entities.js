@@ -73,6 +73,7 @@ class Player {
     this.moodT = 0; this.mania = true;
     this.focusT = 0; this.focused = false;
     this.compulsion = 0; this.buffT = 0; this._hadLive = false;   // OCD
+    this.lastHitT = 999; this.startleT = 0;   // PTSD (On Edge timer + startle cooldown)
     this.adren = false;
     this.blanket = (diagId === 'depression');
     this.pillsThisFloor = 0;
@@ -95,6 +96,7 @@ class Player {
     if (diagId === 'anxiety') { this.maxhp = 4; this.hp = 4; this.spd *= 1.1; }
     if (diagId === 'schizo') { this.dmg *= 1.2; }
     if (diagId === 'ocd') { this.tearDelay *= 1.06; this.wobble = 0; this.flags.noWobble = true; }   // twin symmetric shot, no wander
+    if (diagId === 'ptsd') { this.maxhp = 6; this.hp = 6; this.iframeTime = 1.4; }   // hypervigilant; a hit lingers longer
     if (diagId === 'fine') { this.flags.fineMode = true; }
     const D = DATA.DIAG[diagId];
     if (D && D.rx) this.addItem(D.rx, null, true);
@@ -138,6 +140,7 @@ class Player {
     if (this.tempSlow > 0) s *= 0.6;
     if (this.inZoneSlow) s *= 0.62;
     if (this.cocoonT > 0) s *= 0.4;   // Under The Covers
+    if (G && G.rapidMods) s *= G.rapidMods.spd;   // Rapid Cycling
     return s;
   }
   /* signature 'PRN' ability, one per diagnosis */
@@ -192,6 +195,15 @@ class Player {
         G.toast('checked. everything\'s fine.', '#6c7ff0'); SFX.play('ui');
         break;
       }
+      case 'ptsd': {   // 5-4-3-2-1 — ground yourself: wipe nearby danger, slow the room, come back to now
+        for (const b of G.eBullets) if (U.dist(this.x, this.y, b.x, b.y) < 160) b.fizzle(G);
+        G.slowmo = Math.max(G.slowmo || 0, 2.2);   // the room crawls while you count
+        this.iframes = Math.max(this.iframes, 0.5); this.lastHitT = 6; this.startleT = 2.2;
+        G.darkTarget = 0;
+        for (let i = 0; i < 5; i++) { const a = (i / 5) * TAU - Math.PI / 2; G.parts.push(new Particle(this.x + Math.cos(a) * 22, this.y + Math.sin(a) * 22, 0, 0, 0.8, '#c8a878', 4)); }
+        G.toast('5… 4… 3… 2… 1.', '#c8a878'); SFX.play('whoosh');
+        break;
+      }
       case 'fine': {   // Denial — briefly refuse to take damage
         this.iframes = Math.max(this.iframes, 1.5);
         G.toast('"I\'m FINE."', '#9e9e9e'); SFX.play('ui');
@@ -210,6 +222,8 @@ class Player {
     if (this.adren) d *= 1.1;   // anxiety: adrenaline sharpens damage when danger is close
     if (this.flags.fineMode) d *= 1.15;
     if (this.flags.rsd && this.hp >= this.maxhp) d *= 1.22;   // rejection sensitivity: prove them wrong at full HP
+    if (this.diag === 'ptsd' && this.lastHitT > 4) d *= 1.25;   // On Edge: calm and sharp until you're hit
+    if (G && G.rapidMods) d *= G.rapidMods.dmg;   // Rapid Cycling
     return d;
   }
   effTearDelay() {
@@ -217,6 +231,7 @@ class Player {
     if (this.adren) t *= 0.85;
     if (this.flags.fineMode) t *= 0.94;
     if (G && G.tearsAura) t *= 1.3;
+    if (G && G.rapidMods) t *= G.rapidMods.tears;   // Rapid Cycling (tears>1 = slower)
     return Math.max(0.09, t);
   }
 
@@ -270,12 +285,33 @@ class Player {
       if (this.compulsion >= 100) { this.compulsion = 55; this.hurt(1, G, 'ocd-intrusive'); G.shake = Math.max(G.shake, 4); G.toast('intrusive thought', '#cbb8e8'); }
     }
 
+    // PTSD hypervigilance: track how long since a hit (On Edge), and let a near-miss slow time
+    if (this.diag === 'ptsd') {
+      this.lastHitT += dt; this.startleT -= dt;
+      for (const b of G.eBullets) {
+        if (b.fake || b.dead) continue;
+        const d = U.dist(this.x, this.y, b.x, b.y);
+        if (d < 30 && d > this.r) {   // a shot just grazed you — the world lurches
+          const toward = (b.x - this.x) * b.vx + (b.y - this.y) * b.vy < 0;
+          if (toward) { G.slowmo = Math.max(G.slowmo || 0, 0.16); break; }
+        }
+      }
+    }
+
     // zone effects
     this.inZoneSlow = false;
     for (const z of G.zones) {
       if (U.dist(this.x, this.y, z.x, z.y) < z.r + this.r * 0.4) {
         if (z.kind === 'slow' || z.kind === 'ash' || z.kind === 'tolerance') this.inZoneSlow = true;
         if (z.kind === 'ember' && this.iframes <= 0) this.hurt(1, G, 'ember');
+        // PTSD flashback trigger-zone: a cleared room's leftover memory startles you
+        if (z.kind === 'trigger' && this.startleT <= 0 && this.iframes <= 0) {
+          this.startleT = 1.8; this.hurt(1, G, 'flashback');
+          G.shake = Math.max(G.shake, 8); G.darkTarget = Math.max(G.darkTarget || 0, 0.5);
+          for (let i = 0; i < 5; i++) { const a = (i / 5) * TAU + 0.3; const b = new EBullet(this.x, this.y, Math.cos(a) * 120, Math.sin(a) * 120, 1, '#c25a52'); b._src = 'flashback'; b.life = 2.2; G.eBullets.push(b); }
+          z.dead = true;   // the memory surfaces once, then fades
+          G.toast('flashback', '#c25a52'); SFX.play('hurt');
+        }
       }
     }
 
@@ -292,7 +328,7 @@ class Player {
     // shooting
     const aim = Input.getAim(this.x, this.y);
     if (aim) this.aimAng = Math.atan2(aim.y, aim.x);
-    if (aim && this.tearTimer <= 0 && this.itemHold <= 0.6) {
+    if (aim && this.tearTimer <= 0 && this.itemHold <= 0.6 && !this.flags.pacifist) {   // Pacifist: no tears — familiars & Claim Forms only
       this.tearTimer = this.effTearDelay();
       let a = Math.atan2(aim.y, aim.x);
       let wob = this.flags.noWobble ? 0 : this.wobble * (this.focused ? 0.3 : 1);
@@ -328,11 +364,13 @@ class Player {
       return;
     }
     if (this.diag === 'bipolar' && !this.flags.stable && !this.mania) n = Math.max(1, Math.floor(n / 2));
+    if (G.rapidMods && G.rapidMods.def !== 1) n = Math.max(1, Math.round(n * G.rapidMods.def));   // Rapid Cycling defense swing
     if (G.easy) n = Math.max(1, Math.ceil(n * 0.5));   // 'Second Opinion' easy mode
     if (src) this._lastSrc = src;   // cause-of-death tracking for run log
     this.hp -= n;
     this.iframes = this.iframeTime;
     this.hurtFlash = 0.35;
+    if (this.diag === 'ptsd') { this.lastHitT = 0; if (src !== 'flashback') G.darkTarget = Math.max(G.darkTarget || 0, 0.4); }   // a hit ends On Edge and jolts a flashback
     G.floorHits = (G.floorHits || 0) + 1;
     G.shake = Math.max(G.shake, 9);
     SFX.play('hurt');
@@ -362,7 +400,7 @@ class Tear {
   update(dt, G) {
     if (this.home) {   // homing tears (Rumination comorbidity)
       let tx = null, ty = null, bd = 1e9;
-      for (const e of G.enemies) { if (e.dying || e.fake || e.spawnT > 0) continue; const d = U.dist(this.x, this.y, e.x, e.y); if (d < bd) { bd = d; tx = e.x; ty = e.y; } }
+      for (const e of G.enemies) { if (e.dying || e.fake || e.spawnT > 0 || e.charmed) continue; const d = U.dist(this.x, this.y, e.x, e.y); if (d < bd) { bd = d; tx = e.x; ty = e.y; } }
       if (tx == null && G.boss && !G.boss.dead) { tx = G.boss.x; ty = G.boss.y; }
       if (tx != null) {
         const want = U.ang(this.x, this.y, tx, ty), cur = Math.atan2(this.vy, this.vx);
@@ -384,12 +422,18 @@ class Tear {
     }
     // hit enemies
     for (const e of G.enemies) {
-      if (e.dying || e.spawnT > 0.15) continue;
+      if (e.dying || e.spawnT > 0.15 || e.charmed) continue;   // charmed allies aren't targets
       if (U.dist(this.x, this.y, e.x, e.y) < this.r + e.r) {
         let d = this.dmg;
         if (G.player.flags.hyperfix && G.hyperfixType === e.id) d *= 1.5;
         if (G.player.flags.hpBars && e.hp >= e.maxhp) d *= 1.15;
         e.hurt(d, G);
+        // Peer Support: a chance the shot recruits them to the group instead of just hurting
+        if (G.player.flags.charm && !e.fake && !e.dying && e.hp > 0 && U.chance(0.16)) {
+          e.charmed = true; e.charmIdleT = 0; e.hp = Math.max(e.hp, e.maxhp * 0.5);
+          G.toast('recruited to the group', '#8fd05a'); SFX.play('heal');
+          for (let i = 0; i < 8; i++) { const a = (i / 8) * TAU; G.parts.push(new Particle(e.x, e.y, Math.cos(a) * 120, Math.sin(a) * 120, 0.5, '#8fd05a', 3)); }
+        }
         e.x += this.vx * 0.014; e.y += this.vy * 0.014; // knockback
         this.splash(G);
         return;
@@ -488,6 +532,7 @@ class Enemy {
     this.spawnT = 0.55;
     this.dying = false; this.deadDone = false;
     this.noDrop = false;
+    this.charmed = false; this.charmIdleT = 0;   // Peer Support (recruited ally)
     this.fuse = -1; // redflag
     this.dashDir = null;
     this.wanderA = U.rand(0, TAU);
@@ -499,6 +544,25 @@ class Enemy {
     if (this.spawnT > 0) { this.spawnT -= dt; return; }
     if (this.dying) return;
     const p = G.player;
+    // Peer Support: a recruited ally hunts other enemies, harmless to you, and burns out when the danger's gone
+    if (this.charmed) {
+      let tgt = null, bd = 1e9;
+      for (const e of G.enemies) { if (e === this || e.charmed || e.dying || e.fake || e.spawnT > 0) continue; const d = U.dist(this.x, this.y, e.x, e.y); if (d < bd) { bd = d; tgt = e; } }
+      if (G.boss && !G.boss.dead && G.boss.vulnerable !== false) { const d = U.dist(this.x, this.y, G.boss.x, G.boss.y); if (d < bd) { bd = d; tgt = G.boss; } }
+      if (tgt) {
+        this.charmIdleT = 0;
+        const a = U.ang(this.x, this.y, tgt.x, tgt.y);
+        this.x += Math.cos(a) * this.spd * 1.1 * dt; this.y += Math.sin(a) * this.spd * 1.1 * dt;
+        if (bd < this.r + tgt.r + 3) { tgt.hurt(this.dmg * 3.5 * dt, G, true); this.hurt(0.9 * dt, G, true); }   // trades blows, slowly burning out
+      } else {   // no threats left — drift to the player, then fade (its work is done)
+        this.charmIdleT += dt;
+        const a = U.ang(this.x, this.y, p.x, p.y);
+        if (U.dist(this.x, this.y, p.x, p.y) > 64) { this.x += Math.cos(a) * this.spd * 0.5 * dt; this.y += Math.sin(a) * this.spd * 0.5 * dt; }
+        if (this.charmIdleT > 1.6) { this.dying = true; this.deadDone = true; for (let i = 0; i < 6; i++) G.parts.push(new Particle(this.x, this.y, U.rand(-60, 60), U.rand(-60, 60), 0.5, '#8fd05a', 3)); }
+      }
+      this.x = U.clamp(this.x, RX + this.r, RX + RW - this.r); this.y = U.clamp(this.y, RY + this.r, RY + RH - this.r);
+      return;
+    }
     const slowF = (G.enemySlow > 0 ? 0.55 : 1) * (p.flags.slowField ? 0.88 : 1);   // Analysis Paralysis slows the room
     const S = this.spd * slowF;
 

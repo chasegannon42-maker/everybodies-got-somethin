@@ -152,6 +152,9 @@ const Render = {
     vg.addColorStop(0, 'rgba(0,0,0,0.28)'); vg.addColorStop(1, 'rgba(0,0,0,0)');
     x.fillStyle = vg; x.fillRect(RX - 6, RY - 6, RW + 12, 32);
 
+    // thematic dressing — make the room read as a real place in the ward
+    if (room.theme) { try { this.drawRoomDecor(x, room.theme, rnd); } catch (e) { } }
+
     // vignette over the whole play area (Isaac moodiness)
     const vig = x.createRadialGradient(CW / 2, RY + RH / 2, RH * 0.42, CW / 2, RY + RH / 2, RH * 1.18);
     vig.addColorStop(0, 'rgba(0,0,0,0)');
@@ -162,6 +165,51 @@ const Render = {
 
     room._bg = cv;
     return cv;
+  },
+
+  /* thematic room dressing baked into the floor: silhouetted props near the walls
+     so each generated room reads as records office / pharmacy / therapy / etc. */
+  drawRoomDecor(x, theme, rnd) {
+    const dark = 'rgba(16,11,16,0.30)', mid = 'rgba(16,11,16,0.20)', ink = 'rgba(255,250,240,0.06)';
+    const flip = rnd() < 0.5 ? 1 : -1;
+    const midX = CW / 2, topY = RY + 30, botY = RY + RH - 26;
+    // faint stencil text on the floor (a stamp / sign)
+    const stencil = (txt, px, py, rot, col) => { x.save(); x.translate(px, py); x.rotate(rot); x.fillStyle = col || 'rgba(150,110,60,0.10)'; x.font = 'bold 20px ui-monospace, monospace'; x.textAlign = 'center'; x.fillText(txt, 0, 0); x.restore(); };
+    const box = (px, py, w, h) => { x.fillStyle = dark; this.rr(x, px, py, w, h, 3); x.fill(); x.fillStyle = ink; this.rr(x, px + 2, py + 2, w - 4, 4, 2); x.fill(); };
+    if (theme === 'records') {
+      for (let i = 0; i < 3; i++) box(RX + 22 + i * 30, topY, 26, 58);   // filing cabinets
+      x.fillStyle = mid; for (let i = 0; i < 3; i++) for (let r = 0; r < 3; r++) x.fillRect(RX + 26 + i * 30, topY + 8 + r * 17, 18, 2);
+      x.fillStyle = mid; this.rr(x, RX + RW - 70, botY - 14, 44, 16, 2); x.fill();   // paperwork pile
+      stencil('CONFIDENTIAL', midX + flip * 120, RY + RH * 0.62, -0.25, 'rgba(178,54,54,0.09)');
+    } else if (theme === 'pharmacy') {
+      for (let s = 0; s < 2; s++) { const sy = topY + s * 34; x.fillStyle = dark; x.fillRect(RX + 26, sy, 150, 6); for (let b = 0; b < 8; b++) { x.fillStyle = mid; this.rr(x, RX + 30 + b * 18, sy - 12, 10, 13, 2); x.fill(); } }
+      stencil('℞', RX + RW - 70, RY + RH * 0.4, 0, 'rgba(120,150,120,0.12)');
+    } else if (theme === 'therapy') {
+      x.fillStyle = dark; this.rr(x, midX - 80 * flip - 44, botY - 26, 88, 30, 8); x.fill();   // couch
+      x.fillStyle = mid; this.rr(x, midX - 80 * flip - 44, botY - 40, 88, 16, 8); x.fill();
+      x.fillStyle = dark; x.beginPath(); x.arc(RX + RW - 40, topY + 26, 9, 0, TAU); x.fill();   // plant pot
+      x.strokeStyle = mid; x.lineWidth = 3; x.beginPath(); x.moveTo(RX + RW - 40, topY + 20); x.lineTo(RX + RW - 46, topY + 4); x.moveTo(RX + RW - 40, topY + 20); x.lineTo(RX + RW - 33, topY + 6); x.stroke();
+      stencil('HOW DOES THAT', midX, topY + 6, 0, 'rgba(150,110,60,0.09)');
+    } else if (theme === 'breakroom') {
+      box(RX + 26, topY, 34, 62); x.fillStyle = 'rgba(60,90,110,0.14)'; x.fillRect(RX + 30, topY + 8, 26, 26);   // vending machine
+      x.fillStyle = dark; this.rr(x, RX + RW - 90, botY - 20, 60, 22, 4); x.fill();   // table
+      x.strokeStyle = 'rgba(150,110,60,0.14)'; x.lineWidth = 2; for (let i = 0; i < 2; i++) { x.beginPath(); x.arc(RX + RW - 74 + i * 30, botY - 26, 6, 0, Math.PI * 1.6); x.stroke(); }   // coffee rings
+    } else if (theme === 'group') {
+      const cx = midX, cy = RY + RH / 2, R = 88;   // a circle of folding chairs
+      x.strokeStyle = mid; x.lineWidth = 2;
+      for (let i = 0; i < 7; i++) { const a = i / 7 * TAU + 0.3; const px = cx + Math.cos(a) * R, py = cy + Math.sin(a) * R * 0.7; x.beginPath(); x.moveTo(px - 6, py + 6); x.lineTo(px - 6, py - 4); x.lineTo(px + 6, py - 4); x.lineTo(px + 6, py + 6); x.stroke(); }
+    } else if (theme === 'exam') {
+      x.fillStyle = dark; this.rr(x, RX + 30, RY + RH / 2 - 12, 70, 24, 5); x.fill();   // exam table
+      x.fillStyle = mid; x.fillRect(RX + 30, RY + RH / 2 - 12, 70, 5);
+      x.strokeStyle = mid; x.lineWidth = 2.5; x.beginPath(); x.moveTo(RX + RW - 44, botY); x.lineTo(RX + RW - 44, topY + 10); x.stroke(); x.fillStyle = 'rgba(120,150,120,0.16)'; this.rr(x, RX + RW - 50, topY + 8, 14, 18, 3); x.fill();   // IV stand
+      stencil('E F P', RX + RW - 90, RY + RH * 0.34, 0, 'rgba(40,30,40,0.12)');   // eye chart
+    } else if (theme === 'waiting') {
+      x.strokeStyle = mid; x.lineWidth = 2.5;
+      for (let i = 0; i < 4; i++) { const px = RX + 40 + i * 44; x.beginPath(); x.moveTo(px - 16, botY); x.lineTo(px - 16, botY - 14); x.lineTo(px + 16, botY - 14); x.lineTo(px + 16, botY); x.stroke(); }   // row of chairs
+      x.strokeStyle = mid; x.lineWidth = 2; x.beginPath(); x.arc(RX + RW - 46, topY + 20, 14, 0, TAU); x.stroke();   // wall clock
+      x.beginPath(); x.moveTo(RX + RW - 46, topY + 20); x.lineTo(RX + RW - 46, topY + 10); x.moveTo(RX + RW - 46, topY + 20); x.lineTo(RX + RW - 39, topY + 22); x.stroke();
+      stencil('PLEASE WAIT', midX + flip * 90, RY + RH * 0.6, -0.1, 'rgba(150,110,60,0.10)');
+    }
   },
 
   getDecals(room) {
@@ -237,6 +285,16 @@ const Render = {
 
     // zones under everything
     for (const z of G.zones) {
+      if (z.kind === 'trigger') {   // PTSD flashback trigger — a pulsing danger marker, not a solid patch
+        const pulse = 0.42 + Math.sin(z.t * 6) * 0.28;
+        ctx.fillStyle = 'rgba(194,90,82,' + (pulse * 0.35) + ')';
+        ctx.beginPath(); ctx.arc(z.x, z.y, z.r * (0.82 + Math.sin(z.t * 6) * 0.1), 0, TAU); ctx.fill();
+        ctx.strokeStyle = 'rgba(194,90,82,' + pulse + ')'; ctx.lineWidth = 2.5; ctx.setLineDash([4, 4]);
+        ctx.beginPath(); ctx.arc(z.x, z.y, z.r * 0.92, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+        ctx.strokeStyle = 'rgba(222,120,110,' + pulse + ')'; ctx.lineWidth = 1.6;
+        ctx.beginPath(); ctx.moveTo(z.x - 6, z.y - 5); ctx.lineTo(z.x + 2, z.y + 1); ctx.lineTo(z.x - 3, z.y + 6); ctx.stroke();
+        continue;
+      }
       ctx.globalAlpha = U.clamp(z.life, 0, 1) * 0.9;
       ctx.fillStyle = z.clr;
       ctx.beginPath(); ctx.arc(z.x, z.y, z.r * (0.9 + Math.sin(z.t * 3) * 0.06), 0, TAU); ctx.fill();
@@ -403,6 +461,37 @@ const Render = {
         if (U.dist(G.player.x, G.player.y, ped.x, ped.y) < 80) { ctx.fillStyle = '#e0c8f0'; ctx.font = this.font(12, true); ctx.textAlign = 'center'; ctx.fillText('walk up to examine', ped.x, ped.y - 40); }
         continue;
       }
+      if (ped.kind === 'cooler') {   // Day Room water cooler
+        this.shadow(ped.x, ped.y + 16, 16, 6, 0.26);
+        ctx.save(); ctx.translate(ped.x, ped.y);
+        ctx.fillStyle = '#c8ccd2'; this.rr(ctx, -12, 0, 24, 22, 3); ctx.fill();
+        ctx.strokeStyle = '#8a9098'; ctx.lineWidth = 2; this.rr(ctx, -12, 0, 24, 22, 3); ctx.stroke();
+        const wb = Math.sin(G.t * 2) * 1.5;
+        ctx.fillStyle = 'rgba(120,190,220,0.85)'; this.rr(ctx, -13, -22, 26, 24, 6); ctx.fill();
+        ctx.strokeStyle = '#6aa0c0'; ctx.lineWidth = 2; this.rr(ctx, -13, -22, 26, 24, 6); ctx.stroke();
+        ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.beginPath(); ctx.ellipse(-4, -14 + wb, 4, 6, -0.4, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#e05a5a'; ctx.fillRect(-2, 6, 4, 4);
+        ctx.restore();
+        if (U.dist(G.player.x, G.player.y, ped.x, ped.y) < 74) { ctx.fillStyle = '#a0d0e0'; ctx.font = this.font(11, true); ctx.textAlign = 'center'; ctx.fillText('💧 water cooler', ped.x, ped.y - 34); }
+        continue;
+      }
+      if (ped.kind === 'npc') {   // Day Room patient in a folding chair
+        this.shadow(ped.x, ped.y + 16, 14, 5, 0.22);
+        ctx.save(); ctx.translate(ped.x, ped.y);
+        ctx.strokeStyle = '#7a6a58'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(-9, 18); ctx.lineTo(-9, 2); ctx.lineTo(9, 2); ctx.lineTo(9, 18); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-9, 2); ctx.lineTo(-9, -12); ctx.stroke(); ctx.lineCap = 'butt';
+        const bob = Math.sin(G.t * 2 + ped.x) * 1.2;
+        ctx.fillStyle = ['#8a7ab0', '#a06a6a', '#6a9a7a', '#b0925a', '#7a8ab0'][ped.npcId % 5];
+        ctx.beginPath(); ctx.ellipse(0, 2 + bob, 9, 10, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#e8c9a6'; ctx.beginPath(); ctx.arc(0, -12 + bob, 8, 0, TAU); ctx.fill();
+        ctx.strokeStyle = 'rgba(40,30,40,0.3)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(0, -12 + bob, 8, 0, TAU); ctx.stroke();
+        ctx.fillStyle = '#2c2333'; ctx.beginPath(); ctx.arc(-3, -13 + bob, 1.5, 0, TAU); ctx.arc(3, -13 + bob, 1.5, 0, TAU); ctx.fill();
+        ctx.restore();
+        const npc = DATA.DAYROOM[ped.npcId];
+        if (npc && U.dist(G.player.x, G.player.y, ped.x, ped.y) < 74) { ctx.fillStyle = '#c8b0e0'; ctx.font = this.font(11, true); ctx.textAlign = 'center'; ctx.fillText(npc.name + ' · ' + npc.note, ped.x, ped.y - 30); }
+        continue;
+      }
       if (ped.kind === 'restock') {   // Pharmacy: reroll the shelf
         const rb = Math.sin(G.t * 2.4 + ped.x) * 3;
         this.shadow(ped.x, ped.y + 12, 20, 6, 0.28);
@@ -537,6 +626,10 @@ const Render = {
         ctx.strokeStyle = 'rgba(255,255,160,0.8)';
         ctx.lineWidth = 2;
         ctx.beginPath(); ctx.arc(b.x, b.y, b.r + 3 + Math.sin(G.t * 10) * 1.5, 0, TAU); ctx.stroke();
+      } else if (G.player.diag === 'ptsd') { // hypervigilant: every threat is outlined in alarm-red
+        ctx.strokeStyle = 'rgba(224,108,98,0.9)';
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(b.x, b.y, b.r + 3, 0, TAU); ctx.stroke();
       }
       this.shadow(b.x, b.y + b.r * 0.7, b.r * 0.8, b.r * 0.3, 0.14);
       const bgd = ctx.createRadialGradient(b.x - b.r * 0.3, b.y - b.r * 0.35, b.r * 0.2, b.x, b.y, b.r);
@@ -731,6 +824,14 @@ const Render = {
       this.rr(ctx, 8, -16, 5, 5, 1.2); ctx.fill();
       ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1;
       ctx.strokeRect(-13, -16, 5, 5); ctx.strokeRect(-2.5, -16, 5, 5); ctx.strokeRect(8, -16, 5, 5);
+    } else if (p.diag === 'ptsd') {
+      // concerned, alert brows (inner-up) + a hypervigilant scan when On Edge
+      ctx.strokeStyle = '#8a4a44'; ctx.lineWidth = 2.2; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(-11, -13); ctx.lineTo(-3, -16.5); ctx.moveTo(11, -13); ctx.lineTo(3, -16.5); ctx.stroke(); ctx.lineCap = 'butt';
+      if (p.lastHitT > 4) {
+        ctx.strokeStyle = 'rgba(194,90,82,' + (0.35 + Math.sin(G.t * 4) * 0.2) + ')'; ctx.lineWidth = 1.6;
+        const sa = G.t * 3; ctx.beginPath(); ctx.arc(0, -6, 21, sa, sa + 1.1); ctx.stroke();
+      }
     }
 
     // item held overhead
@@ -797,6 +898,16 @@ const Render = {
     if (e.spawnT <= 0) this.shadow(e.x, e.y + e.r * 0.72, e.r * 0.95, e.r * 0.42, 0.24);
     ctx.save();
     ctx.translate(e.x, e.y);
+    if (e.charmed) {   // recruited ally: a green halo + a little heart
+      const pl = 0.5 + Math.sin(G.t * 5) * 0.22;
+      ctx.strokeStyle = 'rgba(143,208,90,' + pl + ')'; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.arc(0, 0, e.r + 5, 0, TAU); ctx.stroke();
+      ctx.fillStyle = '#8fd05a'; const hy = -e.r - 11, hs = 4;
+      ctx.beginPath(); ctx.moveTo(0, hy + hs * 0.9);
+      ctx.bezierCurveTo(-hs * 1.2, hy - hs * 0.2, -hs * 0.5, hy - hs, 0, hy - hs * 0.35);
+      ctx.bezierCurveTo(hs * 0.5, hy - hs, hs * 1.2, hy - hs * 0.2, 0, hy + hs * 0.9);
+      ctx.closePath(); ctx.fill();
+    }
     if (e.spawnT > 0) {
       ctx.globalAlpha = 1 - e.spawnT / 0.55;
       ctx.scale(ctx.globalAlpha, ctx.globalAlpha);
@@ -1835,7 +1946,9 @@ const Render = {
     if (p.diag === 'bipolar' && !p.flags.stable) status = p.mania ? '▲ MANIA' : '▼ the dip';
     if (p.diag === 'bipolar' && p.flags.stable) status = '― stable';
     if (p.focused) status = p.diag === 'ocd' ? '◎ just right' : '◎ hyperfocus';
+    if (p.diag === 'ptsd') status = p.lastHitT > 4 ? '◈ on edge' : '· rattled';
     if (p.adren) status = '⚡ adrenaline';
+    if (G.slowmo > 0) status = '⏱ vigilant';
     if (status) ctx.fillText(status, 464, 38);
     // mood cycle arc
     if (p.diag === 'bipolar' && !p.flags.stable) {
@@ -1855,6 +1968,10 @@ const Render = {
     if (G.complications && G.complications.length) {
       ctx.fillStyle = 'rgba(224,149,90,0.85)';
       ctx.fillText('⚠ ' + G.complications.map(c => c.name.replace(' Ward', '')).join(', '), CW - 180, 52);
+    }
+    if (G.prognosis) {
+      const pr = DATA.PROGNOSES.find(x => x.id === G.prognosis);
+      if (pr) { ctx.fillStyle = 'rgba(200,120,220,0.9)'; ctx.font = this.font(11, true); ctx.fillText(pr.icon + ' ' + pr.name.toUpperCase(), CW - 180, G.complications && G.complications.length ? 66 : 52); }
     }
 
     // minimap
@@ -1932,6 +2049,7 @@ const Render = {
       else if (room.type === 'shop') ctx.fillText('$', cx2, cy2);
       else if (room.type === 'secret') ctx.fillText('?', cx2, cy2);
       else if (room.type === 'event') ctx.fillText('‽', cx2, cy2);
+      else if (room.type === 'dayroom') ctx.fillText('☕', cx2, cy2);
       else if (room.type === 'oon') ctx.fillText('♥', cx2, cy2);
     }
     ctx.restore();
@@ -2005,6 +2123,7 @@ const Render = {
     let statusTxt = '';
     if (p.diag === 'bipolar' && !p.flags.stable) statusTxt = p.mania ? '▲ MANIA' : '▼ THE DIP';
     if (p.focused) statusTxt = p.diag === 'ocd' ? '◎ JUST RIGHT' : '◎ HYPERFOCUS';
+    if (p.diag === 'ptsd' && p.lastHitT > 4) statusTxt = '◈ ON EDGE';
     if (p.diag === 'ocd' && !p.focused && p.compulsion >= 70) statusTxt = '△ COMPULSION';
     if (p.adren) statusTxt = '⚡ ADRENALINE';
     if (statusTxt) { ctx.font = this.font(11, true); ctx.fillStyle = D.color; ctx.fillText(statusTxt, W / 2, y + 33); }

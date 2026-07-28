@@ -24,7 +24,7 @@ function makeRoom(gx, gy, type) {
 function buildLayout(room, depth) {
   const layout = [];
   let tmpl;
-  if (room.type === 'normal') tmpl = U.choice(DATA.TEMPLATES);
+  if (room.type === 'normal') { tmpl = U.choice(DATA.TEMPLATES); room.theme = U.choice(DATA.ROOM_THEMES); }
   else tmpl = DATA.TEMPLATES[0];
   for (let r = 0; r < ROWS; r++) {
     layout[r] = [];
@@ -161,6 +161,11 @@ function generateFloor(depth, lastBoss) {
   if (depth >= 2) {
     const normals = [...grid.values()].filter(r => r.type === 'normal');
     if (normals.length > 3 && U.chance(0.7)) U.choice(normals).type = 'event';
+  }
+  // The Day Room: a sanctuary among the wards
+  if (depth >= 3) {
+    const normals = [...grid.values()].filter(r => r.type === 'normal');
+    if (normals.length > 3 && U.chance(0.55)) U.choice(normals).type = 'dayroom';
   }
 
   // build layouts

@@ -83,7 +83,7 @@ DATA.QUESTIONS = [
     a: [
       { t: "4 hours, victoriously", w: { bipolar: 2, adhd: 1 }, quip: "Victory sleep. The manic classic." },
       { t: "12 hours, somehow still tired", w: { depression: 2 }, quip: "Sleep debt with interest. Very modern." },
-      { t: "With one eye open", w: { anxiety: 2, schizo: 1 }, quip: "Vigilance! The eyelids of the anxious." },
+      { t: "With one eye open", w: { anxiety: 2, schizo: 1, ptsd: 1 }, quip: "Vigilance! The eyelids of the anxious." },
       { t: "At night, like a person", w: { fine: 2 }, quip: "'Like a person.' Rehearsed. Noted." }
     ]
   },
@@ -103,6 +103,15 @@ DATA.QUESTIONS = [
       { t: "Need everything symmetrical or I can't go", w: { ocd: 3 }, quip: "The universe should match. Agreed — but it's a symptom." },
       { t: "Just leave? Like a normal person?", w: { fine: 2 }, quip: "Suspiciously breezy. Noted." },
       { t: "Leave, panic, come back, re-panic", w: { anxiety: 2, ocd: 1 }, quip: "The round trip of the worried." }
+    ]
+  },
+  {
+    q: "A door slams behind you. You...",
+    a: [
+      { t: "Hit the floor before I've decided to", w: { ptsd: 3 }, quip: "The body keeps the score — and the receipts." },
+      { t: "Am instantly, fully awake. For hours.", w: { ptsd: 2, anxiety: 1 }, quip: "Hypervigilance: unpaid overtime for the nervous system." },
+      { t: "Am briefly somewhere in 2009", w: { ptsd: 3 }, quip: "Dissociation. A frequent flyer here." },
+      { t: "Say 'jumpy today, huh' and move on", w: { fine: 2 }, quip: "'Jumpy.' We'll be monitoring that." }
     ]
   },
   {
@@ -180,6 +189,15 @@ DATA.DIAG = {
     mech: "SYMMETRY: you fire a balanced PAIR of tears. Keep order — fully clear a room and your COMPULSION resets, granting FOCUS (+50% damage). Let it build and the intrusive thoughts start to bite.",
     rx: "webmd"
   },
+  ptsd: {
+    name: "PTSD (Post-Traumatic Stress)",
+    short: "It Followed You Home",
+    tag: "vigilant & haunted",
+    color: "#c25a52",
+    blurb: "You flinched at the door chime. He noted it — then chimed it again, to be sure. You were already somewhere else.",
+    mech: "HYPERVIGILANT: enemy shots are always outlined, and a near-miss slows time for a heartbeat. ON EDGE: +25% damage while you stay untouched — but every hit is a FLASHBACK, and rooms you clear don't stay safe.",
+    rx: "beta"
+  },
   fine: {
     name: "Perfectly Fine",
     short: "DENIAL (severe)",
@@ -231,6 +249,7 @@ DATA.ITEMS = {
   hyperfix:  { name: "Hyperfixation", quote: "It's all you can think about. Perfect.", desc: "The first enemy type you kill in each room takes +50% damage from you in that room.", pools: ["special"], apply(p) { p.flags.hyperfix = true; } },
   pillow:    { name: "The Good Pillow", quote: "The cold side. Always.", desc: "Heal a full heart at the start of every floor. Sleep is medicine, who knew. (Everyone. Everyone knew.)", pools: ["special", "shop"], apply(p) { p.flags.pillowHeal = true; } },
   papertrail:{ name: "Paper Trail", quote: "Document EVERYTHING.", desc: "Paperwork piles always drop something when destroyed.", pools: ["special"], apply(p) { p.flags.paperTrail = true; } },
+  grouptherapy:{ name: "Group Therapy", quote: "Have you considered… joining us?", desc: "Your tears sometimes RECRUIT an enemy to the group — they fight for you until they burn out.", pools: ["special", "boss"], apply(p) { p.flags.charm = true; } },
   blanket:   { name: "Weighted Blanket", quote: "14 pounds of 'no thanks'.", desc: "+2 hearts, -10% speed. You are safe. You are also slow.", pools: ["special", "shop"], apply(p) { p.maxhp += 4; p.hp += 4; p.spd *= 0.9; } },
 
   /* --- boss drops (Dosage line) --- */
@@ -273,7 +292,7 @@ DATA.ACHIEVEMENTS = [
   { id: 'ward22',   name: "No Known Cure",         desc: "Reach Ward 22.",                                hint: "Descend to Ward 22.",                      check: m => m.bestFloor >= 22 },
   { id: 'walrus1',  name: "Second Opinion, Denied", desc: "Defeat Dr. Walrus. Unlocks Perfectly Fine.",   hint: "Survive to Ward 5 and win.",               check: m => (m.walrusKills || 0) >= 1 },
   { id: 'walrus3',  name: "Malpractice Suit",      desc: "Defeat Dr. Walrus 3 times. Unlocks the Settlement.", hint: "Beat Dr. Walrus, repeatedly.",        check: m => (m.walrusKills || 0) >= 3, reward: "Malpractice Settlement" },
-  { id: 'allDiag',  name: "Hypochondriac",         desc: "Play all seven diagnoses.",                     hint: "Get diagnosed with everything.",           check: m => Object.keys(m.diagsPlayed || {}).length >= 7 },
+  { id: 'allDiag',  name: "Hypochondriac",         desc: "Play all eight diagnoses.",                     hint: "Get diagnosed with everything.",           check: m => Object.keys(m.diagsPlayed || {}).length >= 8 },
   { id: 'kills500', name: "Symptom Management",     desc: "Defeat 500 enemies (all runs).",                hint: "Keep managing symptoms.",                  check: m => (m.kills || 0) >= 500 },
   { id: 'overRx',   name: "Overprescribed",        desc: "Get overprescribed — 4 pills on one floor.",    hint: "Take a LOT of pills at once.",             check: m => !!m.everOverRx },
   { id: 'nohit',    name: "Clean Bill of Health",  desc: "Clear a whole floor without taking a hit.",     hint: "Survive a floor untouched.",               check: m => !!m.everNoHitFloor },
@@ -436,6 +455,7 @@ DATA.ABILITIES = {
   anxiety:    { name: "Panic", cd: 9, blurb: "A nova that wipes nearby bullets and shoves enemies back." },
   schizo:     { name: "Reality Check", cd: 10, blurb: "Pop every hallucination in the room and see through the rest." },
   ocd:        { name: "Recheck", cd: 9, blurb: "Check once more: wipe nearby bullets, reset the compulsion, lock in FOCUS." },
+  ptsd:       { name: "5-4-3-2-1", cd: 10, blurb: "Ground yourself: wipe nearby danger, slow the room to a crawl, and come back to now." },
   fine:       { name: "Denial", cd: 11, blurb: "\"I'm FINE.\" Briefly refuse to take damage." }
 };
 
@@ -459,6 +479,18 @@ DATA.WARD_PATHS = {
   outpatient: { name: "🏃 Outpatient", desc: "Lighter ward — cheaper meds, calmer halls.", hpMul: 0.8, countAdd: -1, shopDiscount: true },
   day: { name: "☀️ Day Program", desc: "A normal ward. No surprises. Allegedly.", hpMul: 1, countAdd: 0 }
 };
+
+/* ============ THE DAY ROOM (sanctuary) — other patients, a water cooler, a breather ============
+   Each NPC gives a one-time boon + a satirical line when you walk up to them. */
+DATA.DAYROOM = [
+  { name: "The Veteran",    line: "Been here since Ward 1. You get used to the hum.", note: "+1 heart",        apply(p) { p.maxhp += 2; p.hp += 2; } },
+  { name: "The Optimist",   line: "Rock bottom's got great acoustics, hun.",           note: "+0.5 damage",     apply(p) { p.dmg += 0.5; } },
+  { name: "The Oversharer", line: "So my THIRD therapist said— anyway, take these.",   note: "+6 copays",       apply(p) { p.coins += 6; } },
+  { name: "The Sponsor",    line: "One day at a time. Keep your hands busy.",           note: "a Fidget Spinner",apply(p) { p.familiars.push(new Familiar('spinner')); } },
+  { name: "The Regular",    line: "They rotate the pills but never the posters.",       note: "+1 luck",         apply(p) { p.luck += 1; } },
+  { name: "The Quiet One",  line: "…",                                                  note: "a free pill",     apply(p) { if (p.pill == null) p.pill = U.randi(0, 9); } },
+  { name: "The Newcomer",   line: "First time? Don't let Dr. Walrus rush you.",         note: "heal a full heart",apply(p) { p.heal(2); } }
+];
 
 /* ============ MINI-EVENTS (non-combat choice rooms) ============ */
 DATA.EVENTS = [
@@ -493,6 +525,32 @@ DATA.EVENTS = [
       { label: "Leave (it's a scam)", note: "nothing", apply() { } }
     ]
   }
+];
+
+/* ============ ROOM THEMES ============
+   Each generated combat room gets a theme so it reads as a real place in the
+   ward — records office, pharmacy storage, therapy room, break room, group
+   circle, exam room, waiting area. Rendered as background dressing in getBG. */
+DATA.ROOM_THEMES = ['records', 'pharmacy', 'therapy', 'breakroom', 'group', 'exam', 'waiting'];
+
+/* ============ PROGNOSIS (challenge-run modifiers) ============
+   Isaac-style rule-benders you pick at the title. G.prognosis holds the id;
+   effects are applied at run start + gated in the loop. Tracked per-id in Meta. */
+DATA.PROGNOSES = [
+  { id: 'pacifist',   name: "Pacifist",      icon: "🕊", desc: "You can't shoot. Win with familiars and Claim Forms — you start with a whole support crew." },
+  { id: 'glass',      name: "Glass Cannon",  icon: "💥", desc: "One heart. Triple damage. One mistake and it's over." },
+  { id: 'coldturkey', name: "Cold Turkey",   icon: "🥶", desc: "No pills, ever. No pharmacy. Just you and the withdrawal." },
+  { id: 'untreated',  name: "Untreated",     icon: "🚫", desc: "No items — you keep your starting Rx and nothing else. Pills only from here." },
+  { id: 'rapid',      name: "Rapid Cycling", icon: "🎢", desc: "Every room re-prescribes you: a random up and a random down. Never the same twice." }
+];
+/* rapid-cycling: each room applies one of these (a buff paired with a cost) via G.rapidMods */
+DATA.RAPID_SWINGS = [
+  { name: "Manic High",    mods: { dmg: 1.4, spd: 1.2, tears: 1.15, def: 1 },   note: "+damage, +speed" },
+  { name: "The Dip",       mods: { dmg: 0.8, spd: 0.85, tears: 1, def: 0.5 },   note: "slower, but half damage taken" },
+  { name: "Wired",         mods: { dmg: 1, spd: 1.3, tears: 0.75, def: 1 },     note: "faster & faster-firing" },
+  { name: "Sedated",       mods: { dmg: 1.6, spd: 0.7, tears: 1.3, def: 1 },    note: "heavy hits, heavy feet" },
+  { name: "Dissociating",  mods: { dmg: 1.1, spd: 1.1, tears: 1, def: 0.6 },    note: "harder to pin down" },
+  { name: "Overprescribed",mods: { dmg: 1.5, spd: 1.15, tears: 0.85, def: 1.4 },note: "everything at once" }
 ];
 
 /* ============ WARD SIDE-EFFECTS (floor-wide "curses") ============
