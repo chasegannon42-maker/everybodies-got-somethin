@@ -2,6 +2,14 @@
 
 **A satirical Binding-of-Isaac-style roguelike about getting diagnosed with Everything™.**
 
+<p align="center">
+  <a href="https://chasegannon42-maker.github.io/everybodies-got-somethin/">
+    <img src="https://img.shields.io/badge/%E2%96%B6%20PLAY%20NOW-live%20in%20your%20browser-2ea44f?style=for-the-badge&labelColor=1c1820" alt="Play now — live in your browser">
+  </a>
+  &nbsp;
+  <img src="https://img.shields.io/badge/no%20install-PC%20%26%20mobile-8a7c68?style=for-the-badge&labelColor=1c1820" alt="No install — PC and mobile">
+</p>
+
 Dr. Walrus — board-certified in Confidence — gives you a five-question checkup and hands you a label:
 **ADHD, Bipolar Disorder, Chronic Depression, Generalized Anxiety, Schizophrenia**… or, if you insist
 nothing is wrong, **Denial (severe)**. Every diagnosis plays differently. Then you descend into the
