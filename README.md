@@ -11,10 +11,13 @@
 </p>
 
 Dr. Walrus — board-certified in Confidence — gives you a five-question checkup and hands you a label:
-**ADHD, Bipolar Disorder, Chronic Depression, Generalized Anxiety, Schizophrenia**… or, if you insist
-nothing is wrong, **Denial (severe)**. Every diagnosis plays differently. Then you descend into the
-infinite wards, fighting Doomscrollers, Pharma Ads, Deadlines, and a sea of Larpers, armed with your
-tears and whatever the pharmacy hands you.
+**ADHD, Bipolar Disorder, Chronic Depression, Generalized Anxiety, Schizophrenia, OCD, PTSD,
+Chronic Insomnia**… or, if you insist nothing is wrong, **Denial (severe)**. Nine diagnoses, every
+one a full Isaac-style character with its own stats, mechanics, and signature **PRN ability** —
+hypervigilance and flashbacks, a compulsion gauge, a draining Sleep meter that leaves you
+wired-tired and hallucinating. Then you descend into the infinite wards, fighting Doomscrollers,
+Pharma Ads, Deadlines, and a sea of Larpers, armed with your tears and whatever the pharmacy
+hands you.
 
 > A satire about a system that hands out labels like candy — not about the people living with them.
 
@@ -38,11 +41,31 @@ and a starting prescription. (One of them is locked. Try telling the truth.)
 ## The rules of the ward
 
 - **Clear rooms** to open the doors. **Referrals** 🔑 unlock the Specialist's office (free item).
-- **Copays** ¢ buy refills at the Pharmacy. **Claim Forms** explode — file them against walls; some walls are hiding something.
+- **Copays** ¢ buy refills at the Pharmacy — Brand® or Generic (cheaper, side effects), with GoodRx
+  coupons and a restock shelf. Copays climb with the ward. It's the healthcare system, baby.
 - **Pills** are unidentified until you swallow one. Take four on one floor and you're **overprescribed**.
-- Beat the boss, take the trapdoor, go deeper. Forever. **Dr. Walrus is waiting on every 5th ward**, and he keeps upping the dose.
+- Beat the boss, take the trapdoor, choose your **treatment plan** (inpatient / outpatient / day
+  program), pick up a **comorbidity**, go deeper. Forever. **Dr. Walrus is waiting on every 5th
+  ward**, and he keeps upping the dose.
+- The wards fight back: side-effect curses, ward complications, and **special rooms** everywhere —
+  the sanctuary **Day Room** (water cooler, fellow patients, a recruit), the **Seclusion** altar
+  (bleed for loot), the **ECT Suite** (a prize under the discharge), the **Padded Cell** (every
+  bullet ricochets), and **Observation** (dodge the surveillance sweep to earn discharge).
+- **The Support Group:** recruit up to three fellow patients as AI allies who fight alongside you
+  the whole run — heavy covering fire, anxious scatter, manic bursts, homing suspicion.
 - Bosses are the real stuff: The Gatekeeper ("you don't LOOK sick"), The Adjuster ("claim denied"),
-  The Larper King, Withdrawal, The Stigma, Burnout.
+  Prior Authorization, The Manual (DSM), The Algorithm, The Larper King, Withdrawal, The Stigma,
+  Burnout — with **THE CURE** waiting at Ward 25 and **THE FOUNDER** at Ward 50.
+
+## Between runs
+
+- **🧠 Treatment Plan** — a permanent skill tree. Every run earns **◆ Insight**; spend it across
+  five therapy modalities (CBT, DBT, EMDR, Meds Management, Group Work) for permanent perks.
+- **🎲 Prognosis** — challenge runs: Glass Cannon, Pacifist, Cold Turkey, Untreated, Rapid Cycling.
+- **🗓️ Daily Ward** — a date-seeded run everyone shares (streaks + a month calendar), plus
+  shareable seed-code challenges and a **Diagnosis Card** you can post.
+- **📋 Patient Chart** — a codex of every patient, boss, med, and pill you've met; completing a
+  tab pays out a permanent perk. **📊 Run History** keeps your real win-rate receipts.
 
 ## The story
 
@@ -58,11 +81,12 @@ the bottom — and every chapter is re-readable from **📖 Chart Notes** on the
 
 ## The Bestiary
 
-Twelve bosses stand between you and the "cure," each one a different failure of the system —
+Thirteen bosses stand between you and the "cure," each one a different failure of the system —
 gatekeeping, self-diagnosis culture, insurance denial, the pill mountain, shame, over-labeling,
-the attention economy… up through the fake finale and the tycoon at the very top of the ladder.
+the attention economy, wellness grifting… up through the fake finale and the tycoon at the very
+top of the ladder.
 
-[![The Bestiary — all twelve bosses](bestiary.jpg)](https://chasegannon42-maker.github.io/everybodies-got-somethin/)
+[![The Bestiary](bestiary.jpg)](https://chasegannon42-maker.github.io/everybodies-got-somethin/)
 
 Browse the full, **live-animated** gallery in-game — **☠ BESTIARY** on the title screen — where each
 adversary reveals itself as you meet it. **[▶ Play now.](https://chasegannon42-maker.github.io/everybodies-got-somethin/)**

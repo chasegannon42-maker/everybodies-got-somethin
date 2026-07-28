@@ -269,6 +269,14 @@ DATA.ITEMS = {
   papertrail:{ name: "Paper Trail", quote: "Document EVERYTHING.", desc: "Paperwork piles always drop something when destroyed.", pools: ["special"], apply(p) { p.flags.paperTrail = true; } },
   grouptherapy:{ name: "Group Therapy", quote: "Have you considered… joining us?", desc: "Your tears sometimes RECRUIT an enemy to the group — they fight for you until they burn out.", pools: ["special", "boss"], apply(p) { p.flags.charm = true; } },
   buddy:     { name: "Buddy System", quote: "Nobody walks the ward alone.", desc: "A fellow patient joins your Support Group and fights alongside you for the rest of the run.", pools: ["special", "boss"], apply(p, G) { p.recruitAlly(G); } },
+
+  /* --- keystone prescriptions: build-arounds that change HOW you fire (one active at a time) --- */
+  cryitout:  { name: "Crying It Out", quote: "Let it ALL out.", desc: "KEYSTONE: your tears become a continuous stream — a firehose of processed feelings.", pools: ["special", "boss"], apply(p) { p.clearKeystone(); p.flags.beam = true; } },
+  spiralthoughts: { name: "Spiral Thoughts", quote: "They always come back around.", desc: "KEYSTONE: tears corkscrew outward in a widening gyre. Cover everything; aim nothing.", pools: ["special", "boss"], apply(p) { p.clearKeystone(); p.flags.spiralTears = true; p.dmg += 0.5; } },
+  radicalhonesty: { name: "Radical Honesty", quote: "It cuts through everyone.", desc: "KEYSTONE: piercing tears that pass through up to 3 patients. The truth doesn't stop.", pools: ["special", "boss"], apply(p) { p.clearKeystone(); p.flags.pierceTears = true; } },
+  xrdose:    { name: "Overprescribed XR", quote: "Extended release. VERY extended.", desc: "KEYSTONE: a quad shot — four weaker tears in a wide spread.", pools: ["special", "boss"], apply(p) { p.clearKeystone(); p.flags.quadShot = true; } },
+  boomerchart: { name: "Boomerang Chart", quote: "Your file always finds its way back.", desc: "KEYSTONE: tears arc back to you — every throw gets two chances to connect.", pools: ["special", "boss"], unlock: 'hazardTour', apply(p) { p.clearKeystone(); p.flags.boomTears = true; p.dmg += 0.4; } },
+  uglycry:   { name: "The Ugly Cry", quote: "One big one, then all the little ones.", desc: "KEYSTONE: tears burst into a ring of droplets wherever they land.", pools: ["special", "boss"], unlock: 'wired', apply(p) { p.clearKeystone(); p.flags.mortarTears = true; } },
   blanket:   { name: "Weighted Blanket", quote: "14 pounds of 'no thanks'.", desc: "+2 hearts, -10% speed. You are safe. You are also slow.", pools: ["special", "shop"], apply(p) { p.maxhp += 4; p.hp += 4; p.spd *= 0.9; } },
 
   /* --- boss drops (Dosage line) --- */
@@ -316,7 +324,16 @@ DATA.ACHIEVEMENTS = [
   { id: 'overRx',   name: "Overprescribed",        desc: "Get overprescribed — 4 pills on one floor.",    hint: "Take a LOT of pills at once.",             check: m => !!m.everOverRx },
   { id: 'nohit',    name: "Clean Bill of Health",  desc: "Clear a whole floor without taking a hit.",     hint: "Survive a floor untouched.",               check: m => !!m.everNoHitFloor },
   { id: 'denial',   name: "Peak Denial",           desc: "Reach Ward 5 as Perfectly Fine.",               hint: "Insist nothing is wrong. Deeply.",         check: m => ((m.diagBest || {}).fine || 0) >= 5 },
-  { id: 'cured',    name: "The Cure (Allegedly)",  desc: "Defeat THE CURE at Ward 25. Unlocks Chronic Mode.", hint: "Descend all the way to Ward 25 and win.", check: m => !!m.cured, reward: "Chronic Mode (New Game+)" }
+  { id: 'cured',    name: "The Cure (Allegedly)",  desc: "Defeat THE CURE at Ward 25. Unlocks Chronic Mode.", hint: "Descend all the way to Ward 25 and win.", check: m => !!m.cured, reward: "Chronic Mode (New Game+)" },
+  { id: 'influencerDown', name: "Unsubscribed",    desc: "Defeat THE INFLUENCER.",                          hint: "Log off a wellness guru.",                 check: m => (m.influencerKills || 0) >= 1 },
+  { id: 'founderDown', name: "Delisted",           desc: "Topple THE FOUNDER at Ward 50.",                  hint: "Climb all fifty rungs of the ladder.",     check: m => (m.founderKills || 0) >= 1 },
+  { id: 'hazardTour', name: "Frequent Flyer",      desc: "Visit all four special hazard rooms. Unlocks the Boomerang Chart.", hint: "Seclusion, the ECT Suite, the Padded Cell, Observation.", check: m => m.hazardsSeen && ['seclusion', 'ect', 'padded', 'observation'].every(k => m.hazardsSeen[k]), reward: "Boomerang Chart" },
+  { id: 'wired',    name: "Tired & Wired",         desc: "Clear a room while WIRED. Unlocks The Ugly Cry.", hint: "Insomnia: run the Sleep meter low, then win anyway.", check: m => !!m.everWiredClear, reward: "The Ugly Cry" },
+  { id: 'fullGroup', name: "Group Session",        desc: "Have three Support Group allies at once.",        hint: "The group is full (3).",                   check: m => !!m.everFullGroup },
+  { id: 'therapyGrad', name: "Modality Mastered",  desc: "Learn every talent in one therapy branch.",       hint: "Max out a Treatment Plan column.",         check: m => m.talents && ['cbt3', 'dbt3', 'emdr3', 'meds3', 'grp3'].some(id => m.talents[id]) },
+  { id: 'prognosisAll', name: "Worst-Case Scenarios", desc: "Attempt all five Prognosis challenge runs.",   hint: "Try every way to make it harder.",         check: m => m.prognosisBest && Object.keys(m.prognosisBest).length >= 5 },
+  { id: 'crisisPro', name: "Crisis Counselor",     desc: "Earn the payout from 3 CODE GRAY ward crises.",   hint: "Hazard pay, three times.",                 check: m => (m.crisesSurvived || 0) >= 3 },
+  { id: 'keystone', name: "Off-Label Use",         desc: "Pick up a keystone prescription.",                hint: "Some meds change everything about you.",   check: m => !!m.everKeystone }
 ];
 DATA.checkAchievements = function (m) {
   if (!m.unlocks) m.unlocks = {};
@@ -391,6 +408,7 @@ DATA.BOSSES = {
   dsm:        { name: "THE MANUAL", sub: "“Everybody's in here somewhere.”", hp: 215 },
   priorauth:  { name: "PRIOR AUTHORIZATION", sub: "“Please hold.”", hp: 205 },
   algorithm:  { name: "THE ALGORITHM", sub: "“You might also like: THIS.”", hp: 215 },
+  influencer: { name: "THE INFLUENCER", sub: "“This ring light cured me. Use code WALRUS10.”", hp: 210 },
   thecure:    { name: "THE CURE", sub: "“It was inside you all along. (It wasn't.)”", hp: 300 },
   founder:    { name: "THE FOUNDER", sub: "“I didn't invent the disease. I monetized the cure.”", hp: 400 },
   walrus:     { name: "DR. WALRUS, M.D.*", sub: "*mail-order", hp: 300 }
@@ -401,7 +419,7 @@ DATA.bossFor = function (depth, lastBoss) {
   if (depth % 5 === 0) return 'walrus';
   let pool = ['gatekeeper', 'larperking'];
   if (depth >= 2) pool.push('adjuster', 'priorauth');
-  if (depth >= 3) pool.push('stigma', 'dsm', 'algorithm');
+  if (depth >= 3) pool.push('stigma', 'dsm', 'algorithm', 'influencer');
   if (depth >= 4) pool.push('withdrawal', 'burnout');
   const filtered = pool.filter(b => b !== lastBoss);
   return U.choice(filtered.length ? filtered : pool);
@@ -434,6 +452,7 @@ DATA.CODEX_CHART = {
     dsm: "The book that has a name for you. All of them, actually.",
     priorauth: "Your treatment is denied pending paperwork. Fill the forms to be seen.",
     algorithm: "Learns how you move and serves you more of it. Engagement is the only cure it knows.",
+    influencer: "Healed, and monetizing it. The crystals are load-bearing. The discount code is not.",
     thecure: "What everyone's chasing. Turns out it was the friends we diagnosed along the way.",
     founder: "The man who turned every feeling into a market. Waits at the very top of the ladder — Ward 50.",
     walrus: "Board-certified in Confidence. The doctor will see you now. Forever."
@@ -627,6 +646,16 @@ DATA.SIDE_EFFECTS = [
   { id: 'restless',       name: "Restlessness",   icon: "⚡", desc: "Akathisia — everything on this ward moves faster." },
   { id: 'hypervigilance', name: "Hypervigilance", icon: "👁", desc: "You can't relax. Enemy shots fly sharper here." },
   { id: 'rumination',     name: "Rumination",     icon: "🔁", desc: "You keep coming back to it — each room's threat returns once." }
+];
+
+/* ============ CODE GRAY (floor-wide crisis events) ============
+   Occasionally a whole ward goes into crisis: a temporary ruleset with hazard
+   pay for surviving it. Rolled in newFloor (depth 4+); G.crisis holds the id. */
+DATA.CRISES = [
+  { id: 'lockdown',   name: "CODE GRAY: LOCKDOWN", icon: "🚨", desc: "Doors are sealing. Clear the whole ward before the timer runs out for a payout." },
+  { id: 'firedrill',  name: "FIRE DRILL",          icon: "🔥", desc: "This is not a drill (it is). Rooms catch fire behind you — don't linger." },
+  { id: 'inspection', name: "SURPRISE INSPECTION", icon: "📋", desc: "Contraband sweep. Any pill you're holding may be confiscated — reach the trapdoor with one to pass." },
+  { id: 'outage',     name: "POWER OUTAGE",        icon: "🔦", desc: "The lights are out ward-wide. Maintenance has been notified. Maintenance is not coming." }
 ];
 
 /* ============ ENDLESS DIFFICULTY CURVE ============

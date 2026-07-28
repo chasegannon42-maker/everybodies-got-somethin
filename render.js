@@ -1604,6 +1604,66 @@ const Render = {
         ctx.fillStyle = '#fff'; ctx.font = this.font(11, true); ctx.textAlign = 'center'; ctx.fillText('∞', 30, -40);
         break;
       }
+      case 'influencer': { // wellness guru mid-photoshoot: ring light, shades, phone, crystals
+        const live = !b.dead && b.hp < b.maxhp * 0.3;
+        // the ring light — a glowing halo behind everything
+        const rlGlow = 0.55 + Math.sin(b.t * 4) * 0.15;
+        const rg2 = ctx.createRadialGradient(0, -8, 30, 0, -8, 62);
+        rg2.addColorStop(0, 'rgba(255,240,200,0)'); rg2.addColorStop(0.75, 'rgba(255,236,180,' + rlGlow * 0.5 + ')'); rg2.addColorStop(1, 'rgba(255,236,180,0)');
+        ctx.fillStyle = rg2; ctx.beginPath(); ctx.arc(0, -8, 62, 0, TAU); ctx.fill();
+        ctx.strokeStyle = 'rgba(255,236,190,' + rlGlow + ')'; ctx.lineWidth = 6;
+        ctx.beginPath(); ctx.arc(0, -8, 46, 0, TAU); ctx.stroke();
+        ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(0, -8, 46, 0, TAU); ctx.stroke();
+        // tripod legs
+        ctx.strokeStyle = '#4a4048'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(0, 38); ctx.lineTo(-16, 52); ctx.moveTo(0, 38); ctx.lineTo(16, 52); ctx.moveTo(0, 30); ctx.lineTo(0, 44); ctx.stroke();
+        // athleisure body
+        const bg2 = ctx.createLinearGradient(0, -8, 0, 40);
+        bg2.addColorStop(0, flash ? '#fff' : '#e8a0b8'); bg2.addColorStop(1, flash ? '#eee' : '#c07898');
+        ctx.fillStyle = bg2;
+        this.rr(ctx, -24, -4, 48, 42, 14); ctx.fill();
+        // swooshy hair
+        ctx.fillStyle = flash ? '#fff' : '#8a5a3a';
+        ctx.beginPath(); ctx.moveTo(-20, -30); ctx.quadraticCurveTo(-34, -10, -26, 12); ctx.quadraticCurveTo(-18, -6, -16, -22); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(20, -30); ctx.quadraticCurveTo(34, -10, 26, 12); ctx.quadraticCurveTo(18, -6, 16, -22); ctx.closePath(); ctx.fill();
+        // face
+        ctx.fillStyle = flash ? '#fff' : '#f0d0b8';
+        ctx.beginPath(); ctx.arc(0, -18, 18, 0, TAU); ctx.fill();
+        // enormous white sunglasses
+        ctx.fillStyle = '#fdfdf8';
+        this.rr(ctx, -16, -24, 14, 11, 4); ctx.fill(); this.rr(ctx, 2, -24, 14, 11, 4); ctx.fill();
+        ctx.fillRect(-3, -21, 6, 3);
+        ctx.fillStyle = '#c8b8d8'; this.rr(ctx, -14, -22, 10, 7, 3); ctx.fill(); this.rr(ctx, 4, -22, 10, 7, 3); ctx.fill();
+        // serene influencer smile
+        ctx.strokeStyle = '#a06a5a'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.arc(0, -8, 6, 0.3, Math.PI - 0.3); ctx.stroke(); ctx.lineCap = 'butt';
+        // phone in hand (always filming)
+        ctx.save(); ctx.translate(26, 8); ctx.rotate(Math.sin(b.t * 2.2) * 0.08 - 0.15);
+        ctx.fillStyle = '#1b1f2a'; this.rr(ctx, -6, -12, 12, 24, 3); ctx.fill();
+        ctx.fillStyle = '#3a4a6a'; this.rr(ctx, -4, -10, 8, 18, 2); ctx.fill();
+        ctx.restore();
+        // orbiting crystals while the shield is up
+        if (b.shieldHp > 0) {
+          for (let i = 0; i < b.shieldHp; i++) {
+            const ca = b.t * 1.6 + i * TAU / 3;
+            const cx2 = Math.cos(ca) * 52, cy2 = -8 + Math.sin(ca) * 40;
+            ctx.save(); ctx.translate(cx2, cy2); ctx.rotate(ca);
+            ctx.fillStyle = 'rgba(200,176,224,0.9)';
+            ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(6, 0); ctx.lineTo(0, 10); ctx.lineTo(-6, 0); ctx.closePath(); ctx.fill();
+            ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = 1.5; ctx.stroke();
+            ctx.restore();
+          }
+        }
+        // 🔴 LIVE badge when enraged
+        if (live) {
+          ctx.fillStyle = Math.floor(b.t * 3) % 2 ? '#e04040' : '#a02020';
+          this.rr(ctx, -22, -52, 44, 15, 4); ctx.fill();
+          ctx.fillStyle = '#fff'; ctx.font = this.font(10, true); ctx.textAlign = 'center';
+          ctx.fillText('● LIVE', 0, -41);
+        }
+        break;
+      }
       case 'thecure': { // a radiant panacea capsule — hope, weaponized
         const glow = 1 + Math.sin(b.t * 3) * 0.12;
         const gg = ctx.createRadialGradient(0, 0, 6, 0, 0, 70 * glow);
@@ -2181,6 +2241,19 @@ const Render = {
     if (G.sideEffect) {
       const se = DATA.SIDE_EFFECTS.find(s => s.id === G.sideEffect);
       if (se) { ctx.save(); ctx.font = this.font(10, true); ctx.textAlign = 'right'; ctx.fillStyle = 'rgba(181,138,208,0.9)'; ctx.fillText(se.icon + ' ' + se.name, CW - 20, 52); ctx.restore(); }
+    }
+    // CODE GRAY crisis badge (+ lockdown countdown)
+    if (G.crisis && !G.crisisFail && !(G.crisis === 'lockdown' && G.crisisDone)) {
+      const cr = DATA.CRISES.find(c => c.id === G.crisis);
+      if (cr) {
+        ctx.save(); ctx.font = this.font(10, true); ctx.textAlign = 'right';
+        const flashy = G.crisis === 'lockdown' && G.crisisT < 15 && Math.floor(G.crisisT * 2) % 2 === 0;
+        ctx.fillStyle = flashy ? 'rgba(240,90,90,1)' : 'rgba(224,120,96,0.9)';
+        let txt = cr.icon + ' ' + cr.name;
+        if (G.crisis === 'lockdown') txt += ' ' + Math.max(0, Math.ceil(G.crisisT)) + 's';
+        ctx.fillText(txt, CW - 20, G.sideEffect ? 40 : 52);
+        ctx.restore();
+      }
     }
     // Brain Fog side-effect: the minimap is gone
     if (G.sideEffect === 'brainfog') {

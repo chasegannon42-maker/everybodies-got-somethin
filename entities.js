@@ -189,6 +189,7 @@ class Player {
         }
       }
     }
+    if (G && G.checkUnlocks) G.checkUnlocks();   // item-driven achievements land immediately
   }
 
   effSpd() {
@@ -304,7 +305,8 @@ class Player {
     if (this.flags.fineMode) t *= 0.94;
     if (G && G.tearsAura) t *= 1.3;
     if (G && G.rapidMods) t *= G.rapidMods.tears;   // Rapid Cycling (tears>1 = slower)
-    return Math.max(0.09, t);
+    if (this.flags.beam) t = Math.min(t, 0.075);   // Crying It Out: a continuous stream
+    return Math.max(this.flags.beam ? 0.055 : 0.09, t);
   }
 
   update(dt, G) {
@@ -440,13 +442,22 @@ class Player {
       const vx = Math.cos(a) * this.shotSpd + mv.x * this.effSpd() * mvBoost;
       const vy = Math.sin(a) * this.shotSpd + mv.y * this.effSpd() * mvBoost;
       const big = this.diag === 'depression';
-      // OCD fires a balanced PAIR (symmetry); each tear is weaker so a clean pair ~1.2x a normal shot
-      const shots = (this.diag === 'ocd') ? [{ a: a - 0.10, s: 0.6 }, { a: a + 0.10, s: 0.6 }] : [{ a: a, s: 1 }];
+      // keystone prescriptions reshape the pattern; else OCD fires a balanced PAIR (symmetry)
+      let shots;
+      const spdMul = this.flags.beam ? 1.5 : 1;
+      if (this.flags.quadShot) shots = [-0.16, -0.055, 0.055, 0.16].map(o => ({ a: a + o, s: 0.45 }));
+      else if (this.flags.beam) shots = [{ a: a + U.rand(-0.02, 0.02), s: 0.34 }];
+      else if (this.diag === 'ocd') shots = [{ a: a - 0.10, s: 0.6 }, { a: a + 0.10, s: 0.6 }];
+      else shots = [{ a: a, s: 1 }];
       for (const sh of shots) {
-        const svx = Math.cos(sh.a) * this.shotSpd + mv.x * this.effSpd() * mvBoost;
-        const svy = Math.sin(sh.a) * this.shotSpd + mv.y * this.effSpd() * mvBoost;
+        const svx = Math.cos(sh.a) * this.shotSpd * spdMul + mv.x * this.effSpd() * mvBoost;
+        const svy = Math.sin(sh.a) * this.shotSpd * spdMul + mv.y * this.effSpd() * mvBoost;
         const tear = new Tear(this.x + Math.cos(sh.a) * 12, this.y + Math.sin(sh.a) * 12 - 6, svx, svy, this.effDmg() * sh.s, this.range, big);
         if (this.flags.homingTears) tear.home = 2.2;   // rumination: the tears can't let go
+        if (this.flags.spiralTears) tear._spiral = 2.7;         // Spiral Thoughts
+        if (this.flags.pierceTears) tear._pierce = 3;           // Radical Honesty
+        if (this.flags.boomTears) { tear._boom = true; tear._life0 = tear.life; }   // Boomerang Chart
+        if (this.flags.mortarTears) { tear._mortar = true; tear.r += 2.5; }         // The Ugly Cry
         G.tears.push(tear);
       }
       G.playerFired = true;
@@ -455,6 +466,12 @@ class Player {
 
     for (const f of this.familiars) f.update(dt, G);
     for (const a of this.allies) a.update(dt, G);
+  }
+
+  /* keystone prescriptions are exclusive — a new one replaces the old (your prescription changed) */
+  clearKeystone() {
+    ['beam', 'spiralTears', 'pierceTears', 'quadShot', 'boomTears', 'mortarTears'].forEach(f => delete this.flags[f]);
+    Meta.data.everKeystone = 1;   // Off-Label Use (every keystone apply routes through here)
   }
 
   /* recruit a fellow patient into the Support Group (cap 3, no duplicates while there's fresh blood) */
@@ -467,6 +484,7 @@ class Player {
     ally.x = this.x + U.rand(-40, 40); ally.y = this.y + U.rand(-40, 40);
     if (this.flags.allyTough) { ally.maxhp = 4; ally.hp = 4; ally.dmgMul = 1.35; }   // Facilitator talent
     this.allies.push(ally);
+    if (this.allies.length >= 3 && !Meta.data.everFullGroup) { Meta.data.everFullGroup = 1; Meta.save(); if (G && G.checkUnlocks) G.checkUnlocks(); }   // Group Session
     if (G) { G.toast('🤝 ' + ally.name + ' joined the group!', ally.tint); SFX.play('item'); }
     return true;
   }
@@ -529,6 +547,25 @@ class Tear {
         this.vx = Math.cos(cur + turn) * spd; this.vy = Math.sin(cur + turn) * spd;
       }
     }
+    // Spiral Thoughts: the velocity vector corkscrews as it travels
+    if (this._spiral) {
+      const rot = this._spiral * dt, c = Math.cos(rot), s = Math.sin(rot);
+      const nvx = this.vx * c - this.vy * s;
+      this.vy = this.vx * s + this.vy * c;
+      this.vx = nvx;
+    }
+    // Boomerang Chart: past the apex, the tear arcs back to you
+    if (this._boom && !this._ret && this.life < this._life0 * 0.55) this._ret = true;
+    if (this._ret) {
+      const p2 = G.player;
+      const want = U.ang(this.x, this.y, p2.x, p2.y), cur = Math.atan2(this.vy, this.vx);
+      const da = Math.atan2(Math.sin(want - cur), Math.cos(want - cur));
+      const turn = U.clamp(da, -9 * dt, 9 * dt);
+      const spd = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+      this.vx = Math.cos(cur + turn) * spd; this.vy = Math.sin(cur + turn) * spd;
+      this.life = Math.max(this.life, 0.2);   // don't expire mid-return
+      if (U.dist(this.x, this.y, p2.x, p2.y) < p2.r) { this.dead = true; return; }   // caught
+    }
     this.x += this.vx * dt; this.y += this.vy * dt;
     this.life -= dt;
     if (this.life <= 0) { this.splash(G); return; }
@@ -549,6 +586,7 @@ class Tear {
     // hit enemies
     for (const e of G.enemies) {
       if (e.dying || e.spawnT > 0.15 || e.charmed) continue;   // charmed allies aren't targets
+      if (this._hit && this._hit.has(e)) continue;             // Radical Honesty: already passed through them
       if (U.dist(this.x, this.y, e.x, e.y) < this.r + e.r) {
         let d = this.dmg;
         if (G.player.flags.hyperfix && G.hyperfixType === e.id) d *= 1.5;
@@ -561,12 +599,18 @@ class Tear {
           for (let i = 0; i < 8; i++) { const a = (i / 8) * TAU; G.parts.push(new Particle(e.x, e.y, Math.cos(a) * 120, Math.sin(a) * 120, 0.5, '#8fd05a', 3)); }
         }
         e.x += this.vx * 0.014; e.y += this.vy * 0.014; // knockback
+        if (this._pierce > 0) {   // Radical Honesty: the truth keeps going
+          this._pierce--;
+          (this._hit || (this._hit = new Set())).add(e);
+          continue;
+        }
         this.splash(G);
         return;
       }
     }
-    if (G.boss && !G.boss.dead && G.boss.vulnerable && U.dist(this.x, this.y, G.boss.x, G.boss.y) < this.r + G.boss.r) {
+    if (G.boss && !G.boss.dead && G.boss.vulnerable && !this._hitBoss && U.dist(this.x, this.y, G.boss.x, G.boss.y) < this.r + G.boss.r) {
       G.boss.hurt(this.dmg, G);
+      if (this._pierce > 0) { this._pierce--; this._hitBoss = true; return; }
       this.splash(G);
       return;
     }
@@ -574,6 +618,16 @@ class Tear {
   splash(G) {
     this.dead = true;
     for (let i = 0; i < 5; i++) G.parts.push(new Particle(this.x, this.y, U.rand(-70, 70), U.rand(-90, 10), 0.35, '#7ab8e8', U.rand(2, 4)));
+    // The Ugly Cry: the big one bursts into a ring of little ones
+    if (this._mortar && !this._mini && G) {
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * TAU + 0.2;
+        const mini = new Tear(this.x, this.y, Math.cos(a) * 240, Math.sin(a) * 240, this.dmg * 0.4, 0.28, false);
+        mini._mini = true;
+        G.tears.push(mini);
+      }
+      SFX.play('pop');
+    }
   }
 }
 

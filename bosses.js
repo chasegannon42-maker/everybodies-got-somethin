@@ -80,6 +80,7 @@ class Boss {
     this.pullT = 0;
     this.page = 0; this.pageT = 2.6; this._sub = false; // THE MANUAL
     this._paInit = false; // PRIOR AUTHORIZATION form state
+    this.shieldHp = 0; this.shieldT = 6; // THE INFLUENCER: crystal shield (absorbs hits until shattered)
     this.introT = 1.6; // brief intro pause
     Meta.see('bosses', id);
     if (id === 'priorauth') this.vulnerable = false; // must "fill the forms" before it can be hit
@@ -459,6 +460,55 @@ class Boss {
         this.clampPos();
         break;
       }
+      /* ---------- THE INFLUENCER ---------- */
+      case 'influencer': {
+        const LIVE = this.hp < this.maxhp * 0.3;   // "going live" enrage
+        this.x = CW / 2 + Math.sin(this.t * 0.55) * 200;
+        this.y = RY + 118 + Math.sin(this.t * 1.1) * 26;
+        this.spiralA += dt * (LIVE ? 3.1 : P2 ? 2.6 : 1.9);
+        this.atkT -= dt;
+        if (this.atkT <= 0) {
+          const roll = Math.random();
+          if (roll < 0.5) {   // ring-light sweep: bright rotating beam arms
+            this.atkT = 0.13;
+            for (const arm of (P2 ? [0, TAU / 3, 2 * TAU / 3] : [0, Math.PI])) this.bullet(this.spiralA + arm, 160, '#ffe8b0', { r: 8 });
+          } else if (roll < 0.8) {   // "get ready with me" — aimed volley
+            this.atkT = P2 ? 1.1 : 1.6;
+            const a = this.aimP(G);
+            for (const off of (P2 ? [-0.24, -0.08, 0.08, 0.24] : [-0.12, 0.12])) this.bullet(a + off, 225, '#ff9ec0');
+            SFX.play('pop');
+          } else {   // #sponsored — a wave of walking ads
+            this.atkT = P2 ? 2.2 : 3.0;
+            this.summon(G, 'ad', 2);
+            G.toast('#sponsored #ad #blessed', '#ff9ec0');
+          }
+        }
+        // crystal shield: raise 3 crystals that eat hits until shattered
+        if (this.shieldHp <= 0) {
+          this.shieldT -= dt;
+          if (this.shieldT <= 0) {
+            this.shieldT = P2 ? 8 : 10;
+            this.shieldHp = 3;
+            G.toast('“Crystals up. Protect your energy.”', '#c8b0e0');
+            SFX.play('voice');
+          }
+        } else {   // channeling self-care behind the crystals: soft radial rings
+          this.pullT -= dt;
+          if (this.pullT <= 0) { this.pullT = 1.5; this.ring(P2 ? 12 : 9, 130, '#d8c0f0', U.rand(0, TAU), this.aimP(G) + Math.PI, 0.8); }
+        }
+        // 🔴 LIVE: streams of homing "likes"
+        if (LIVE) {
+          this.dashT -= dt;
+          if (this.dashT <= 0) {
+            this.dashT = 2.2;
+            G.toast('🔴 LIVE — smash that like', '#ff6a8a');
+            for (let i = 0; i < (P2 ? 4 : 3); i++) { const bl = this.bullet(this.aimP(G) + U.rand(-0.5, 0.5), 140, '#ff7a9e', { life: 3.5 }); bl.home = 0.9; }
+            SFX.play('voice');
+          }
+        }
+        this.clampPos();
+        break;
+      }
       /* ---------- THE CURE (Ward 25 finale) ---------- */
       case 'thecure': {
         this.x = CW / 2 + Math.sin(this.t * 0.4) * 150;
@@ -597,6 +647,18 @@ class Boss {
       SFX.play('error');
       return;
     }
+    if (this.id === 'influencer' && this.shieldHp > 0) {   // a crystal eats the hit
+      this.shieldHp--;
+      const a = U.rand(0, TAU);
+      for (let i = 0; i < 6; i++) G.parts.push(new Particle(this.x + Math.cos(a) * 52, this.y + Math.sin(a) * 52, U.rand(-140, 140), U.rand(-140, 140), 0.4, '#c8b0e0', 3));
+      SFX.play('pop');
+      if (this.shieldHp <= 0) {
+        G.texts.push(new FloatText(this.x, this.y - this.r - 12, 'CRYSTALS SHATTERED', '#c8b0e0'));
+        G.shake = Math.max(G.shake, 6);
+        SFX.play('boom');
+      }
+      return;
+    }
     this.hp -= d;
     this.hitFlash = 0.1;
     SFX.play('hit');
@@ -618,6 +680,12 @@ class Boss {
       for (let i = 0; i < Math.min(this.stolen + 2, 10); i++) G.pickups.push(new Pickup('coin', this.x + U.rand(-30, 30), this.y + U.rand(-30, 30)));
     }
     if (this.id === 'larperking') G.toast('It was never real.');
+    if (this.id === 'influencer') {   // the sponsorship payout
+      for (let i = 0; i < 4; i++) G.pickups.push(new Pickup('coin', this.x + U.rand(-34, 34), this.y + U.rand(-24, 24)));
+      const pl = G.player; if ((pl.coupons || 0) < 3) { pl.coupons = (pl.coupons || 0) + 1; G.toast('🎟 The sponsorship deal is yours now.', '#9db85a'); }
+      Meta.data.influencerKills = (Meta.data.influencerKills || 0) + 1; Meta.save();
+      if (G.checkUnlocks) G.checkUnlocks();
+    }
     if (this.id === 'walrus') {
       Meta.data.walrusKills++;
       G.toast('DR. WALRUS: "' + U.choice(DATA.WALRUS_DEFEAT_LINES) + '"');

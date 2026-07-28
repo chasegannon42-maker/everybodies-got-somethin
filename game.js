@@ -83,7 +83,7 @@ const G = {
   },
 
   /* ---------- daily ward (a date-seeded run everyone shares) ---------- */
-  DAILY_DIAGS: ['adhd', 'bipolar', 'depression', 'anxiety', 'schizo'],
+  DAILY_DIAGS: ['adhd', 'bipolar', 'depression', 'anxiety', 'schizo', 'ocd', 'ptsd', 'insomnia'],
   todayKey() {
     const d = new Date();
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
@@ -449,7 +449,7 @@ const G = {
     const s = this.quiz.scores;
     let best = null, bestV = -1;
     for (const k of U.shuffle(Object.keys(s))) if (s[k] > bestV) { bestV = s[k]; best = k; }
-    if (bestV <= 0) best = U.choice(['adhd', 'bipolar', 'depression', 'anxiety', 'schizo']);
+    if (bestV <= 0) best = U.choice(['adhd', 'bipolar', 'depression', 'anxiety', 'schizo', 'ocd', 'ptsd', 'insomnia']);
     setTimeout(() => { if (this.state === 'quiz') this.showCard(best); }, 900);
   },
 
@@ -520,6 +520,7 @@ const G = {
     this.floorHits = 0;
     this._deathRecorded = false;
     this._runLogged = false;
+    this._insightGained = 0;
     this._runCured = false;
     this._runStart = Date.now();
     this.larperToastShown = false;
@@ -608,6 +609,13 @@ const G = {
     this.sideEffect = (this.depth >= 3)
       ? this.genSeed(['sideeffect', this.depth], () => U.chance(0.35) ? U.choice(DATA.SIDE_EFFECTS).id : null)
       : null;
+    // CODE GRAY: occasionally a whole ward goes into crisis (depth 4+)
+    this.crisis = (this.depth >= 4)
+      ? this.genSeed(['crisis', this.depth], () => U.chance(0.2) ? U.choice(DATA.CRISES).id : null)
+      : null;
+    this.crisisT = this.crisis === 'lockdown' ? 75 : 0;
+    this.crisisDone = false; this.crisisFail = false;
+    if (this.crisis === 'outage') this.floorDark = Math.max(this.floorDark, 0.6);
     const p = this.player;
     p.pillsThisFloor = 0;
     if (p.diag === 'depression') p.blanket = true;
@@ -636,11 +644,12 @@ const G = {
     if (p.flags.mapReveal) this.floorRooms.forEach(r => r.discovered = true);
     this.enterRoom(gen.start, null);
     // announce ward complications + side-effect
-    if (this.complications.length || this.sideEffect) setTimeout(() => {
+    if (this.complications.length || this.sideEffect || this.crisis) setTimeout(() => {
       if (this.state !== 'run') return;
       SFX.play('error');
       for (const c of this.complications) this.toast('⚠ ' + c.name + ' — ' + c.desc, '#e0955a');
       if (this.sideEffect) { const se = DATA.SIDE_EFFECTS.find(s => s.id === this.sideEffect); if (se) this.toast(se.icon + ' SIDE EFFECT: ' + se.name + ' — ' + se.desc, '#b58ad0'); }
+      if (this.crisis) { const cr = DATA.CRISES.find(c => c.id === this.crisis); if (cr) { this.toast(cr.icon + ' ' + cr.name + ' — ' + cr.desc, '#e06060'); SFX.play('boss'); } }
     }, 500);
     if (p.diag === 'schizo' && U.chance(0.5)) setTimeout(() => { if (this.state === 'run') { this.toast(U.choice(DATA.VOICE_LINES), '#cbb8e8'); SFX.play('voice'); } }, 2500);
   },
@@ -650,6 +659,11 @@ const G = {
     this.room = room;
     room.discovered = true;
     room.visited = true;
+    // achievement tracking: the hazard-room tour
+    if (['seclusion', 'ect', 'padded', 'observation'].includes(room.type)) {
+      const hs = Meta.data.hazardsSeen || (Meta.data.hazardsSeen = {});
+      if (!hs[room.type]) { hs[room.type] = 1; Meta.save(); this.checkUnlocks(); }
+    }
     for (const d in DIRS) {
       const n = this.roomAt(room.gx + DIRS[d].dx, room.gy + DIRS[d].dy);
       if (n && room.doors[d]) n.discovered = true;
@@ -682,6 +696,16 @@ const G = {
     else if (entryDir === 'W') { p.x = RX + RW - 42; p.y = midY; }
     else { p.x = midX; p.y = RY + RH - 90; }
     if (p.allies) for (const a of p.allies) { a.x = p.x + U.rand(-36, 36); a.y = p.y + U.rand(-36, 36); }   // group files in with you
+
+    // FIRE DRILL: the rooms you've already cleared are burning behind you
+    if (this.crisis === 'firedrill' && room.cleared && (room.type === 'normal' || room.type === 'padded') && room.spawned) {
+      for (let i = 0; i < 2; i++) {
+        const zx = U.clamp(CW / 2 + U.rand(-RW * 0.3, RW * 0.3), RX + 60, RX + RW - 60);
+        const zy = U.clamp(RY + RH / 2 + U.rand(-RH * 0.26, RH * 0.26), RY + 60, RY + RH - 60);
+        if (U.dist(zx, zy, p.x, p.y) < 90) continue;
+        this.zones.push(new Zone(zx, zy, 34, 40, 'ember', '#e07830'));
+      }
+    }
 
     if (!room.spawned) this.populateRoom(room);
     this.doorsOpen = room.cleared;
@@ -870,8 +894,17 @@ const G = {
     this.stats.rooms++;
     SFX.play('door');
     if (p.flags.gratitude && U.chance(0.25)) { p.heal(1); this.texts.push(new FloatText(p.x, p.y - 24, 'grateful +♥', '#8fd05a')); }
-    if (p.diag === 'insomnia') { p.sleep = U.clamp(p.sleep + 16, 0, 100); }   // a moment's quiet lets you catch your breath
+    if (p.diag === 'insomnia') {
+      if (p.wired && !Meta.data.everWiredClear) { Meta.data.everWiredClear = 1; Meta.save(); this.checkUnlocks(); }   // Tired & Wired
+      p.sleep = U.clamp(p.sleep + 16, 0, 100);   // a moment's quiet lets you catch your breath
+    }
     if (p.allies) for (const a of p.allies) a.revive();   // downed group members get back up between rooms
+    // SURPRISE INSPECTION: the sweep may confiscate the pill you're holding
+    if (this.crisis === 'inspection' && p.pill != null && U.chance(0.25)) {
+      p.pill = null;
+      this.toast('📋 Contraband confiscated. "It\'s policy."', '#e0955a');
+      SFX.play('error');
+    }
     if (p.flags.gym && p._gymAdd < 1.5) { p._gymAdd += 0.15; p.dmg += 0.15; }
     if (U.chance(0.4)) {
       const type = U.choice(['coin', 'coin', 'half', 'pill', 'coin', 'key', 'bomb']);
@@ -1044,6 +1077,15 @@ const G = {
 
   /* ---------- comorbidity choice on descent ---------- */
   doDescend() {
+    // CODE GRAY hazard pay: you worked the crisis ward and lived
+    if (this.crisis && !this.crisisFail) {
+      const p = this.player;
+      if (this.crisis === 'inspection' && p.pill != null) { p.luck += 1; p.coins += 4; this.toast('📋 Passed inspection, contraband intact. +4¢, +1 luck.', '#8fd05a'); Meta.data.crisesSurvived = (Meta.data.crisesSurvived || 0) + 1; }
+      else if (this.crisis !== 'lockdown' && this.crisis !== 'inspection') { p.coins += 4; this.toast(DATA.CRISES.find(c => c.id === this.crisis).icon + ' Hazard pay: +4¢.', '#8fd05a'); Meta.data.crisesSurvived = (Meta.data.crisesSurvived || 0) + 1; }
+      else if (this.crisis === 'lockdown' && this.crisisDone) { Meta.data.crisesSurvived = (Meta.data.crisesSurvived || 0) + 1; }
+      Meta.save();
+      this.checkUnlocks();   // Crisis Counselor may have just landed
+    }
     this.state = 'descend';
     this.descendT = 0;
     this._descended = false;
@@ -1187,6 +1229,22 @@ const G = {
       }
     }
     this.stamps = this.stamps.filter(s => s.t > -0.2);
+
+    // CODE GRAY: LOCKDOWN — clear every ward room before the doors seal
+    if (this.crisis === 'lockdown' && !this.crisisDone && !this.crisisFail) {
+      this.crisisT -= dt;
+      const combat = this.floorRooms.filter(r => r.type === 'normal' || r.type === 'padded');
+      if (combat.length && combat.every(r => r.cleared)) {
+        this.crisisDone = true;
+        p.heal(2); p.coins += 5;
+        this.toast('🚨 LOCKDOWN CLEARED — hazard pay: +5¢, patched up.', '#8fd05a');
+        SFX.play('item');
+      } else if (this.crisisT <= 0) {
+        this.crisisFail = true;
+        this.toast('🚨 Lockdown lifted. The moment passed you by.', '#e0955a');
+        SFX.play('error');
+      }
+    }
 
     // hazard rooms — the per-frame threats
     const room = this.room;
@@ -1437,7 +1495,9 @@ const G = {
           ${row('Prescriptions collected', st.items)}
           ${row('Pills swallowed', st.pills)}
           ${row('Rooms survived', st.rooms)}
+          ${this._insightGained ? row('<span style="color:#8fd0e0">◆ Insight earned</span>', '<span style="color:#8fd0e0">+' + this._insightGained + '</span>') : ''}
         </div>
+        ${this._insightGained ? `<div class="tagline" style="margin-top:-6px">spend it in the 🧠 Treatment Plan on the title screen</div>` : ''}
         ${unlockHtml}
         <div class="walrusbox">
           <canvas class="walrusCanvas" width="132" height="132" id="deadWalrus"></canvas>
@@ -1598,7 +1658,7 @@ const G = {
   showBestiary(returnTo) {
     this.state = 'bestiary';
     const seen = (Meta.data.seen && Meta.data.seen.bosses) || {};
-    const order = ['gatekeeper', 'larperking', 'adjuster', 'priorauth', 'stigma', 'dsm', 'algorithm', 'withdrawal', 'burnout', 'walrus', 'thecure', 'founder'];
+    const order = ['gatekeeper', 'larperking', 'adjuster', 'priorauth', 'stigma', 'dsm', 'algorithm', 'influencer', 'withdrawal', 'burnout', 'walrus', 'thecure', 'founder'];
     const got = order.filter(id => seen[id]).length;
     const cards = order.map(id => {
       const B = DATA.BOSSES[id];
@@ -1684,6 +1744,7 @@ const G = {
       if (!t || !canBuy(t)) { SFX.play('error'); return; }
       Meta.data.insight -= t.cost; tal[t.id] = 1; Meta.save();
       SFX.play('item');
+      DATA.checkAchievements(Meta.data); Meta.save();   // Modality Mastered can land mid-menu
       this.showTreatmentPlan(returnTo);
     });
     document.getElementById('bTreatBack').onclick = () => { SFX.play('ui'); (returnTo || (() => this.showTitle()))(); };
