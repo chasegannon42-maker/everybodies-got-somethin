@@ -482,6 +482,28 @@ DATA.bossFor = function (depth, lastBoss) {
   return U.choice(filtered.length ? filtered : pool);
 };
 
+/* ============ EMOTIONAL SUPPORT ANIMALS (one equipped, like hats) ============ */
+DATA.PETS = [
+  { id: 'pigeon',   icon: '🕊', name: 'The Pigeon',   note: 'finds loose change; strong opinions about crumbs', unlock: m => true,                         unlockHint: 'yours by default. it chose you.' },
+  { id: 'cat',      icon: '🐈', name: 'Office Cat',   note: 'swats bullets off the table. you are the table',   unlock: m => (m.contractsDone || 0) >= 3,  unlockHint: 'complete 3 Day Room contracts' },
+  { id: 'snake',    icon: '🐍', name: 'The Metaphor', note: 'it bites your problems. it IS your problems',      unlock: m => (m.amaDone || 0) >= 1,        unlockHint: 'leave Against Medical Advice once' },
+  { id: 'goldfish', icon: '🐟', name: 'The Goldfish', note: 'enemies near it forget what they were doing',      unlock: m => (m.appealsWon || 0) >= 1,     unlockHint: 'win an appeal' }
+];
+
+/* ============ THE INTERCOM (Dr. Walrus is watching. commenting, even.) ============ */
+DATA.INTERCOM = {
+  lowhp:   ["Code... something, in your hallway. He's fine. Probably.", "Would the patient please stop bleeding on the new floors.", "A gentle reminder that dying is billed as a procedure."],
+  hoard:   ["A reminder: the gift shop accepts exact change. And donations. Mostly donations.", "Someone on this floor is hoarding copays. The Fund sees you.", "That's a lot of change. The vending machine misses you."],
+  nopills: ["We've noticed you haven't taken your medication. The medication has noticed too.", "The pill in your pocket has feelings, you know.", "Pharmacy asks: is it something we said?"],
+  streak:  ["Whoever keeps dodging everything: the staff finds it unsettling.", "Three clean rooms. HR has opened a file on your file.", "Please allow at least one symptom to touch you. For morale."],
+  idle:    ["Loitering is a symptom.", "We see you standing there. The floor is not a waiting room. The waiting room is.", "Movement is covered by your plan. Standing still is out-of-network."],
+  fast:    ["Slow down. This is billed hourly.", "Speedrunning your treatment devalues the treatment. And the billing.", "The ward requests you savor your symptoms."],
+  floor3:  ["You've reached Ward 3. Your insurance has been notified. It laughed.", "Ward 3. The elevators stop pretending after this."],
+  floor7:  ["Ward 7. The plants down here are plastic. The feelings are real.", "Ward 7. If you see the Auditor, you didn't."],
+  floor12: ["Ward 12. Honestly? We didn't think you'd get this far. Accounting did. Accounting always knows.", "Ward 12. The walls are load-bearing. So is your denial."],
+  pattern: ["Try not to let the {X} get you this time. It's becoming a pattern. We've made it a chart.", "Statistically, the {X} is your problem. Clinically too."]
+};
+
 /* ============ INSURANCE PLANS (pick your coverage at intake) ============ */
 DATA.PLANS = [
   { id: 'bronze', icon: '🥉', name: 'BRONZE', tag: 'Catastrophic-Only', clr: '#c88a4a',

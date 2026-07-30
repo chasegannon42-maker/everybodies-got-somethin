@@ -1314,6 +1314,7 @@ const Render = {
     // player + familiars + support group
     for (const f of G.player.familiars) this.drawFamiliar(f, G);
     for (const a of G.player.allies) this.drawAlly(a, G);
+    if (G.player.pet) this.drawPet(G.player.pet, G);
     this.drawPlayer(G.player, G);
 
     // tears — glossy droplets with shadow
@@ -1385,6 +1386,60 @@ const Render = {
   },
 
   /* ============ the player doodle ============ */
+  /* ============ emotional support animals ============ */
+  drawPet(pet, G) {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.translate(pet.x, pet.y);
+    const bob = Math.sin(pet.t * 4) * 1.5;
+    if (pet.type === 'pigeon') {
+      this.shadow(0, 8, 8, 3, 0.2);
+      ctx.translate(0, bob - Math.abs(Math.sin(pet.t * 8)) * 3);   // flappy hop
+      ctx.fillStyle = '#9aa0ac'; ctx.beginPath(); ctx.ellipse(0, 0, 7, 5.5, 0, 0, TAU); ctx.fill();   // body
+      ctx.fillStyle = '#7a8290'; ctx.beginPath(); ctx.ellipse(-2, -1, 4.5, 3, -0.4 + Math.sin(pet.t * 10) * 0.25, 0, TAU); ctx.fill();   // wing
+      ctx.fillStyle = '#8a92a2'; ctx.beginPath(); ctx.arc(5, -4, 3.4, 0, TAU); ctx.fill();   // head
+      ctx.fillStyle = '#2c2333'; ctx.beginPath(); ctx.arc(6, -4.5, 0.9, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#e0a05a'; ctx.beginPath(); ctx.moveTo(8, -4); ctx.lineTo(11, -3.2); ctx.lineTo(8, -2.4); ctx.closePath(); ctx.fill();   // beak
+      ctx.fillStyle = '#5a8a5a'; ctx.beginPath(); ctx.ellipse(1.5, -2.5, 2.4, 1.6, 0, 0, TAU) ; ctx.fill();   // iridescent neck
+    } else if (pet.type === 'cat') {
+      this.shadow(0, 10, 9, 3.5, 0.2);
+      ctx.translate(0, bob * 0.4);
+      ctx.fillStyle = '#d08a4a'; ctx.beginPath(); ctx.ellipse(0, 2, 8, 6, 0, 0, TAU); ctx.fill();   // body
+      ctx.strokeStyle = '#d08a4a'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';   // tail
+      ctx.beginPath(); ctx.moveTo(-7, 2); ctx.quadraticCurveTo(-13, -2 + Math.sin(pet.t * 3) * 3, -11, -8); ctx.stroke(); ctx.lineCap = 'butt';
+      ctx.fillStyle = '#d89a5e'; ctx.beginPath(); ctx.arc(5, -5, 4.5, 0, TAU); ctx.fill();   // head
+      ctx.beginPath(); ctx.moveTo(2, -8); ctx.lineTo(3, -12); ctx.lineTo(5, -8.5); ctx.closePath();   // ears
+      ctx.moveTo(8, -8); ctx.lineTo(9, -12); ctx.lineTo(6.5, -8.5); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#2c2333'; ctx.beginPath(); ctx.arc(4, -5.5, 0.8, 0, TAU); ctx.arc(7, -5.5, 0.8, 0, TAU); ctx.fill();
+      if (pet._swipeT > 0 && pet._swipeAt) {   // the swat
+        ctx.strokeStyle = 'rgba(255,240,200,0.8)'; ctx.lineWidth = 2;
+        const sa = U.ang(pet.x, pet.y, pet._swipeAt.x, pet._swipeAt.y);
+        for (const off of [-0.25, 0, 0.25]) { ctx.beginPath(); ctx.arc(0, -2, 14, sa + off - 0.3, sa + off + 0.3); ctx.stroke(); }
+      }
+    } else if (pet.type === 'snake') {
+      for (let i = pet.segs.length - 1; i >= 0; i--) {
+        const s = pet.segs[i], f = 1 - i / Math.max(1, pet.segs.length);
+        ctx.fillStyle = i % 2 ? '#5a9a5a' : '#4a8a4a';
+        ctx.beginPath(); ctx.arc(s.x - pet.x, s.y - pet.y, 2.2 + f * 2.6, 0, TAU); ctx.fill();
+      }
+      ctx.fillStyle = '#6aaa5a'; ctx.beginPath(); ctx.ellipse(0, 0, 5.5, 4.2, 0, 0, TAU); ctx.fill();   // head
+      ctx.fillStyle = '#e8d05a'; ctx.beginPath(); ctx.arc(-1.6, -1.4, 1, 0, TAU); ctx.arc(1.6, -1.4, 1, 0, TAU); ctx.fill();
+      ctx.strokeStyle = '#c05050'; ctx.lineWidth = 1.2;   // the tongue, tasting your issues
+      if (Math.sin(pet.t * 6) > 0.6) { ctx.beginPath(); ctx.moveTo(0, 3); ctx.lineTo(0, 7); ctx.moveTo(0, 7); ctx.lineTo(-1.5, 9); ctx.moveTo(0, 7); ctx.lineTo(1.5, 9); ctx.stroke(); }
+    } else if (pet.type === 'goldfish') {
+      this.shadow(0, 12, 8, 3, 0.18);
+      ctx.fillStyle = 'rgba(180,215,230,0.55)'; ctx.beginPath(); ctx.arc(0, 0, 9, 0, TAU); ctx.fill();   // the bowl
+      ctx.strokeStyle = 'rgba(140,180,200,0.9)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(0, 0, 9, 0, TAU); ctx.stroke();
+      ctx.fillStyle = 'rgba(120,170,210,0.5)'; ctx.beginPath(); ctx.arc(0, 2.5, 6.5, 0, Math.PI); ctx.fill();   // water
+      const fx = Math.sin(pet.t * 2.2) * 3, dir = Math.cos(pet.t * 2.2) >= 0 ? 1 : -1;
+      ctx.save(); ctx.translate(fx, 1.5); ctx.scale(dir, 1);
+      ctx.fillStyle = '#e8944a'; ctx.beginPath(); ctx.ellipse(0, 0, 3.2, 2, 0, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(-2.6, 0); ctx.lineTo(-5, -1.8); ctx.lineTo(-5, 1.8); ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
+    ctx.restore();
+  },
+
   drawPlayer(p, G) {
     const ctx = this.ctx;
     if (p.dead) return;
@@ -1450,28 +1505,34 @@ const Render = {
       }
     }
 
+    // MIDNIGHT WARD mastery skin: the gown takes your diagnosis color, the skin goes moonlit
+    const skinOn = typeof Meta !== 'undefined' && Meta.data.skinOn && Meta.data.skinOn[p.diag] && !p.noSkin;
+    const dgc = skinOn ? ((DATA.DIAG[p.diag] || DATA.DIAG.adhd).color) : null;
+    const PAL = skinOn
+      ? { feet: this.shade(dgc, -0.5), body0: this.shade(dgc, -0.05), body1: this.shade(dgc, -0.4), arms: this.shade(dgc, -0.25), head0: '#efe8f8', head1: '#d4c8e6', head2: '#9c8eb8', rim: 'rgba(220,205,255,0.5)' }
+      : { feet: '#b99a76', body0: '#edd3b3', body1: '#c6a684', arms: '#d8bb96', head0: '#fdf1de', head1: '#f2dcc0', head2: '#cdb08b', rim: 'rgba(255,250,238,0.45)' };
     // little shuffling feet
     const step = p.moving ? Math.sin(G.t * 15) * 3.2 : 0;
-    ctx.fillStyle = '#b99a76';
+    ctx.fillStyle = PAL.feet;
     ctx.beginPath(); ctx.ellipse(-5.5, 17 - Math.max(0, step), 4.2, 3, 0, 0, TAU); ctx.fill();
     ctx.beginPath(); ctx.ellipse(5.5, 17 + Math.min(0, step), 4.2, 3, 0, 0, TAU); ctx.fill();
     // stubby body
     const bg = ctx.createLinearGradient(0, 3, 0, 17);
-    bg.addColorStop(0, '#edd3b3'); bg.addColorStop(1, '#c6a684');
+    bg.addColorStop(0, PAL.body0); bg.addColorStop(1, PAL.body1);
     ctx.fillStyle = bg;
     ctx.beginPath(); ctx.ellipse(0, 10, 8.5, 7, 0, 0, TAU); ctx.fill();
     // tiny arms
-    ctx.strokeStyle = '#d8bb96'; ctx.lineWidth = 3.5; ctx.lineCap = 'round';
+    ctx.strokeStyle = PAL.arms; ctx.lineWidth = 3.5; ctx.lineCap = 'round';
     ctx.beginPath(); ctx.moveTo(-7, 7); ctx.lineTo(-11, 11 + step * 0.3); ctx.moveTo(7, 7); ctx.lineTo(11, 11 - step * 0.3); ctx.stroke();
     ctx.lineCap = 'butt';
 
     // big round head with cool rim-light so it pops off the dark floor
     const HR = 16;
     const hg = ctx.createRadialGradient(-5, -12, 3, 0, -6, HR + 4);
-    hg.addColorStop(0, '#fdf1de'); hg.addColorStop(0.62, '#f2dcc0'); hg.addColorStop(1, '#cdb08b');
+    hg.addColorStop(0, PAL.head0); hg.addColorStop(0.62, PAL.head1); hg.addColorStop(1, PAL.head2);
     ctx.fillStyle = hg;
     ctx.beginPath(); ctx.arc(0, -6, HR, 0, TAU); ctx.fill();
-    ctx.strokeStyle = 'rgba(255,250,238,0.45)'; ctx.lineWidth = 2;
+    ctx.strokeStyle = PAL.rim; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(0, -6, HR - 1, 0.35, 1.5); ctx.stroke();
     ctx.strokeStyle = 'rgba(58,40,50,0.32)'; ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.arc(0, -6, HR, 0, TAU); ctx.stroke();
@@ -1724,6 +1785,7 @@ const Render = {
     ctx.save();
     ctx.translate(e.x, e.y);
     if (tunnelA < 1) ctx.globalAlpha *= Math.max(0.05, tunnelA);
+    if (e._shadow) ctx.filter = 'brightness(0.45) saturate(0.6)';   // shadow patient: mostly silhouette
     if (e.charmed) {   // recruited ally: a green halo + a little heart
       const pl = 0.5 + Math.sin(G.t * 5) * 0.22;
       ctx.strokeStyle = 'rgba(143,208,90,' + pl + ')'; ctx.lineWidth = 2.5;
@@ -2177,6 +2239,12 @@ const Render = {
       }
     }
     ctx.restore();
+    // shadow patients: the eyes are the only bright thing left
+    if (e._shadow && !e.dying && e.spawnT <= 0) {
+      const gl = 0.65 + Math.sin(G.t * 4 + e.x) * 0.2;
+      ctx.fillStyle = 'rgba(200,160,255,' + gl + ')';
+      ctx.beginPath(); ctx.arc(e.x - 4, e.y - e.r * 0.3, 2, 0, TAU); ctx.arc(e.x + 4, e.y - e.r * 0.3, 2, 0, TAU); ctx.fill();
+    }
     // Wellness Bot's blessing: a soft bubble around shielded patients
     if (e._shieldT > 0 && !e.dying && e.spawnT <= 0) {
       ctx.strokeStyle = 'rgba(143,208,200,' + (0.35 + Math.sin(G.t * 5) * 0.15) + ')';

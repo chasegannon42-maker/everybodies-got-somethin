@@ -342,6 +342,14 @@ const G = {
             `<button class="btn minor" data-hat="${h.id || ''}" style="${Meta.data.hat === h.id ? 'outline:2px solid #e8c84c' : ''}">${h.name}</button>`).join('');
           return `<div class="tagline" style="margin:10px 0 2px">Hat (earned)</div><div class="btnrow" style="flex-wrap:wrap">${btns}</div>`;
         })()}
+        ${(() => {   // emotional support animal picker
+          const rows = [{ id: '', icon: '∅', name: 'none', note: 'you are alone. clinically.', ok: true }]
+            .concat(DATA.PETS.map(pt => ({ id: pt.id, icon: pt.icon, name: pt.name, note: pt.unlock(Meta.data) ? pt.note : '🔒 ' + pt.unlockHint, ok: pt.unlock(Meta.data) })));
+          const btns = rows.map(pt =>
+            `<button class="btn minor" data-pet="${pt.id}" ${pt.ok ? '' : 'disabled'} style="${(Meta.data.pet || '') === pt.id ? 'outline:2px solid #e8c84c' : ''}${pt.ok ? '' : ';opacity:.5'}" title="${pt.note}">${pt.icon} ${pt.name}</button>`).join('');
+          return `<div class="tagline" style="margin:10px 0 2px">Emotional Support Animal</div><div class="btnrow" style="flex-wrap:wrap">${btns}</div>`;
+        })()}
+        <button class="btn minor" id="bPaToggle">${ct(!Meta.data.paOff, 'Intercom (Dr. Walrus PA)')}</button>
         <button class="btn" id="bSetBack">BACK</button>
         <div class="smallprint">Tip: press <span class="kbd">M</span> anytime to mute. Easy mode applies to your next run. Settings are saved on this device.</div>
       </div>`);
@@ -362,6 +370,9 @@ const G = {
     const bst = document.getElementById('bStoryToggle');
     if (bst) bst.onclick = () => { SFX.play('ui'); Meta.data.storyOff = Meta.data.storyOff ? 0 : 1; Meta.save(); bst.textContent = ct(!Meta.data.storyOff, 'Story cutscenes'); };
     document.querySelectorAll('[data-hat]').forEach(b => b.onclick = () => { SFX.play('ui'); Meta.data.hat = b.dataset.hat || null; Meta.save(); this.showSettings(returnTo); });
+    document.querySelectorAll('[data-pet]').forEach(b => b.onclick = () => { SFX.play('ui'); Meta.data.pet = b.dataset.pet || null; Meta.save(); this.showSettings(returnTo); });
+    const bpa = document.getElementById('bPaToggle');
+    if (bpa) bpa.onclick = () => { SFX.play('ui'); Meta.data.paOff = Meta.data.paOff ? 0 : 1; Meta.save(); bpa.textContent = ct(!Meta.data.paOff, 'Intercom (Dr. Walrus PA)'); };
     document.getElementById('bSetBack').onclick = () => { SFX.play('ui'); returnTo(); };
   },
 
@@ -547,9 +558,24 @@ const G = {
           <div class="presc">℞ ${rxItem ? `<b>${rxItem.name}</b> — <i>${rxItem.quote}</i>` : "<b>Nothing.</b> <i>Walk it off.</i>"} Plus one (1) mystery pill. Standard.</div>
         </div>
         <div class="deathline">“${U.choice(DATA.CARD_LINES)}”</div>
+        ${(() => {   // Midnight Ward mastery skin (Ward 10 with this diagnosis)
+          const mastered = ((Meta.data.diagBest || {})[diagId] || 0) >= 10;
+          const on = !!(Meta.data.skinOn || {})[diagId];
+          return mastered
+            ? `<button class="btn minor" id="bSkinT">${on ? '🌙 MIDNIGHT WARD SKIN: ON' : '🌙 MIDNIGHT WARD SKIN: OFF'}</button>`
+            : `<div class="tagline" style="opacity:.55">🌙 reach Ward 10 as ${D.name} to unlock the Midnight Ward skin</div>`;
+        })()}
         <button class="btn" id="bBegin2">BEGIN TREATMENT</button>
       </div>`);
     this.paintWalrus('cardWalrus');
+    const bsk = document.getElementById('bSkinT');
+    if (bsk) bsk.onclick = () => {
+      SFX.play('ui');
+      if (!Meta.data.skinOn) Meta.data.skinOn = {};
+      Meta.data.skinOn[diagId] = Meta.data.skinOn[diagId] ? 0 : 1;
+      Meta.save();
+      bsk.textContent = Meta.data.skinOn[diagId] ? '🌙 MIDNIGHT WARD SKIN: ON' : '🌙 MIDNIGHT WARD SKIN: OFF';
+    };
     document.getElementById('bBegin2').onclick = () => { SFX.play('ui'); this.showEnrollment(diagId, null, !!D2); };
   },
 
@@ -619,6 +645,11 @@ const G = {
     if (this.protocol === 'waitingroom') { this.player.maxhp = 2; this.player.hp = 2; this.player.flags.noHeal = true; }   // one heart, no healing
     this.applyTalents(this.player);      // Treatment Plan (permanent skill-tree perks)
     this.applyFacility(this.player);     // Waiting Room furniture perks (the Wellness Fund at work)
+    // emotional support animal (equipped in Settings; must still be earned)
+    if (Meta.data.pet) {
+      const pd = DATA.PETS.find(x => x.id === Meta.data.pet);
+      if (pd && pd.unlock(Meta.data)) this.player.pet = new Pet(pd.id);
+    }
     // insurance plan (dailies & seeded runs are assigned SILVER — no marketplace for you)
     this.plan = (!daily && this._startPlan) ? this._startPlan : 'silver';
     this._startPlan = null;
@@ -644,6 +675,10 @@ const G = {
     this.contracts = [];   // Day Room side jobs (max 2 active)
     this.amaRun = null;    // Against Medical Advice escape state
     this._amaFailed = false; this._amaDone = false;
+    // intercom state + your recurring nemesis (last two deaths, same cause)
+    this._ic = null; this._cleanStreak = 0; this._icFloors = {}; this._icPattern = null;
+    const deads = (Meta.data.runlog || []).filter(r => r.out === 'dead').slice(-2);
+    if (deads.length === 2 && deads[0].cause === deads[1].cause && deads[0].cause) this._icPattern = this._causeName(deads[0].cause);
     this._runCured = false;
     this._runStart = Date.now();
     this.larperToastShown = false;
@@ -981,6 +1016,15 @@ const G = {
         if (r.layout) for (let rr = 2; rr <= 4; rr++) for (let cc = 5; cc <= 7; cc++) r.layout[rr][cc] = 0;   // clear floor for the pedestal
       }
     });
+    // SHADOW WARD: some floors flip dark — mirrored halls, shadow patients, double loot
+    this.shadowWard = (this.depth >= 6 && !this.ascent && !this.bossRush)
+      ? this.genSeed(['shadow', this.depth], () => U.chance(0.18))
+      : false;
+    if (this.shadowWard) {
+      for (const r of this.floorRooms) if (r.layout) r.layout = r.layout.map(row => row.slice().reverse());   // the halls are wrong-handed here
+      this.setBanner('🌑 SHADOW WARD', 'the lights hum wrong here', 2.6);
+      SFX.play('sting');
+    }
     // Boss Rush: skip the fighting between rooms — empty every normal room so it's a straight shot to the boss
     if (this.bossRush) this.floorRooms.forEach(r => { if (r.type === 'normal') { r.spawned = true; r.cleared = true; } r.discovered = true; });
     this.lastBoss = gen.bossId === 'walrus' ? this.lastBoss : gen.bossId;
@@ -1009,6 +1053,14 @@ const G = {
     this.wingPal = wingDef ? wingDef.pal : null;
     if (wingDef && wingDef.dark) this.floorDark = Math.max(this.floorDark, wingDef.dark);
     if (this.protocol === 'nightshift') this.floorDark = Math.max(this.floorDark, 0.55);   // the lights never come on
+    if (this.shadowWard) {   // the shadow swallows whatever wing this was
+      this.wingPal = { floor: '#2e2440', line: '#241c34', wall: '#3c2c52', trim: '#161020' };
+      this.floorDark = Math.max(this.floorDark, 0.35);
+    }
+    // intercom floor commentary (once per run per floor)
+    if (!this._icFloors) this._icFloors = {};
+    for (const fd of [3, 7, 12]) if (this.depth === fd && !this._icFloors[fd]) { this._icFloors[fd] = 1; this.pa('floor' + fd); }
+    if (this.player && this.player.pill == null) this._pillFloorMark = this.depth;   // the Intercom tracks pill neglect
     // THE AUDITOR: some floors, your file gets flagged (depth 6+)
     this.auditorArmed = (this.depth >= 6 && !this.bossRush)
       ? this.genSeed(['auditor', this.depth], () => U.chance(0.18))
@@ -1095,6 +1147,7 @@ const G = {
     this.hyperfixType = null;
     this.roomFade = 0.22;   // a soft blink crossing the threshold
     this._roomHits = 0;     // per-room damage tally (Day Room contracts)
+    this._roomT0 = this.t;  // room-entry clock (the Intercom bills hourly)
     // Rapid Cycling: every room re-prescribes you
     if (this.prognosis === 'rapid') {
       const sw = U.choice(DATA.RAPID_SWINGS);
@@ -1122,6 +1175,7 @@ const G = {
     else if (entryDir === 'W') { p.x = RX + RW - 42; p.y = midY; }
     else { p.x = midX; p.y = RY + RH - 90; }
     if (p.allies) for (const a of p.allies) { a.x = p.x + U.rand(-36, 36); a.y = p.y + U.rand(-36, 36); }   // group files in with you
+    if (p.pet) { p.pet.x = p.x - 30; p.pet.y = p.y + 14; p.pet.segs = []; }   // the animal keeps up
 
     // THE AUDITOR follows you through the door
     if (this.auditorHp > 0 && !this.auditorDown) {
@@ -1361,6 +1415,10 @@ const G = {
     this.goalEvent('room');
     if ((this._roomHits || 0) === 0) this.contractEvent('cleanroom');   // Look Untouchable
     if (room.type === 'clinic') this.contractEvent('miniboss');        // Office Politics
+    this._cleanStreak = (this._roomHits || 0) === 0 ? (this._cleanStreak || 0) + 1 : 0;
+    if (this._ic && !(this._ic.cds.fast > 0) && this.t - (this._roomT0 || 0) < 5) { this._ic.cds.fast = 110; this.pa('fast'); }
+    // Shadow Ward: the dark pays double
+    if (this.shadowWard) for (let i = 0; i < 2; i++) this.pickups.push(new Pickup(U.choice(['coin', 'coin', 'nickel', 'half']), CW / 2 + U.rand(-60, 60), RY + RH / 2 + U.rand(-40, 40)));
     SFX.play('door');
     if (p.flags.gratitude && U.chance(0.25)) { p.heal(1); this.texts.push(new FloatText(p.x, p.y - 24, 'grateful +♥', '#8fd05a')); }
     if (p.diag === 'insomnia') {
@@ -2078,6 +2136,8 @@ const G = {
 
     // AMA escape waves
     if (this.amaRun) this.amaUpdate(dt);
+    // the PA crackles
+    this.intercomTick(dt);
     // death — but everyone deserves one appeal
     if (p.dead) {
       if (this.amaRun && !this.amaRun.done) this._amaFailed = true;   // died mid-elopement: the bill doubles
@@ -2126,6 +2186,41 @@ const G = {
       else { this.saveCheckpoint(); this._runLogged = true; }   // keep the checkpoint; don't log a death/quit
       this.showTitle();
     };
+  },
+
+  /* ---------- THE INTERCOM (Dr. Walrus is watching. commenting, even.) ---------- */
+  pa(key, sub) {
+    if (Meta.data.paOff) return;
+    const pool = DATA.INTERCOM[key]; if (!pool || !pool.length) return;
+    let line = U.choice(pool);
+    if (sub) line = line.replace('{X}', String(sub).replace(/^the /i, ''));
+    this.toast('📢 ' + line, '#c8b8d8');
+    SFX.play('voice');
+  },
+  intercomTick(dt) {
+    if (Meta.data.paOff || !this.player || this.state !== 'run') return;
+    const ic = this._ic || (this._ic = { cds: {}, idleT: 0, lastPos: null, roomT0: 0 });
+    const p = this.player;
+    for (const k in ic.cds) ic.cds[k] -= dt;
+    const ready = (k) => !(ic.cds[k] > 0);
+    const fire = (k, cd, sub) => { ic.cds[k] = cd; this.pa(k, sub); };
+    // low hp
+    if (p.hp <= 2 && p.hp > 0 && ready('lowhp')) fire('lowhp', 75);
+    // hoarding
+    if (p.coins >= 25 && ready('hoard')) fire('hoard', 120);
+    // pill untouched for 2+ floors
+    if (p.pill != null && (this.depth - (this._pillFloorMark || this.depth)) >= 2 && ready('nopills')) fire('nopills', 150);
+    // your recurring nemesis (same cause, twice running — the chart knows)
+    if (this._icPattern && this.t > 4 && ready('pattern')) { fire('pattern', 99999, this._icPattern); this._icPattern = null; }
+    // no-hit streak (3 clean rooms in a row)
+    if ((this._cleanStreak || 0) >= 3 && ready('streak')) { fire('streak', 140); this._cleanStreak = 0; }
+    // idling
+    if (ic.lastPos && U.dist(p.x, p.y, ic.lastPos.x, ic.lastPos.y) < 6 && this.room && this.room.cleared) {
+      ic.idleT += dt;
+      if (ic.idleT > 20 && ready('idle')) { fire('idle', 90); ic.idleT = 0; }
+    } else ic.idleT = 0;
+    if (!ic.lastPos) ic.lastPos = { x: p.x, y: p.y };
+    ic.lastPos.x = p.x; ic.lastPos.y = p.y;
   },
 
   /* ---------- LEAVING AMA (sign the form; survive the ward's objection) ---------- */

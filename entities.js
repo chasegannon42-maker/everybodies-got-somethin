@@ -5,6 +5,61 @@
 'use strict';
 
 /* ---------------- familiars ---------------- */
+/* ---------------- emotional support animals (one equipped, Meta-level) ---------------- */
+class Pet {
+  constructor(type) {
+    this.type = type;
+    this.x = CW / 2; this.y = CH / 2 + 30;
+    this.t = U.rand(0, 3); this.actT = 2; this.vx = 0; this.vy = 0;
+    this.segs = [];   // the Metaphor's body
+  }
+  update(dt, G) {
+    const p = G.player;
+    this.t += dt; this.actT -= dt;
+    if (this.type === 'pigeon') {   // flutters near you; periodically finds change
+      const a = U.ang(this.x, this.y, p.x - 34, p.y - 8);
+      const d = U.dist(this.x, this.y, p.x - 34, p.y - 8);
+      if (d > 20) { this.x += Math.cos(a) * Math.min(d * 3, 260) * dt; this.y += Math.sin(a) * Math.min(d * 3, 260) * dt; }
+      if (this.actT <= 0) {
+        this.actT = 45;
+        G.pickups.push(new Pickup('coin', this.x, this.y));
+        G.texts.push(new FloatText(this.x, this.y - 18, '🕊 found this somewhere', '#c8c0b8'));
+        SFX.play('coin');
+      }
+    } else if (this.type === 'cat') {   // trails you; swats the nearest bullet
+      const a = U.ang(this.x, this.y, p.x + 30, p.y + 6);
+      const d = U.dist(this.x, this.y, p.x + 30, p.y + 6);
+      if (d > 24) { this.x += Math.cos(a) * Math.min(d * 2.6, 240) * dt; this.y += Math.sin(a) * Math.min(d * 2.6, 240) * dt; }
+      if (this.actT <= 0) {
+        let best = null, bd = 95;
+        for (const b of G.eBullets) { if (b.dead || b.fake) continue; const bd2 = U.dist(this.x, this.y, b.x, b.y); if (bd2 < bd) { bd = bd2; best = b; } }
+        if (best) { this.actT = 2.4; this._swipeT = 0.2; this._swipeAt = { x: best.x, y: best.y }; best.fizzle ? best.fizzle(G) : (best.dead = true); SFX.play('pop'); }
+      }
+      if (this._swipeT > 0) this._swipeT -= dt;
+    } else if (this.type === 'snake') {   // slithers at your problems
+      let best = null, bd = 1e9;
+      for (const e of G.enemies) { if (e.fake || e.spawnT > 0 || e.dying || e.charmed) continue; const d = U.dist(this.x, this.y, e.x, e.y); if (d < bd) { bd = d; best = e; } }
+      const tgt = best || { x: p.x - 26, y: p.y + 14 };
+      const a = U.ang(this.x, this.y, tgt.x, tgt.y) + Math.sin(this.t * 5) * 0.5;
+      const spd = best ? 150 : 120;
+      if (U.dist(this.x, this.y, tgt.x, tgt.y) > (best ? 4 : 30)) { this.x += Math.cos(a) * spd * dt; this.y += Math.sin(a) * spd * dt; }
+      if (best && U.dist(this.x, this.y, best.x, best.y) < 19 + best.r) best.hurt(6 * dt, G, true);
+      this.segs.unshift({ x: this.x, y: this.y });
+      if (this.segs.length > 9) this.segs.pop();
+    } else if (this.type === 'goldfish') {   // bowl bobs beside you; nearby enemies forget
+      this.x = p.x - 30 + Math.sin(this.t * 1.3) * 5;
+      this.y = p.y - 22 + Math.sin(this.t * 2.1) * 3;
+      if (this.actT <= 0) {
+        let best = null, bd = 140;
+        for (const e of G.enemies) { if (e.fake || e.spawnT > 0 || e.dying) continue; const d = U.dist(this.x, this.y, e.x, e.y); if (d < bd) { bd = d; best = e; } }
+        if (best) { this.actT = 8; best._dazeT = 1.3; G.texts.push(new FloatText(best.x, best.y - 20, '…who?', '#8fd0e0')); SFX.play('voice'); }
+      }
+    }
+    this.x = U.clamp(this.x, RX + 10, RX + RW - 10);
+    this.y = U.clamp(this.y, RY + 10, RY + RH - 10);
+  }
+}
+
 class Familiar {
   constructor(type) {
     this.type = type;
@@ -526,6 +581,7 @@ class Player {
 
     for (const f of this.familiars) f.update(dt, G);
     for (const a of this.allies) a.update(dt, G);
+    if (this.pet) this.pet.update(dt, G);
   }
 
   /* The Undiagnosed: Dr. Walrus changes his mind — swap the whole mechanical identity */
@@ -860,6 +916,7 @@ class Enemy {
     }
     if (this._shieldT > 0) this._shieldT -= dt;   // Wellness Bot aura fades if the bot stops tending you
     if (this._enraged > 0) this._enraged -= dt;   // Now Serving enrage wears off
+    if (this._dazeT > 0) { this._dazeT -= dt; return; }   // the Goldfish made it forget what it was doing
     const slowF = (G.enemySlow > 0 ? 0.55 : 1) * (p.flags.slowField ? 0.88 : 1);   // Analysis Paralysis slows the room
     const S = this.spd * slowF * (this._enraged > 0 ? 1.45 : 1);
 
@@ -1344,9 +1401,10 @@ class Pickup {
     const wants = (this.type === 'coin' || this.type === 'nickel' || this.type === 'key' || this.type === 'bomb')
       || ((this.type === 'half' || this.type === 'full') && p.hp < p.maxhp)
       || (this.type === 'pill' && p.pill == null);
+    const MR = (p.pet && p.pet.type === 'pigeon') ? 110 : 56;   // the Pigeon herds loose change your way
     const md = U.dist(this.x, this.y, p.x, p.y);
-    if (wants && md < 56 && md > 1 && this.settle <= 0) {   // loose change rolls toward you
-      const pull = (240 * (1 - md / 56) + 50) * dt;
+    if (wants && md < MR && md > 1 && this.settle <= 0) {   // loose change rolls toward you
+      const pull = (240 * (1 - md / MR) + 50) * dt;
       this.x += (p.x - this.x) / md * pull; this.y += (p.y - this.y) / md * pull;
     }
     if (U.dist(this.x, this.y, p.x, p.y) < 20 + p.r) {
@@ -1458,6 +1516,7 @@ function spawnEnemiesForRoom(room, depth, G) {
     const id = DATA.pickEnemy(depth, G.wing);
     const elite = (id !== 'redflag' && U.chance(champChance)) ? U.choice(DATA.ELITES).id : null;
     const e = new Enemy(id, s.x + U.rand(-8, 8), s.y + U.rand(-8, 8), depth, false, hpMult, elite);
+    if (G.shadowWard) { e.hp *= 1.3; e.maxhp *= 1.3; e._shadow = true; }   // shadow patients: darker, tougher, better tippers
     if (mods.spdMul) e.spd *= mods.spdMul;
     if (G.sideEffect === 'restless') e.spd *= 1.15;   // ward side-effect: Restlessness
     if (mods.dmgAdd) e.dmg += mods.dmgAdd;
