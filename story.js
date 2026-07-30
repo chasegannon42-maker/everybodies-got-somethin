@@ -42,7 +42,7 @@ const Story = {
     G.state = 'cutscene';
     if (G.hideOverlay) G.hideOverlay();
     document.body.classList.remove('inrun');
-    if (typeof SFX !== 'undefined' && SFX.setMusic) SFX.setMusic('menu');
+    if (typeof SFX !== 'undefined' && SFX.setMusic) SFX.setMusic('cutscene');
     this._loadPanel();
   },
 

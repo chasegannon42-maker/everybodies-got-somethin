@@ -61,9 +61,9 @@ const Render = {
   },
 
   /* ============ baked room background (floor + walls + grime + vignette) ============ */
-  getBG(room, depth) {
+  getBG(room, depth, wingPal) {
     if (room._bg) return room._bg;
-    const pal = DATA.FLOOR_PALETTES[(depth - 1) % 5];
+    const pal = wingPal || DATA.FLOOR_PALETTES[(depth - 1) % 5];
     const cv = document.createElement('canvas');
     cv.width = CW; cv.height = CH;
     const x = cv.getContext('2d');
@@ -310,11 +310,11 @@ const Render = {
   /* ============ room ============ */
   drawRoom(G) {
     const ctx = this.ctx;
-    const pal = DATA.FLOOR_PALETTES[(G.depth - 1) % 5];
+    const pal = G.wingPal || DATA.FLOOR_PALETTES[(G.depth - 1) % 5];
     const room = G.room;
 
     // baked background (floor, walls, grime, vignette)
-    ctx.drawImage(this.getBG(room, G.depth), 0, 0);
+    ctx.drawImage(this.getBG(room, G.depth, G.wingPal), 0, 0);
 
     // persistent decals (blood/stains) clipped to floor
     ctx.save();
@@ -997,6 +997,17 @@ const Render = {
       }
     }
 
+    // Second Opinion badge — a small gold Ⅱ pinned to the chart
+    if (p.variant) {
+      const D = DATA.DIAG[p.diag];
+      ctx.fillStyle = D ? D.color : '#e8c84c';
+      this.rr(ctx, 9, -24, 12, 11, 3); ctx.fill();
+      ctx.strokeStyle = 'rgba(30,22,36,0.6)'; ctx.lineWidth = 1.2;
+      this.rr(ctx, 9, -24, 12, 11, 3); ctx.stroke();
+      ctx.fillStyle = '#241c28'; ctx.font = this.font(8, true); ctx.textAlign = 'center';
+      ctx.fillText('Ⅱ', 15, -15.5);
+    }
+
     // item held overhead
     if (p.itemHold > 0.6) {
       ctx.fillStyle = '#f2dcc0';
@@ -1082,9 +1093,17 @@ const Render = {
   drawEnemy(e, G) {
     const ctx = this.ctx;
     if (e.dying) return;
-    if (e.spawnT <= 0) this.shadow(e.x, e.y + e.r * 0.72, e.r * 0.95, e.r * 0.42, 0.24);
+    // Unmedicated schizophrenia (TUNNEL): patients at a distance can't be seen — only their shots
+    let tunnelA = 1;
+    if (G.player && G.player.variant && G.player.diag === 'schizo') {
+      const d = U.dist(G.player.x, G.player.y, e.x, e.y);
+      if (d > 265) return;
+      if (d > 185) tunnelA = 1 - (d - 185) / 80;
+    }
+    if (e.spawnT <= 0) this.shadow(e.x, e.y + e.r * 0.72, e.r * 0.95, e.r * 0.42, 0.24 * tunnelA);
     ctx.save();
     ctx.translate(e.x, e.y);
+    if (tunnelA < 1) ctx.globalAlpha *= Math.max(0.05, tunnelA);
     if (e.charmed) {   // recruited ally: a green halo + a little heart
       const pl = 0.5 + Math.sin(G.t * 5) * 0.22;
       ctx.strokeStyle = 'rgba(143,208,90,' + pl + ')'; ctx.lineWidth = 2.5;
@@ -1997,7 +2016,7 @@ const Render = {
   },
 
   /* character-select portrait (Patient Files) */
-  drawCharPortrait(ctx, diagId) {
+  drawCharPortrait(ctx, diagId, variant) {
     ctx.clearRect(0, 0, 84, 84);
     // reuse the exact in-game sprite for consistency
     const prev = this.ctx;
@@ -2005,7 +2024,7 @@ const Render = {
     ctx.save();
     ctx.translate(42, 40);
     ctx.scale(1.65, 1.65);
-    const pl = new Player(diagId);
+    const pl = new Player(diagId, variant);
     pl.x = 0; pl.y = 0; pl.aimAng = -Math.PI / 2; pl.iframes = 0; pl.moving = false;
     if (diagId === 'bipolar') pl.mania = true;
     try { this.drawPlayer(pl, { t: 0.6 }); } catch (e) { }

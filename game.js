@@ -77,7 +77,7 @@ const G = {
       this.runUnlocks.push(a);
       if (this.state === 'run' || this.state === 'descend') {
         this.toast('🏆 UNLOCKED: ' + a.name, '#e8c84c');
-        SFX.play('item'); if (typeof Haptics !== 'undefined') Haptics.buzz([30, 40, 60], 0);
+        SFX.play('fanfare'); if (typeof Haptics !== 'undefined') Haptics.buzz([30, 40, 60], 0);
       }
     }
   },
@@ -222,6 +222,7 @@ const G = {
           <canvas class="walrusCanvas" width="132" height="132" id="titleWalrus"></canvas>
           <div class="bubble" id="titleBubble">The doctor will see you now. He sees everyone. That's the problem.</div>
         </div>
+        ${(() => { const S = this.loadCheckpoint(); if (!S || !DATA.DIAG[S.diag]) return ''; const nm = S.variant && DATA.DIAG2 && DATA.DIAG2[S.diag] ? DATA.DIAG2[S.diag].name : DATA.DIAG[S.diag].name; return `<button class="btn" id="bContinue" style="border-color:#8fd0e0">📂 CONTINUE — ${nm} · WARD ${S.depth}</button>`; })()}
         <button class="btn" id="bStart">🩺 START CHECKUP</button>
         <button class="btn" id="bDaily">🗓️ DAILY WARD</button>
         <button class="btn minor" id="bFiles">📁 PATIENT FILES (choose your diagnosis)</button>
@@ -243,6 +244,8 @@ const G = {
       </div>`);
     document.getElementById('overlay').classList.add('lightbg');   // let the atmospheric backdrop show on the title
     this.paintWalrus('titleWalrus');
+    const bCont = document.getElementById('bContinue');
+    if (bCont) bCont.onclick = () => { SFX.init(); SFX.play('ui'); const S = this.loadCheckpoint(); if (S) this.resumeRun(S); else this.showTitle(); };
     document.getElementById('bStart').onclick = () => { SFX.init(); SFX.play('ui'); this.startCheckup(); };
     document.getElementById('bDaily').onclick = () => { SFX.init(); SFX.play('ui'); this.showDaily(); };
     document.getElementById('bFiles').onclick = () => { SFX.init(); SFX.play('ui'); this.showFiles(); };
@@ -332,29 +335,38 @@ const G = {
     this.state = 'files';
     const fineOpen = Meta.data.fineSeen || Meta.data.walrusKills > 0;
     const order = ['adhd', 'bipolar', 'depression', 'anxiety', 'schizo', 'ocd', 'ptsd', 'insomnia', 'fine'];
+    this._fvar = this._fvar || {};   // which cards are flipped to their Second Opinion
     const cards = order.map(id => {
       const D = DATA.DIAG[id];
       const locked = id === 'fine' && !fineOpen;
       const best = (Meta.data.diagBest || {})[id];
-      return `<button class="charCard ${locked ? 'locked' : ''}" data-d="${id}" ${locked ? 'disabled' : ''}>
-        <canvas width="84" height="84" data-cd="${id}"></canvas>
-        <div class="cname" style="color:${locked ? '#8a8078' : D.color}">${locked ? '?????' : D.name}</div>
-        <div class="cline">${locked ? 'tell the truth at a checkup' : D.tag}</div>
-        <div class="cbest">${locked ? 'or defeat Dr. Walrus' : (best ? 'best: ward ' + best : 'no chart yet')}</div>
+      const soOpen = !locked && (best || 0) >= 6 && DATA.DIAG2 && DATA.DIAG2[id];   // beat the Ward-5 Walrus with the base
+      const flipped = soOpen && this._fvar[id];
+      const D2 = flipped ? DATA.DIAG2[id] : null;
+      return `<button class="charCard ${locked ? 'locked' : ''}" data-d="${id}" ${locked ? 'disabled' : ''} style="${flipped ? 'outline:2px solid ' + D.color : ''}">
+        ${soOpen ? `<span class="soflip" data-f="${id}" title="Second Opinion" style="position:absolute;top:4px;right:6px;font-size:13px;cursor:pointer">⇄${flipped ? 'Ⅱ' : ''}</span>` : ''}
+        <canvas width="84" height="84" data-cd="${id}" data-cv="${flipped ? 1 : 0}"></canvas>
+        <div class="cname" style="color:${locked ? '#8a8078' : D.color}">${locked ? '?????' : (flipped ? D2.name : D.name)}</div>
+        <div class="cline">${locked ? 'tell the truth at a checkup' : (flipped ? D2.tag : D.tag)}</div>
+        <div class="cbest">${locked ? 'or defeat Dr. Walrus' : (flipped ? 'Ⅱ · second opinion' : (best ? 'best: ward ' + best : 'no chart yet'))}</div>
       </button>`;
     }).join('');
     this.overlay(`
       <div class="panel wide">
         <h1 class="logo" style="font-size:26px">PATIENT FILES</h1>
-        <div class="tagline">returning patients — skip the checkup, keep the label</div>
+        <div class="tagline">returning patients — skip the checkup, keep the label · ⇄ = a Second Opinion, earned at ward 6</div>
         <div class="charGrid">${cards}</div>
         <button class="btn minor" id="bBack2">BACK</button>
       </div>`);
+    document.querySelectorAll('.charCard').forEach(c => { c.style.position = 'relative'; });
     document.querySelectorAll('.charCard canvas').forEach(c => {
-      Render.drawCharPortrait(c.getContext('2d'), c.dataset.cd);
+      Render.drawCharPortrait(c.getContext('2d'), c.dataset.cd, c.dataset.cv === '1');
+    });
+    document.querySelectorAll('.soflip').forEach(s => {
+      s.onclick = (ev) => { ev.stopPropagation(); SFX.play('ui'); this._fvar[s.dataset.f] = !this._fvar[s.dataset.f]; this.showFiles(); };
     });
     document.querySelectorAll('.charCard:not(.locked)').forEach(c => {
-      c.onclick = () => { SFX.play('ui'); this.showCard(c.dataset.d); };
+      c.onclick = () => { SFX.play('ui'); this.showCard(c.dataset.d, !!this._fvar[c.dataset.d]); };
     });
     document.getElementById('bBack2').onclick = () => { SFX.play('ui'); this.showTitle(); };
   },
@@ -453,34 +465,36 @@ const G = {
     setTimeout(() => { if (this.state === 'quiz') this.showCard(best); }, 900);
   },
 
-  showCard(diagId) {
+  showCard(diagId, variant) {
     this.state = 'card';
     if (diagId === 'fine' && !Meta.data.fineSeen) { Meta.data.fineSeen = 1; Meta.save(); }
     const D = DATA.DIAG[diagId];
+    const D2 = variant && DATA.DIAG2 ? DATA.DIAG2[diagId] : null;
     const rxItem = D.rx ? DATA.ITEMS[D.rx] : null;
     SFX.play('stamp');
     this.overlay(`
       <div class="panel wide">
         <div class="walrusbox">
           <canvas class="walrusCanvas" width="132" height="132" id="cardWalrus"></canvas>
-          <div class="bubble">${D.blurb}</div>
+          <div class="bubble">${D2 ? 'Back again? The chart says otherwise. The chart says several things now, actually. This is the other reading of you — the second opinion. It is not gentler.' : D.blurb}</div>
         </div>
-        <div class="rx">
-          <div class="stamp">DIAGNOSIS</div>
-          <h2 style="color:${D.color}">${D.name}</h2>
-          <div class="sub">${D.short}</div>
-          <div class="mech">${D.mech}</div>
+        <div class="rx" ${D2 ? 'style="border-color:' + D.color + '"' : ''}>
+          <div class="stamp">${D2 ? 'SECOND OPINION' : 'DIAGNOSIS'}</div>
+          <h2 style="color:${D.color}">${D2 ? D2.name : D.name}</h2>
+          <div class="sub">${D2 ? 'Ⅱ · ' + D2.tag : D.short}</div>
+          <div class="mech">${D2 ? D2.mech : D.mech}</div>
           <div class="presc">℞ ${rxItem ? `<b>${rxItem.name}</b> — <i>${rxItem.quote}</i>` : "<b>Nothing.</b> <i>Walk it off.</i>"} Plus one (1) mystery pill. Standard.</div>
         </div>
         <div class="deathline">“${U.choice(DATA.CARD_LINES)}”</div>
         <button class="btn" id="bBegin2">BEGIN TREATMENT</button>
       </div>`);
     this.paintWalrus('cardWalrus');
-    document.getElementById('bBegin2').onclick = () => { SFX.play('ui'); this.beginRun(diagId); };
+    document.getElementById('bBegin2').onclick = () => { SFX.play('ui'); this.beginRun(diagId, null, !!D2); };
   },
 
   /* ---------- run setup ---------- */
-  beginRun(diagId, daily) {
+  beginRun(diagId, daily, variant) {
+    this.variantRun = !!variant && !daily;   // Second Opinion runs (never in dailies)
     this.daily = !!daily;
     this.dailyKind = daily ? (daily.isDaily ? 'daily' : 'challenge') : null;
     this.seed = daily ? (daily.seed >>> 0) : null;
@@ -503,11 +517,13 @@ const G = {
         ds.best = Math.max(ds.best || 0, ds.count);
       }
     }
-    Meta.data.runs++;
-    if (!Meta.data.diagsPlayed) Meta.data.diagsPlayed = {};
-    Meta.data.diagsPlayed[diagId] = 1;
-    Meta.save();
-    this.player = this.genSeed(['player'], () => new Player(diagId));
+    if (!this._resuming) {   // a resumed run isn't a new run
+      Meta.data.runs++;
+      if (!Meta.data.diagsPlayed) Meta.data.diagsPlayed = {};
+      Meta.data.diagsPlayed[diagId] = 1;
+      Meta.save();
+    }
+    this.player = this.genSeed(['player'], () => new Player(diagId, this.variantRun));
     this.applyCodexPerks(this.player);   // rewards earned by completing chart tabs
     this.applyPrognosis(this.player);    // challenge-run start effects
     this.applyTalents(this.player);      // Treatment Plan (permanent skill-tree perks)
@@ -536,6 +552,57 @@ const G = {
     document.body.classList.add('inrun');
   },
 
+  /* ---------- Save & Continue (floor checkpoints) ----------
+     A snapshot at the start of every floor; CONTINUE on the title resumes it.
+     Seeded runs (daily/challenge) are excluded — those are meant to be one sitting. */
+  SAVE_KEY: 'egs_save1',
+  SAVE_FIELDS: ['hp', 'maxhp', 'spd', 'tearDelay', 'dmg', 'shotSpd', 'range', 'wobble', 'luck', 'coins', 'keys', 'bombs', 'coupons', 'pill', 'iframeTime', 'abilMax', 'sleep', 'compulsion', '_scar', '_recRooms'],
+  saveCheckpoint() {
+    if (this.dailyKind || !this.player || this.player.dead) return;
+    const p = this.player;
+    try {
+      const S = {
+        v: 1, diag: p.diag, variant: p.variant ? 1 : 0, depth: this.depth,
+        chronic: this.chronic ? 1 : 0, bossRush: this.bossRush ? 1 : 0, prognosis: this.prognosis || null,
+        lastBoss: this.lastBoss || null,
+        flags: p.flags, items: p.items, comorbidities: p.comorbidities || [],
+        transforms: p._transforms || [], transformTint: p.transformTint || null,
+        familiars: p.familiars.map(f => f.type),
+        allies: p.allies.map(a => a.id),
+        goals: this.goals, stats: this.stats, goalInsight: this._goalInsight || 0
+      };
+      for (const f of this.SAVE_FIELDS) S[f] = p[f];
+      localStorage.setItem(this.SAVE_KEY, JSON.stringify(S));
+    } catch (e) { }
+  },
+  clearCheckpoint() { try { localStorage.removeItem(this.SAVE_KEY); } catch (e) { } },
+  loadCheckpoint() {
+    try { const j = localStorage.getItem(this.SAVE_KEY); return j ? JSON.parse(j) : null; } catch (e) { return null; }
+  },
+  resumeRun(S) {
+    this._resuming = true;
+    this._startChronic = !!S.chronic; this._startBossRush = !!S.bossRush; this._startPrognosis = S.prognosis || null;
+    this.beginRun(S.diag, null, !!S.variant);
+    this._resuming = false;
+    const p = this.player;
+    // wholesale restore: numeric stats, flags, inventory (item effects live in the numbers/flags)
+    for (const f of this.SAVE_FIELDS) if (S[f] !== undefined) p[f] = S[f];
+    p.flags = S.flags || {};
+    p.items = S.items || p.items;
+    p.comorbidities = S.comorbidities || [];
+    p._transforms = S.transforms || []; p.transformTint = S.transformTint || null;
+    p.familiars = (S.familiars || []).map(t => new Familiar(t));
+    p.allies = [];
+    (S.allies || []).forEach(id => { try { p.recruitAlly(null, id); } catch (e) { } });
+    if (S.goals) this.goals = S.goals;
+    if (S.stats) this.stats = S.stats;
+    this._goalInsight = S.goalInsight || 0;
+    this.depth = S.depth || 1;
+    this.lastBoss = S.lastBoss || null;
+    this.newFloor();
+    this.toast('📂 Chart reopened — ward ' + this.depth + '. Welcome back.', '#8fd0e0');
+  },
+
   // Treatment Goals: advance any active objective listening for this event
   goalEvent(ev, amt) {
     if (!this.goals) return;
@@ -548,7 +615,7 @@ const G = {
         this._goalInsight += g.insight;
         Meta.save();
         this.toast('🎯 GOAL: ' + g.name + ' — +◆' + g.insight + ' Insight', '#8fd0e0');
-        SFX.play('item');
+        SFX.play('goalJingle');
       }
     }
   },
@@ -578,6 +645,8 @@ const G = {
   recordRun(out) {
     if (this._runLogged || !this.player) return;
     this._runLogged = true;
+    this.clearCheckpoint();   // the run ended — no continuing past this
+
     const p = this.player;
     const mode = this.prognosis ? this.prognosis : this.chronic ? 'chronic' : this.bossRush ? 'bossrush' : this.dailyKind === 'daily' ? 'daily' : this.dailyKind === 'challenge' ? 'challenge' : 'normal';
     if (this.prognosis) { const pb = Meta.data.prognosisBest || (Meta.data.prognosisBest = {}); pb[this.prognosis] = Math.max(pb[this.prognosis] || 0, this.depth); }
@@ -585,7 +654,7 @@ const G = {
     const walrus = (Meta.data.walrusKills || 0) > (this._startWalrusKills || 0);
     const cause = out === 'dead' ? (p._lastSrc || 'unknown') : out;
     const secs = Math.max(0, Math.round((Date.now() - (this._runStart || Date.now())) / 1000));
-    const rec = { t: this.todayKey(), diag: p.diag, mode, ward: this.depth, out, cause, cured: cured ? 1 : 0, walrus: walrus ? 1 : 0, kills: this.stats.kills, bosses: this.stats.bosses, items: this.stats.items, pills: this.stats.pills, secs };
+    const rec = { t: this.todayKey(), diag: p.diag, mode, ward: this.depth, out, cause, cured: cured ? 1 : 0, walrus: walrus ? 1 : 0, kills: this.stats.kills, bosses: this.stats.bosses, items: this.stats.items, pills: this.stats.pills, secs, variant: p.variant ? 1 : 0 };
     const log = Meta.data.runlog || (Meta.data.runlog = []);
     log.push(rec);
     while (log.length > 200) log.shift();
@@ -630,6 +699,13 @@ const G = {
     this.sideEffect = (this.depth >= 3)
       ? this.genSeed(['sideeffect', this.depth], () => U.chance(0.35) ? U.choice(DATA.SIDE_EFFECTS).id : null)
       : null;
+    // SPECIALTY WING: some wards belong to a themed wing — its own palette and crowd
+    this.wing = (this.depth >= 4)
+      ? this.genSeed(['wing', this.depth], () => U.chance(0.3) ? U.choice(DATA.WINGS).id : null)
+      : null;
+    const wingDef = this.wing ? DATA.WINGS.find(w => w.id === this.wing) : null;
+    this.wingPal = wingDef ? wingDef.pal : null;
+    if (wingDef && wingDef.dark) this.floorDark = Math.max(this.floorDark, wingDef.dark);
     // CODE GRAY: occasionally a whole ward goes into crisis (depth 4+)
     this.crisis = (this.depth >= 4)
       ? this.genSeed(['crisis', this.depth], () => U.chance(0.2) ? U.choice(DATA.CRISES).id : null)
@@ -639,7 +715,8 @@ const G = {
     if (this.crisis === 'outage') this.floorDark = Math.max(this.floorDark, 0.6);
     const p = this.player;
     p.pillsThisFloor = 0;
-    if (p.diag === 'depression') p.blanket = true;
+    if (p.diag === 'depression' && !p.variant) p.blanket = true;   // High-Functioning has no blanket, only the mask
+    if (p.variant && p.diag === 'ptsd') p._scar = 0;               // Weathered: the scars fade between floors
     if (p._gymAdd) { p.dmg -= p._gymAdd; }
     p._gymAdd = 0;
     if (p.flags.pillowHeal) p.heal(2);
@@ -672,7 +749,9 @@ const G = {
       if (this.sideEffect) { const se = DATA.SIDE_EFFECTS.find(s => s.id === this.sideEffect); if (se) this.toast(se.icon + ' SIDE EFFECT: ' + se.name + ' — ' + se.desc, '#b58ad0'); }
       if (this.crisis) { const cr = DATA.CRISES.find(c => c.id === this.crisis); if (cr) { this.toast(cr.icon + ' ' + cr.name + ' — ' + cr.desc, '#e06060'); SFX.play('boss'); } }
     }, 500);
+    if (wingDef) { this.setBanner(wingDef.icon + ' ' + wingDef.name, wingDef.sub, 2.6); }
     if (p.diag === 'schizo' && U.chance(0.5)) setTimeout(() => { if (this.state === 'run') { this.toast(U.choice(DATA.VOICE_LINES), '#cbb8e8'); SFX.play('voice'); } }, 2500);
+    this.saveCheckpoint();   // floor-start checkpoint (Continue on the title)
   },
 
   /* ---------- rooms ---------- */
@@ -703,6 +782,11 @@ const G = {
       this.rapidMods = Object.assign({ dmg: 1, spd: 1, tears: 1, def: 1 }, sw.mods);
       this.toast('℞ ' + sw.name + ' — ' + sw.note, '#b86bff');
     }
+    // Ultradian bipolar: the weather changes with every door
+    if (this.player && this.player.variant && this.player.diag === 'bipolar' && !this.player.flags.stable) {
+      this.player.mania = !this.player.mania; this.player.moodT = 0;
+      if (room.type === 'normal' && !room.cleared) this.toast(this.player.mania ? '▲ mania rolls in' : '▼ the dip rolls in', this.player.mania ? '#e8c84c' : '#7a88b8');
+    }
     this.boss = null;
     this.trapdoor = room.trapdoor || null;
     this.pickups = room.pickups;
@@ -732,15 +816,18 @@ const G = {
 
     if (!room.spawned) this.populateRoom(room);
     this.doorsOpen = room.cleared;
+    const bossTheme = ['founder', 'thesystem', 'thecure'].includes(this.bossId) ? 'superboss' : 'boss';   // the big three get the dread theme
     if (room.type === 'boss' && !room.cleared && room.bossPending) {
       this.boss = new Boss(this.bossId, this.depth, this);
       room.bossPending = false;
       this.setBanner(this.boss.name, this.boss.sub, 2.4);
       SFX.play('boss');
-      SFX.setMusic('boss');
+      SFX.setMusic(bossTheme);
     } else if (room.type === 'boss' && !room.cleared && room.bossObj) {
       this.boss = room.bossObj;
-      SFX.setMusic('boss');
+      SFX.setMusic(bossTheme);
+    } else if (room.type === 'dayroom') {
+      SFX.setMusic('dayroom');   // the one calm corner of the building
     } else {
       SFX.setMusic('run');
     }
@@ -938,8 +1025,15 @@ const G = {
       const type = U.choice(['coin', 'coin', 'half', 'pill', 'coin', 'key', 'bomb']);
       this.pickups.push(new Pickup(type, CW / 2 + U.rand(-40, 40), RY + RH / 2 + U.rand(-30, 30)));
     }
-    // PTSD: the room you just fought in doesn't stay safe — flashback trigger-zones linger
-    if (p.diag === 'ptsd' && room.spawned) {
+    // In Recovery: the work pays off — heal every 2nd room cleared
+    if (p.flags.recovery) {
+      p._recRooms = (p._recRooms || 0) + 1;
+      if (p._recRooms % 2 === 0) { p.heal(1); this.texts.push(new FloatText(p.x, p.y - 24, 'the work helps +♥', '#8fd05a')); }
+    }
+    // Ultradian bipolar: clearing a room in the dip mends a heart
+    if (p.variant && p.diag === 'bipolar' && !p.mania && !p.flags.stable) { p.heal(2); this.texts.push(new FloatText(p.x, p.y - 24, 'rest, in the dip +♥', '#7a88b8')); }
+    // PTSD: the room you just fought in doesn't stay safe — flashback trigger-zones linger (base only)
+    if (p.diag === 'ptsd' && !p.variant && room.spawned) {
       for (let i = 0; i < 2; i++) {
         const zx = U.clamp(CW / 2 + U.rand(-RW * 0.32, RW * 0.32), RX + 60, RX + RW - 60);
         const zy = U.clamp(RY + RH / 2 + U.rand(-RH * 0.28, RH * 0.28), RY + 60, RY + RH - 60);
@@ -1114,6 +1208,11 @@ const G = {
   /* ---------- comorbidity choice on descent ---------- */
   doDescend() {
     if (this.floorHits === 0) this.goalEvent('floorclean');   // Clean Bill
+    // ALL-NIGHTER: the candle burns at both ends
+    if (this.player && this.player.variant && this.player.diag === 'insomnia') {
+      this.player.hp = Math.max(1, this.player.hp - 1);
+      this.toast('☕ another floor, no sleep. −½♥', '#c8a878');
+    }
     // CODE GRAY hazard pay: you worked the crisis ward and lived
     if (this.crisis && !this.crisisFail) {
       const p = this.player;
@@ -1517,11 +1616,16 @@ const G = {
         ${goalRows ? `<div class="summary" style="margin-top:8px">${goalRows}</div>` : ''}
         <button class="btn" id="bResume">RESUME</button>
         <button class="btn minor" id="bSettings2">⚙ SETTINGS</button>
-        <button class="btn minor" id="bQuit">QUIT TO TITLE</button>
+        <button class="btn minor" id="bQuit">${this.dailyKind ? 'QUIT TO TITLE' : '💾 SAVE & QUIT'}</button>
       </div>`);
     document.getElementById('bResume').onclick = () => { SFX.play('ui'); this.hideOverlay(); this.state = 'run'; };
     document.getElementById('bSettings2').onclick = () => { SFX.play('ui'); this.showSettings(() => this.showPause()); };
-    document.getElementById('bQuit').onclick = () => { SFX.play('ui'); this.recordRun('quit'); this.showTitle(); };
+    document.getElementById('bQuit').onclick = () => {
+      SFX.play('ui');
+      if (this.dailyKind) { this.recordRun('quit'); }   // seeded runs can't be resumed — log the quit
+      else { this.saveCheckpoint(); this._runLogged = true; }   // keep the checkpoint; don't log a death/quit
+      this.showTitle();
+    };
   },
 
   showDead() {
@@ -1613,7 +1717,7 @@ const G = {
   /* ---------- the (non-)ending ---------- */
   showEnding() {
     this.state = 'ending';
-    SFX.setMusic('menu'); SFX.play('item');
+    SFX.setMusic('menu'); SFX.play('sting');
     this.overlay(`
       <div class="panel wide">
         <h1 class="logo" style="font-size:32px">YOU REACHED<br>THE CURE</h1>
@@ -1642,7 +1746,7 @@ const G = {
   /* ---------- THE SYSTEM ending (Ward 100 — the true ceiling) ---------- */
   showSystemEnding() {
     this.state = 'ending';
-    SFX.setMusic('menu'); SFX.play('item');
+    SFX.setMusic('menu'); SFX.play('sting');
     const sk = Meta.data.systemKills || 1;
     this.overlay(`
       <div class="panel wide">
@@ -1671,7 +1775,7 @@ const G = {
   /* ---------- THE FOUNDER ending (Ward 50 superboss) ---------- */
   showFounderEnding() {
     this.state = 'ending';
-    SFX.setMusic('menu'); SFX.play('item');
+    SFX.setMusic('menu'); SFX.play('sting');
     const fk = Meta.data.founderKills || 1;
     this.overlay(`
       <div class="panel wide">

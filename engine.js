@@ -264,6 +264,20 @@ const SFX = {
       case 'descend': [392, 311, 247, 174].forEach((f, i) => v(f, t + i * 0.1, 0.3, { type: 'triangle', vol: 0.09, wet: 0.35 })); v(87, t + 0.3, 0.5, { type: 'sine', vol: 0.08 }); break;
       case 'voice': v(700, t, 0.06, { type: 'sine', vol: 0.04, slide: 920 }); v(500, t + 0.07, 0.08, { type: 'sine', vol: 0.04, slide: 660 }); break;
       case 'charge': v(180, t, 0.4, { type: 'sawtooth', vol: 0.06, slide: 460, wet: 0.1, filter: 'lowpass', cutoff: 1400 }); break;
+      // --- identity jingles ---
+      case 'goalJingle':   // 🎯 objective complete: a bright little climb
+        [523, 659, 784].forEach((f, i) => v(f, t + i * 0.09, 0.16, { type: 'triangle', vol: 0.07, wet: 0.3 }));
+        v(1047, t + 0.27, 0.3, { type: 'sine', vol: 0.05, wet: 0.4 });
+        break;
+      case 'fanfare':   // 🏆 achievement: a proper ta-da
+        [392, 523, 659, 784].forEach((f, i) => v(f, t + i * 0.11, i === 3 ? 0.5 : 0.14, { type: 'square', vol: 0.05, wet: 0.3 }));
+        [523, 659, 784].forEach(f => v(f, t + 0.33, 0.5, { type: 'triangle', vol: 0.035, wet: 0.45, attack: 0.02 }));
+        break;
+      case 'sting':   // ending: a warm slow resolve
+        [262, 330, 392].forEach(f => v(f, t, 1.4, { type: 'triangle', vol: 0.045, attack: 0.3, wet: 0.5 }));
+        v(523, t + 0.5, 1.2, { type: 'sine', vol: 0.05, attack: 0.15, wet: 0.5 });
+        v(131, t, 1.6, { type: 'sine', vol: 0.05, attack: 0.2, wet: 0.3 });
+        break;
     }
   },
 
@@ -278,7 +292,7 @@ const SFX = {
     if (!this.ctx || this.muted || !this.musicMode) return;
     const now = this.ctx.currentTime;
     if (this._next < now - 0.3) this._next = now + 0.02;
-    const bpm = { menu: 76, run: 128, boss: 152 }[this.musicMode] || 120;
+    const bpm = { menu: 76, run: 128, boss: 152, superboss: 140, dayroom: 84, cutscene: 72 }[this.musicMode] || 120;
     const sd = 60 / bpm / 4;
     this._dest = this.musicGain; // music routes through its own quieter bus
     while (this._next < now + 0.2) {
@@ -332,6 +346,43 @@ const SFX = {
     const leadB = [-1, -1, -1, -1, 84, -1, 83, -1, -1, -1, 87, -1, 84, 83, 80, 79];
     const L = (bar ? leadB : leadA)[s];
     if (L > 0) this.v(this._nf(L), t, sd * 1.6, { type: 'square', vol: 0.04, attack: 0.004, wet: 0.28, detune: 4 });
+  },
+  // superboss (FOUNDER / THE SYSTEM / THE CURE): slow dread — drone, tritone stabs, tolling bell
+  _mus_superboss(step, t, sd) {
+    const s = step % 16, bar = Math.floor(step / 16) % 4;
+    if (s === 0) {   // the drone breathes once a bar
+      this.v(this._nf(33), t, sd * 15.5, { type: 'sawtooth', vol: 0.045, attack: 0.4, filter: 'lowpass', cutoff: 300, detune: -5 });
+      this.v(this._nf(45), t, sd * 15.5, { type: 'sine', vol: 0.04, attack: 0.5, wet: 0.3 });
+    }
+    if (s === 0 || s === 7 || s === 10) this.kick(t, 0.6);
+    if (s === 12) this.snare(t, 0.3);
+    // tritone stabs on the off-beats — the paperwork chord
+    if ((bar % 2 === 0 && s === 8) || (bar % 2 === 1 && (s === 8 || s === 14))) {
+      [51, 57].forEach(m => this.v(this._nf(m), t, sd * 2.2, { type: 'square', vol: 0.038, attack: 0.005, wet: 0.35, detune: 6 }));
+    }
+    // the bell tolls every other bar
+    if (bar % 2 === 0 && s === 4) this.v(this._nf(69), t, sd * 8, { type: 'sine', vol: 0.05, attack: 0.01, wet: 0.6 });
+    if (bar === 3 && s === 12) this.v(this._nf(68), t, sd * 4, { type: 'sine', vol: 0.04, attack: 0.01, wet: 0.6 });
+  },
+  // day room: warm and unhurried — soft chords, kalimba plinks, no drums at all
+  _mus_dayroom(step, t, sd) {
+    const bar = Math.floor(step / 16) % 4, s = step % 16;
+    const chords = [[60, 64, 67], [57, 60, 64], [62, 65, 69], [59, 62, 67]];   // C Am Dm G
+    if (s === 0) chords[bar].forEach(m => this.v(this._nf(m), t, sd * 15, { type: 'sine', vol: 0.028, attack: 0.6, wet: 0.45 }));
+    const plink = [-1, -1, 79, -1, -1, 76, -1, -1, 81, -1, -1, 79, -1, 76, -1, 72];
+    if (plink[s] > 0 && Math.floor(step / 16) % 2 === 0) this.v(this._nf(plink[s]), t, sd * 2.5, { type: 'triangle', vol: 0.03, attack: 0.005, wet: 0.5 });
+  },
+  // cutscene: a sparse, patient piano motif for the chart notes
+  _mus_cutscene(step, t, sd) {
+    const bar = Math.floor(step / 16) % 4, s = step % 16;
+    const roots = [45, 41, 43, 40];   // Am F G E
+    if (s === 0) this.v(this._nf(roots[bar]), t, sd * 15, { type: 'sine', vol: 0.035, attack: 0.4, wet: 0.4 });
+    const mel = [
+      -1, -1, -1, -1, 69, -1, -1, -1, 72, -1, -1, -1, 71, -1, 69, -1,
+      -1, -1, -1, -1, 65, -1, -1, -1, 69, -1, -1, -1, 67, -1, 64, -1
+    ];
+    const m = mel[(bar % 2) * 16 + s];
+    if (m > 0) this.v(this._nf(m), t, sd * 3.4, { type: 'triangle', vol: 0.034, attack: 0.01, wet: 0.5 });
   }
 };
 

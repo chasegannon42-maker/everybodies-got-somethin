@@ -227,6 +227,22 @@ DATA.DIAG = {
   }
 };
 
+/* ============ SECOND OPINIONS (unlockable alt characters) ============
+   A twisted variant of each diagnosis — one strong rule-flip each.
+   Unlocked per-diagnosis by beating the Ward-5 Walrus with the base
+   version (diagBest >= 6). Selected via the ⇄ flip on Patient Files. */
+DATA.DIAG2 = {
+  adhd:       { name: "ADHD (Unmedicated)",          tag: "no brakes",                    mech: "NO BRAKES: you can't fully stop — momentum carries you. +30% damage while moving, but HYPERFOCUS is impossible. The meds wore off. Everything is very fast." },
+  bipolar:    { name: "Bipolar (Ultradian)",         tag: "every room, new weather",      mech: "ULTRADIAN CYCLING: your mood flips EVERY ROOM. MANIA hits harder (+50% damage, +40% speed). THE DIP is deeper — but you mend a heart when you clear a room in it." },
+  depression: { name: "Depression (High-Functioning)", tag: "smiling through it",         mech: "THE MASK: full speed, normal tears, everyone says you're doing great. Every hit you take adds +0.35 damage, permanently. It's fine. Everything is fine." },
+  anxiety:    { name: "Anxiety (Panic Disorder)",    tag: "always on",                    mech: "ALWAYS ON: adrenaline never turns off (+speed, +fire rate, +damage at all times) — but CROWDS hurt: stand near 3+ patients and the panic itself starts taking hearts." },
+  schizo:     { name: "Schizophrenia (Unmedicated)", tag: "can't trust the distance",     mech: "TUNNEL: +35% damage, and nothing is fake anymore — but you can't see patients at a distance. They're there. You just can't see them yet. Their shots, you can." },
+  ocd:        { name: "OCD (Ritualist)",             tag: "all four corners",             mech: "THE RITUAL: every trigger fires a perfect CROSS — four tears in four directions, always, regardless of where you're aiming. The pattern must complete." },
+  ptsd:       { name: "PTSD (Weathered)",            tag: "what doesn't kill you",        mech: "SCAR TISSUE: no more On Edge, no flashback zones. Instead every hit you take this floor hardens you: +12% damage per hit (up to +60%). It resets when you descend." },
+  insomnia:   { name: "Insomnia (All-Nighter)",      tag: "sleep is for the discharged",  mech: "ALL-NIGHTER: permanently WIRED (+40% damage, +fire rate), the ward is always dim, and sleep never comes — no microsleeps, no naps. Descending burns half a heart. ☕ ESPRESSO replaces the nap." },
+  fine:       { name: "Fine (In Recovery)",          tag: "doing the work",               mech: "THE WORK: you heal a half-heart every 2 rooms you clear — actual recovery. But staying well is work: everything trying to stop you has +25% health." }
+};
+
 /* ============ ITEMS ============ */
 /* apply(p, G) mutates the player. Flags are read by game logic. */
 DATA.ITEMS = {
@@ -400,8 +416,11 @@ DATA.enemyPoolFor = function (depth) {
   for (const e of P) e.w *= 1 + 0.12 * Math.max(0, depth - e.d);
   return P;
 };
-DATA.pickEnemy = function (depth) {
+DATA.pickEnemy = function (depth, wing) {
   const P = DATA.enemyPoolFor(depth);
+  // specialty wing: its signature crowd is 3× as common here
+  const W = wing ? DATA.WINGS.find(w => w.id === wing) : null;
+  if (W) for (const e of P) if (W.mix.includes(e.id)) e.w *= 3;
   let tot = 0; for (const e of P) tot += e.w;
   let x = RAND() * tot;   // RAND so seeded room population picks the same enemies
   for (const e of P) { x -= e.w; if (x <= 0) return e.id; }
@@ -914,6 +933,24 @@ DATA.FLOOR_PALETTES = [
   { floor: '#38434c', line: '#2c363f', wall: '#40505e', trim: '#182027' },   // pharmacy — clinical blue-grey
   { floor: '#433a4a', line: '#342d3c', wall: '#4d4258', trim: '#1f1826' },   // psych — murky padded purple
   { floor: '#48412e', line: '#393322', wall: '#544a30', trim: '#221d10' }    // admin — dark sepia manila
+];
+
+/* ============ SPECIALTY WINGS (floor biomes) ============
+   Some wards belong to a specialty wing: its own palette, its own crowd.
+   Rolled in newFloor (depth 4+); `mix` enemies get ×3 weight in the pool. */
+DATA.WINGS = [
+  { id: 'pediatric', name: "THE PEDIATRIC WING", sub: "deceptively cheerful", icon: "🧸",
+    pal: { floor: '#5a6a72', line: '#4a5a62', wall: '#7a5a72', trim: '#2a3038' },
+    mix: ['notif', 'spiral', 'enabler', 'larper'] },
+  { id: 'records', name: "THE RECORDS BASEMENT", sub: "everything is paper", icon: "🗄",
+    pal: { floor: '#55492f', line: '#453b25', wall: '#635430', trim: '#2a230f' },
+    mix: ['copaycollector', 'larper', 'deadline'] },
+  { id: 'nightward', name: "THE NIGHT WARD", sub: "lights out", icon: "🌙",
+    pal: { floor: '#2c3040', line: '#232636', wall: '#343a50', trim: '#12141f' },
+    mix: ['gaslighter', 'intrusive', 'scroller'], dark: 0.4 },
+  { id: 'surgical', name: "THE SURGICAL THEATER", sub: "sterile precision", icon: "🩻",
+    pal: { floor: '#48565a', line: '#3a474a', wall: '#59696e', trim: '#1e282b' },
+    mix: ['projection', 'comparison', 'deadline'] }
 ];
 
 /* ============ FLAVOR TEXT ============ */

@@ -112,10 +112,11 @@ class Ally {
 
 /* ---------------- player ---------------- */
 class Player {
-  constructor(diagId) {
+  constructor(diagId, variant) {
     this.x = CW / 2; this.y = RY + RH - 90;
     this.r = 15;
     this.diag = diagId;
+    this.variant = !!variant;   // Second Opinion (unlockable alt version)
     this.maxhp = 6; this.hp = 6;
     this.spd = 225;
     this.tearDelay = 0.40; this.tearTimer = 0;
@@ -159,6 +160,16 @@ class Player {
     if (diagId === 'ptsd') { this.maxhp = 6; this.hp = 6; this.iframeTime = 1.4; }   // hypervigilant; a hit lingers longer
     if (diagId === 'insomnia') { this.maxhp = 6; this.hp = 6; }   // you don't run on hearts, you run on Sleep
     if (diagId === 'fine') { this.flags.fineMode = true; }
+    // Second Opinion overrides — one strong rule-flip each, applied over the base kit
+    if (this.variant) {
+      if (diagId === 'adhd') { this._lastMv = { x: 0, y: -1 }; }                               // NO BRAKES
+      if (diagId === 'depression') { this.spd = 225; this.maxhp = 6; this.hp = 6; this.dmg = 4.0; this.range = 0.9; this.blanket = false; }   // THE MASK
+      if (diagId === 'anxiety') { this.adren = true; this._panicT = 0; }                       // ALWAYS ON
+      if (diagId === 'schizo') { this.dmg *= 1.125; }                                          // TUNNEL (1.2 × 1.125 = 1.35)
+      if (diagId === 'ptsd') { this._scar = 0; }                                               // SCAR TISSUE
+      if (diagId === 'insomnia') { this.sleep = 0; this.wired = true; this.espT = 0; this.abil = { name: 'Espresso', cd: 9, blurb: 'Knock one back: a hard burst of speed and every nearby shot fizzles. Sleep remains cancelled.' }; this.abilMax = 9; }   // ALL-NIGHTER
+      if (diagId === 'fine') { this._recRooms = 0; this.flags.recovery = true; }               // IN RECOVERY
+    }
     const D = DATA.DIAG[diagId];
     if (D && D.rx) this.addItem(D.rx, null, true);
   }
@@ -197,8 +208,10 @@ class Player {
     let s = this.spd;
     if (this.diag === 'bipolar') {
       if (this.flags.stable) s *= 1.15;
+      else if (this.variant) s *= this.mania ? 1.4 : 0.7;   // Ultradian: wilder weather
       else s *= this.mania ? 1.3 : 0.85;
     }
+    if (this.espT > 0) s *= 1.5;   // ☕ Espresso Shot
     if (this.adren) s *= 1.2;
     if (this.diag === 'insomnia' && this.wired) s *= 1.08;   // jittery, running on fumes
     if (this.tempSlow > 0) s *= 0.6;
@@ -268,7 +281,15 @@ class Player {
         G.toast('5… 4… 3… 2… 1.', '#c8a878'); SFX.play('whoosh');
         break;
       }
-      case 'insomnia': {   // Power Nap — refill Sleep, heal, phase out; but you're helpless for the moment
+      case 'insomnia': {
+        if (this.variant) {   // ☕ ESPRESSO SHOT — the All-Nighter doesn't nap
+          this.espT = 3; this.iframes = Math.max(this.iframes, 0.4);
+          for (const b of G.eBullets) if (U.dist(this.x, this.y, b.x, b.y) < 140) b.fizzle(G);
+          G.toast('☕ ESPRESSO. sleep remains cancelled.', '#c8a878'); SFX.play('whoosh');
+          for (let i = 0; i < 8; i++) G.parts.push(new Particle(this.x, this.y, U.rand(-140, 140), U.rand(-140, 140), 0.35, '#c8a878', 3));
+          break;
+        }
+        // Power Nap — refill Sleep, heal, phase out; but you're helpless for the moment
         this.napActive = 1.0; this.iframes = Math.max(this.iframes, 1.1);
         this.sleep = 100; this.wired = false; this._microCd = 0;
         this.heal(1); G.darkTarget = 0;
@@ -288,13 +309,16 @@ class Player {
     let d = this.dmg;
     if (this.diag === 'bipolar') {
       if (this.flags.stable) d *= 1.15;
+      else if (this.variant) d *= this.mania ? 1.5 : 0.65;   // Ultradian: wilder weather
       else d *= this.mania ? 1.3 : 0.85;
     }
     if (this.focused) d *= 1.5;
     if (this.adren) d *= 1.1;   // anxiety: adrenaline sharpens damage when danger is close
     if (this.flags.fineMode) d *= 1.15;
     if (this.flags.rsd && this.hp >= this.maxhp) d *= 1.22;   // rejection sensitivity: prove them wrong at full HP
-    if (this.diag === 'ptsd' && this.lastHitT > 4) d *= 1.25;   // On Edge: calm and sharp until you're hit
+    if (this.variant && this.diag === 'adhd' && this.moving) d *= 1.3;   // NO BRAKES: damage on the move
+    if (this.variant && this.diag === 'ptsd') d *= 1 + Math.min(0.6, (this._scar || 0) * 0.12);   // SCAR TISSUE
+    if (this.diag === 'ptsd' && !this.variant && this.lastHitT > 4) d *= 1.25;   // On Edge: calm and sharp until you're hit
     if (this.diag === 'insomnia' && this.wired) d *= 1.4;   // WIRED: sleep-deprived and dangerous
     if (G && G.rapidMods) d *= G.rapidMods.dmg;   // Rapid Cycling
     return d;
@@ -314,17 +338,23 @@ class Player {
     this.iframes -= dt; this.hurtFlash -= dt; this.itemHold -= dt;
     this.tempSlow -= dt; this.tearTimer -= dt;
     if (this.abilCd > 0) this.abilCd -= dt;
+    if (this.espT > 0) this.espT -= dt;   // ☕ Espresso wears off
     if (this.cocoonT > 0) { this.cocoonT -= dt; this.iframes = Math.max(this.iframes, 0.05); }
 
-    // mood cycle
-    if (this.diag === 'bipolar' && !this.flags.stable) {
+    // mood cycle (Ultradian variant flips per ROOM instead — handled in enterRoom)
+    if (this.diag === 'bipolar' && !this.flags.stable && !this.variant) {
       this.moodT += dt;
       if (this.moodT >= 10) { this.moodT = 0; this.mania = !this.mania; SFX.play('voice'); }
     }
 
     // movement
-    const mv = Input.getMove();
+    let mv = Input.getMove();
     this.moving = (Math.abs(mv.x) > 0.05 || Math.abs(mv.y) > 0.05);
+    // NO BRAKES: momentum carries you when you try to stop
+    if (this.variant && this.diag === 'adhd') {
+      if (this.moving) this._lastMv = { x: mv.x, y: mv.y };
+      else { mv = { x: this._lastMv.x * 0.55, y: this._lastMv.y * 0.55 }; this.moving = true; }
+    }
     if (this.dashT > 0) {   // ADHD Blink: fast, brief, invincible
       this.dashT -= dt;
       this.x += this.dashDir.x * 900 * dt;
@@ -337,17 +367,27 @@ class Player {
       this.y += mv.y * s * dt;
     }
 
-    // hyperfocus (adhd)
-    if (this.diag === 'adhd') {
+    // hyperfocus (adhd) — impossible when unmedicated (you never stand still)
+    if (this.diag === 'adhd' && !this.variant) {
       if (!this.moving) { this.focusT += dt; this.focused = this.focusT >= 1; }
       else { this.focusT = 0; this.focused = false; }
     }
 
     // adrenaline (anxiety)
     if (this.diag === 'anxiety') {
-      this.adren = false;
-      for (const e of G.enemies) if (!e.fake && U.dist(this.x, this.y, e.x, e.y) < 150) { this.adren = true; break; }
-      if (!this.adren && G.boss && !G.boss.dead && U.dist(this.x, this.y, G.boss.x, G.boss.y) < 190) this.adren = true;
+      if (this.variant) {   // ALWAYS ON — and crowds hurt
+        this.adren = true;
+        let near = 0;
+        for (const e of G.enemies) if (!e.fake && !e.dying && !e.charmed && U.dist(this.x, this.y, e.x, e.y) < 160) near++;
+        if (near >= 3) {
+          this._panicT = (this._panicT || 0) + dt;
+          if (this._panicT >= 3) { this._panicT = 0; this.hurt(1, G, 'panic'); G.toast('too many people. too close.', '#43b8a5'); }
+        } else this._panicT = Math.max(0, (this._panicT || 0) - dt * 1.5);
+      } else {
+        this.adren = false;
+        for (const e of G.enemies) if (!e.fake && U.dist(this.x, this.y, e.x, e.y) < 150) { this.adren = true; break; }
+        if (!this.adren && G.boss && !G.boss.dead && U.dist(this.x, this.y, G.boss.x, G.boss.y) < 190) this.adren = true;
+      }
     }
 
     // OCD compulsion: clearing a room "clicks" (reset + FOCUS buff); dawdling with things
@@ -379,9 +419,10 @@ class Player {
     if (this.diag === 'insomnia') {
       if (this.napActive > 0) this.napActive -= dt;
       const live = G.enemies.some(e => !e.dying && !e.fake);
-      this.sleep = U.clamp(this.sleep - dt * (live ? 4.0 : 2.6), 0, 100);
+      if (this.variant) { this.sleep = 0; this.wired = true; }   // ALL-NIGHTER: sleep is cancelled
+      else this.sleep = U.clamp(this.sleep - dt * (live ? 4.0 : 2.6), 0, 100);
       const wasWired = this.wired;
-      this.wired = this.sleep < 35;
+      this.wired = this.variant || this.sleep < 35;
       if (this.wired && !wasWired) { G.toast('▲ WIRED', '#7fd4c8'); SFX.play('voice'); }
       if (this.wired) {
         this._halluCd -= dt;
@@ -398,7 +439,7 @@ class Player {
           G.eBullets.push(b);
         }
       }
-      if (this.sleep <= 0) {   // the body takes the sleep it isn't given
+      if (this.sleep <= 0 && !this.variant) {   // the body takes the sleep it isn't given (the All-Nighter refuses)
         this._microCd -= dt;
         if (this._microCd <= 0) { this._microCd = U.rand(2.6, 4.2); this.napActive = Math.max(this.napActive, 0.3); G.toast('😵 microsleep', '#7fd4c8'); SFX.play('hurt'); }
       }
@@ -448,6 +489,7 @@ class Player {
       const spdMul = this.flags.beam ? 1.5 : 1;
       if (this.flags.quadShot) shots = [-0.16, -0.055, 0.055, 0.16].map(o => ({ a: a + o, s: 0.45 }));
       else if (this.flags.beam) shots = [{ a: a + U.rand(-0.02, 0.02), s: 0.34 }];
+      else if (this.diag === 'ocd' && this.variant) shots = [0, Math.PI / 2, Math.PI, -Math.PI / 2].map(o => ({ a: a + o, s: 0.5 }));   // THE RITUAL: the cross must complete
       else if (this.diag === 'ocd') shots = [{ a: a - 0.10, s: 0.6 }, { a: a + 0.10, s: 0.6 }];
       else shots = [{ a: a, s: 1 }];
       for (const sh of shots) {
@@ -508,7 +550,8 @@ class Player {
     this.hp -= n;
     this.iframes = this.iframeTime;
     this.hurtFlash = 0.35;
-    if (this.diag === 'ptsd') { this.lastHitT = 0; if (src !== 'flashback') G.darkTarget = Math.max(G.darkTarget || 0, 0.4); }   // a hit ends On Edge and jolts a flashback
+    if (this.diag === 'ptsd') { this.lastHitT = 0; if (this.variant) this._scar = (this._scar || 0) + 1; else if (src !== 'flashback') G.darkTarget = Math.max(G.darkTarget || 0, 0.4); }   // a hit ends On Edge / hardens the Weathered
+    if (this.variant && this.diag === 'depression' && this.hp > 0) { this.dmg += 0.35; G.texts.push(new FloatText(this.x, this.y - 30, '“I\'m fine.” +dmg', '#5d8aa8')); }   // THE MASK: it fuels you
     G.floorHits = (G.floorHits || 0) + 1;
     G.shake = Math.max(G.shake, 9);
     SFX.play('hurt');
@@ -1224,7 +1267,7 @@ function spawnEnemiesForRoom(room, depth, G) {
   const dif = DATA.difficulty(depth);
   const mods = G.floorMods || {};
   const wp = (DATA.WARD_PATHS && DATA.WARD_PATHS[G.wardPath]) || null;
-  const hpMult = (p.flags.fineMode ? 1.15 : 1) * (mods.hpMul || 1) * (G.chronic ? 1.5 : 1) * (G.easy ? 0.7 : 1) * (wp ? wp.hpMul : 1);
+  const hpMult = (p.flags.fineMode ? (p.flags.recovery ? 1.25 : 1.15) : 1) * (mods.hpMul || 1) * (G.chronic ? 1.5 : 1) * (G.easy ? 0.7 : 1) * (wp ? wp.hpMul : 1);
   let count = dif.count;
   if (mods.countMul) count = Math.round(count * mods.countMul);
   if (G.chronic) count = Math.round(count * 1.2);
@@ -1241,7 +1284,7 @@ function spawnEnemiesForRoom(room, depth, G) {
   const chosen = U.shuffle(spots).slice(0, count);
   const spawned = [];
   for (const s of chosen) {
-    const id = DATA.pickEnemy(depth);
+    const id = DATA.pickEnemy(depth, G.wing);
     const elite = (id !== 'redflag' && U.chance(champChance)) ? U.choice(DATA.ELITES).id : null;
     const e = new Enemy(id, s.x + U.rand(-8, 8), s.y + U.rand(-8, 8), depth, false, hpMult, elite);
     if (mods.spdMul) e.spd *= mods.spdMul;
@@ -1251,8 +1294,8 @@ function spawnEnemiesForRoom(room, depth, G) {
     G.enemies.push(e);
     spawned.push(id);
   }
-  // schizophrenia: add hallucinated duplicates
-  if (p.diag === 'schizo' && spawned.length) {
+  // schizophrenia: add hallucinated duplicates (the Unmedicated variant sees none — everything is real)
+  if (p.diag === 'schizo' && !p.variant && spawned.length) {
     const extraSpots = U.shuffle(spots).slice(0, 2);
     for (const s of extraSpots) {
       const id = U.choice(spawned);
