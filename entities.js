@@ -476,7 +476,21 @@ class Player {
     if (t.c >= 0 && t.r >= 0 && t.c < COLS && t.r < ROWS && G.room.layout[t.r][t.c] === 3 && this.iframes <= 0) this.hurt(1, G, 'spikes');
 
     // shooting
-    const aim = Input.getAim(this.x, this.y);
+    let aim = Input.getAim(this.x, this.y);
+    // aim assist (sticks/touch only): nudge onto the nearest target within a small cone
+    if (aim && Input._aimSrc === 'stick' && (!Meta.data.a11y || Meta.data.a11y.aimAssist !== false)) {
+      const aimA = Math.atan2(aim.y, aim.x);
+      let best = null, bd = 0.26;   // ~15° cone
+      const consider = (e) => {
+        if (!e || e.dying || e.dead || e.fake || e.charmed) return;
+        const d = U.dist(this.x, this.y, e.x, e.y); if (d < 30 || d > 460) return;
+        const da = Math.abs(Math.atan2(Math.sin(U.ang(this.x, this.y, e.x, e.y) - aimA), Math.cos(U.ang(this.x, this.y, e.x, e.y) - aimA)));
+        if (da < bd) { bd = da; best = e; }
+      };
+      for (const e of G.enemies) consider(e);
+      if (G.boss && !G.boss.dead && G.boss.vulnerable !== false) consider(G.boss);
+      if (best) { const na = U.ang(this.x, this.y, best.x, best.y); aim = { x: Math.cos(na), y: Math.sin(na) }; }
+    }
     if (aim) this.aimAng = Math.atan2(aim.y, aim.x);
     if (aim && this.tearTimer <= 0 && this.itemHold <= 0.6 && this.napActive <= 0 && !this.flags.pacifist) {   // Pacifist: no tears — familiars & Claim Forms only
       this.tearTimer = this.effTearDelay();
@@ -582,6 +596,7 @@ class Player {
     if (this.diag === 'ptsd') { this.lastHitT = 0; if (this.variant) this._scar = (this._scar || 0) + 1; else if (src !== 'flashback') G.darkTarget = Math.max(G.darkTarget || 0, 0.4); }   // a hit ends On Edge / hardens the Weathered
     if (this.variant && this.diag === 'depression' && this.hp > 0) { this.dmg += 0.35; G.texts.push(new FloatText(this.x, this.y - 30, '“I\'m fine.” +dmg', '#5d8aa8')); }   // THE MASK: it fuels you
     G.floorHits = (G.floorHits || 0) + 1;
+    G._roomHits = (G._roomHits || 0) + 1;
     G.shake = Math.max(G.shake, 9);
     // Stress Ball: squeezed on impact — clears the air around you
     if (this.trinket === 'stressball') {
@@ -590,6 +605,7 @@ class Player {
     }
     SFX.play('hurt');
     Haptics.buzz(55, 0);
+    Input.rumble(130, 0.8);
     if (this.flags.hurtNova) {
       for (let i = 0; i < 8; i++) {
         const a = (i / 8) * TAU;
@@ -1184,6 +1200,10 @@ class Enemy {
     if (this._shieldT > 0) d *= 0.55;   // Wellness Bot's bubble takes the edge off
     this.hp -= d;
     this.hitFlash = 0.12;
+    if (Meta.data.a11y && Meta.data.a11y.dmgNums && !quiet && d >= 0.5 && G.texts.length < 36) {
+      const ft = new FloatText(this.x + U.rand(-6, 6), this.y - 16, (Math.round(d * 10) / 10), '#f0e0b0');
+      ft.small = true; G.texts.push(ft);
+    }
     if (this.beh === 'orderly') this._calm = 0;   // pain resets his patience
     // The Gaslighter denies the hit ever happened — and isn't where you thought it was
     if (this.id === 'gaslighter' && !quiet && this.hp > 0 && U.chance(0.4)) {

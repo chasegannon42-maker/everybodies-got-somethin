@@ -363,7 +363,10 @@ DATA.ACHIEVEMENTS = [
   { id: 'protocolFirst', name: "Informed Consent", desc: "Complete a Challenge Protocol.",                  hint: "Survive one of the ten Protocols to Ward 6.", check: m => Object.keys(m.protocolsDone || {}).length >= 1 },
   { id: 'protocolFive', name: "Peer-Reviewed",     desc: "Complete 5 Challenge Protocols.",                 hint: "The methodology is sound.",                check: m => Object.keys(m.protocolsDone || {}).length >= 5 },
   { id: 'boardDown', name: "Golden Parachute",     desc: "Dissolve THE BOARD at the top of the Ascent.",    hint: "After Ward 5, take the elevator UP.",      check: m => (m.boardKills || 0) >= 1 },
-  { id: 'auditClean', name: "Clean Books",         desc: "Put down THE AUDITOR.",                           hint: "Sometimes the thing follows you. Turn around.", check: m => (m.auditorKills || 0) >= 1 }
+  { id: 'auditClean', name: "Clean Books",         desc: "Put down THE AUDITOR.",                           hint: "Sometimes the thing follows you. Turn around.", check: m => (m.auditorKills || 0) >= 1 },
+  { id: 'ama',        name: "Elopement Risk",      desc: "Leave Against Medical Advice.",                   hint: "Ward 8+, find the Day Room. Sign the form. Run.", check: m => (m.amaDone || 0) >= 1 },
+  { id: 'contracts5', name: "Reliable Patient",    desc: "Complete 5 Day Room contracts.",                  hint: "The other patients need things.",          check: m => (m.contractsDone || 0) >= 5 },
+  { id: 'goldplan',   name: "Cadillac Coverage",   desc: "Beat Dr. Walrus on the Gold plan.",               hint: "Pay dearly up front. Enjoy the discounts.", check: m => !!m.everGoldWalrus }
 ];
 DATA.checkAchievements = function (m) {
   if (!m.unlocks) m.unlocks = {};
@@ -478,6 +481,31 @@ DATA.bossFor = function (depth, lastBoss) {
   const filtered = pool.filter(b => b !== lastBoss);
   return U.choice(filtered.length ? filtered : pool);
 };
+
+/* ============ INSURANCE PLANS (pick your coverage at intake) ============ */
+DATA.PLANS = [
+  { id: 'bronze', icon: '🥉', name: 'BRONZE', tag: 'Catastrophic-Only', clr: '#c88a4a',
+    desc: 'Cash up front. Everything else is out-of-pocket.',
+    lines: ['start with +15¢', 'all copays ×1.5', 'boss rewards cost 6¢'] },
+  { id: 'silver', icon: '🥈', name: 'SILVER', tag: 'The Marketplace Special', clr: '#a8b0b8',
+    desc: 'The plan everyone has. The plan nobody chose.',
+    lines: ['standard coverage', 'standard copays', 'standard despair'] },
+  { id: 'gold',   icon: '🥇', name: 'GOLD', tag: 'Executive Wellness', clr: '#e0c040',
+    desc: 'Premium care. The premium is your body.',
+    lines: ['−1 heart container up front', 'all copays ×0.6', '+1 unlocked pharmacy room per floor'] }
+];
+
+/* ============ DAY ROOM CONTRACTS (the other patients need things) ============ */
+DATA.CONTRACTS = [
+  { id: 'kills20',   name: 'Group Project',    desc: 'manage 20 symptoms',            ev: 'kill',      n: 20, reward: 'coins',   rtext: '+9¢' },
+  { id: 'pills2',    name: 'Taste Tester',     desc: 'swallow 2 pills',               ev: 'pill',      n: 2,  reward: 'hearts',  rtext: 'full heal' },
+  { id: 'clean2',    name: 'Look Untouchable', desc: 'clear 2 rooms without a hit',   ev: 'cleanroom', n: 2,  reward: 'item',    rtext: 'a prescription' },
+  { id: 'rooms6',    name: 'Do My Rounds',     desc: 'clear 6 rooms',                 ev: 'room',      n: 6,  reward: 'trinket', rtext: 'a personal effect' },
+  { id: 'miniboss',  name: 'Office Politics',  desc: 'clear a Clinic miniboss',       ev: 'miniboss',  n: 1,  reward: 'insight', rtext: '+◆8' },
+  { id: 'secret1',   name: 'I Hear Walls',     desc: 'find a secret room',            ev: 'secret',    n: 1,  reward: 'coins',   rtext: '+12¢' },
+  { id: 'bombs2',    name: 'Demolition Notes', desc: 'file 2 claim forms (bombs)',    ev: 'bomb',      n: 2,  reward: 'hearts',  rtext: '+1 heart container' },
+  { id: 'boss1',     name: 'Speak To A Manager', desc: 'defeat the ward boss',       ev: 'boss',      n: 1,  reward: 'fund',    rtext: '+20¢ to the Fund, in YOUR name' }
+];
 
 /* ============ THE DRUG REP (free samples, with strings) ============ */
 DATA.SAMPLE_FX = [

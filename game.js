@@ -332,6 +332,8 @@ const G = {
         <button class="btn minor" id="bA11yContrast">${ct(a.bulletContrast, 'High-contrast bullets')}</button>
         <button class="btn minor" id="bA11yMotion">${ct(a.reduceMotion, 'Reduced motion')}</button>
         <button class="btn minor" id="bA11yEasy">${ct(a.easy, 'Second Opinion (easier)')}</button>
+        <button class="btn minor" id="bA11yAim">${ct(a.aimAssist !== false, 'Aim assist (stick/touch)')}</button>
+        <button class="btn minor" id="bA11yDmg">${ct(!!a.dmgNums, 'Damage numbers')}</button>
         <button class="btn minor" id="bStoryToggle">${ct(!Meta.data.storyOff, 'Story cutscenes')}</button>
         ${(() => {
           const owned = DATA.HATS.filter(h => (Meta.data.unlocks || {})[h.ach]);
@@ -354,6 +356,9 @@ const G = {
     tog('bA11yContrast', 'bulletContrast', 'High-contrast bullets');
     tog('bA11yMotion', 'reduceMotion', 'Reduced motion');
     tog('bA11yEasy', 'easy', 'Second Opinion (easier)');
+    const bAim = document.getElementById('bA11yAim');
+    if (bAim) bAim.onclick = () => { SFX.play('ui'); a.aimAssist = a.aimAssist === false; Meta.save(); bAim.textContent = ct(a.aimAssist !== false, 'Aim assist (stick/touch)'); };
+    tog('bA11yDmg', 'dmgNums', 'Damage numbers');
     const bst = document.getElementById('bStoryToggle');
     if (bst) bst.onclick = () => { SFX.play('ui'); Meta.data.storyOff = Meta.data.storyOff ? 0 : 1; Meta.save(); bst.textContent = ct(!Meta.data.storyOff, 'Story cutscenes'); };
     document.querySelectorAll('[data-hat]').forEach(b => b.onclick = () => { SFX.play('ui'); Meta.data.hat = b.dataset.hat || null; Meta.save(); this.showSettings(returnTo); });
@@ -545,10 +550,34 @@ const G = {
         <button class="btn" id="bBegin2">BEGIN TREATMENT</button>
       </div>`);
     this.paintWalrus('cardWalrus');
-    document.getElementById('bBegin2').onclick = () => { SFX.play('ui'); this.beginRun(diagId, null, !!D2); };
+    document.getElementById('bBegin2').onclick = () => { SFX.play('ui'); this.showEnrollment(diagId, null, !!D2); };
   },
 
   /* ---------- run setup ---------- */
+  /* ---------- ENROLLMENT (pick your coverage; dailies are exchange plans, no choice) ---------- */
+  showEnrollment(diagId, daily, variant) {
+    this.state = 'enroll';
+    SFX.play('stamp');
+    const cards = DATA.PLANS.map(pl => `
+      <button class="cmcard" data-plan="${pl.id}">
+        <div class="cmname" style="color:${pl.clr}">${pl.icon} ${pl.name}</div>
+        <div class="cmdesc">${pl.tag} — ${pl.desc}</div>
+        <div class="cmtag">${pl.lines.join(' · ')}</div>
+      </button>`).join('');
+    this.overlay(`
+      <div class="panel wide">
+        <h1 class="logo" style="font-size:26px">OPEN ENROLLMENT</h1>
+        <div class="tagline">choose your coverage. this is the only choice the system will offer you.</div>
+        <div class="cmgrid">${cards}</div>
+        <div class="tagline" style="opacity:.6">seeded runs (daily / quarterly / challenge) are assigned SILVER. you don't get to pick. that's the joke.</div>
+      </div>`);
+    document.querySelectorAll('[data-plan]').forEach(b => b.onclick = () => {
+      SFX.play('item');
+      this._startPlan = b.dataset.plan;
+      this.beginRun(diagId, daily, variant);
+    });
+  },
+
   beginRun(diagId, daily, variant) {
     this.variantRun = !!variant && !daily;   // Second Opinion runs (never in dailies)
     this.daily = !!daily;
@@ -590,6 +619,12 @@ const G = {
     if (this.protocol === 'waitingroom') { this.player.maxhp = 2; this.player.hp = 2; this.player.flags.noHeal = true; }   // one heart, no healing
     this.applyTalents(this.player);      // Treatment Plan (permanent skill-tree perks)
     this.applyFacility(this.player);     // Waiting Room furniture perks (the Wellness Fund at work)
+    // insurance plan (dailies & seeded runs are assigned SILVER — no marketplace for you)
+    this.plan = (!daily && this._startPlan) ? this._startPlan : 'silver';
+    this._startPlan = null;
+    if (this.plan === 'bronze') { this.player.coins += 15; }
+    if (this.plan === 'gold') { this.player.maxhp = Math.max(2, this.player.maxhp - 2); this.player.hp = Math.min(this.player.hp, this.player.maxhp); }
+    if (this.plan !== 'silver') { const PL = DATA.PLANS.find(x => x.id === this.plan); this.toast(PL.icon + ' Enrolled: ' + PL.name + ' — ' + PL.tag, PL.clr); }
     if (this.protocol === 'waitingroom') { this.player.maxhp = 2; this.player.hp = Math.min(this.player.hp, 2); }   // talents can't buy hearts here either
     this._appealUsed = false; this._appealOffered = false;   // one appeal per run
     this.pillAssign = this.genSeed(['pills'], () => U.shuffle(DATA.PILLS.map((_, i) => i)).slice(0, 10));
@@ -606,6 +641,9 @@ const G = {
     // Treatment Goals: 3 objectives for this run (seeded so a daily's goals match for everyone)
     this.goals = this.genSeed(['goals'], () => U.shuffle(DATA.GOALS.slice()).slice(0, 3))
       .map(g => ({ id: g.id, name: g.name, desc: g.desc, ev: g.ev, n: g.n, insight: g.insight, prog: 0, done: false }));
+    this.contracts = [];   // Day Room side jobs (max 2 active)
+    this.amaRun = null;    // Against Medical Advice escape state
+    this._amaFailed = false; this._amaDone = false;
     this._runCured = false;
     this._runStart = Date.now();
     this.larperToastShown = false;
@@ -728,7 +766,8 @@ const G = {
       ['Dispensing fee', st.items, (st.items || 0) * 1200],
       ['Pills, misc.', st.pills, (st.pills || 0) * 90]
     ].filter(r => r[2] > 0);
-    const total = rows.reduce((a, r) => a + r[2], 0);
+    let total = rows.reduce((a, r) => a + r[2], 0);
+    if (this._amaFailed) { rows.push(['AMA elopement surcharge', '×2', total]); total *= 2; }   // you tried to LEAVE?
     return { rows, total };
   },
   billHtml() {
@@ -754,7 +793,7 @@ const G = {
     try {
       const S = {
         v: 1, diag: p.baseDiag === 'undiag' ? 'undiag' : p.diag, variant: p.variant ? 1 : 0, depth: this.depth,
-        chronic: this.chronic ? 1 : 0, bossRush: this.bossRush ? 1 : 0, prognosis: this.prognosis || null, protocol: this.protocol || null, protoT: this.protoT, ascent: this.ascent ? 1 : 0, ascentBase: this.ascentBase || 0, apl: this._appealUsed ? 1 : 0,
+        chronic: this.chronic ? 1 : 0, bossRush: this.bossRush ? 1 : 0, prognosis: this.prognosis || null, protocol: this.protocol || null, protoT: this.protoT, ascent: this.ascent ? 1 : 0, ascentBase: this.ascentBase || 0, apl: this._appealUsed ? 1 : 0, plan: this.plan || 'silver', contracts: (this.contracts || []).map(c => ({ id: c.id, prog: c.prog, done: c.done ? 1 : 0 })),
         lastBoss: this.lastBoss || null,
         flags: p.flags, items: p.items, comorbidities: p.comorbidities || [],
         transforms: p._transforms || [], transformTint: p.transformTint || null,
@@ -793,12 +832,15 @@ const G = {
     if (S.protoT != null) this.protoT = S.protoT;
     this.ascent = !!S.ascent; this.ascentBase = S.ascentBase || 0;
     this._appealUsed = !!S.apl;
+    this.plan = S.plan || 'silver';
+    this.contracts = (S.contracts || []).map(sc => { const def = DATA.CONTRACTS.find(c => c.id === sc.id); return def ? { id: sc.id, def, prog: sc.prog || 0, done: !!sc.done } : null; }).filter(Boolean);
     this.newFloor();
     this.toast('📂 Chart reopened — ward ' + this.depth + '. Welcome back.', '#8fd0e0');
   },
 
   // Treatment Goals: advance any active objective listening for this event
   goalEvent(ev, amt) {
+    this.contractEvent(ev, amt);
     if (!this.goals) return;
     for (const g of this.goals) {
       if (g.done || g.ev !== ev) continue;
@@ -811,6 +853,43 @@ const G = {
         this.toast('🎯 GOAL: ' + g.name + ' — +◆' + g.insight + ' Insight', '#8fd0e0');
         SFX.play('goalJingle');
       }
+    }
+  },
+
+  /* ---------- Day Room Contracts (the other patients need things) ---------- */
+  contractEvent(ev, amt) {
+    if (!this.contracts || !this.contracts.length) return;
+    for (const c of this.contracts) {
+      if (c.done || c.def.ev !== ev) continue;
+      c.prog += (amt || 1);
+      if (c.prog >= c.def.n) {
+        c.done = true;
+        Meta.data.contractsDone = (Meta.data.contractsDone || 0) + 1;
+        this.applyContractReward(c.def);
+        Meta.save();
+        this.checkUnlocks();
+      }
+    }
+  },
+  applyContractReward(def) {
+    const p = this.player; if (!p) return;
+    const say = (s) => { this.toast('📝 CONTRACT PAID: ' + def.name + ' — ' + s, '#8fd08a'); SFX.play('fanfare'); };
+    switch (def.reward) {
+      case 'coins': { const n = def.id === 'secret1' ? 12 : 9; p.coins += n; say('+' + n + '¢'); break; }
+      case 'hearts': {
+        if (def.id === 'bombs2') { p.maxhp += 2; p.heal(2); say('+1 heart container'); }
+        else { p.heal(99); say('healed up'); }
+        break;
+      }
+      case 'item': {
+        const pool = DATA.pickPool('special', p.items);
+        this.peds.push({ x: U.clamp(p.x, RX + 40, RX + RW - 40), y: U.clamp(p.y - 50, RY + 40, RY + RH - 40), itemId: U.choice(pool.length ? pool : DATA.POOLS.special), kind: 'item', taken: false });
+        say('your prescription, delivered');
+        break;
+      }
+      case 'trinket': { this.pickups.push(new Pickup('trinket', p.x + 30, p.y)); say('a personal effect'); break; }
+      case 'insight': { Meta.data.insight = (Meta.data.insight || 0) + 8; this._goalInsight += 8; say('+◆8 Insight'); break; }
+      case 'fund': { Meta.data.fund = (Meta.data.fund || 0) + 20; say('+20¢ to the Fund, in your name'); break; }
     }
   },
 
@@ -880,7 +959,8 @@ const G = {
       }
     }
     // Treatment Plan currency: Insight scales with how far you got this run
-    const gained = Math.max(1, Math.round(this.depth * 1.5 + this.stats.bosses * 3 + this.stats.kills * 0.05 + (cured ? 15 : 0) + (walrus ? 5 : 0)));
+    let gained = Math.max(1, Math.round(this.depth * 1.5 + this.stats.bosses * 3 + this.stats.kills * 0.05 + (cured ? 15 : 0) + (walrus ? 5 : 0)));
+    if (out === 'ama') gained = Math.round(gained * 1.5);   // leaving AMA banks a premium
     Meta.data.insight = (Meta.data.insight || 0) + gained;
     this._insightGained = gained;
     Meta.save();
@@ -893,6 +973,14 @@ const G = {
     this.floorRooms = gen.rooms;
     this.bossId = gen.bossId;
     if (this.ascent && this.depth - this.ascentBase >= 5) this.bossId = 'theboard';   // A5: the top of the elevator
+    // GOLD plan: one extra pharmacy room per floor, lock already open — executive access
+    if (this.plan === 'gold') this.genSeed(['goldroom', this.depth], () => {
+      const normals = this.floorRooms.filter(r => r.type === 'normal');
+      if (normals.length > 1) {
+        const r = U.choice(normals); r.type = 'item'; r.lockOpen = true;
+        if (r.layout) for (let rr = 2; rr <= 4; rr++) for (let cc = 5; cc <= 7; cc++) r.layout[rr][cc] = 0;   // clear floor for the pedestal
+      }
+    });
     // Boss Rush: skip the fighting between rooms — empty every normal room so it's a straight shot to the boss
     if (this.bossRush) this.floorRooms.forEach(r => { if (r.type === 'normal') { r.spawned = true; r.cleared = true; } r.discovered = true; });
     this.lastBoss = gen.bossId === 'walrus' ? this.lastBoss : gen.bossId;
@@ -1006,6 +1094,7 @@ const G = {
     this.tearsAura = false;
     this.hyperfixType = null;
     this.roomFade = 0.22;   // a soft blink crossing the threshold
+    this._roomHits = 0;     // per-room damage tally (Day Room contracts)
     // Rapid Cycling: every room re-prescribes you
     if (this.prognosis === 'rapid') {
       const sw = U.choice(DATA.RAPID_SWINGS);
@@ -1122,7 +1211,7 @@ const G = {
       }
       case 'shop': {
         room.cleared = true;
-        const copayMul = (1 + (this.depth - 1) * 0.07) * (this.protocol === 'deductible' ? 2 : 1);   // copays climb with the ward (it's the healthcare system, baby)
+        const copayMul = (1 + (this.depth - 1) * 0.07) * (this.protocol === 'deductible' ? 2 : 1) * (this.plan === 'bronze' ? 1.5 : this.plan === 'gold' ? 0.6 : 1);   // copays climb with the ward (it's the healthcare system, baby)
         const disc = (p.flags.discount ? 0.5 : (this.wardPath === 'outpatient' ? 0.75 : 1)) * (p.trinket === 'expiredcoupon' ? 0.7 : 1) * (p._facShopMul || 1);
         const px = (n) => Math.max(1, Math.ceil(n * disc * copayMul));
         const yc = RY + RH / 2 + 30, yi = RY + RH / 2 - 80;
@@ -1184,6 +1273,10 @@ const G = {
         room.peds.push({ x: RX + RW - 96, y: RY + RH / 2 - 30, kind: 'recruit', allyId: DATA.ALLIES[U.randi(0, DATA.ALLIES.length - 1)].id, taken: false });
         // the commissary corner: one machine per Day Room
         room.peds.push({ x: RX + 90, y: RY + 96, kind: U.choice(['vending', 'claw', 'horoscope']), taken: false, uses: 3 });
+        // one patient has a side job for you (Day Room contract)
+        room.peds.push({ x: CW / 2 + 40, y: RY + RH / 2 + 96, kind: 'contract', contractId: U.choice(DATA.CONTRACTS).id, taken: false });
+        // Ward 8+: the exit is right there. it says so on the sign.
+        if (this.depth >= 8) room.peds.push({ x: RX + RW - 90, y: RY + 96, kind: 'ama', taken: false });
         break;
       }
       case 'clinic': {   // The Clinic — a miniboss is holding office hours
@@ -1266,6 +1359,8 @@ const G = {
     this.doorsOpen = true;
     this.stats.rooms++;
     this.goalEvent('room');
+    if ((this._roomHits || 0) === 0) this.contractEvent('cleanroom');   // Look Untouchable
+    if (room.type === 'clinic') this.contractEvent('miniboss');        // Office Politics
     SFX.play('door');
     if (p.flags.gratitude && U.chance(0.25)) { p.heal(1); this.texts.push(new FloatText(p.x, p.y - 24, 'grateful +♥', '#8fd05a')); }
     if (p.diag === 'insomnia') {
@@ -1378,7 +1473,7 @@ const G = {
     this.genSeed(['reward', this.depth], () => {
       const bossPool = DATA.POOLS.boss;
       if (p.flags.untreated) { for (let i = 0; i < 4; i++) this.pickups.push(new Pickup(i ? 'coin' : 'pill', CW / 2 + U.rand(-70, 70), RY + RH / 2 + U.rand(-30, 30))); }
-      else room.peds.push({ x: CW / 2 - 90, y: RY + RH / 2 + 40, itemId: U.choice(bossPool), kind: 'boss', taken: false });
+      else room.peds.push({ x: CW / 2 - 90, y: RY + RH / 2 + 40, itemId: U.choice(bossPool), kind: 'boss', taken: false, price: this.plan === 'bronze' ? 6 : 0 });   // BRONZE: nothing is covered
       if (this.bossId === 'walrus' && !p.flags.untreated) {
         const pool = DATA.pickPool('special', p.items);
         room.peds.push({ x: CW / 2 + 90, y: RY + RH / 2 + 40, itemId: U.choice(pool.length ? pool : DATA.POOLS.special), kind: 'boss', taken: false });
@@ -1891,6 +1986,29 @@ const G = {
           }
           SFX.play('coin');
         } else if (this.lockCd <= 0) { this.lockCd = 1.4; this.texts.push(new FloatText(ped.x, ped.y - 40, 'need ' + price + '¢', '#e8c84c')); SFX.play('error'); }
+      } else if (ped.kind === 'contract') {   // a fellow patient with a side job
+        const def = DATA.CONTRACTS.find(c => c.id === ped.contractId) || DATA.CONTRACTS[0];
+        const active = (this.contracts || []).filter(c => !c.done).length;
+        const dup = (this.contracts || []).some(c => c.id === def.id);
+        if (dup) { if (this.lockCd <= 0) { this.lockCd = 1.4; this.toast('“You\'re already on it. I believe in you.”', '#c8b0e0'); } }
+        else if (active >= 2) { if (this.lockCd <= 0) { this.lockCd = 1.4; this.toast('“You look busy. Come back when you\'ve got room on your plate.”', '#c8b0e0'); } }
+        else {
+          ped.taken = true;
+          this.contracts.push({ id: def.id, def, prog: 0, done: false });
+          this.toast('📝 CONTRACT: ' + def.name + ' — ' + def.desc + ' → ' + def.rtext, '#8fd08a');
+          SFX.play('voice');
+        }
+      } else if (ped.kind === 'ama') {   // the exit. you can just... leave?
+        if (this.amaRun) { /* already signed */ }
+        else if (this.lockCd <= 0) {
+          this.lockCd = 2.0;
+          this.showAmaOffer(ped);
+          return;
+        }
+      } else if (ped.kind === 'amaexit') {   // daylight
+        ped.taken = true;
+        this.finishAma();
+        return;
       } else if (ped.kind === 'drugrep') {   // the rep himself: all smile, no collision
         if (this.lockCd <= 0) { this.lockCd = 2.0; this.toast('“No pressure! The samples are FREE. Completely free.”', '#8fd08a'); SFX.play('voice'); }
       } else if (ped.kind === 'sample') {    // free sample — the string attaches immediately
@@ -1904,6 +2022,10 @@ const G = {
         this.toast('FREE SAMPLE! Side effects include: ' + fx.name + '.', '#8fd08a');
         SFX.play('item');
       } else {
+        if (ped.price > 0) {   // BRONZE boss rewards: the copay applies even here
+          if (p.coins < ped.price) { if (this.lockCd <= 0) { this.lockCd = 1.2; this.texts.push(new FloatText(ped.x, ped.y - 40, 'need ' + ped.price + '¢ (bronze)', '#e8c84c')); SFX.play('error'); } continue; }
+          p.coins -= ped.price; SFX.play('coin');
+        }
         ped.taken = true;
         p.addItem(ped.itemId, this);
         this.stats.items++;
@@ -1945,14 +2067,20 @@ const G = {
     if (this.doorsOpen && this.doorCd <= 0) {
       const midX = CW / 2, midY = RY + RH / 2;
       const nearMidX = Math.abs(p.x - midX) < 40, nearMidY = Math.abs(p.y - midY) < 40;
-      if (p.y <= RY + 12 && nearMidX && (room.doors.N || (room.secretDoors.N && this.secretFound))) this.moveRoom('N');
+      if (this.amaRun && !this.amaRun.done) {   // you signed the form. the doors know.
+        if ((p.y <= RY + 14 || p.y >= RY + RH - 14 || p.x <= RX + 14 || p.x >= RX + RW - 14) && this.lockCd <= 0) { this.lockCd = 1.6; this.toast('🔒 Locked. You SIGNED it.', '#e08a8a'); SFX.play('error'); }
+      }
+      else if (p.y <= RY + 12 && nearMidX && (room.doors.N || (room.secretDoors.N && this.secretFound))) this.moveRoom('N');
       else if (p.y >= RY + RH - 12 && nearMidX && (room.doors.S || (room.secretDoors.S && this.secretFound))) this.moveRoom('S');
       else if (p.x <= RX + 12 && nearMidY && (room.doors.W || (room.secretDoors.W && this.secretFound))) this.moveRoom('W');
       else if (p.x >= RX + RW - 12 && nearMidY && (room.doors.E || (room.secretDoors.E && this.secretFound))) this.moveRoom('E');
     }
 
+    // AMA escape waves
+    if (this.amaRun) this.amaUpdate(dt);
     // death — but everyone deserves one appeal
     if (p.dead) {
+      if (this.amaRun && !this.amaRun.done) this._amaFailed = true;   // died mid-elopement: the bill doubles
       this.deathT += dt;
       if (this.deathT > 0.9) {
         if (!this._appealUsed && !this._appealOffered && !this.dailyKind && this.depth >= 2) { this._appealOffered = true; this.showAppealOffer(); }
@@ -1998,6 +2126,87 @@ const G = {
       else { this.saveCheckpoint(); this._runLogged = true; }   // keep the checkpoint; don't log a death/quit
       this.showTitle();
     };
+  },
+
+  /* ---------- LEAVING AMA (sign the form; survive the ward's objection) ---------- */
+  showAmaOffer(ped) {
+    this.state = 'event';
+    SFX.play('voice');
+    this.overlay(`
+      <div class="panel wide">
+        <h1 class="logo" style="font-size:26px">🚪 SELF-DISCHARGE (AMA)</h1>
+        <div class="tagline">“You are leaving AGAINST MEDICAL ADVICE. Sign here. The ward will have… objections.”</div>
+        <div class="cmgrid">
+          <button class="cmcard" id="bAmaSign"><div class="cmname">✍ SIGN THE FORM</div><div class="cmdesc">Doors lock. Three waves. Survive them and walk out — banked Insight ×1.5, a fourth ending.</div><div class="cmtag">die on the way out and the bill DOUBLES</div></button>
+          <button class="cmcard" id="bAmaBack"><div class="cmname">go back to bed</div><div class="cmdesc">The blanket is right there. It knows you.</div><div class="cmtag">no judgment (some judgment)</div></button>
+        </div>
+      </div>`);
+    document.getElementById('bAmaSign').onclick = () => {
+      SFX.play('stamp');
+      ped.taken = true;
+      this.hideOverlay(); this.state = 'run';
+      this.amaRun = { wave: 0, total: 3, spawnT: 1.2, done: false };
+      this.setBanner('🏃 AGAINST MEDICAL ADVICE', 'the ward disagrees. loudly.', 2.6);
+      this.toast('The doors slam shut. Somewhere, a clipboard drops.', '#e08a8a');
+      SFX.play('descend');
+    };
+    document.getElementById('bAmaBack').onclick = () => { SFX.play('ui'); this.hideOverlay(); this.state = 'run'; this.toast('The blanket forgives you.', '#8fd0e0'); };
+  },
+  amaUpdate(dt) {
+    const A = this.amaRun; if (!A || A.done) return;
+    const live = this.enemies.some(e => !e.dying && e.id !== 'auditor');
+    if (live) return;
+    if (A.wave >= A.total) {   // all waves down — the exit opens
+      A.done = true;
+      this.peds.push({ x: RX + RW - 90, y: RY + 96, kind: 'amaexit', taken: false });
+      this.toast('🌤 The exit is open. Actual daylight.', '#e8c84c');
+      SFX.play('fanfare');
+      return;
+    }
+    A.spawnT -= dt;
+    if (A.spawnT <= 0) {
+      A.wave++;
+      A.spawnT = 1.6;
+      const n = 3 + A.wave + Math.min(3, Math.floor(this.depth / 6));
+      for (let i = 0; i < n; i++) {
+        const a = U.rand(0, TAU);
+        const e = new Enemy(DATA.pickEnemy(this.depth, this.wing), U.clamp(CW / 2 + Math.cos(a) * U.rand(120, 250), RX + 36, RX + RW - 36), U.clamp(RY + RH / 2 + Math.sin(a) * U.rand(80, 170), RY + 36, RY + RH - 36), this.depth, false, 1);
+        e.spawnT = 0.5 + i * 0.12;
+        this.enemies.push(e);
+      }
+      this.setBanner('WAVE ' + A.wave + ' / ' + A.total, ['“Sir, please return to your room.”', '“SIR. Your paperwork—”', '“SECURITY to the Day Room.”'][A.wave - 1] || '', 2.0);
+      SFX.play('boss');
+    }
+  },
+  finishAma() {
+    const p = this.player;
+    this._amaDone = true;
+    Meta.data.amaDone = (Meta.data.amaDone || 0) + 1;
+    Meta.save();
+    this.checkUnlocks();
+    this.recordRun('ama');
+    this.state = 'ending';
+    SFX.setMusic('menu'); SFX.play('sting');
+    const D = DATA.DIAG[p.diag];
+    this.overlay(`
+      <div class="panel wide">
+        <div class="rx" style="border-color:#c8a24a">
+          <div class="stamp" style="color:#c8a24a;border-color:#c8a24a">AMA</div>
+          <h2 style="color:${D.color}">DISCHARGED — AGAINST MEDICAL ADVICE</h2>
+          <div class="sub">Ward ${this.depth} · you signed yourself out. the door was unlocked the whole time, legally speaking.</div>
+        </div>
+        <div class="tagline">Outside: weather. Traffic. A bird doing fine without a diagnosis. Dr. Walrus watches from the window, misting up.</div>
+        <div class="summary">
+          <div class="sumrow"><span>Symptoms managed on the way out</span><b>${this.stats.kills}</b></div>
+          <div class="sumrow"><span><span style="color:#8fd0e0">◆ Insight banked (AMA bonus ×1.5)</span></span><b style="color:#8fd0e0">+${(this._insightGained || 0)}</b></div>
+          ${this._fundDonated ? `<div class="sumrow"><span style="color:#e8c84c">🫙 “Donated” on the way out</span><b style="color:#e8c84c">${this._fundDonated}¢</b></div>` : ''}
+        </div>
+        ${this.billHtml()}
+        <button class="btn" id="bAmaShare">📤 SHARE DIAGNOSIS CARD</button>
+        <button class="btn minor" id="bAmaTitle">TITLE</button>
+      </div>`);
+    document.getElementById('bAmaShare').onclick = () => { SFX.play('ui'); Render.shareCard({ diag: p.diag, depth: this.depth, label: 'LEFT AMA', win: true, stats: { kills: this.stats.kills, bosses: this.stats.bosses, pills: this.stats.pills } }); };
+    document.getElementById('bAmaTitle').onclick = () => { SFX.play('ui'); this.showTitle(); };
   },
 
   /* ---------- THE APPEALS PROCESS (once per run, the denial can be argued) ---------- */
@@ -2163,7 +2372,7 @@ const G = {
       </div>`);
     this.paintWalrus('deadWalrus');
     if (daily) document.getElementById('bRetryDaily').onclick = () => { SFX.play('ui'); this.beginRun(diagId, { seed: dseed, key: dkey, isDaily: dkind === 'daily' }); };
-    else document.getElementById('bAgainSame').onclick = () => { SFX.play('ui'); this.beginRun(diagId); };
+    else document.getElementById('bAgainSame').onclick = () => { SFX.play('ui'); this.showEnrollment(diagId); };
     document.getElementById('bShare').onclick = () => { SFX.play('ui'); Render.shareCard({ diag: diagId, depth: this.depth, daily, key: dkind === 'challenge' ? dcode : dkey, label: dkind === 'challenge' ? 'CHALLENGE' : 'DAILY WARD', win: dailyWin, stats: { kills: st.kills, bosses: st.bosses, pills: st.pills }, code: dcode }); };
     document.getElementById('bAgainNew').onclick = () => { SFX.play('ui'); this.startQuiz(); };
     document.getElementById('bUnlocks').onclick = () => { SFX.play('ui'); this.showUnlocks(() => this.showDead()); };
@@ -2658,6 +2867,7 @@ const G = {
     let dt = (now - last) / 1000;
     last = now;
     if (dt > 0.05) dt = 0.05;
+    Input.pollGamepad();
     if (G.state === 'cutscene' && typeof Story !== 'undefined' && Story.active) {
       try { Story.update(dt); Story.draw(); } catch (e) { Story.active = false; if (G.showTitle) G.showTitle(); }
     } else {

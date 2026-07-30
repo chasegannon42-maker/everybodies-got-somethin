@@ -1121,6 +1121,47 @@ const Render = {
         if (U.dist(G.player.x, G.player.y, ped.x, ped.y) < 80) { ctx.fillStyle = '#e8c84c'; ctx.font = this.font(11, true); ctx.fillText('2¢ · it\'s binding', ped.x, ped.y + 46); }
         continue;
       }
+      if (ped.kind === 'contract') {   // a patient with a plan and a pencil
+        const def = DATA.CONTRACTS.find(c => c.id === ped.contractId);
+        const rb = Math.sin(G.t * 2.4 + ped.x) * 1.8;
+        this.shadow(ped.x, ped.y + 15, 12, 5, 0.22);
+        ctx.save(); ctx.translate(ped.x, ped.y + rb);
+        ctx.fillStyle = '#6a8ab0'; ctx.beginPath(); ctx.ellipse(0, 3, 10, 11, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#e8c9a6'; ctx.beginPath(); ctx.arc(0, -11, 8, 0, TAU); ctx.fill();
+        ctx.strokeStyle = 'rgba(40,30,40,0.3)'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(0, -11, 8, 0, TAU); ctx.stroke();
+        ctx.fillStyle = '#2c2333'; ctx.beginPath(); ctx.arc(-3, -12, 1.4, 0, TAU); ctx.arc(3, -12, 1.4, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#f0ead8'; this.rr(ctx, 8, -6, 11, 14, 2); ctx.fill();   // the notepad
+        ctx.strokeStyle = 'rgba(60,50,70,0.6)'; ctx.lineWidth = 1;
+        for (let l = 0; l < 3; l++) { ctx.beginPath(); ctx.moveTo(10, -3 + l * 4); ctx.lineTo(17, -3 + l * 4); ctx.stroke(); }
+        ctx.restore();
+        ctx.fillStyle = '#8fd08a'; ctx.font = this.font(11, true); ctx.textAlign = 'center';
+        ctx.fillText('📝 ' + (def ? def.name : 'side job'), ped.x, ped.y - 30);
+        if (def && U.dist(G.player.x, G.player.y, ped.x, ped.y) < 84) { ctx.fillStyle = '#c8e0a0'; ctx.font = this.font(10, true); ctx.fillText(def.desc + ' → ' + def.rtext, ped.x, ped.y + 34); }
+        continue;
+      }
+      if (ped.kind === 'ama' || ped.kind === 'amaexit') {   // the exit. it was always right there.
+        const open = ped.kind === 'amaexit';
+        this.shadow(ped.x, ped.y + 34, 26, 8, 0.3);
+        ctx.save(); ctx.translate(ped.x, ped.y);
+        ctx.fillStyle = '#5a7a5a'; this.rr(ctx, -30, -44, 60, 80, 6); ctx.fill();
+        ctx.strokeStyle = '#3a5a3a'; ctx.lineWidth = 3; this.rr(ctx, -30, -44, 60, 80, 6); ctx.stroke();
+        if (open) {   // daylight pours in
+          const gg2 = ctx.createLinearGradient(0, -36, 0, 30);
+          gg2.addColorStop(0, 'rgba(255,244,180,0.95)'); gg2.addColorStop(1, 'rgba(255,238,150,0.55)');
+          ctx.fillStyle = gg2; this.rr(ctx, -22, -36, 44, 66, 3); ctx.fill();
+          ctx.fillStyle = 'rgba(120,190,230,0.8)'; ctx.fillRect(-22, -36, 44, 16);   // a strip of actual sky
+          ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.beginPath(); ctx.ellipse(-4, -30, 8, 3, 0, 0, TAU); ctx.ellipse(9, -27, 6, 2.5, 0, 0, TAU); ctx.fill();
+        } else {
+          ctx.fillStyle = '#4a6a4a'; this.rr(ctx, -22, -36, 44, 66, 3); ctx.fill();
+          ctx.fillStyle = '#c8d8c8'; ctx.beginPath(); ctx.arc(14, -2, 3.5, 0, TAU); ctx.fill();   // handle
+          ctx.fillStyle = 'rgba(232,200,76,0.9)'; this.rr(ctx, -18, -30, 36, 14, 2); ctx.fill();   // the sign
+          ctx.fillStyle = '#3a3020'; ctx.font = this.font(7, true); ctx.textAlign = 'center'; ctx.fillText('EXIT', 0, -20);
+        }
+        ctx.restore();
+        ctx.fillStyle = open ? '#e8c84c' : '#a0c8a0'; ctx.font = this.font(11, true); ctx.textAlign = 'center';
+        ctx.fillText(open ? '🌤 LEAVE (for real)' : '🚪 SELF-DISCHARGE (AMA)', ped.x, ped.y - 58);
+        continue;
+      }
       if (ped.kind === 'drugrep') {   // THE DRUG REP — teeth first, briefcase second
         const rb = Math.sin(G.t * 2.2 + ped.x) * 1.6;
         this.shadow(ped.x, ped.y + 16, 14, 5, 0.24);
@@ -1336,7 +1377,7 @@ const Render = {
     for (const t of G.texts) {
       ctx.globalAlpha = U.clamp(t.life, 0, 1);
       ctx.fillStyle = t.clr;
-      ctx.font = this.font(14, true);
+      ctx.font = this.font(t.small ? 10 : 14, true);
       ctx.textAlign = 'center';
       ctx.fillText(t.txt, t.x, t.y);
       ctx.globalAlpha = 1;
@@ -3127,6 +3168,18 @@ const Render = {
         ctx.fillStyle = g.done ? 'rgba(143,208,90,0.85)' : 'rgba(240,232,216,0.5)';
         const prog = g.n > 1 && !g.done ? ' ' + Math.min(g.prog, g.n) + '/' + g.n : '';
         ctx.fillText((g.done ? '✓ ' : '🎯 ') + g.name + prog, CW - 16, y);
+      }
+    }
+    // Day Room contracts sit above the goals
+    if (G.contracts && G.contracts.length) {
+      ctx.textAlign = 'right'; ctx.font = this.font(10.5, true);
+      const base = CH - 16 - (G.goals ? G.goals.length : 0) * 15 - 4;
+      const act = G.contracts.filter(c => !c.done);
+      for (let i = 0; i < act.length; i++) {
+        const c = act[i], y = base - (act.length - 1 - i) * 15;
+        ctx.fillStyle = 'rgba(143,208,138,0.8)';
+        const prog = c.def.n > 1 ? ' ' + Math.min(c.prog, c.def.n) + '/' + c.def.n : '';
+        ctx.fillText('📝 ' + c.def.name + prog, CW - 16, y);
       }
     }
 

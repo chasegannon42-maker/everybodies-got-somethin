@@ -924,6 +924,10 @@ class Boss {
     }
     this.hp -= d;
     this.hitFlash = 0.1;
+    if (Meta.data.a11y && Meta.data.a11y.dmgNums && d >= 0.5 && G.texts.length < 36) {
+      const ft = new FloatText(this.x + U.rand(-10, 10), this.y - this.r - 6, (Math.round(d * 10) / 10), '#f0e0b0');
+      ft.small = true; G.texts.push(ft);
+    }
     SFX.play('hit');
     if (this.hp <= 0) this.die(G);
   }
@@ -951,6 +955,7 @@ class Boss {
     }
     if (this.id === 'walrus') {
       Meta.data.walrusKills++;
+      if (G.plan === 'gold') Meta.data.everGoldWalrus = 1;   // Cadillac Coverage
       G.toast('DR. WALRUS: "' + U.choice(DATA.WALRUS_DEFEAT_LINES) + '"');
     }
     // clear leftover hazards AND summoned minions — beating the boss clears the room
