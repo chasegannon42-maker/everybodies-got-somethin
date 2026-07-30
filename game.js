@@ -961,6 +961,7 @@ const G = {
     this.playerFired = false; this.healBeam = null; this.slowmo = 0;
     this.tearsAura = false;
     this.hyperfixType = null;
+    this.roomFade = 0.22;   // a soft blink crossing the threshold
     // Rapid Cycling: every room re-prescribes you
     if (this.prognosis === 'rapid') {
       const sw = U.choice(DATA.RAPID_SWINGS);
@@ -1570,6 +1571,7 @@ const G = {
     if (this.state !== 'run') return;
     this.t += dt;
     this.doorCd -= dt; this.lockCd -= dt; this.machineCd = (this.machineCd || 0) - dt;
+    if (this.roomFade > 0) this.roomFade -= dt;
     this.shake *= Math.pow(0.001, dt); if (this.shake < 0.3) this.shake = 0;
     this.enemySlow -= dt;
     let dtarget = this.darkTarget;
@@ -1694,6 +1696,13 @@ const G = {
     // room clear (charmed allies don't count as threats keeping the doors shut)
     const aud = this.enemies.find(e => e.id === 'auditor' && !e.dying);
     if (aud) this.auditorHp = aud.hp;   // the file follows you
+    // lone-survivor impatience: the last patient in a room eventually comes to YOU
+    const liveNow = this.enemies.filter(e => !e.dying && !e.charmed && e.id !== 'auditor' && !e.fake);
+    const noAggro = liveNow.length > 0 && liveNow.every(e => ['mirror', 'mimic', 'shooter', 'larper', 'bounce', 'ticket', 'buffer', 'shieldbot'].includes(e.beh));
+    if ((liveNow.length === 1 || noAggro) && this.room && !this.room.cleared) {
+      this._loneT = (this._loneT || 0) + dt;
+      if (this._loneT > 14) for (const e of liveNow) e._impatient = true;   // even the symptoms get bored
+    } else this._loneT = 0;
     const hostiles = this.enemies.some(e => !e.charmed && e.id !== 'auditor');   // the Auditor never blocks the doors — run if you want
     if (!room.cleared && (room.type === 'normal' || room.type === 'padded' || room.type === 'clinic') && room.spawned && !hostiles) this.onRoomCleared();
     if (!room.cleared && room.type === 'boss' && this.boss && this.boss.dead && this.enemies.length === 0 && !room.cleared) {

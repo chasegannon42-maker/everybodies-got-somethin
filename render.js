@@ -22,6 +22,24 @@ const Render = {
       this.drawRoom(G);
       this.drawEntities(G);
       if (G.dark > 0.02) this.drawDarkness(G);
+      // hurt flash: a red breath at the edges of the screen
+      if (G.player && G.player.hurtFlash > 0) {
+        const a = U.clamp(G.player.hurtFlash / 0.35, 0, 1) * 0.34;
+        const hv = ctx.createRadialGradient(CW / 2, CH / 2, CH * 0.38, CW / 2, CH / 2, CH * 0.75);
+        hv.addColorStop(0, 'rgba(200,40,40,0)'); hv.addColorStop(1, 'rgba(200,40,40,' + a + ')');
+        ctx.fillStyle = hv; ctx.fillRect(0, 0, CW, CH);
+      }
+      // room-enter fade: a soft blink as you cross the threshold
+      if (G.roomFade > 0) {
+        ctx.fillStyle = 'rgba(10,7,13,' + U.clamp(G.roomFade / 0.22, 0, 1) * 0.55 + ')';
+        ctx.fillRect(0, 0, CW, CH);
+      }
+      // boss intro: cinematic letterbox while they take the stage
+      if (G.boss && !G.boss.dead && G.boss.introT > 0) {
+        const h = U.clamp(G.boss.introT / 1.6, 0, 1) * 64;
+        ctx.fillStyle = 'rgba(8,6,11,0.88)';
+        ctx.fillRect(0, 0, CW, h); ctx.fillRect(0, CH - h, CW, h);
+      }
       this.drawHUD(G);
     } else if (G.state === 'hub') {
       this.drawHub(G);
@@ -712,6 +730,13 @@ const Render = {
     if (open) {
       ctx.fillStyle = '#221a26';
       this.rr(ctx, -30, -14, 60, 34, 8); ctx.fill();
+      // warm light spilling out of the open doorway
+      const pulse = 0.55 + Math.sin((G.t || 0) * 2.2) * 0.15;
+      const lg = ctx.createLinearGradient(0, 8, 0, 64);
+      lg.addColorStop(0, 'rgba(255,224,150,' + (0.22 * pulse) + ')');
+      lg.addColorStop(1, 'rgba(255,224,150,0)');
+      ctx.fillStyle = lg;
+      ctx.beginPath(); ctx.moveTo(-26, 12); ctx.lineTo(26, 12); ctx.lineTo(40, 64); ctx.lineTo(-40, 64); ctx.closePath(); ctx.fill();
       // little glyph over special doors
       ctx.fillStyle = '#e8dfc8';
       ctx.font = this.font(17, true);
@@ -974,6 +999,16 @@ const Render = {
     for (const pk of G.pickups) {
       const bob = Math.sin(pk.t * 3) * 2.5;
       this.shadow(pk.x, pk.y + 10, 9, 3.5, 0.22);
+      // an occasional twinkle so drops catch the eye
+      const tw = (pk.t * 1.3) % 3;
+      if (tw < 0.35) {
+        const s = Math.sin(tw / 0.35 * Math.PI) * 5;
+        ctx.strokeStyle = 'rgba(255,250,220,0.85)'; ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(pk.x - s, pk.y - 12 + bob); ctx.lineTo(pk.x + s, pk.y - 12 + bob);
+        ctx.moveTo(pk.x, pk.y - 12 - s + bob); ctx.lineTo(pk.x, pk.y - 12 + s + bob);
+        ctx.stroke();
+      }
       if (pk.type === 'coin' || pk.type === 'nickel') this.drawCoin(pk.x, pk.y + bob, pk.type === 'nickel');
       else if (pk.type === 'half') this.drawHeart(pk.x, pk.y + bob, 8, '#e05a5a', true);
       else if (pk.type === 'full') this.drawHeart(pk.x, pk.y + bob, 10, '#e05a5a', false);
@@ -1118,6 +1153,12 @@ const Render = {
     const blink = p.iframes > 0 && Math.sin(G.t * 24) > 0.2;
     ctx.save();
     ctx.translate(p.x, p.y);
+    // walk bob: a little life in the step
+    if (p.moving && (G.t != null)) {
+      const bob = Math.sin(G.t * 12) * 1.7;
+      ctx.translate(0, bob * 0.6);
+      ctx.scale(1 + bob * 0.006, 1 - bob * 0.006);
+    }
     if (blink) ctx.globalAlpha = 0.45;
 
     // depression cocoon (Under The Covers) — a protective bubble

@@ -847,10 +847,13 @@ class Enemy {
     const slowF = (G.enemySlow > 0 ? 0.55 : 1) * (p.flags.slowField ? 0.88 : 1);   // Analysis Paralysis slows the room
     const S = this.spd * slowF * (this._enraged > 0 ? 1.45 : 1);
 
-    switch (this.beh) {
+    // the last patient standing gets impatient — evasive types stop playing keep-away and come to you
+    const beh = (this._impatient && !this.fake && ['mirror', 'mimic', 'shooter', 'larper', 'bounce', 'ticket', 'buffer', 'shieldbot', 'charger'].includes(this.beh)) ? 'chase' : this.beh;
+    switch (beh) {
       case 'chase': {
         const a = U.ang(this.x, this.y, p.x, p.y) + Math.sin(this.t * 3) * 0.3;
-        this.x += Math.cos(a) * S * dt; this.y += Math.sin(a) * S * dt;
+        const sp = this._impatient ? Math.max(S, 84) : S;
+        this.x += Math.cos(a) * sp * dt; this.y += Math.sin(a) * sp * dt;
         break;
       }
       case 'splitter': {
@@ -981,6 +984,7 @@ class Enemy {
           let best = null, most = -1;
           for (const e of G.enemies) {
             if (e === this || e.dying || e.fake) continue;
+            if (U.dist(this.x, this.y, e.x, e.y) > 280) continue;   // out-of-network: no coverage past the beam's reach
             const miss = e.maxhp - e.hp;
             if (miss > most) { most = miss; best = e; }
           }
@@ -1135,7 +1139,7 @@ class Enemy {
     }
 
     // stay in bounds + tile collide (except bounce/charger handle their own walls)
-    if (this.beh !== 'bounce') {
+    if (beh !== 'bounce') {
       const c = collideTiles(G.room.layout, this.x, this.y, this.r * 0.8);
       this.x = c.x; this.y = c.y;
       this.x = U.clamp(this.x, RX + this.r * 0.7, RX + RW - this.r * 0.7);
@@ -1216,6 +1220,9 @@ class Enemy {
     if (!G.hyperfixType) G.hyperfixType = this.id;
     Haptics.buzz(this.elite ? 30 : 14, 45); // kill tick; throttled so a burst of deaths = one bump
     makeGibs(G, this.x, this.y, this.clr, Math.round(6 + this.r * 0.4));
+    // death pop: a bright radial flash so kills land
+    for (let i = 0; i < 6; i++) { const a = (i / 6) * TAU + 0.3; G.parts.push(new Particle(this.x + Math.cos(a) * 4, this.y + Math.sin(a) * 4, Math.cos(a) * 210, Math.sin(a) * 210, 0.22, 'rgba(255,252,240,0.9)', 2.6)); }
+    if (this.elite) G.shake = Math.max(G.shake, 4);
     // Side Effect splits into two smaller ones ("may cause additional side effects")
     if (this.id === 'sideeffect' && this.tier > 0 && !this.fake) {
       for (let i = 0; i < 2; i++) {
@@ -1300,9 +1307,28 @@ class Pickup {
       this.x += this.vx * dt; this.y += this.vy * dt;
       this.x = U.clamp(this.x, RX + 14, RX + RW - 14);
       this.y = U.clamp(this.y, RY + 14, RY + RH - 14);
+      if (this.settle <= 0 && G.room) {   // landed inside a rock (bouncers die anywhere) — roll to open floor
+        const t = pxToTile(this.x, this.y);
+        if (tileSolid(G.room.layout, t.c, t.r)) {
+          out: for (let rad = 1; rad <= 4; rad++) for (let dc = -rad; dc <= rad; dc++) for (let dr = -rad; dr <= rad; dr++) {
+            if (Math.max(Math.abs(dc), Math.abs(dr)) !== rad) continue;
+            const c2 = t.c + dc, r2 = t.r + dr;
+            if (c2 < 0 || r2 < 0 || c2 >= COLS || r2 >= ROWS) continue;
+            if (!tileSolid(G.room.layout, c2, r2)) { this.x = RX + (c2 + 0.5) * TILE; this.y = RY + (r2 + 0.5) * TILE; break out; }
+          }
+        }
+      }
     }
     const p = G.player;
     if (this._grabCd > 0) { this._grabCd -= dt; return; }   // a just-dropped trinket won't leap back into your hand
+    const wants = (this.type === 'coin' || this.type === 'nickel' || this.type === 'key' || this.type === 'bomb')
+      || ((this.type === 'half' || this.type === 'full') && p.hp < p.maxhp)
+      || (this.type === 'pill' && p.pill == null);
+    const md = U.dist(this.x, this.y, p.x, p.y);
+    if (wants && md < 56 && md > 1 && this.settle <= 0) {   // loose change rolls toward you
+      const pull = (240 * (1 - md / 56) + 50) * dt;
+      this.x += (p.x - this.x) / md * pull; this.y += (p.y - this.y) / md * pull;
+    }
     if (U.dist(this.x, this.y, p.x, p.y) < 20 + p.r) {
       switch (this.type) {
         case 'coin': p.coins++; SFX.play('coin'); if (G.goalEvent) G.goalEvent('coin', 1); break;

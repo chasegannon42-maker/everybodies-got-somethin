@@ -377,8 +377,8 @@ class Boss {
           if (this.emberT <= 0) {
             this.emberT = P2 ? 4.5 : 6;
             let embers = G.zones.filter(z => z.kind === 'ember');
-            if (embers.length >= 6) embers[0].dead = true;
-            G.zones.push(new Zone(p.x, p.y, P2 ? 62 : 50, 999, 'ember', 'rgba(220,120,50,0.3)'));
+            if (embers.length >= 5) embers[0].dead = true;
+            G.zones.push(new Zone(p.x, p.y, P2 ? 58 : 50, 14, 'ember', 'rgba(220,120,50,0.3)'));   // embers cool off — the floor recovers if you keep moving
             G.toast('"Just push through it."');
           }
           this.spT -= dt;
