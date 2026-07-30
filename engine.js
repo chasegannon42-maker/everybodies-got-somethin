@@ -83,7 +83,7 @@ function collideTiles(layout, x, y, rad) {
 
 /* ---------------- persistent meta ---------------- */
 const Meta = {
-  data: { runs: 0, deaths: 0, kills: 0, bestFloor: 0, walrusKills: 0, itemsSeen: 0, diagBest: {}, fineSeen: 0, unlocks: {}, diagsPlayed: {}, everOverRx: 0, everNoHitFloor: 0, daily: null, seen: { enemies: {}, bosses: {}, items: {}, pills: {} }, dailyStreak: { last: null, count: 0, best: 0 }, dailyHistory: {}, a11y: { bulletContrast: false, reduceMotion: false, easy: false, aimAssist: true, dmgNums: false }, onboarded: 0, chronicUnlocked: 0, cured: 0, chronicBest: 0, founderKills: 0, runlog: [], runAgg: {}, causeAgg: {}, seenStory: {}, storyOff: 0, insight: 0, talents: {}, influencerKills: 0, crisesSurvived: 0, hazardsSeen: {}, everWiredClear: 0, everFullGroup: 0, everKeystone: 0, systemKills: 0, protocolsDone: {}, boardKills: 0, auditorKills: 0, quarterly: null, quarterlyBest: 0, hat: null, fund: 0, facility: {}, appealsWon: 0, amaDone: 0, contractsDone: 0, everGoldWalrus: 0, pet: null, paOff: 0, skinOn: {}, revenges: 0, giftsGot: 0, everCoop: 0, pendingGift: null, overtimeBest: 0, janitorMet: 0, janitorBuys: 0, petXp: {}, speedrun: 0, splitsPB: {}, pendingComplaint: null, complaintsFiled: 0 },
+  data: { runs: 0, deaths: 0, kills: 0, bestFloor: 0, walrusKills: 0, itemsSeen: 0, diagBest: {}, fineSeen: 0, unlocks: {}, diagsPlayed: {}, everOverRx: 0, everNoHitFloor: 0, daily: null, seen: { enemies: {}, bosses: {}, items: {}, pills: {} }, dailyStreak: { last: null, count: 0, best: 0 }, dailyHistory: {}, a11y: { bulletContrast: false, reduceMotion: false, easy: false, aimAssist: true, dmgNums: false }, onboarded: 0, chronicUnlocked: 0, cured: 0, chronicBest: 0, founderKills: 0, runlog: [], runAgg: {}, causeAgg: {}, seenStory: {}, storyOff: 0, insight: 0, talents: {}, influencerKills: 0, crisesSurvived: 0, hazardsSeen: {}, everWiredClear: 0, everFullGroup: 0, everKeystone: 0, systemKills: 0, protocolsDone: {}, boardKills: 0, auditorKills: 0, quarterly: null, quarterlyBest: 0, hat: null, fund: 0, facility: {}, appealsWon: 0, amaDone: 0, contractsDone: 0, everGoldWalrus: 0, pet: null, paOff: 0, skinOn: {}, revenges: 0, giftsGot: 0, everCoop: 0, pendingGift: null, overtimeBest: 0, janitorMet: 0, janitorBuys: 0, petXp: {}, speedrun: 0, splitsPB: {}, pendingComplaint: null, complaintsFiled: 0, intensityBest: {}, sparedBosses: {} },
   load() { try { const j = localStorage.getItem('egs_meta'); if (j) Object.assign(this.data, JSON.parse(j)); } catch (e) { } if (!this.data.seen) this.data.seen = { enemies: {}, bosses: {}, items: {}, pills: {} }; if (!this.data.dailyStreak) this.data.dailyStreak = { last: null, count: 0, best: 0 }; if (!this.data.dailyHistory) this.data.dailyHistory = {}; if (!this.data.a11y) this.data.a11y = { bulletContrast: false, reduceMotion: false, easy: false }; if (!this.data.runlog) this.data.runlog = []; if (!this.data.runAgg) this.data.runAgg = {}; if (!this.data.causeAgg) this.data.causeAgg = {}; if (this.data.insight == null) this.data.insight = 0; if (!this.data.talents) this.data.talents = {}; if (!this.data.hazardsSeen) this.data.hazardsSeen = {}; if (!this.data.protocolsDone) this.data.protocolsDone = {}; if (this.data.fund == null) this.data.fund = 0; if (!this.data.facility) this.data.facility = {}; if (!this.data.skinOn) this.data.skinOn = {}; if (!this.data.petXp) this.data.petXp = {}; },
   save() {
     try { localStorage.setItem('egs_meta', JSON.stringify(this.data)); } catch (e) { }
@@ -347,6 +347,56 @@ const SFX = {
         v(523, t + 0.5, 1.2, { type: 'sine', vol: 0.05, attack: 0.15, wet: 0.5 });
         v(131, t, 1.6, { type: 'sine', vol: 0.05, attack: 0.2, wet: 0.3 });
         break;
+      // --- round 14: every system gets its own voice ---
+      case 'elevator':   // the ding. THE ding.
+        v(880, t, 0.28, { type: 'sine', vol: 0.09, wet: 0.35, attack: 0.004 });
+        v(1318, t + 0.16, 0.4, { type: 'sine', vol: 0.07, wet: 0.45, attack: 0.004 });
+        break;
+      case 'evolve':   // a companion grows up: sparkly climb with a proud tail
+        [523, 659, 880, 1046, 1318].forEach((f, i) => v(f, t + i * 0.07, 0.22, { type: 'triangle', vol: 0.06, wet: 0.35, attack: 0.003 }));
+        v(1568, t + 0.38, 0.5, { type: 'sine', vol: 0.05, wet: 0.5, attack: 0.02 });
+        v(262, t + 0.3, 0.6, { type: 'sine', vol: 0.04, attack: 0.06, wet: 0.3 });
+        break;
+      case 'keyturn':   // heavy tumblers, then the give
+        n(t, 0.04, { filter: 'bandpass', freq: 900, vol: 0.12, q: 2 });
+        v(140, t, 0.08, { type: 'square', vol: 0.09, slide: 110 });
+        v(523, t + 0.12, 0.14, { type: 'square', vol: 0.06, wet: 0.2 });
+        v(784, t + 0.2, 0.22, { type: 'triangle', vol: 0.06, wet: 0.3 });
+        break;
+      case 'paper':   // forms being shuffled by someone who hates forms
+        n(t, 0.09, { filter: 'highpass', freq: 2600, vol: 0.08, decay: 0.8 });
+        n(t + 0.09, 0.1, { filter: 'highpass', freq: 3400, vol: 0.06, decay: 1.2 });
+        n(t + 0.2, 0.05, { filter: 'bandpass', freq: 1600, vol: 0.05, q: 1 });
+        break;
+      case 'deal':   // the fight stops. something is being offered. it is probably fine.
+        [220, 261.6, 311.1].forEach((f, i) => v(f, t, 1.1, { type: 'sawtooth', vol: 0.05, attack: 0.12, wet: 0.45, filter: 'lowpass', cutoff: 900, detune: (i - 1) * 5 }));
+        v(660, t + 0.5, 0.5, { type: 'sine', vol: 0.035, attack: 0.08, wet: 0.5 });
+        break;
+      case 'spare':   // mercy: one warm chord, no drums, no regrets (some regrets)
+        [262, 330, 392, 494].forEach((f, i) => v(f, t + i * 0.05, 0.9, { type: 'triangle', vol: 0.05, attack: 0.05, wet: 0.5 }));
+        v(131, t, 1.1, { type: 'sine', vol: 0.06, attack: 0.1, wet: 0.35 });
+        break;
+      case 'wave':   // OVERTIME: the shift horn
+        [98, 98].forEach((f, i) => v(f, t + i * 0.22, 0.18, { type: 'sawtooth', vol: 0.11, filter: 'lowpass', cutoff: 700, wet: 0.2 }));
+        v(196, t + 0.44, 0.3, { type: 'sawtooth', vol: 0.08, filter: 'lowpass', cutoff: 900, wet: 0.25 });
+        break;
+      case 'swat':   // the cat, doing its one job
+        n(t, 0.03, { filter: 'highpass', freq: 5000, vol: 0.09, decay: 1.5 });
+        v(1200, t, 0.05, { type: 'triangle', vol: 0.05, slide: 500 });
+        break;
+      case 'denied':   // the womp-womp the situation deserves
+        v(311, t, 0.22, { type: 'sawtooth', vol: 0.07, slide: 293, filter: 'lowpass', cutoff: 1100 });
+        v(277, t + 0.24, 0.42, { type: 'sawtooth', vol: 0.08, slide: 233, filter: 'lowpass', cutoff: 900, wet: 0.2 });
+        break;
+      case 'bell':   // the reception bell: paid, resolved, next please
+        v(1046, t, 0.4, { type: 'sine', vol: 0.08, wet: 0.4, attack: 0.002 });
+        v(2093, t, 0.25, { type: 'sine', vol: 0.03, wet: 0.4, attack: 0.002 });
+        break;
+      case 'vs':   // boss VS card: the slam and the riser
+        n(t, 0.3, { filter: 'lowpass', freq: 500, vol: 0.22, decay: 1.2, wet: 0.25 });
+        v(65, t, 0.5, { type: 'sine', vol: 0.2, slide: 40 });
+        v(220, t + 0.15, 0.7, { type: 'sawtooth', vol: 0.05, slide: 660, attack: 0.1, filter: 'lowpass', cutoff: 1600, wet: 0.3 });
+        break;
     }
   },
 
@@ -361,7 +411,7 @@ const SFX = {
     if (!this.ctx || this.muted || !this.musicMode) return;
     const now = this.ctx.currentTime;
     if (this._next < now - 0.3) this._next = now + 0.02;
-    const bpm = { menu: 76, run: 128, boss: 152, superboss: 140, dayroom: 84, cutscene: 72 }[this.musicMode] || 120;
+    const bpm = { menu: 76, run: 128, boss: 152, superboss: 140, dayroom: 84, cutscene: 72, overtime: 160, basement: 66, ward13: 60 }[this.musicMode] || 120;
     const sd = 60 / bpm / 4;
     this._dest = this.musicGain; // music routes through its own quieter bus
     while (this._next < now + 0.2) {
@@ -452,6 +502,39 @@ const SFX = {
     ];
     const m = mel[(bar % 2) * 16 + s];
     if (m > 0) this.v(this._nf(m), t, sd * 3.4, { type: 'triangle', vol: 0.034, attack: 0.01, wet: 0.5 });
+  },
+  // OVERTIME: the shift that never ends — driving four-on-the-floor with an alarm in the walls
+  _mus_overtime(step, t, sd) {
+    const bar = Math.floor(step / 16) % 4, s = step % 16;
+    if (s % 4 === 0) this.kick(t, 0.5);
+    if (s === 4 || s === 12) this.snare(t, 0.24);
+    if (s % 2 === 1) this.hat(t, 0.08, s === 15);
+    const bass = [33, 33, 36, 31][bar];   // A A C G — grinding
+    if (s % 4 === 2) this.v(this._nf(bass), t, sd * 1.8, { type: 'sawtooth', vol: 0.075, filter: 'lowpass', cutoff: 500 });
+    if (s === 0 && bar % 2 === 0) [57, 60, 64].forEach((m, i) => this.v(this._nf(m), t, sd * 6, { type: 'square', vol: 0.02, attack: 0.03, wet: 0.3, detune: (i - 1) * 7 }));
+    if (s === 8 && bar === 3) this.v(1760, t, sd * 3, { type: 'sine', vol: 0.028, wet: 0.4 });   // the alarm, far away, ignored
+  },
+  // the basement: the janitor's radio — warm, worn, forty years of the same tape
+  _mus_basement(step, t, sd) {
+    const bar = Math.floor(step / 16) % 4, s = step % 16;
+    const chords = [[57, 60, 64], [53, 57, 60], [55, 59, 62], [57, 60, 64]];   // Am F G Am
+    if (s === 0) chords[bar].forEach((m, i) => this.v(this._nf(m) * (1 + Math.sin(step * 0.7 + i) * 0.0022), t, sd * 15, { type: 'triangle', vol: 0.03, attack: 0.5, wet: 0.55, detune: (i - 1) * 4 }));   // tape warble
+    const walk = [45, -1, -1, -1, 48, -1, -1, -1, 43, -1, -1, -1, 45, -1, 41, -1];
+    if (walk[s] > 0) this.v(this._nf(walk[s]), t, sd * 3.2, { type: 'sine', vol: 0.05, attack: 0.02, wet: 0.2 });
+    if (s === 8) this.hat(t, 0.035, false);   // a soft brush, like sweeping
+    const plink = [-1, -1, -1, -1, -1, -1, 72, -1, -1, -1, -1, -1, 76, -1, -1, 69];
+    if (plink[s] > 0 && bar % 2 === 1) this.v(this._nf(plink[s]), t, sd * 4, { type: 'triangle', vol: 0.026, attack: 0.006, wet: 0.6 });
+  },
+  // WARD 13: the building holds its breath — drones, a tolling bell, candle ticks
+  _mus_ward13(step, t, sd) {
+    const bar = Math.floor(step / 16) % 4, s = step % 16;
+    if (s === 0) {
+      this.v(this._nf(38), t, sd * 15, { type: 'sawtooth', vol: 0.04, attack: 0.8, wet: 0.5, filter: 'lowpass', cutoff: 420 });   // D drone
+      if (bar % 2 === 1) this.v(this._nf(44), t, sd * 15, { type: 'sawtooth', vol: 0.028, attack: 1.0, wet: 0.55, filter: 'lowpass', cutoff: 380 });   // tritone breath
+    }
+    if (s === 0 && bar === 0) { this.v(this._nf(62), t, sd * 12, { type: 'sine', vol: 0.05, attack: 0.004, wet: 0.65 }); this.v(this._nf(62) * 2.01, t, sd * 8, { type: 'sine', vol: 0.02, wet: 0.6 }); }   // the bell, slightly wrong
+    if (s === 10 && bar === 2) this.v(this._nf(65), t, sd * 8, { type: 'sine', vol: 0.032, attack: 0.005, wet: 0.6 });
+    if (Math.random() < 0.05) this.n(t, 0.02, { filter: 'highpass', freq: 6000, vol: 0.012, decay: 2 });   // candle tick
   }
 };
 

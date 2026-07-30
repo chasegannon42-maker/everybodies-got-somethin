@@ -491,6 +491,39 @@ DATA.bossFor = function (depth, lastBoss) {
   return U.choice(filtered.length ? filtered : pool);
 };
 
+/* ============ BOSS NEGOTIATION (at the end of the rope, some of them talk) ============ */
+DATA.BOSS_DEALS = {
+  gatekeeper: {
+    offer: "“FINE. Fine! You clearly need this more than the rope does. Take the keys and stop hitting me.”",
+    give: "+4 Referrals 🔑, and he limps off",
+    apply(p, G) { p.keys += 4; }
+  },
+  larperking: {
+    offer: "“You fight like someone who's read the SECOND article. Respect. Let me show you the grip.”",
+    give: "+1 damage, permanently — he taught you something real",
+    apply(p, G) { p.dmg += 1; }
+  },
+  adjuster: {
+    offer: "“Let's settle out of court. One premium item, gratis. The adjustment will appear on your statement.”",
+    give: "a free special item now — but the final bill ×1.5",
+    apply(p, G) {
+      const pool = DATA.pickPool('special', p.items);
+      G.peds.push({ x: CW / 2, y: RY + RH / 2 + 60, itemId: U.choice(pool.length ? pool : DATA.POOLS.special), kind: 'item', taken: false });
+      G._billMul = 1.5;
+    }
+  },
+  influencer: {
+    offer: "“Okay okay okay — COLLAB? I'll pin you. Take the sponsorship, use my codes, we never speak of this.”",
+    give: "+8¢ and 2 GoodRx coupons",
+    apply(p, G) { p.coins += 8; p.coupons = Math.min(3, (p.coupons || 0) + 2); }
+  },
+  priorauth: {
+    offer: "“APPROVED. Pre-approved! Everything, retroactively, forever. Just — please — no more forms.”",
+    give: "your next 2 Specialist doors open free, plus a pill",
+    apply(p, G) { G._preApproved = 2; if (p.pill == null) p.pill = U.randi(0, 9); }
+  }
+};
+
 /* ============ THE JANITOR (he's seen every ward. he's mopped every ward.) ============ */
 DATA.JANITOR = {
   greet: [

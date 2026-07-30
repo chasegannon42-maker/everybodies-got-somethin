@@ -38,7 +38,7 @@ class Pet {
           if (b.dead || b.fake || swatted >= cap) continue;
           if (U.dist(this.x, this.y, b.x, b.y) < 95) { this._swipeT = 0.2; this._swipeAt = { x: b.x, y: b.y }; b.fizzle ? b.fizzle(G) : (b.dead = true); swatted++; }
         }
-        if (swatted) { this.actT = this.evo ? 1.3 : 2.4; SFX.play('pop'); }
+        if (swatted) { this.actT = this.evo ? 1.3 : 2.4; SFX.play('swat'); }
       }
       if (this._swipeT > 0) this._swipeT -= dt;
     } else if (this.type === 'snake') {   // slithers at your problems
@@ -820,6 +820,7 @@ class EBullet {
     if (G.player.flags.slowBullets && U.dist(this.x, this.y, G.player.x, G.player.y) < 140) f *= 0.7;
     if (G.player.flags.fastBullets) f *= 1.1;   // Sensory Overload comorbidity
     if (G.sideEffect === 'hypervigilance') f *= 1.12;   // ward side-effect: everything feels sharper
+    if ((G.intensity || 0) >= 7) f *= 1.12;   // Treatment Intensity: the ward argues faster
     if (this.home) {
       const want = U.ang(this.x, this.y, G.player.x, G.player.y);
       const cur = Math.atan2(this.vy, this.vx);
@@ -1337,7 +1338,7 @@ class Enemy {
       G._goalInsight += 6;
       Meta.save();
       G.toast('📋 “' + this._complaint + '” — RESOLVED. +◆6. Thank you for your feedback.', '#8fd08a');
-      SFX.play('fanfare');
+      SFX.play('bell');
     }
     // IT REMEMBERS YOU: revenge pays
     if (this._nemesis) {
@@ -1553,13 +1554,13 @@ function spawnEnemiesForRoom(room, depth, G) {
   const dif = DATA.difficulty(depth);
   const mods = G.floorMods || {};
   const wp = (DATA.WARD_PATHS && DATA.WARD_PATHS[G.wardPath]) || null;
-  const hpMult = (p.flags.fineMode ? (p.flags.recovery ? 1.25 : 1.15) : 1) * (mods.hpMul || 1) * (G.chronic ? 1.5 : 1) * (G.easy ? 0.7 : 1) * (wp ? wp.hpMul : 1);
+  const hpMult = (p.flags.fineMode ? (p.flags.recovery ? 1.25 : 1.15) : 1) * (mods.hpMul || 1) * (G.chronic ? 1.5 : 1) * (G.easy ? 0.7 : 1) * (wp ? wp.hpMul : 1) * ((G.intensity || 0) >= 1 ? 1.1 : 1);
   let count = dif.count;
   if (mods.countMul) count = Math.round(count * mods.countMul);
   if (G.chronic) count = Math.round(count * 1.2);
   if (wp) count += (wp.countAdd || 0);
   count = U.clamp(count + U.randi(-1, 1), 3, G.chronic ? 18 : 16);
-  const champChance = G.protocol === 'allelites' ? 1 : U.clamp(dif.champChance + (mods.champAdd || 0), 0, 0.75);   // Grand Rounds: everyone's a champion
+  const champChance = G.protocol === 'allelites' ? 1 : U.clamp(dif.champChance + (mods.champAdd || 0) + ((G.intensity || 0) >= 5 ? 0.15 : 0), 0, 0.75);   // Grand Rounds: everyone's a champion
   const spots = [];
   for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
     if (room.layout[r][c] !== 0) continue;

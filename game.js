@@ -448,6 +448,39 @@ const G = {
     document.getElementById('bSetBack').onclick = () => { SFX.play('ui'); returnTo(); };
   },
 
+  /* ---------- BOSS NEGOTIATION (the fight stops; something is offered) ---------- */
+  showBossDeal(boss) {
+    this.state = 'bossdeal';
+    SFX.play('deal');
+    const D = DATA.BOSS_DEALS[boss.id];
+    const B = DATA.BOSSES[boss.id] || { name: boss.id };
+    this.overlay(`
+      <div class="panel wide">
+        <h1 class="logo" style="font-size:24px">🏳 ${B.name} STOPS FIGHTING</h1>
+        <div class="tagline">${D.offer}</div>
+        <div class="cmgrid">
+          <button class="cmcard" id="bDealSpare"><div class="cmname" style="color:#8fd0e0">✌ SPARE — take the deal</div><div class="cmdesc">${D.give}</div><div class="cmtag">no kill credit. the codex will remember your mercy.</div></button>
+          <button class="cmcard" id="bDealFinish"><div class="cmname" style="color:#e05a5a">⚔ FINISH IT</div><div class="cmdesc">No deals. This is a healthcare facility.</div><div class="cmtag">the fight resumes. slightly personally now.</div></button>
+        </div>
+      </div>`);
+    document.getElementById('bDealSpare').onclick = () => {
+      SFX.play('spare');
+      try { D.apply(this.player, this); } catch (e) { }
+      boss._spared = true;
+      boss._dealHold = false;
+      this.hideOverlay(); this.state = 'run';
+      boss.die(this);
+    };
+    document.getElementById('bDealFinish').onclick = () => {
+      SFX.play('stamp');
+      boss._dealHold = false;
+      boss.vulnerable = true;
+      boss.aggr = (boss.aggr || 1) * 1.08;
+      this.hideOverlay(); this.state = 'run';
+      this.toast('“…so be it. HR will hear about this.”', '#e05a5a');
+    };
+  },
+
   /* ---------- THE JANITOR'S BASEMENT (forty years down here. mind the mop water.) ---------- */
   enterBasement() {
     const p = this.player;
@@ -470,7 +503,7 @@ const G = {
     for (let i = 0; i < 3; i++) this.pickups.push(new Pickup('coin', CW / 2 + U.rand(-90, 90), RY + RH / 2 + 60));
     this.setBanner('🕯 THE BASEMENT', 'forty years of finding things', 2.6);
     this.toast('🧹 “Touch whatever. The walrus doesn\'t know this floor exists.”', '#b8b0a0');
-    SFX.setMusic('dayroom');
+    SFX.setMusic('basement');
   },
   exitBasement() {
     const R = this._basementReturn;
@@ -502,7 +535,7 @@ const G = {
       Meta.data.pendingComplaint = v;
       Meta.data.complaintsFiled = (Meta.data.complaintsFiled || 0) + 1;
       Meta.save();
-      SFX.play('stamp');
+      SFX.play('paper'); SFX.play('stamp');
       this.toast('📋 Filed. Processed. Weaponized. See you next run.', '#e0a05a');
       this.showComplaints(returnTo);
     };
@@ -763,16 +796,37 @@ const G = {
         <div class="cmdesc">${pl.tag} — ${pl.desc}</div>
         <div class="cmtag">${pl.lines.join(' · ')}</div>
       </button>`).join('');
+    const heatOk = !!Meta.data.cured;
+    const bestHeat = Math.max(0, ...Object.values(Meta.data.intensityBest || {}).concat(0));
+    this._enrollHeat = 0;
     this.overlay(`
       <div class="panel wide">
         <h1 class="logo" style="font-size:26px">OPEN ENROLLMENT</h1>
         <div class="tagline">choose your coverage. this is the only choice the system will offer you.</div>
         <div class="cmgrid">${cards}</div>
+        ${heatOk ? `
+        <div class="setrow" style="justify-content:center;gap:10px;margin-top:6px">
+          <button class="btn minor" id="bHeatDn" style="min-width:44px">−</button>
+          <span id="heatLbl" style="font-weight:bold;color:#e08a5a;min-width:220px;text-align:center">🔥 TREATMENT INTENSITY 0 — standard care</span>
+          <button class="btn minor" id="bHeatUp" style="min-width:44px">+</button>
+        </div>
+        <div class="tagline" style="opacity:.7" id="heatDesc">each notch stacks a complication — and multiplies ◆ Insight. best so far: ${bestHeat}</div>` : ''}
         <div class="tagline" style="opacity:.6">seeded runs (daily / quarterly / challenge) are assigned SILVER. you don't get to pick. that's the joke.</div>
       </div>`);
+    if (heatOk) {
+      const NOTCHES = ['standard care', '+10% patient vitality', 'copays +25%', 'management hustles', '−1 heart container', 'champions everywhere', 'a side-effect every ward', 'faster paperwork (bullets)', 'the ward stops tipping', 'constant CODE GRAY risk', 'desperation comes early'];
+      const upd = () => {
+        const h = this._enrollHeat;
+        document.getElementById('heatLbl').textContent = '🔥 TREATMENT INTENSITY ' + h + ' — ' + NOTCHES[h];
+        document.getElementById('heatDesc').textContent = h > 0 ? ('stacked: ' + NOTCHES.slice(1, h + 1).join(' · ') + ' — Insight ×' + (1 + h * 0.15).toFixed(2)) : ('each notch stacks a complication — and multiplies ◆ Insight. best so far: ' + bestHeat);
+      };
+      document.getElementById('bHeatUp').onclick = () => { SFX.play('ui'); this._enrollHeat = Math.min(10, this._enrollHeat + 1); upd(); };
+      document.getElementById('bHeatDn').onclick = () => { SFX.play('ui'); this._enrollHeat = Math.max(0, this._enrollHeat - 1); upd(); };
+    }
     document.querySelectorAll('[data-plan]').forEach(b => b.onclick = () => {
       SFX.play('item');
       this._startPlan = b.dataset.plan;
+      this._startIntensity = this._enrollHeat || 0;
       this.beginRun(diagId, daily, variant);
     });
   },
@@ -839,6 +893,11 @@ const G = {
     // insurance plan (dailies & seeded runs are assigned SILVER — no marketplace for you)
     this.plan = (!daily && this._startPlan) ? this._startPlan : 'silver';
     this._startPlan = null;
+    // Treatment Intensity (heat) — post-cure difficulty dial, dailies stay standard
+    this.intensity = (!daily && this._startIntensity) ? this._startIntensity : 0;
+    this._startIntensity = 0;
+    if (this.intensity >= 4) { this.player.maxhp = Math.max(2, this.player.maxhp - 2); this.player.hp = Math.min(this.player.hp, this.player.maxhp); }
+    if (this.intensity > 0) this.toast('🔥 TREATMENT INTENSITY ' + this.intensity + ' — Insight ×' + (1 + this.intensity * 0.15).toFixed(2), '#e08a5a');
     if (this.plan === 'bronze') { this.player.coins += 15; }
     if (this.plan === 'gold') { this.player.maxhp = Math.max(2, this.player.maxhp - 2); this.player.hp = Math.min(this.player.hp, this.player.maxhp); }
     if (this.plan !== 'silver') { const PL = DATA.PLANS.find(x => x.id === this.plan); this.toast(PL.icon + ' Enrolled: ' + PL.name + ' — ' + PL.tag, PL.clr); }
@@ -865,6 +924,7 @@ const G = {
     this.overtime = null;   // OVERTIME arms below if _startOvertime
     this.runTime = 0; this.splits = []; this._lastSplitDelta = null;   // speedrun clock
     this._basementOffered = false; this._basementReturn = null; this._diplomaSeen = false;
+    this._billMul = 1; this._preApproved = 0; this._routeMod = null; this.practice = false;
     // THE COMPLAINT DEPARTMENT: your grievance reports for duty
     this._complaint = (!daily && Meta.data.pendingComplaint) ? String(Meta.data.pendingComplaint).slice(0, 40) : null;
     this._complaintSpawned = false;
@@ -1002,6 +1062,7 @@ const G = {
       ['Pills, misc.', st.pills, (st.pills || 0) * 90]
     ].filter(r => r[2] > 0);
     let total = rows.reduce((a, r) => a + r[2], 0);
+    if (this._billMul > 1) { rows.push(['Settlement adjustment (the Adjuster)', '×' + this._billMul, Math.round(total * (this._billMul - 1))]); total = Math.round(total * this._billMul); }
     if (this._amaFailed) { rows.push(['AMA elopement surcharge', '×2', total]); total *= 2; }   // you tried to LEAVE?
     return { rows, total };
   },
@@ -1109,7 +1170,7 @@ const G = {
   },
   applyContractReward(def) {
     const p = this.player; if (!p) return;
-    const say = (s) => { this.toast('📝 CONTRACT PAID: ' + def.name + ' — ' + s, '#8fd08a'); SFX.play('fanfare'); };
+    const say = (s) => { this.toast('📝 CONTRACT PAID: ' + def.name + ' — ' + s, '#8fd08a'); SFX.play('bell'); };
     switch (def.reward) {
       case 'coins': { const n = def.id === 'secret1' ? 12 : 9; p.coins += n; say('+' + n + '¢'); break; }
       case 'hearts': {
@@ -1197,6 +1258,10 @@ const G = {
     // Treatment Plan currency: Insight scales with how far you got this run
     let gained = Math.max(1, Math.round(this.depth * 1.5 + this.stats.bosses * 3 + this.stats.kills * 0.05 + (cured ? 15 : 0) + (walrus ? 5 : 0)));
     if (out === 'ama') gained = Math.round(gained * 1.5);   // leaving AMA banks a premium
+    if (this.intensity > 0) {
+      gained = Math.round(gained * (1 + this.intensity * 0.15));   // heat pays
+      if (this.depth >= 5) { const ib = Meta.data.intensityBest || (Meta.data.intensityBest = {}); const k = p.baseDiag === 'undiag' ? 'undiag' : p.diag; ib[k] = Math.max(ib[k] || 0, this.intensity); }
+    }
     Meta.data.insight = (Meta.data.insight || 0) + gained;
     this._insightGained = gained;
     Meta.save();
@@ -1218,6 +1283,19 @@ const G = {
       }
     });
     this._janitorFloor = false;   // the Janitor makes one appearance per floor, tops
+    // THE ELEVATOR: the route you picked shapes this floor
+    const RM = this._routeMod; this._routeMod = null;
+    this._forceShadow = !!(RM && RM.mod === 'shadow');
+    this._routeWing = (RM && RM.mod === 'wing') ? RM.wing : null;
+    this.quietFloor = !!(RM && RM.mod === 'quiet');
+    if (RM && RM.mod === 'pharm') {
+      const normals = this.floorRooms.filter(r => r.type === 'normal');
+      if (normals.length > 1) { const r = U.choice(normals); r.type = 'item'; r.lockOpen = true; if (r.layout) for (let rr = 2; rr <= 4; rr++) for (let cc = 5; cc <= 7; cc++) r.layout[rr][cc] = 0; }
+    }
+    if (RM && RM.mod === 'dayroom' && !this.floorRooms.some(r => r.type === 'dayroom')) {
+      const normals = this.floorRooms.filter(r => r.type === 'normal');
+      if (normals.length > 1) U.choice(normals).type = 'dayroom';
+    }
     // THE THIRTEENTH WARD: not generated. curated. it was always going to be ward 13.
     this.ward13 = (this.depth === 13 && !this.ascent && !this.bossRush && !this.overtime);
     if (this.ward13) {
@@ -1229,11 +1307,13 @@ const G = {
       }
       this.setBanner('🕯 THE THIRTEENTH WARD', 'there is no room 13. there is only ward 13.', 3.2);
       SFX.play('sting');
-    }
+      SFX.setMusic('ward13');
+    } else if (SFX.musicMode === 'ward13' && !this.overtime) SFX.setMusic('run');   // ward 14 lets the building breathe again
     // SHADOW WARD: some floors flip dark — mirrored halls, shadow patients, double loot
     this.shadowWard = (this.depth >= 6 && !this.ascent && !this.bossRush)
       ? this.genSeed(['shadow', this.depth], () => U.chance(0.18))
       : false;
+    if (this._forceShadow && !this.ward13) this.shadowWard = true;   // the elevator said so
     if (this.shadowWard) {
       for (const r of this.floorRooms) if (r.layout) r.layout = r.layout.map(row => row.slice().reverse());   // the halls are wrong-handed here
       this.setBanner('🌑 SHADOW WARD', 'the lights hum wrong here', 2.6);
@@ -1253,15 +1333,16 @@ const G = {
     this.complications = this.genSeed(['comp', this.depth], () => DATA.rollComplications(this.depth));
     this.floorMods = {};
     for (const c of this.complications) Object.assign(this.floorMods, c.mods);
+    if (this.quietFloor) this.floorMods.countMul = (this.floorMods.countMul || 1) * 0.65;   // the quiet route: fewer patients
     this.floorDark = this.floorMods.dark || 0;
     // ward side-effect (satirical "curse") — a whole-floor modifier rolled at deeper wards
     this.sideEffect = (this.depth >= 3)
-      ? this.genSeed(['sideeffect', this.depth], () => U.chance(0.35) ? U.choice(DATA.SIDE_EFFECTS).id : null)
-      : null;
+      ? this.genSeed(['sideeffect', this.depth], () => U.chance((this.intensity || 0) >= 6 ? 1 : 0.35) ? U.choice(DATA.SIDE_EFFECTS).id : null)
+      : ((this.intensity || 0) >= 6 && this.depth >= 2 ? this.genSeed(['sideeffect', this.depth], () => U.choice(DATA.SIDE_EFFECTS).id) : null);
     // SPECIALTY WING: some wards belong to a themed wing — its own palette and crowd
-    this.wing = (this.depth >= 4)
+    this.wing = this._routeWing || ((this.depth >= 4)
       ? this.genSeed(['wing', this.depth], () => U.chance(0.3) ? U.choice(DATA.WINGS.filter(w => !w.noRoll)).id : null)
-      : null;
+      : null);
     if (this.ascent) this.wing = 'boardroom';   // the Ascent is Administration all the way up
     const wingDef = this.wing ? DATA.WINGS.find(w => w.id === this.wing) : null;
     this.wingPal = wingDef ? wingDef.pal : null;
@@ -1286,7 +1367,7 @@ const G = {
     this.auditorHp = null; this.auditorDown = false;
     // CODE GRAY: occasionally a whole ward goes into crisis (depth 4+)
     this.crisis = (this.depth >= 4)
-      ? this.genSeed(['crisis', this.depth], () => U.chance(0.2) ? U.choice(DATA.CRISES).id : null)
+      ? this.genSeed(['crisis', this.depth], () => U.chance((this.intensity || 0) >= 9 ? 0.45 : 0.2) ? U.choice(DATA.CRISES).id : null)
       : null;
     this.crisisT = this.crisis === 'lockdown' ? 75 : 0;
     this.crisisDone = false; this.crisisFail = false;
@@ -1418,6 +1499,7 @@ const G = {
     const bossTheme = ['founder', 'thesystem', 'thecure'].includes(this.bossId) ? 'superboss' : 'boss';   // the big three get the dread theme
     if (room.type === 'boss' && !room.cleared && room.bossPending) {
       this.boss = new Boss(this.bossId, this.depth, this);
+      if ((this.intensity || 0) >= 3) this.boss.aggr = (this.boss.aggr || 1) * 1.1;   // Intensity: management hustles
       // champion roll: past Ward 8, the rotation bosses can come back wrong
       if (this.depth >= 8 && !['walrus', 'thecure', 'founder', 'thesystem', 'theboard'].includes(this.bossId)) {
         const affix = this.genSeed(['champ', this.depth], () => U.chance(0.3) ? U.choice(DATA.BOSS_AFFIXES).id : null);
@@ -1430,16 +1512,16 @@ const G = {
         }
       }
       room.bossPending = false;
-      this.setBanner(this.boss.name, this.boss.sub, 2.4);
+      SFX.play('vs');
       SFX.play('boss');
       SFX.setMusic(bossTheme);
     } else if (room.type === 'boss' && !room.cleared && room.bossObj) {
       this.boss = room.bossObj;
       SFX.setMusic(bossTheme);
     } else if (room.type === 'dayroom') {
-      SFX.setMusic('dayroom');   // the one calm corner of the building
+      SFX.setMusic(this.room && this.room._basement ? 'basement' : 'dayroom');   // the one calm corner of the building
     } else {
-      SFX.setMusic('run');
+      SFX.setMusic(this.ward13 ? 'ward13' : 'run');
     }
     if (room.type === 'clinic' && !room.cleared && room._minibossName && !room.greeted) { room.greeted = true; this.setBanner('⚕ ' + room._minibossName, 'office hours', 2.2); SFX.play('boss'); }
     if (room.type === 'secret' && !room.greeted) { room.greeted = true; this.toast(DATA.TOASTS.secret); }
@@ -1485,7 +1567,7 @@ const G = {
       }
       case 'shop': {
         room.cleared = true;
-        const copayMul = (1 + (this.depth - 1) * 0.07) * (this.protocol === 'deductible' ? 2 : 1) * (this.plan === 'bronze' ? 1.5 : this.plan === 'gold' ? 0.6 : 1);   // copays climb with the ward (it's the healthcare system, baby)
+        const copayMul = (1 + (this.depth - 1) * 0.07) * (this.protocol === 'deductible' ? 2 : 1) * (this.plan === 'bronze' ? 1.5 : this.plan === 'gold' ? 0.6 : 1) * ((this.intensity || 0) >= 2 ? 1.25 : 1);   // copays climb with the ward (it's the healthcare system, baby)
         const disc = (p.flags.discount ? 0.5 : (this.wardPath === 'outpatient' ? 0.75 : 1)) * (p.trinket === 'expiredcoupon' ? 0.7 : 1) * (p._facShopMul || 1);
         const px = (n) => Math.max(1, Math.ceil(n * disc * copayMul));
         const yc = RY + RH / 2 + 30, yi = RY + RH / 2 - 80;
@@ -1596,7 +1678,12 @@ const G = {
       if (this.player.trinket === 'masterkey') {   // the Janitor's copy — everything opens
         target.lockOpen = true;
         this.toast('🗝 The Master Key turns. Of course it does.', '#e8c84c');
-        SFX.play('pickup');
+        SFX.play('keyturn');
+      } else if (this._preApproved > 0) {   // PRIOR AUTHORIZATION's parting gift
+        this._preApproved--;
+        target.lockOpen = true;
+        this.toast('✅ PRE-APPROVED. (' + this._preApproved + ' left)', '#8fd05a');
+        SFX.play('keyturn');
       } else if (this.player.keys > 0) {
         this.player.keys--;
         target.lockOpen = true;
@@ -1651,7 +1738,7 @@ const G = {
         p.pet.evo = true;
         const names = { pigeon: 'THE CARRIER PIGEON', cat: 'SENIOR OFFICE CAT', snake: 'THE EXTENDED METAPHOR', goldfish: 'TWO GOLDFISH (they remember each other)' };
         this.toast('✨ Your companion evolved: ' + (names[p.pet.type] || p.pet.type) + '!', '#e8c84c');
-        SFX.play('fanfare');
+        SFX.play('evolve');
         Meta.save();
         this.checkUnlocks();
       }
@@ -1679,7 +1766,7 @@ const G = {
     }
     if (p.flags.gym && p._gymAdd < 1.5) { p._gymAdd += 0.15; p.dmg += 0.15; }
     if (U.chance(0.03)) this.pickups.push(new Pickup('trinket', CW / 2 + U.rand(-50, 50), RY + RH / 2));
-    if (U.chance(0.4)) {
+    if (U.chance((this.intensity || 0) >= 8 ? 0.2 : this.quietFloor ? 0.25 : 0.4)) {   // Intensity 8+/quiet route: the ward stops tipping
       const type = U.choice(['coin', 'coin', 'half', 'pill', 'coin', 'key', 'bomb']);
       this.pickups.push(new Pickup(type, CW / 2 + U.rand(-40, 40), RY + RH / 2 + U.rand(-30, 30)));
     }
@@ -1731,6 +1818,14 @@ const G = {
 
   onBossDead() {
     const room = this.room, p = this.player;
+    // SPARRING: bow, towel off, back to the gallery
+    if (this.practice) {
+      room.cleared = true;
+      this.toast('🥊 Bout won. The chart is unimpressed but you know.', '#8fd0e0');
+      SFX.play('fanfare');
+      setTimeout(() => { if (this.practice) { this.practice = false; this.showBestiary(); } }, 1800);
+      return;
+    }
     // OVERTIME: no rewards, no trapdoor — just the next wave
     if (this.overtime) {
       this.stats.bosses++;
@@ -1743,9 +1838,15 @@ const G = {
     }
     room.cleared = true;
     this.doorsOpen = true;
-    this.stats.bosses++;
+    const spared = this.boss && this.boss._spared;
+    if (!spared) { this.stats.bosses++; }
+    else {
+      (Meta.data.sparedBosses || (Meta.data.sparedBosses = {}))[this.bossId] = 1;
+      Meta.save();
+      this.toast('✌ Spared. The chart will say "resolved amicably." The chart is lying, but kindly.', '#8fd0e0');
+    }
     if (this.p2 && this.p2._downT > 0) { this.p2._downT = 0; this.p2.hp = Math.max(2, Math.ceil(this.p2.maxhp / 2)); this.p2.iframes = 2; this.toast('🎮 PATIENT TWO is back up. They saw everything.', '#8fd08a'); }
-    this.goalEvent('boss');
+    if (!spared) this.goalEvent('boss');
     Meta.data.bestFloor = Math.max(Meta.data.bestFloor, this.depth);
     if (!Meta.data.diagBest) Meta.data.diagBest = {};
     Meta.data.diagBest[p.diag] = Math.max(Meta.data.diagBest[p.diag] || 0, this.depth);
@@ -1985,34 +2086,49 @@ const G = {
     this._descended = false;
     SFX.play('descend');
   },
-  offerComorbidity() {   // the Treatment Plan: choose your next ward (each bundles a comorbidity)
+  offerComorbidity() {   // THE ELEVATOR: choose your next ward — comorbidity bundled, floor forecast posted
     if (!DATA.COMORBIDITIES || !DATA.COMORBIDITIES.length) { this.doDescend(); return; }
     // seeded so a daily's options match for everyone — the pick is still yours
+    const ROUTES = [
+      { id: 'none',    tag: '🏥 standard rotation — as forecast', mod: null },
+      { id: 'wing',    tag: null, mod: 'wing' },
+      { id: 'shadow',  tag: '🌑 the SHADOW WARD — dark, mirrored, double loot', mod: 'shadow' },
+      { id: 'pharm',   tag: '💊 an extra pharmacy is stocked on this route', mod: 'pharm' },
+      { id: 'dayroom', tag: '☕ a Day Room is guaranteed down there', mod: 'dayroom' },
+      { id: 'quiet',   tag: '🕊 a quiet ward — fewer patients, less loot', mod: 'quiet' }
+    ];
     const picks = this.genSeed(['ward', this.depth], () => {
       const cos = U.shuffle(DATA.COMORBIDITIES).slice(0, 3);
-      return ['inpatient', 'outpatient', 'day'].map((pk, i) => ({ path: pk, co: cos[i] }));
+      const rts = U.shuffle(ROUTES.slice());
+      return ['inpatient', 'outpatient', 'day'].map((pk, i) => {
+        const rt = rts[i % rts.length];
+        const wingPick = rt.mod === 'wing' ? U.choice(DATA.WINGS.filter(w => !w.noRoll)) : null;
+        return { path: pk, co: cos[i], route: rt.id, routeMod: rt.mod, wingPick: wingPick ? wingPick.id : null, routeTag: wingPick ? (wingPick.icon + ' this route runs through ' + wingPick.name) : rt.tag };
+      });
     });
     this.state = 'comorbid';
-    SFX.play('voice');
+    SFX.play('elevator');
     const cards = picks.map((it, i) => {
       const w = DATA.WARD_PATHS[it.path];
       return `<button class="cmcard wardcard" data-i="${i}">
         <div class="wardname">${w.name}</div>
         <div class="cmdesc">${w.desc}</div>
         <div class="cmtag">🧬 ${it.co.name} — ${it.co.desc}</div>
+        <div class="cmtag" style="color:#8fb8d0">${it.routeTag}</div>
       </button>`;
     }).join('');
     this.overlay(`
       <div class="panel wide">
-        <h1 class="logo" style="font-size:26px">TREATMENT PLAN</h1>
-        <div class="tagline">choose your next ward — each comes with a comorbidity</div>
+        <h1 class="logo" style="font-size:26px">🛗 THE ELEVATOR</h1>
+        <div class="tagline">B${this.depth + 1} — three routes down. each bundles a comorbidity; the forecast is posted. the elevator music is not optional.</div>
         <div class="cmgrid">${cards}</div>
-        <button class="btn minor" id="bComorbidSkip">walk it off (no ward bonus, no comorbidity)</button>
+        <button class="btn minor" id="bComorbidSkip">take the stairs (no ward bonus, no comorbidity, standard floor)</button>
       </div>`);
     document.querySelectorAll('.wardcard').forEach(b => b.onclick = () => {
       const it = picks[+b.dataset.i];
-      SFX.play('item');
+      SFX.play('elevator');
       this.wardPath = it.path;
+      this._routeMod = { mod: it.routeMod, wing: it.wingPick };
       try { it.co.apply(this.player, this); } catch (e) { }
       (this.player.comorbidities || (this.player.comorbidities = [])).push(it.co.id);
       this.checkComorbidSynergy();
@@ -2020,7 +2136,7 @@ const G = {
       this.hideOverlay();
       this.doDescend();
     });
-    document.getElementById('bComorbidSkip').onclick = () => { SFX.play('ui'); this.wardPath = 'day'; this.hideOverlay(); this.doDescend(); };
+    document.getElementById('bComorbidSkip').onclick = () => { SFX.play('ui'); this.wardPath = 'day'; this._routeMod = null; this.hideOverlay(); this.doDescend(); };
   },
 
   /* ---------- mini-event choice room ---------- */
@@ -2353,7 +2469,7 @@ const G = {
               setTimeout(() => { if (this.state === 'run') { this.toast('🧹 “I\'ve seen the basement. Want to?”', '#e8c84c'); SFX.play('voice'); } }, 1400);
             }
           }
-        } else if (this.lockCd <= 0) { this.lockCd = 1.6; this.toast('🧹 ' + U.choice(DATA.JANITOR.broke), '#b8b0a0'); SFX.play('error'); }
+        } else if (this.lockCd <= 0) { this.lockCd = 1.6; this.toast('🧹 ' + U.choice(DATA.JANITOR.broke), '#b8b0a0'); SFX.play('denied'); }
       } else if (ped.kind === 'contract') {   // a fellow patient with a side job
         const def = DATA.CONTRACTS.find(c => c.id === ped.contractId) || DATA.CONTRACTS[0];
         const active = (this.contracts || []).filter(c => !c.done).length;
@@ -2364,7 +2480,7 @@ const G = {
           ped.taken = true;
           this.contracts.push({ id: def.id, def, prog: 0, done: false });
           this.toast('📝 CONTRACT: ' + def.name + ' — ' + def.desc + ' → ' + def.rtext, '#8fd08a');
-          SFX.play('voice');
+          SFX.play('paper');
         }
       } else if (ped.kind === 'basementdoor') {   // STAFF ONLY. you're staff now, apparently.
         ped.taken = true;
@@ -2483,6 +2599,7 @@ const G = {
       if (this.amaRun && !this.amaRun.done) this._amaFailed = true;   // died mid-elopement: the bill doubles
       this.deathT += dt;
       if (this.deathT > 0.9) {
+        if (this.practice) { this.practice = false; this.toast('🥊 Called it. Back to the gallery.', '#8fd0e0'); this.showBestiary(); return; }
         if (!this._appealUsed && !this._appealOffered && !this.dailyKind && this.depth >= 2) { this._appealOffered = true; this.showAppealOffer(); }
         else this.showDead();
       }
@@ -2573,7 +2690,7 @@ const G = {
     this.enterRoom(room, null);
     this.overtime = { wave: 0, spawnT: 2.2, bestShown: false };
     this.setBanner('⏰ OVERTIME', 'the ward would like a word. all of it.', 2.6);
-    SFX.setMusic('boss');
+    SFX.setMusic('overtime');
   },
   overtimeUpdate(dt) {
     const OT = this.overtime; if (!OT) return;
@@ -2604,7 +2721,7 @@ const G = {
     if (w > (Meta.data.overtimeBest || 0)) { Meta.data.overtimeBest = w; Meta.save(); this.checkUnlocks(); }
     // a small mercy every third wave
     if (w % 3 === 0) { this.pickups.push(new Pickup('half', CW / 2 + U.rand(-50, 50), RY + RH / 2 + U.rand(-30, 30))); this.pickups.push(new Pickup('coin', CW / 2 + U.rand(-70, 70), RY + RH / 2)); }
-    SFX.play('boss');
+    SFX.play(w % 10 === 0 ? 'boss' : 'wave');
   },
 
   /* ---------- PATIENT TWO (couch co-op: the pad is theirs now) ---------- */
@@ -2879,7 +2996,7 @@ const G = {
         A.flash = 0.35;
         SFX.play('stamp');
         A.zoneC = U.rand(0.25, 0.75); A.zoneW = Math.max(0.11, A.zoneW - 0.02); A.speed *= 1.12;
-        if (A.tries <= 0) { A.result = 'lost'; A.doneT = 1.6; A.stampNow = 'UPHELD'; }
+        if (A.tries <= 0) { A.result = 'lost'; A.doneT = 1.6; A.stampNow = 'UPHELD'; SFX.play('denied'); }
       }
     }
   },
@@ -3181,11 +3298,12 @@ const G = {
       const B = DATA.BOSSES[id];
       const note = (DATA.CODEX_CHART.bosses && DATA.CODEX_CHART.bosses[id]) || '';
       const s = !!seen[id];
+      const sparedTag = s && Meta.data.sparedBosses && Meta.data.sparedBosses[id] ? ' <span style="color:#8fd0e0">✌ spared</span>' : '';
       return `<div class="bcard ${s ? 'got' : 'locked'}">
         <div class="bframe">${s ? `<canvas class="bportrait" width="150" height="132" data-b="${id}"></canvas>` : '<div class="bqm">?</div>'}</div>
-        <div class="bname">${s ? B.name : '? ? ?'}</div>
+        <div class="bname">${s ? B.name + sparedTag : '? ? ?'}</div>
         <div class="bsub">${s ? B.sub : 'not yet encountered'}</div>
-        ${s ? `<div class="bnote">${note}</div>` : ''}
+        ${s ? `<div class="bnote">${note}</div><button class="btn minor" data-spar="${id}" style="margin-top:4px;font-size:10px;padding:4px 8px">🥊 PRACTICE</button>` : ''}
       </div>`;
     }).join('');
     this.overlay(`
@@ -3207,7 +3325,28 @@ const G = {
       } catch (e) { }
     });
     this._bestClock = 0;
+    document.querySelectorAll('[data-spar]').forEach(b => b.onclick = (ev) => {
+      ev.stopPropagation();
+      SFX.play('stamp');
+      this._bestiary = null;
+      this.startPractice(b.dataset.spar);
+    });
     document.getElementById('bBestBack').onclick = () => { SFX.play('ui'); this._bestiary = null; (returnTo || (() => this.showTitle()))(); };
+  },
+  // 🥊 sparring: a no-stakes rematch straight from the bestiary — nothing counts, nothing saves
+  startPractice(bossId) {
+    this.beginRun(Meta.data.lastDiag && DATA.DIAG[Meta.data.lastDiag] ? Meta.data.lastDiag : 'adhd');
+    this.practice = true;
+    this._runLogged = true;   // nothing about this run is ever recorded
+    const p = this.player;
+    p.dmg += 2; p.maxhp = 12; p.hp = 12;
+    this.depth = Math.max(this.depth, bossId === 'thesystem' ? 100 : bossId === 'founder' ? 50 : bossId === 'thecure' ? 25 : 5);
+    this.newFloor();
+    this.bossId = bossId;
+    const br = this.floorRooms.find(r => r.type === 'boss');
+    if (br) this.enterRoom(br, null);
+    this.setBanner('🥊 SPARRING — ' + (DATA.BOSSES[bossId] || { name: bossId }).name, 'nothing counts. everything hurts.', 2.6);
+    this.toast('Practice bout. Dying just sends you back to the Bestiary.', '#8fd0e0');
   },
 
   /* ---------- PROGNOSIS: challenge-run picker ---------- */

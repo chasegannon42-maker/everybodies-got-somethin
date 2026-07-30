@@ -34,11 +34,49 @@ const Render = {
         ctx.fillStyle = 'rgba(10,7,13,' + U.clamp(G.roomFade / 0.22, 0, 1) * 0.55 + ')';
         ctx.fillRect(0, 0, CW, CH);
       }
-      // boss intro: cinematic letterbox while they take the stage
+      // boss intro: the VS card — bands slam in, names square up
       if (G.boss && !G.boss.dead && G.boss.introT > 0) {
-        const h = U.clamp(G.boss.introT / 1.6, 0, 1) * 64;
+        const k = U.clamp(G.boss.introT / 1.6, 0, 1);        // 1 → 0 as the intro plays out
+        const inK = U.clamp((1.6 - G.boss.introT) / 0.25, 0, 1);   // slam-in
+        const h = k * 64;
         ctx.fillStyle = 'rgba(8,6,11,0.88)';
         ctx.fillRect(0, 0, CW, h); ctx.fillRect(0, CH - h, CW, h);
+        if (k > 0.25) {
+          const a = Math.min(1, inK * 1.4) * U.clamp((k - 0.25) / 0.2, 0, 1);
+          ctx.save();
+          ctx.globalAlpha = a * 0.82;
+          // diagonal band
+          ctx.fillStyle = '#17121e';
+          ctx.beginPath();
+          ctx.moveTo(0, CH * 0.34); ctx.lineTo(CW, CH * 0.42); ctx.lineTo(CW, CH * 0.62); ctx.lineTo(0, CH * 0.54); ctx.closePath(); ctx.fill();
+          ctx.globalAlpha = a;
+          const slide = (1 - inK) * 90;
+          // YOU (left)
+          const D = DATA.DIAG[G.player.diag] || DATA.DIAG.adhd;
+          ctx.textAlign = 'left';
+          ctx.font = 'bold 26px Impact,"Arial Black",sans-serif';
+          ctx.fillStyle = D.color;
+          ctx.fillText(D.name.toUpperCase(), 60 - slide, CH * 0.46);
+          ctx.font = 'bold 11px "Trebuchet MS","Segoe UI",sans-serif';
+          ctx.fillStyle = '#b8aec4';
+          ctx.fillText('the patient', 62 - slide, CH * 0.46 + 18);
+          // VS
+          ctx.textAlign = 'center';
+          ctx.font = 'bold 40px Impact,"Arial Black",sans-serif';
+          ctx.fillStyle = '#e8c84c';
+          ctx.save(); ctx.translate(CW / 2, CH * 0.49); ctx.rotate(-0.06); ctx.scale(1 + (1 - inK) * 1.6, 1 + (1 - inK) * 1.6);
+          ctx.fillText('VS', 0, 14); ctx.restore();
+          // THE MANAGEMENT (right)
+          const B = DATA.BOSSES[G.boss.id] || { name: G.boss.id, sub: '' };
+          ctx.textAlign = 'right';
+          ctx.font = 'bold 26px Impact,"Arial Black",sans-serif';
+          ctx.fillStyle = G.boss.affix ? (G.boss.affixTint || '#e05a5a') : '#e05a5a';
+          ctx.fillText(((G.boss.affix ? G.boss.affix.toUpperCase() + ' ' : '') + B.name).slice(0, 30), CW - 60 + slide, CH * 0.53);
+          ctx.font = 'italic bold 11px "Trebuchet MS","Segoe UI",sans-serif';
+          ctx.fillStyle = '#c4b4ae';
+          ctx.fillText(String(B.sub || '').slice(0, 52), CW - 62 + slide, CH * 0.53 + 18);
+          ctx.restore();
+        }
       }
       this.drawHUD(G);
     } else if (G.state === 'hub') {
@@ -3344,6 +3382,12 @@ const Render = {
       if (hpHere >= 2) this.drawHeart(hx, hy, 10, '#e05a5a', false);
       else if (hpHere === 1) this.drawHeart(hx, hy, 10, '#e05a5a', true);
       else this.drawHeart(hx, hy, 10, '#4a3a44', false);
+    }
+    // Treatment Intensity badge
+    if (G.intensity > 0) {
+      ctx.textAlign = 'right';
+      ctx.fillStyle = '#e08a5a'; ctx.font = this.font(11, true);
+      ctx.fillText('🔥 ' + G.intensity, CW - 18, Meta.data.speedrun ? 92 : 64);
     }
     // speedrun clock (top-right, under the ward name)
     if (Meta.data.speedrun && G.runTime != null && !G.overtime) {

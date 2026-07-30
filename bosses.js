@@ -147,6 +147,15 @@ class Boss {
     if (this.introT > 0) { this.introT -= dt; return; }
     dt *= (this.aggr || 1); // endless: deeper bosses move & attack faster
     const p = G.player;
+    // NEGOTIATION: at the end of the rope, some of them talk (once, not champions, not in OVERTIME)
+    if (!this._dealDone && DATA.BOSS_DEALS && DATA.BOSS_DEALS[this.id] && !this.affix && !G.overtime && !G.practice && this.hp < this.maxhp * 0.25 && !this.dead && G.state === 'run') {
+      this._dealDone = true;
+      this._dealHold = true;
+      this.vulnerable = false;
+      G.showBossDeal(this);
+      return;
+    }
+    if (this._dealHold) return;   // frozen mid-offer, hands visible
     // Incident Report: even management burns
     if (this._burn > 0) {
       this._burn -= dt;
@@ -852,7 +861,7 @@ class Boss {
 
     // ---------- DESPERATION: the original six get ugly below 25% ----------
     const DESP = { gatekeeper: 'LOCKDOWN.', larperking: 'ALL OF THEM. AT ONCE.', adjuster: 'PAPER BLIZZARD.', withdrawal: 'THE SHAKES.', stigma: 'BLACKOUT.', burnout: 'EMBER RAIN.' };
-    if (DESP[this.id] && this.hp < this.maxhp * (this.affix === 'terminal' ? 0.5 : 0.25) && !this.dead) {
+    if (DESP[this.id] && this.hp < this.maxhp * ((this.affix === 'terminal' || G.intensity >= 10) ? 0.5 : 0.25) && !this.dead) {
       if (!this._desp) {
         this._desp = true; this._despT = 1.2;
         G.toast('“' + DESP[this.id] + '”', '#e05a5a');
@@ -954,7 +963,7 @@ class Boss {
       for (let i = 0; i < Math.min(this.stolen + 2, 10); i++) G.pickups.push(new Pickup('coin', this.x + U.rand(-30, 30), this.y + U.rand(-30, 30)));
     }
     if (this.id === 'larperking') G.toast('It was never real.');
-    if (this.id === 'influencer') {   // the sponsorship payout
+    if (this.id === 'influencer' && !this._spared) {   // the sponsorship payout
       for (let i = 0; i < 4; i++) G.pickups.push(new Pickup('coin', this.x + U.rand(-34, 34), this.y + U.rand(-24, 24)));
       const pl = G.player; if ((pl.coupons || 0) < 3) { pl.coupons = (pl.coupons || 0) + 1; G.toast('🎟 The sponsorship deal is yours now.', '#9db85a'); }
       Meta.data.influencerKills = (Meta.data.influencerKills || 0) + 1; Meta.save();
