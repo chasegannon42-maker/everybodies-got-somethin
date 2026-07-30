@@ -121,6 +121,31 @@ const G = {
     }
     return `<div class="calgrid">${cells}</div>`;
   },
+  /* ISO week key for the Quarterly Review (Mon-anchored) */
+  weekKey() {
+    const d = new Date();
+    const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    const day = (t.getUTCDay() + 6) % 7;
+    t.setUTCDate(t.getUTCDate() - day + 3);
+    const firstThu = new Date(Date.UTC(t.getUTCFullYear(), 0, 4));
+    const fday = (firstThu.getUTCDay() + 6) % 7;
+    firstThu.setUTCDate(firstThu.getUTCDate() - fday + 3);
+    const wk = 1 + Math.round((t - firstThu) / (7 * 86400000));
+    return t.getUTCFullYear() + '-W' + String(wk).padStart(2, '0');
+  },
+  quarterlyInfo() {
+    const key = this.weekKey();
+    const seed = hashSeed(7770707, [key]);
+    const diag = this.DAILY_DIAGS[seed % this.DAILY_DIAGS.length];
+    return { key, seed, diag };
+  },
+  _quarterly() {   // current-week record (reset when the week rolls)
+    let Q = Meta.data.quarterly;
+    const key = this.weekKey();
+    if (!Q || Q.key !== key) { Q = Meta.data.quarterly = { key, bills: [] }; Meta.save(); }
+    return Q;
+  },
+
   showDaily() {
     this.state = 'daily';
     SFX.setMusic('menu');
@@ -144,6 +169,19 @@ const G = {
         </div>
         ${bestLine}${streakLine}
         ${this._dailyCalendar()}
+        ${(() => {
+          const Q = this._quarterly(), qi = this.quarterlyInfo();
+          const fmt = n => '$' + n.toLocaleString('en-US');
+          const total = Q.bills.reduce((a, b) => a + b, 0);
+          const slots = [0, 1, 2].map(i => Q.bills[i] != null ? fmt(Q.bills[i]) : '—').join(' · ');
+          const best = Meta.data.quarterlyBest || 0;
+          return `<div class="rx" style="border-color:#8a6ad0;margin-top:8px">
+            <div class="stamp" style="color:#8a6ad0;border-color:#8a6ad0">QUARTERLY REVIEW</div>
+            <div class="sub">${qi.key} · one shared seed · your three bills stack</div>
+            <div class="mech">Runs: ${slots}<br>This week's total: <b>${fmt(total)}</b>${best ? ' · personal best: ' + fmt(best) : ''}</div>
+            ${Q.bills.length < 3 ? `<button class="btn minor" id="bQuarterly" style="margin-top:6px">🧾 FILE RUN ${Q.bills.length + 1} OF 3</button>` : `<div class="stats-line">review closed — new week, new audit</div>`}
+          </div>`;
+        })()}
         <button class="btn" id="bDailyPlay">▶ PLAY TODAY'S WARD</button>
         <div class="btnrow">
           ${rec ? `<button class="btn minor" id="bDailyShare">📤 SHARE</button>` : ''}
@@ -155,6 +193,8 @@ const G = {
     const pc = document.getElementById('dailyPortrait');
     if (pc) Render.drawCharPortrait(pc.getContext('2d'), info.diag);
     document.getElementById('bDailyPlay').onclick = () => { SFX.init(); SFX.play('ui'); this.beginRun(info.diag, { seed: info.seed, key: info.key, isDaily: true }); };
+    const bq = document.getElementById('bQuarterly');
+    if (bq) bq.onclick = () => { SFX.init(); SFX.play('ui'); const qi = this.quarterlyInfo(); this.beginRun(qi.diag, { seed: qi.seed, key: qi.key, isQuarterly: true }); };
     const sh = document.getElementById('bDailyShare');
     if (sh) sh.onclick = () => { SFX.play('ui'); Render.shareCard({ diag: info.diag, depth: rec.best, daily: true, key: info.key, win: rec.win, stats: rec.stats, code: this.seedCode(info.seed) }); };
     document.getElementById('bDailyChallenge').onclick = () => { SFX.play('ui'); this.showChallenge(() => this.showDaily()); };
@@ -500,7 +540,7 @@ const G = {
   beginRun(diagId, daily, variant) {
     this.variantRun = !!variant && !daily;   // Second Opinion runs (never in dailies)
     this.daily = !!daily;
-    this.dailyKind = daily ? (daily.isDaily ? 'daily' : 'challenge') : null;
+    this.dailyKind = daily ? (daily.isQuarterly ? 'quarterly' : daily.isDaily ? 'daily' : 'challenge') : null;
     this.seed = daily ? (daily.seed >>> 0) : null;
     this.dailyKey = daily ? daily.key : null;
     this._startWalrusKills = Meta.data.walrusKills || 0;   // for daily "beat the Walrus" flag
@@ -592,7 +632,7 @@ const G = {
      A snapshot at the start of every floor; CONTINUE on the title resumes it.
      Seeded runs (daily/challenge) are excluded — those are meant to be one sitting. */
   SAVE_KEY: 'egs_save1',
-  SAVE_FIELDS: ['hp', 'maxhp', 'spd', 'tearDelay', 'dmg', 'shotSpd', 'range', 'wobble', 'luck', 'coins', 'keys', 'bombs', 'coupons', 'pill', 'iframeTime', 'abilMax', 'sleep', 'compulsion', '_scar', '_recRooms'],
+  SAVE_FIELDS: ['hp', 'maxhp', 'spd', 'tearDelay', 'dmg', 'shotSpd', 'range', 'wobble', 'luck', 'coins', 'keys', 'bombs', 'coupons', 'pill', 'iframeTime', 'abilMax', 'sleep', 'compulsion', '_scar', '_recRooms', 'trinket', '_rosaryUsed'],
   saveCheckpoint() {
     if (this.dailyKind || !this.player || this.player.dead) return;
     const p = this.player;
@@ -686,7 +726,7 @@ const G = {
     this.clearCheckpoint();   // the run ended — no continuing past this
 
     const p = this.player;
-    const mode = this.protocol ? this.protocol : this.prognosis ? this.prognosis : this.chronic ? 'chronic' : this.bossRush ? 'bossrush' : this.dailyKind === 'daily' ? 'daily' : this.dailyKind === 'challenge' ? 'challenge' : 'normal';
+    const mode = this.protocol ? this.protocol : this.prognosis ? this.prognosis : this.chronic ? 'chronic' : this.bossRush ? 'bossrush' : this.dailyKind === 'daily' ? 'daily' : this.dailyKind === 'quarterly' ? 'quarterly' : this.dailyKind === 'challenge' ? 'challenge' : 'normal';
     if (this.prognosis) { const pb = Meta.data.prognosisBest || (Meta.data.prognosisBest = {}); pb[this.prognosis] = Math.max(pb[this.prognosis] || 0, this.depth); }
     const cured = !!this._runCured || out === 'cured';
     const walrus = (Meta.data.walrusKills || 0) > (this._startWalrusKills || 0);
@@ -705,6 +745,15 @@ const G = {
     a.wardSum += this.depth;
     a.bestWard = Math.max(a.bestWard, this.depth);
     if (out === 'dead') { const C = Meta.data.causeAgg || (Meta.data.causeAgg = {}); C[cause] = (C[cause] || 0) + 1; }
+    // Quarterly Review: file this run's bill into the week (3 slots)
+    if (this.dailyKind === 'quarterly') {
+      const Q = this._quarterly();
+      if (Q.bills.length < 3) {
+        Q.bills.push(this.runBill().total);
+        const total = Q.bills.reduce((a, b) => a + b, 0);
+        if (Q.bills.length === 3) Meta.data.quarterlyBest = Math.max(Meta.data.quarterlyBest || 0, total);
+      }
+    }
     // Treatment Plan currency: Insight scales with how far you got this run
     const gained = Math.max(1, Math.round(this.depth * 1.5 + this.stats.bosses * 3 + this.stats.kills * 0.05 + (cured ? 15 : 0) + (walrus ? 5 : 0)));
     Meta.data.insight = (Meta.data.insight || 0) + gained;
@@ -747,6 +796,11 @@ const G = {
     this.wingPal = wingDef ? wingDef.pal : null;
     if (wingDef && wingDef.dark) this.floorDark = Math.max(this.floorDark, wingDef.dark);
     if (this.protocol === 'nightshift') this.floorDark = Math.max(this.floorDark, 0.55);   // the lights never come on
+    // THE AUDITOR: some floors, your file gets flagged (depth 6+)
+    this.auditorArmed = (this.depth >= 6 && !this.bossRush)
+      ? this.genSeed(['auditor', this.depth], () => U.chance(0.18))
+      : false;
+    this.auditorHp = null; this.auditorDown = false;
     // CODE GRAY: occasionally a whole ward goes into crisis (depth 4+)
     this.crisis = (this.depth >= 4)
       ? this.genSeed(['crisis', this.depth], () => U.chance(0.2) ? U.choice(DATA.CRISES).id : null)
@@ -758,6 +812,7 @@ const G = {
     p.pillsThisFloor = 0;
     if (p.diag === 'depression' && !p.variant) p.blanket = true;   // High-Functioning has no blanket, only the mask
     if (p.variant && p.diag === 'ptsd') p._scar = 0;               // Weathered: the scars fade between floors
+    p._rosaryUsed = false;   // the rosary recovers its one grace each floor
     if (p._gymAdd) { p.dmg -= p._gymAdd; }
     p._gymAdd = 0;
     if (p.flags.pillowHeal) p.heal(2);
@@ -845,6 +900,12 @@ const G = {
     else { p.x = midX; p.y = RY + RH - 90; }
     if (p.allies) for (const a of p.allies) { a.x = p.x + U.rand(-36, 36); a.y = p.y + U.rand(-36, 36); }   // group files in with you
 
+    // THE AUDITOR follows you through the door
+    if (this.auditorHp > 0 && !this.auditorDown) {
+      const a = new Enemy('auditor', p.x < CW / 2 ? RX + RW - 70 : RX + 70, p.y < RY + RH / 2 ? RY + RH - 70 : RY + 70, this.depth, false, 1);
+      a.hp = this.auditorHp; a.spawnT = 1.0;
+      this.enemies.push(a);
+    }
     // FIRE DRILL: the rooms you've already cleared are burning behind you
     if (this.crisis === 'firedrill' && room.cleared && (room.type === 'normal' || room.type === 'padded') && room.spawned) {
       for (let i = 0; i < 2; i++) {
@@ -917,7 +978,7 @@ const G = {
       case 'shop': {
         room.cleared = true;
         const copayMul = (1 + (this.depth - 1) * 0.07) * (this.protocol === 'deductible' ? 2 : 1);   // copays climb with the ward (it's the healthcare system, baby)
-        const disc = p.flags.discount ? 0.5 : (this.wardPath === 'outpatient' ? 0.75 : 1);
+        const disc = (p.flags.discount ? 0.5 : (this.wardPath === 'outpatient' ? 0.75 : 1)) * (p.trinket === 'expiredcoupon' ? 0.7 : 1);
         const px = (n) => Math.max(1, Math.ceil(n * disc * copayMul));
         const yc = RY + RH / 2 + 30, yi = RY + RH / 2 - 80;
         room.stock = [
@@ -947,6 +1008,7 @@ const G = {
       case 'secret': {
         room.cleared = true;
         if (U.chance(0.3)) room.peds.push({ x: RX + 90, y: RY + 100, kind: 'claw', taken: false, uses: 3 });   // a claw machine, walled up in here
+        if (U.chance(0.4)) room.pickups.push(new Pickup('trinket', CW / 2 + U.rand(-60, 60), RY + RH / 2 - 60));   // someone's personal effects
         for (let i = 0; i < U.randi(2, 4); i++) room.pickups.push(new Pickup(U.choice(['coin', 'coin', 'nickel', 'pill']), CW / 2 + U.rand(-90, 90), RY + RH / 2 + U.rand(-60, 60)));
         if (U.chance(0.3) && !p.flags.untreated) {
           const pool = DATA.pickPool('special', p.items);
@@ -970,6 +1032,7 @@ const G = {
       case 'dayroom': {   // The Day Room — a sanctuary: a water cooler + a few other patients
         room.cleared = true;
         room.peds.push({ x: RX + 90, y: RY + RH / 2, kind: 'cooler', taken: false });
+        if (U.chance(0.3)) room.pickups.push(new Pickup('trinket', CW / 2 - 120, RY + RH / 2 + 70));   // lost property
         const npcs = U.shuffle(DATA.DAYROOM.map((_, i) => i)).slice(0, 3);
         npcs.forEach((ni, k) => room.peds.push({ x: CW / 2 - 20 + k * 150, y: RY + RH / 2 + (k % 2 ? 40 : -20), kind: 'npc', npcId: ni, taken: false }));
         // and one patient looking for a group to join (The Support Group)
@@ -1072,6 +1135,7 @@ const G = {
       SFX.play('error');
     }
     if (p.flags.gym && p._gymAdd < 1.5) { p._gymAdd += 0.15; p.dmg += 0.15; }
+    if (U.chance(0.03)) this.pickups.push(new Pickup('trinket', CW / 2 + U.rand(-50, 50), RY + RH / 2));
     if (U.chance(0.4)) {
       const type = U.choice(['coin', 'coin', 'half', 'pill', 'coin', 'key', 'bomb']);
       this.pickups.push(new Pickup(type, CW / 2 + U.rand(-40, 40), RY + RH / 2 + U.rand(-30, 30)));
@@ -1083,6 +1147,17 @@ const G = {
       const id = U.choice(pool.length ? pool : DATA.POOLS.special);
       p.addItem(id, this);
       this.toast('🥗 dispensed: ' + DATA.ITEMS[id].name, '#9db85a');
+    }
+    // THE AUDITOR wakes: your first cleared room opened the file
+    if (this.auditorArmed && this.auditorHp == null && !this.auditorDown && room.type === 'normal') {
+      this.auditorArmed = false;
+      const a = new Enemy('auditor', RX + 60, RY + 60, this.depth, false, 1);
+      a.spawnT = 0.8;
+      this.enemies.push(a);
+      this.auditorHp = a.hp;
+      this.setBanner('🔔 THE AUDITOR', 'a discrepancy was found — it has your file', 2.8);
+      this.toast('It will follow you. Doors mean nothing to it.', '#e05a5a');
+      SFX.play('boss');
     }
     // The Clinic pays out: the miniboss was guarding a med
     if (room.type === 'clinic' && !room._clinicPaid) {
@@ -1407,7 +1482,7 @@ const G = {
 
     const p = this.player;
     this.playerFired = false;
-    this.slowmo = Math.max(0, (this.slowmo || 0) - dt);
+    this.slowmo = Math.max(0, (this.slowmo || 0) - dt * (p.trinket === 'batteredwatch' ? 0.5 : 1));
     p.update(dt, this);   // PTSD near-miss / 5-4-3-2-1 may bump this.slowmo
     const smf = this.slowmo > 0 ? 0.4 : 1;   // hypervigilance: the threats crawl, you don't
 
@@ -1512,7 +1587,9 @@ const G = {
     }
 
     // room clear (charmed allies don't count as threats keeping the doors shut)
-    const hostiles = this.enemies.some(e => !e.charmed);
+    const aud = this.enemies.find(e => e.id === 'auditor' && !e.dying);
+    if (aud) this.auditorHp = aud.hp;   // the file follows you
+    const hostiles = this.enemies.some(e => !e.charmed && e.id !== 'auditor');   // the Auditor never blocks the doors — run if you want
     if (!room.cleared && (room.type === 'normal' || room.type === 'padded' || room.type === 'clinic') && room.spawned && !hostiles) this.onRoomCleared();
     if (!room.cleared && room.type === 'boss' && this.boss && this.boss.dead && this.enemies.length === 0 && !room.cleared) {
       // onBossDead already ran via boss.die
@@ -1557,9 +1634,9 @@ const G = {
         return;
       } else if (ped.kind === 'vending') {   // Commissary: 3¢ for whatever falls
         if (this.machineCd <= 0) {
-          if (p.coins < 3) { if (this.lockCd <= 0) { this.lockCd = 1.2; this.texts.push(new FloatText(ped.x, ped.y - 44, 'need 3¢', '#e8c84c')); SFX.play('error'); } }
+          if (p.coins < (p.trinket === 'wristband' ? 2 : 3)) { if (this.lockCd <= 0) { this.lockCd = 1.2; this.texts.push(new FloatText(ped.x, ped.y - 44, 'need 3¢', '#e8c84c')); SFX.play('error'); } }
           else {
-            this.machineCd = 1.1; p.coins -= 3; ped.uses--;
+            this.machineCd = 1.1; p.coins -= (p.trinket === 'wristband' ? 2 : 3); ped.uses--;
             const roll = Math.random(); SFX.play('coin');
             if (roll < 0.42) { p.heal(1); this.texts.push(new FloatText(ped.x, ped.y - 40, '🍫 snack +♥', '#8fd05a')); }
             else if (roll < 0.60) { this.pickups.push(new Pickup('pill', ped.x + 26, ped.y + 30)); this.texts.push(new FloatText(ped.x, ped.y - 40, '💊 something rolled out', '#b86bff')); }
@@ -1571,9 +1648,9 @@ const G = {
         }
       } else if (ped.kind === 'claw') {   // Commissary: 5¢, three tries at the plush
         if (this.machineCd <= 0) {
-          if (p.coins < 5) { if (this.lockCd <= 0) { this.lockCd = 1.2; this.texts.push(new FloatText(ped.x, ped.y - 44, 'need 5¢', '#e8c84c')); SFX.play('error'); } }
+          if (p.coins < (p.trinket === 'wristband' ? 4 : 5)) { if (this.lockCd <= 0) { this.lockCd = 1.2; this.texts.push(new FloatText(ped.x, ped.y - 44, 'need 5¢', '#e8c84c')); SFX.play('error'); } }
           else {
-            this.machineCd = 1.2; p.coins -= 5; ped.uses--;
+            this.machineCd = 1.2; p.coins -= (p.trinket === 'wristband' ? 4 : 5); ped.uses--;
             const chance = Math.min(0.6, 0.25 + (p.luck || 0) * 0.05);
             if (U.chance(chance)) {
               ped.taken = true;
@@ -1587,9 +1664,9 @@ const G = {
         }
       } else if (ped.kind === 'horoscope') {   // Commissary: 2¢ for your fortune (it's binding)
         if (this.machineCd <= 0) {
-          if (p.coins < 2) { if (this.lockCd <= 0) { this.lockCd = 1.2; this.texts.push(new FloatText(ped.x, ped.y - 44, 'need 2¢', '#e8c84c')); SFX.play('error'); } }
+          if (p.coins < (p.trinket === 'wristband' ? 1 : 2)) { if (this.lockCd <= 0) { this.lockCd = 1.2; this.texts.push(new FloatText(ped.x, ped.y - 44, 'need 2¢', '#e8c84c')); SFX.play('error'); } }
           else {
-            this.machineCd = 1.4; p.coins -= 2; ped.taken = true;
+            this.machineCd = 1.4; p.coins -= (p.trinket === 'wristband' ? 1 : 2); ped.taken = true;
             const f = U.choice(DATA.HOROSCOPES);
             try { f.apply(p, this); } catch (e) { }
             this.toast('🔮 ' + f.text, '#c8b0e0'); SFX.play('voice');

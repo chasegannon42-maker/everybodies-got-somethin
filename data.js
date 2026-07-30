@@ -353,7 +353,8 @@ DATA.ACHIEVEMENTS = [
   { id: 'systemDown', name: "Out of Network",      desc: "Dismantle THE SYSTEM at Ward 100.",               hint: "Descend one hundred wards. All of them.",  check: m => (m.systemKills || 0) >= 1 },
   { id: 'protocolFirst', name: "Informed Consent", desc: "Complete a Challenge Protocol.",                  hint: "Survive one of the ten Protocols to Ward 6.", check: m => Object.keys(m.protocolsDone || {}).length >= 1 },
   { id: 'protocolFive', name: "Peer-Reviewed",     desc: "Complete 5 Challenge Protocols.",                 hint: "The methodology is sound.",                check: m => Object.keys(m.protocolsDone || {}).length >= 5 },
-  { id: 'boardDown', name: "Golden Parachute",     desc: "Dissolve THE BOARD at the top of the Ascent.",    hint: "After Ward 5, take the elevator UP.",      check: m => (m.boardKills || 0) >= 1 }
+  { id: 'boardDown', name: "Golden Parachute",     desc: "Dissolve THE BOARD at the top of the Ascent.",    hint: "After Ward 5, take the elevator UP.",      check: m => (m.boardKills || 0) >= 1 },
+  { id: 'auditClean', name: "Clean Books",         desc: "Put down THE AUDITOR.",                           hint: "Sometimes the thing follows you. Turn around.", check: m => (m.auditorKills || 0) >= 1 }
 ];
 DATA.checkAchievements = function (m) {
   if (!m.unlocks) m.unlocks = {};
@@ -402,6 +403,8 @@ DATA.ENEMIES = {
   spiral:    { name: "The Spiral", hp: 9, spd: 0, r: 13, dmg: 1, beh: 'orbit', clr: '#d08ab0' },
   comparison:{ name: "The Comparison", hp: 14, spd: 62, r: 16, dmg: 1, beh: 'compare', clr: '#9ab86a' },
   waitingnum:{ name: "Now Serving", hp: 10, spd: 0, r: 16, dmg: 1, beh: 'ticket', clr: '#e8dcc0' },
+  /* --- the roaming hunter --- */
+  auditor:  { name: "THE AUDITOR", hp: 135, spd: 58, r: 22, dmg: 1, beh: 'auditor', clr: '#a8a29a', shotCd: 3.4, bulSpd: 195 },
   /* --- ward minibosses (clinic rooms) --- */
   chargenurse: { name: "THE CHARGE NURSE", hp: 55, spd: 42, r: 24, dmg: 1, beh: 'nursey', clr: '#e8ecf0', shotCd: 0.55, bulSpd: 210 },
   resident:    { name: "THE RESIDENT", hp: 48, spd: 58, r: 22, dmg: 1, beh: 'resident', clr: '#7ab8a0', bulSpd: 180 },
@@ -488,6 +491,7 @@ DATA.CODEX_CHART = {
     spiral: "It starts wide and gets closer. It always gets closer.",
     comparison: "Everyone's doing better than you. The healthier you look, the harder it tries.",
     waitingnum: "NOW SERVING #47. You are #112. When the counter hits zero, everyone loses it.",
+    auditor: "It found a discrepancy. It follows you room to room until the books balance. The books are you.",
     chargenurse: "Runs the floor. Sees everything. If you're moving, you're a problem — and she solves problems.",
     resident: "Thirty hours into the shift, doing an impression of every boss he's ever seen. Badly.",
     orderly: "Not angry. Not fast. Just always, always closer than he was."
@@ -698,6 +702,24 @@ DATA.SIDE_EFFECTS = [
   { id: 'restless',       name: "Restlessness",   icon: "⚡", desc: "Akathisia — everything on this ward moves faster." },
   { id: 'hypervigilance', name: "Hypervigilance", icon: "👁", desc: "You can't relax. Enemy shots fly sharper here." },
   { id: 'rumination',     name: "Rumination",     icon: "🔁", desc: "You keep coming back to it — each room's threat returns once." }
+];
+
+/* ============ PERSONAL EFFECTS (trinkets) ============
+   Small held charms — one slot, swap freely by walking over another.
+   Effects are checked at their sites via p.trinket === id. */
+DATA.TRINKETS = [
+  { id: 'luckypen',    name: "Lucky Pen",          icon: '🖊', desc: "The one that signed something good, once. 10% of your tears hit twice as hard." },
+  { id: 'expiredcoupon', name: "Expired Coupon",   icon: '🎫', desc: "They never check the date. Pharmacy shelf prices −30%." },
+  { id: 'stressball',  name: "Stress Ball",        icon: '🟡', desc: "Squeezed on impact — getting hit wipes the bullets around you." },
+  { id: 'rosary',      name: "Grandma's Rosary",   icon: '📿', desc: "Once per floor, a killing blow leaves you at half a heart instead." },
+  { id: 'fidgetcube',  name: "Fidget Cube",        icon: '🎲', desc: "Something to do with your hands. Your PRN ability recharges 25% faster." },
+  { id: 'stickynote',  name: "Sticky Note",        icon: '🗒', desc: "\"blue = good??\" — pills are identified while you hold this." },
+  { id: 'hallpass',    name: "Hall Pass",          icon: '🪪', desc: "You're allowed to be here. +10% speed in rooms you've already cleared." },
+  { id: 'paperclip',   name: "Paperclip Chain",    icon: '📎', desc: "Holds your claims together — Claim Forms explode 35% bigger." },
+  { id: 'wristband',   name: "Visitor Wristband",  icon: '🎗', desc: "Practically staff. Commissary machines charge you 1¢ less." },
+  { id: 'thermometer', name: "Glass Thermometer",  icon: '🌡', desc: "You can just… tell. Enemy health bars are visible." },
+  { id: 'earplugs',    name: "Foam Earplugs",      icon: '🔇', desc: "The noise sorts itself out. Hallucinations shimmer — you can tell what's real." },
+  { id: 'batteredwatch', name: "Battered Watch",   icon: '⌚', desc: "It runs slow, and so does everything else — slow-motion moments last twice as long." }
 ];
 
 /* ============ CHALLENGE PROTOCOLS (curated rule-set runs) ============

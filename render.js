@@ -724,6 +724,20 @@ const Render = {
       else if (pk.type === 'pill') this.drawPillIcon(pk.x, pk.y + bob, DATA.PILL_COLORS[pk.colorIdx]);
       else if (pk.type === 'key') this.drawKeyIcon(pk.x, pk.y + bob);
       else if (pk.type === 'bomb') this.drawBombIcon(pk.x, pk.y + bob);
+      else if (pk.type === 'trinket') {   // a personal effect, glinting
+        const T2 = DATA.TRINKETS.find(t2 => t2.id === pk.trinketId);
+        const gl = ctx.createRadialGradient(pk.x, pk.y + bob, 2, pk.x, pk.y + bob, 18);
+        gl.addColorStop(0, 'rgba(200,176,224,0.4)'); gl.addColorStop(1, 'rgba(200,176,224,0)');
+        ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(pk.x, pk.y + bob, 18, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#f4eee0'; this.rr(ctx, pk.x - 9, pk.y + bob - 9, 18, 18, 4); ctx.fill();
+        ctx.strokeStyle = '#8a7aa0'; ctx.lineWidth = 1.6; this.rr(ctx, pk.x - 9, pk.y + bob - 9, 18, 18, 4); ctx.stroke();
+        ctx.font = this.font(11); ctx.textAlign = 'center'; ctx.fillStyle = '#4a4058';
+        ctx.fillText(T2 ? T2.icon : '❔', pk.x, pk.y + bob + 4);
+        if (T2 && U.dist(G.player.x, G.player.y, pk.x, pk.y) < 70) {
+          ctx.fillStyle = '#c8b0e0'; ctx.font = this.font(10, true);
+          ctx.fillText(T2.name, pk.x, pk.y - 18);
+        }
+      }
     }
 
     // bombs placed
@@ -1141,7 +1155,7 @@ const Render = {
       ctx.beginPath(); ctx.arc(0, 0, e.r + 6 + e.spawnT * 20, 0, TAU); ctx.stroke();
     }
     // fakes shimmer if you can see them
-    if (e.fake && (G.player.flags.seeFakes)) {
+    if (e.fake && (G.player.flags.seeFakes || G.player.trinket === 'earplugs')) {
       ctx.globalAlpha *= 0.55 + Math.sin(G.t * 6) * 0.25;
     }
     const flash = e.hitFlash > 0;
@@ -1471,6 +1485,36 @@ const Render = {
         ctx.moveTo(e.r * 0.8, -e.r * 0.75); ctx.lineTo(e.r * 0.8 + 5, -e.r * 0.75 + 8); ctx.lineTo(e.r * 0.8 - 5, -e.r * 0.75 + 8); ctx.closePath(); ctx.fill();
         break;
       }
+      case 'auditor': { // an adding machine that learned to walk
+        // heavy grey chassis
+        const ag = ctx.createLinearGradient(0, -e.r, 0, e.r);
+        ag.addColorStop(0, flash ? '#fff' : '#b8b2a8'); ag.addColorStop(1, flash ? '#eee' : '#8a847a');
+        ctx.fillStyle = ag;
+        this.rr(ctx, -e.r * 0.85, -e.r * 0.9, e.r * 1.7, e.r * 1.8, 6); ctx.fill();
+        ctx.strokeStyle = '#5a544a'; ctx.lineWidth = 2.5;
+        this.rr(ctx, -e.r * 0.85, -e.r * 0.9, e.r * 1.7, e.r * 1.8, 6); ctx.stroke();
+        // the tape, scrolling your file out the top
+        ctx.save(); ctx.translate(0, -e.r * 0.9);
+        ctx.fillStyle = '#f4eee0';
+        const th = 16 + Math.sin(G.t * 2) * 3;
+        ctx.beginPath(); ctx.moveTo(-8, 0); ctx.lineTo(-8, -th); ctx.quadraticCurveTo(-6, -th - 6, 2, -th - 4); ctx.lineTo(8, -th + 2); ctx.lineTo(8, 0); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = 'rgba(90,70,50,0.5)'; ctx.lineWidth = 1;
+        const scroll = (G.t * 10) % 5;
+        for (let i = 0; i < 3; i++) { const ly = -3 - i * 5 - scroll; if (ly > -th + 2) { ctx.beginPath(); ctx.moveTo(-5, ly); ctx.lineTo(5, ly); ctx.stroke(); } }
+        ctx.restore();
+        // one red scanning eye
+        ctx.fillStyle = '#2c2028'; this.rr(ctx, -e.r * 0.6, -e.r * 0.5, e.r * 1.2, e.r * 0.5, 4); ctx.fill();
+        const ex = Math.sin(G.t * 2.6) * e.r * 0.4;
+        ctx.fillStyle = '#e04040'; ctx.beginPath(); ctx.arc(ex, -e.r * 0.25, 4, 0, TAU); ctx.fill();
+        ctx.fillStyle = 'rgba(224,64,64,0.35)'; ctx.beginPath(); ctx.arc(ex, -e.r * 0.25, 8, 0, TAU); ctx.fill();
+        // number keys
+        ctx.fillStyle = '#6a645a';
+        for (let r2 = 0; r2 < 2; r2++) for (let c2 = 0; c2 < 3; c2++) this.rr(ctx, -e.r * 0.5 + c2 * e.r * 0.38, e.r * 0.05 + r2 * e.r * 0.34, e.r * 0.28, e.r * 0.24, 2), ctx.fill();
+        // name label
+        ctx.fillStyle = 'rgba(224,90,90,0.9)'; ctx.font = this.font(9, true); ctx.textAlign = 'center';
+        ctx.fillText('THE AUDITOR', 0, e.r + 14);
+        break;
+      }
       case 'chargenurse': { // starched authority with a clipboard
         this.orb(ctx, 0, 4, e.r, e.clr, flash);
         // stern face
@@ -1553,7 +1597,7 @@ const Render = {
     }
 
     // hp bar (webmd item)
-    if (G.player.flags.hpBars && !e.fake && !e.dying && e.hp < e.maxhp) {
+    if ((G.player.flags.hpBars || G.player.trinket === 'thermometer') && !e.fake && !e.dying && e.hp < e.maxhp) {
       ctx.fillStyle = 'rgba(20,14,20,0.6)';
       ctx.fillRect(e.x - 14, e.y - e.r - 12, 28, 4);
       ctx.fillStyle = '#7ad05a';
@@ -2500,7 +2544,7 @@ const Render = {
       ctx.fillStyle = 'rgba(240,232,216,0.75)';
       ctx.font = this.font(11, true);
       ctx.fillText(Input.usingTouch ? 'PILL' : 'Q', 390, 30);
-      if (p.flags.pillsKnown || G.pillKnown.has(G.pillAssign[p.pill])) {
+      if (p.flags.pillsKnown || p.trinket === 'stickynote' || G.pillKnown.has(G.pillAssign[p.pill])) {
         ctx.font = this.font(9);
         ctx.fillStyle = 'rgba(240,232,216,0.6)';
         const nm = DATA.PILLS[G.pillAssign[p.pill]].name;
@@ -2511,6 +2555,15 @@ const Render = {
       ctx.fillStyle = 'rgba(240,232,216,0.25)';
       ctx.font = this.font(11);
       ctx.fillText('no pill', 362, 30);
+    }
+
+    // trinket slot (tucked between the pill slot and the diagnosis chip)
+    if (p.trinket) {
+      const T2 = DATA.TRINKETS.find(t2 => t2.id === p.trinket);
+      ctx.strokeStyle = 'rgba(200,176,224,0.6)'; ctx.lineWidth = 1.6;
+      this.rr(ctx, 419, 12, 21, 21, 6); ctx.stroke();
+      ctx.font = this.font(11); ctx.textAlign = 'center';
+      ctx.fillStyle = '#e8e0f0'; ctx.fillText(T2 ? T2.icon : '❔', 429.5, 27);
     }
 
     // diagnosis chip

@@ -755,6 +755,61 @@ class Boss {
     }
 
     // contact damage (generic)
+    // ---------- DESPERATION: the original six get ugly below 25% ----------
+    const DESP = { gatekeeper: 'LOCKDOWN.', larperking: 'ALL OF THEM. AT ONCE.', adjuster: 'PAPER BLIZZARD.', withdrawal: 'THE SHAKES.', stigma: 'BLACKOUT.', burnout: 'EMBER RAIN.' };
+    if (DESP[this.id] && this.hp < this.maxhp * 0.25 && !this.dead) {
+      if (!this._desp) {
+        this._desp = true; this._despT = 1.2;
+        G.toast('“' + DESP[this.id] + '”', '#e05a5a');
+        G.shake = Math.max(G.shake, 10);
+        SFX.play('boss');
+      }
+      this._despT -= dt;
+      if (this._despT <= 0) {
+        switch (this.id) {
+          case 'gatekeeper':   // doors slam — slow full rings you must thread
+            this._despT = 4.6;
+            this.ring(18, 130, '#b8b0d0', U.rand(0, TAU));
+            SFX.play('lock');
+            break;
+          case 'larperking':   // every mask at once, cycling in fast-forward
+            this._despT = 2.4;
+            this.maskT = Math.min(this.maskT, 0.4);
+            this.ring(8, 165, '#e0c8b0', U.rand(0, TAU), this.aimP(G) + Math.PI, 0.8);
+            break;
+          case 'adjuster': {   // paperwork falls from the ceiling
+            this._despT = 0.55;
+            for (let i = 0; i < 2; i++) {
+              const bx = RX + U.rand(20, RW - 20);
+              const b = new EBullet(bx, RY + 6, U.rand(-25, 25), U.rand(95, 130), this.dmg, '#e8e0ce');
+              b._src = this.id; b.life = 6;
+              G.eBullets.push(b);
+            }
+            break;
+          }
+          case 'withdrawal':   // the whole room shakes apart
+            this._despT = 3.2;
+            G.shake = Math.max(G.shake, 12);
+            this.ring(10, 150, '#c8a0a0', U.rand(0, TAU));
+            SFX.play('boom');
+            break;
+          case 'stigma':   // the lights go — only its shots glow
+            this._despT = 2.2;
+            G.darkTarget = Math.max(G.darkTarget, 0.78);
+            for (const off of [-0.2, 0, 0.2]) this.bullet(this.aimP(G) + off, 190, '#e8b0f0');
+            break;
+          case 'burnout': {   // embers rain across the floor
+            this._despT = 2.4;
+            const zx = U.clamp(p.x + U.rand(-140, 140), RX + 50, RX + RW - 50);
+            const zy = U.clamp(p.y + U.rand(-110, 110), RY + 50, RY + RH - 50);
+            G.zones.push(new Zone(zx, zy, 34, 4.5, 'ember', '#e07830'));
+            SFX.play('whoosh');
+            break;
+          }
+        }
+      }
+    }
+
     if (this.id !== 'burnout' && p.iframes <= 0 && U.dist(this.x, this.y, p.x, p.y) < this.r + p.r - 6) {
       p.hurt(this.dmg, G, this.id);
     }

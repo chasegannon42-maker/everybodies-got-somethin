@@ -135,6 +135,7 @@ class Player {
     this.compulsion = 0; this.buffT = 0; this._hadLive = false;   // OCD
     this.lastHitT = 999; this.startleT = 0;   // PTSD (On Edge timer + startle cooldown)
     this.sleep = 100; this.wired = false; this.napActive = 0; this._halluCd = 0; this._microCd = 0;   // Insomnia
+    this.trinket = null; this._rosaryUsed = false;   // Personal Effects (held charm)
     this.adren = false;
     this.blanket = (diagId === 'depression');
     this.pillsThisFloor = 0;
@@ -212,6 +213,7 @@ class Player {
       else s *= this.mania ? 1.3 : 0.85;
     }
     if (this.espT > 0) s *= 1.5;   // ☕ Espresso Shot
+    if (this.trinket === 'hallpass' && G && G.room && G.room.cleared) s *= 1.1;   // allowed to be here
     if (this.adren) s *= 1.2;
     if (this.diag === 'insomnia' && this.wired) s *= 1.08;   // jittery, running on fumes
     if (this.tempSlow > 0) s *= 0.6;
@@ -337,7 +339,7 @@ class Player {
   update(dt, G) {
     this.iframes -= dt; this.hurtFlash -= dt; this.itemHold -= dt;
     this.tempSlow -= dt; this.tearTimer -= dt;
-    if (this.abilCd > 0) this.abilCd -= dt;
+    if (this.abilCd > 0) this.abilCd -= dt * (this.trinket === 'fidgetcube' ? 1.25 : 1);   // the cube keeps your hands busy
     if (this.espT > 0) this.espT -= dt;   // ☕ Espresso wears off
     if (this.cocoonT > 0) { this.cocoonT -= dt; this.iframes = Math.max(this.iframes, 0.05); }
 
@@ -535,6 +537,14 @@ class Player {
 
   hurt(n, G, src) {
     if (this.iframes > 0 || this.dead) return;
+    // Grandma's Rosary: once per floor, a killing blow leaves you standing
+    if (this.trinket === 'rosary' && !this._rosaryUsed && this.hp - n <= 0 && src !== 'timeslot') {
+      this._rosaryUsed = true;
+      this.hp = 1; this.iframes = 1.6; this.hurtFlash = 0.35;
+      G.toast('📿 The rosary held. Once.', '#e8c84c');
+      G.shake = Math.max(G.shake, 8); SFX.play('whoosh');
+      return;
+    }
     if (this.diag === 'depression' && this.blanket) {
       this.blanket = false;
       this.iframes = 1.2;
@@ -554,6 +564,11 @@ class Player {
     if (this.variant && this.diag === 'depression' && this.hp > 0) { this.dmg += 0.35; G.texts.push(new FloatText(this.x, this.y - 30, '“I\'m fine.” +dmg', '#5d8aa8')); }   // THE MASK: it fuels you
     G.floorHits = (G.floorHits || 0) + 1;
     G.shake = Math.max(G.shake, 9);
+    // Stress Ball: squeezed on impact — clears the air around you
+    if (this.trinket === 'stressball') {
+      for (const b of G.eBullets) if (U.dist(this.x, this.y, b.x, b.y) < 130) b.fizzle(G);
+      for (let i = 0; i < 8; i++) { const a = (i / 8) * TAU; G.parts.push(new Particle(this.x, this.y, Math.cos(a) * 190, Math.sin(a) * 190, 0.3, '#e8c84c', 3)); }
+    }
     SFX.play('hurt');
     Haptics.buzz(55, 0);
     if (this.flags.hurtNova) {
@@ -643,9 +658,10 @@ class Tear {
         let d = this.dmg;
         if (G.player.flags.hyperfix && G.hyperfixType === e.id) d *= 1.5;
         if (G.player.flags.hpBars && e.hp >= e.maxhp) d *= 1.15;
+        if (G.player.trinket === 'luckypen' && !this._ally && U.chance(0.1)) { d *= 2; G.texts.push(new FloatText(e.x, e.y - 18, 'signed!', '#e8c84c')); }
         e.hurt(d, G);
-        // Peer Support: a chance the shot recruits them to the group instead of just hurting
-        if (G.player.flags.charm && !e.fake && !e.dying && e.hp > 0 && U.chance(0.16)) {
+        // Peer Support: a chance the shot recruits them to the group instead of just hurting (the Auditor is unrecruitable)
+        if (G.player.flags.charm && !e.fake && !e.dying && e.hp > 0 && e.id !== 'auditor' && U.chance(0.16)) {
           e.charmed = true; e.charmIdleT = 0; e.hp = Math.max(e.hp, e.maxhp * 0.5);
           G.toast('recruited to the group', '#8fd05a'); SFX.play('heal');
           for (let i = 0; i < 8; i++) { const a = (i / 8) * TAU; G.parts.push(new Particle(e.x, e.y, Math.cos(a) * 120, Math.sin(a) * 120, 0.5, '#8fd05a', 3)); }
@@ -1025,6 +1041,18 @@ class Enemy {
         this.x += Math.cos(a) * S * vigor * dt; this.y += Math.sin(a) * S * vigor * dt;
         break;
       }
+      case 'auditor': {   // THE AUDITOR: it has your file and all the time in the world
+        const a = U.ang(this.x, this.y, p.x, p.y);
+        this.x += Math.cos(a) * S * dt; this.y += Math.sin(a) * S * dt;
+        this.shotT -= dt;
+        if (this.shotT <= 0 && !this.fake) {
+          this.shotT = this.shotCd;
+          const aa = this.aimP ? 0 : U.ang(this.x, this.y, p.x, p.y);
+          for (let i = 0; i < 4; i++) this.fireAt(G, p.x, p.y, this.bulSpd, '#c8c0b0', (i - 1.5) * 0.22);
+          SFX.play('stamp');
+        }
+        break;
+      }
       case 'nursey': {   // THE CHARGE NURSE: if you're moving, you're a problem
         // slow authoritative drift to mid-room
         const tx = RX + RW / 2 + Math.sin(this.t * 0.8) * 120, ty = RY + 120 + Math.sin(this.t * 1.3) * 30;
@@ -1179,6 +1207,16 @@ class Enemy {
       }
     }
     if (this.beh === 'bomber') { this.explode(G); return; }
+    // THE AUDITOR goes down: the books balance in your favor
+    if (this.id === 'auditor' && !this.fake) {
+      G.auditorHp = 0; G.auditorDown = true;
+      for (let i = 0; i < 8; i++) G.pickups.push(new Pickup('coin', this.x + U.rand(-40, 40), this.y + U.rand(-30, 30)));
+      G.pickups.push(new Pickup('full', this.x, this.y - 20));
+      G.pickups.push(new Pickup('trinket', this.x + 30, this.y + 10));
+      Meta.data.auditorKills = (Meta.data.auditorKills || 0) + 1; Meta.save();
+      G.toast('🔔 Audit closed. No further action. (For now.)', '#8fd05a');
+      if (G.checkUnlocks) G.checkUnlocks();
+    }
     // Litigious protocol: everything that goes down drops paperwork
     if (G.protocol === 'litigious' && !this.fake && U.chance(0.25)) G.pickups.push(new Pickup('bomb', this.x + U.rand(-10, 10), this.y + U.rand(-10, 10)));
     // Copay Collector coughs it all back up (plus interest)
@@ -1233,6 +1271,7 @@ class Pickup {
     this.type = type; this.x = x; this.y = y;
     this.t = U.rand(0, 3); this.dead = false;
     this.colorIdx = type === 'pill' ? U.randi(0, 9) : 0;
+    this.trinketId = type === 'trinket' ? U.choice(DATA.TRINKETS).id : null;
     this.vx = U.rand(-40, 40); this.vy = U.rand(-40, 40); this.settle = 0.3;
   }
   update(dt, G) {
@@ -1244,6 +1283,7 @@ class Pickup {
       this.y = U.clamp(this.y, RY + 14, RY + RH - 14);
     }
     const p = G.player;
+    if (this._grabCd > 0) { this._grabCd -= dt; return; }   // a just-dropped trinket won't leap back into your hand
     if (U.dist(this.x, this.y, p.x, p.y) < 20 + p.r) {
       switch (this.type) {
         case 'coin': p.coins++; SFX.play('coin'); if (G.goalEvent) G.goalEvent('coin', 1); break;
@@ -1255,6 +1295,18 @@ class Pickup {
           p.pill = this.colorIdx; SFX.play('pickup'); break;
         case 'key': p.keys++; SFX.play('pickup'); break;
         case 'bomb': p.bombs++; SFX.play('pickup'); break;
+        case 'trinket': {   // Personal Effects: one slot — swap what you're holding
+          const T2 = DATA.TRINKETS.find(t2 => t2.id === this.trinketId) || DATA.TRINKETS[0];
+          if (p.trinket) {
+            const old = new Pickup('trinket', this.x + 24, this.y + 8);
+            old.trinketId = p.trinket; old.settle = 0.4; old._grabCd = 1.2;
+            G.pickups.push(old);
+          }
+          p.trinket = T2.id;
+          G.toast(T2.icon + ' ' + T2.name + ' — ' + T2.desc, '#c8b0e0');
+          SFX.play('item');
+          break;
+        }
       }
       this.dead = true;
     }
@@ -1268,7 +1320,8 @@ class BombEnt {
     this.fuse -= dt;
     if (this.fuse <= 0) {
       this.dead = true;
-      G.explode(this.x, this.y, 95, 32);
+      const mul = G.player && G.player.trinket === 'paperclip' ? 1.35 : 1;   // the chain holds the claim together
+      G.explode(this.x, this.y, 95 * mul, 32 * mul);
     }
   }
 }
