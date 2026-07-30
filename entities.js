@@ -161,6 +161,7 @@ class Player {
     if (diagId === 'ptsd') { this.maxhp = 6; this.hp = 6; this.iframeTime = 1.4; }   // hypervigilant; a hit lingers longer
     if (diagId === 'insomnia') { this.maxhp = 6; this.hp = 6; }   // you don't run on hearts, you run on Sleep
     if (diagId === 'fine') { this.flags.fineMode = true; }
+    this.baseDiag = diagId;   // the Undiagnosed keeps 'undiag' here while p.diag swaps per floor
     // Second Opinion overrides — one strong rule-flip each, applied over the base kit
     if (this.variant) {
       if (diagId === 'adhd') { this._lastMv = { x: 0, y: -1 }; }                               // NO BRAKES
@@ -511,6 +512,24 @@ class Player {
 
     for (const f of this.familiars) f.update(dt, G);
     for (const a of this.allies) a.update(dt, G);
+  }
+
+  /* The Undiagnosed: Dr. Walrus changes his mind — swap the whole mechanical identity */
+  rediagnose(nd) {
+    this.diag = nd;
+    // reset every per-diagnosis state machine so the new kit starts clean
+    this.moodT = 0; this.mania = true;
+    this.focusT = 0; this.focused = false; this.buffT = 0;
+    this.compulsion = 0; this._hadLive = false;
+    this.lastHitT = 999; this.startleT = 0;
+    this.sleep = 100; this.wired = false; this.napActive = 0; this._halluCd = 0; this._microCd = 0;
+    this.adren = false; this._panicT = 0;
+    this.blanket = (nd === 'depression');
+    this.cocoonT = 0; this.dashT = 0; this.espT = 0;
+    this._scar = 0;
+    this.abil = (DATA.ABILITIES && DATA.ABILITIES[nd]) || null;
+    this.abilMax = this.abil ? this.abil.cd : 0;
+    this.abilCd = Math.min(this.abilCd, this.abilMax);
   }
 
   /* keystone prescriptions are exclusive — a new one replaces the old (your prescription changed) */

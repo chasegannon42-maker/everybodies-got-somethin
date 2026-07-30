@@ -264,6 +264,7 @@ const G = {
         </div>
         ${(() => { const S = this.loadCheckpoint(); if (!S || !DATA.DIAG[S.diag]) return ''; const nm = S.variant && DATA.DIAG2 && DATA.DIAG2[S.diag] ? DATA.DIAG2[S.diag].name : DATA.DIAG[S.diag].name; return `<button class="btn" id="bContinue" style="border-color:#8fd0e0">📂 CONTINUE — ${nm} · WARD ${S.depth}</button>`; })()}
         <button class="btn" id="bStart">🩺 START CHECKUP</button>
+        <button class="btn minor" id="bHub">🚪 THE WAITING ROOM (walk around)</button>
         <button class="btn" id="bDaily">🗓️ DAILY WARD</button>
         <button class="btn minor" id="bFiles">📁 PATIENT FILES (choose your diagnosis)</button>
         <div class="btnrow">
@@ -290,6 +291,7 @@ const G = {
     const bCont = document.getElementById('bContinue');
     if (bCont) bCont.onclick = () => { SFX.init(); SFX.play('ui'); const S = this.loadCheckpoint(); if (S) this.resumeRun(S); else this.showTitle(); };
     document.getElementById('bStart').onclick = () => { SFX.init(); SFX.play('ui'); this.startCheckup(); };
+    const bh = document.getElementById('bHub'); if (bh) bh.onclick = () => { SFX.init(); SFX.play('ui'); this.showHub(); };
     document.getElementById('bDaily').onclick = () => { SFX.init(); SFX.play('ui'); this.showDaily(); };
     document.getElementById('bFiles').onclick = () => { SFX.init(); SFX.play('ui'); this.showFiles(); };
     document.getElementById('bPrognosis').onclick = () => { SFX.init(); SFX.play('ui'); this.showPrognosis(); };
@@ -308,6 +310,7 @@ const G = {
 
   /* settings overlay with SFX + music volume sliders; returnTo() restores the prior screen */
   showSettings(returnTo) {
+    this.state = 'settings';   // (also stops the hub from walking behind this overlay)
     SFX.init();
     const pct = v => Math.round(v * 100);
     const a = Meta.data.a11y || (Meta.data.a11y = { bulletContrast: false, reduceMotion: false, easy: false });
@@ -330,6 +333,13 @@ const G = {
         <button class="btn minor" id="bA11yMotion">${ct(a.reduceMotion, 'Reduced motion')}</button>
         <button class="btn minor" id="bA11yEasy">${ct(a.easy, 'Second Opinion (easier)')}</button>
         <button class="btn minor" id="bStoryToggle">${ct(!Meta.data.storyOff, 'Story cutscenes')}</button>
+        ${(() => {
+          const owned = DATA.HATS.filter(h => (Meta.data.unlocks || {})[h.ach]);
+          if (!owned.length) return '<div class="smallprint">👒 Hats are earned by achievements — go do something impressive.</div>';
+          const btns = [{ id: null, name: 'No hat' }].concat(owned).map(h =>
+            `<button class="btn minor" data-hat="${h.id || ''}" style="${Meta.data.hat === h.id ? 'outline:2px solid #e8c84c' : ''}">${h.name}</button>`).join('');
+          return `<div class="tagline" style="margin:10px 0 2px">Hat (earned)</div><div class="btnrow" style="flex-wrap:wrap">${btns}</div>`;
+        })()}
         <button class="btn" id="bSetBack">BACK</button>
         <div class="smallprint">Tip: press <span class="kbd">M</span> anytime to mute. Easy mode applies to your next run. Settings are saved on this device.</div>
       </div>`);
@@ -346,6 +356,7 @@ const G = {
     tog('bA11yEasy', 'easy', 'Second Opinion (easier)');
     const bst = document.getElementById('bStoryToggle');
     if (bst) bst.onclick = () => { SFX.play('ui'); Meta.data.storyOff = Meta.data.storyOff ? 0 : 1; Meta.save(); bst.textContent = ct(!Meta.data.storyOff, 'Story cutscenes'); };
+    document.querySelectorAll('[data-hat]').forEach(b => b.onclick = () => { SFX.play('ui'); Meta.data.hat = b.dataset.hat || null; Meta.save(); this.showSettings(returnTo); });
     document.getElementById('bSetBack').onclick = () => { SFX.play('ui'); returnTo(); };
   },
 
@@ -378,11 +389,12 @@ const G = {
   showFiles() {
     this.state = 'files';
     const fineOpen = Meta.data.fineSeen || Meta.data.walrusKills > 0;
-    const order = ['adhd', 'bipolar', 'depression', 'anxiety', 'schizo', 'ocd', 'ptsd', 'insomnia', 'fine'];
+    const order = ['adhd', 'bipolar', 'depression', 'anxiety', 'schizo', 'ocd', 'ptsd', 'insomnia', 'fine', 'undiag'];
     this._fvar = this._fvar || {};   // which cards are flipped to their Second Opinion
     const cards = order.map(id => {
       const D = DATA.DIAG[id];
-      const locked = id === 'fine' && !fineOpen;
+      const nineDone = ['adhd','bipolar','depression','anxiety','schizo','ocd','ptsd','insomnia','fine'].filter(d => (Meta.data.diagsPlayed||{})[d]).length >= 9;
+      const locked = (id === 'fine' && !fineOpen) || (id === 'undiag' && !nineDone);
       const best = (Meta.data.diagBest || {})[id];
       const soOpen = !locked && (best || 0) >= 6 && DATA.DIAG2 && DATA.DIAG2[id];   // beat the Ward-5 Walrus with the base
       const flipped = soOpen && this._fvar[id];
@@ -391,8 +403,8 @@ const G = {
         ${soOpen ? `<span class="soflip" data-f="${id}" title="Second Opinion" style="position:absolute;top:4px;right:6px;font-size:13px;cursor:pointer">⇄${flipped ? 'Ⅱ' : ''}</span>` : ''}
         <canvas width="84" height="84" data-cd="${id}" data-cv="${flipped ? 1 : 0}"></canvas>
         <div class="cname" style="color:${locked ? '#8a8078' : D.color}">${locked ? '?????' : (flipped ? D2.name : D.name)}</div>
-        <div class="cline">${locked ? 'tell the truth at a checkup' : (flipped ? D2.tag : D.tag)}</div>
-        <div class="cbest">${locked ? 'or defeat Dr. Walrus' : (flipped ? 'Ⅱ · second opinion' : (best ? 'best: ward ' + best : 'no chart yet'))}</div>
+        <div class="cline">${locked ? (id === 'undiag' ? 'play all nine diagnoses' : 'tell the truth at a checkup') : (flipped ? D2.tag : D.tag)}</div>
+        <div class="cbest">${locked ? (id === 'undiag' ? 'every chart, once' : 'or defeat Dr. Walrus') : (flipped ? 'Ⅱ · second opinion' : (best ? 'best: ward ' + best : 'no chart yet'))}</div>
       </button>`;
     }).join('');
     this.overlay(`
@@ -571,6 +583,7 @@ const G = {
       Meta.data.diagsPlayed[diagId] = 1;
       Meta.save();
     }
+    Meta.data.lastDiag = diagId; Meta.save();
     this.player = this.genSeed(['player'], () => new Player(diagId, this.variantRun));
     this.applyCodexPerks(this.player);   // rewards earned by completing chart tabs
     this.applyPrognosis(this.player);    // challenge-run start effects
@@ -600,6 +613,68 @@ const G = {
     this.hideOverlay();
     SFX.setMusic('run');
     document.body.classList.add('inrun');
+  },
+
+  /* ---------- The Waiting Room (walkable hub) ---------- */
+  showHub() {
+    this.state = 'hub';
+    this.hideOverlay();
+    document.body.classList.remove('inrun');
+    SFX.setMusic('dayroom');
+    const order = ['adhd', 'bipolar', 'depression', 'anxiety', 'schizo', 'ocd', 'ptsd', 'insomnia', 'fine', 'undiag'];
+    const fineOpen = Meta.data.fineSeen || Meta.data.walrusKills > 0;
+    const nineDone = order.slice(0, 9).filter(d => (Meta.data.diagsPlayed || {})[d]).length >= 9;
+    const unlocked = order.filter(id => !(id === 'fine' && !fineOpen) && !(id === 'undiag' && !nineDone));
+    const hp = new Player(Meta.data.lastDiag && DATA.DIAG[Meta.data.lastDiag] ? Meta.data.lastDiag : 'adhd');
+    hp.x = CW / 2; hp.y = 470;
+    const seats = unlocked.map((id, i) => {
+      const pl = new Player(id);
+      pl.x = 0; pl.y = 0; pl.aimAng = -Math.PI / 2; pl.noHat = true;   // the hat is yours, not theirs
+      return { id, pl, x: 175 + (i % 5) * 90, y: 300 + Math.floor(i / 5) * 92 };
+    });
+    this.hub = {
+      p: hp, seats, prompt: null,
+      stations: [
+        { x: 220, y: 118, r: 52, door: true, label: '🗓 DAILY',      act: () => this.showDaily() },
+        { x: 480, y: 150, r: 62, door: false, label: '🩺 CHECKUP',   hint: 'see Dr. Walrus (new run)', act: () => this.startCheckup() },
+        { x: 740, y: 118, r: 52, door: true, label: '🧪 PROTOCOLS',  act: () => this.showProtocols(() => this.showHub()) },
+        { x: 78, y: 300, r: 50, door: false, label: '🎲 PROGNOSIS',  hint: 'challenge runs', act: () => this.showPrognosis(() => this.showHub()) },
+        { x: 78, y: 440, r: 50, door: false, label: '🧠 TREATMENT',  hint: 'spend ◆ ' + (Meta.data.insight || 0), act: () => this.showTreatmentPlan(() => this.showHub()) },
+        { x: 884, y: 300, r: 50, door: false, label: '📖 CHART NOTES', hint: 'the story so far', act: () => this.showStoryGallery() },
+        { x: 884, y: 440, r: 50, door: false, label: '☠ BESTIARY',   hint: 'the management, itemized', act: () => this.showBestiary(() => this.showHub()) },
+        { x: 360, y: 96, r: 46, door: false, label: '📊 RUN HISTORY', hint: 'your receipts', act: () => this.showStats(() => this.showHub()) },
+        { x: 600, y: 96, r: 46, door: false, label: '🏆 UNLOCKS',    hint: 'the corkboard', act: () => this.showUnlocks(() => this.showHub()) },
+        { x: 140, y: 560, r: 48, door: false, label: '⚙ SETTINGS',   hint: 'the janitor closet', act: () => this.showSettings(() => this.showHub()) },
+        { x: 820, y: 560, r: 48, door: false, label: '📋 PATIENT CHART', hint: 'the codex', act: () => this.showCodex(() => this.showHub()) }
+      ]
+    };
+  },
+  hubUpdate(dt) {
+    const H = this.hub; if (!H) { this.showTitle(); return; }
+    const p = H.p;
+    const mv = Input.getMove();
+    p.moving = (Math.abs(mv.x) > 0.05 || Math.abs(mv.y) > 0.05);
+    if (p.moving) p.aimAng = Math.atan2(mv.y, mv.x);
+    p.x = U.clamp(p.x + mv.x * 250 * dt, 46, CW - 46);
+    p.y = U.clamp(p.y + mv.y * 250 * dt, 78, CH - 40);
+    if (Input.take('pause')) { this.showTitle(); return; }
+    // stations
+    H.prompt = null;
+    for (const s of H.stations) {
+      if (U.dist(p.x, p.y, s.x, s.y) < s.r) {
+        H.prompt = s;
+        if (s.door || Input.take('confirm') || Input.take('ability')) { SFX.play('door'); s.act(); return; }
+        break;
+      }
+    }
+    // seated patients: walk up + confirm to open their chart
+    if (!H.prompt) for (const seat of H.seats) {
+      if (U.dist(p.x, p.y, seat.x, seat.y) < 44) {
+        H.prompt = { label: DATA.DIAG[seat.id].name, hint: 'open their chart (start a run)', seat };
+        if (Input.take('confirm') || Input.take('ability')) { SFX.play('ui'); this.showCard(seat.id); return; }
+        break;
+      }
+    }
   },
 
   /* ---------- The Itemized Bill (post-run insurance statement) ---------- */
@@ -638,7 +713,7 @@ const G = {
     const p = this.player;
     try {
       const S = {
-        v: 1, diag: p.diag, variant: p.variant ? 1 : 0, depth: this.depth,
+        v: 1, diag: p.baseDiag === 'undiag' ? 'undiag' : p.diag, variant: p.variant ? 1 : 0, depth: this.depth,
         chronic: this.chronic ? 1 : 0, bossRush: this.bossRush ? 1 : 0, prognosis: this.prognosis || null, protocol: this.protocol || null, protoT: this.protoT, ascent: this.ascent ? 1 : 0, ascentBase: this.ascentBase || 0,
         lastBoss: this.lastBoss || null,
         flags: p.flags, items: p.items, comorbidities: p.comorbidities || [],
@@ -732,7 +807,7 @@ const G = {
     const walrus = (Meta.data.walrusKills || 0) > (this._startWalrusKills || 0);
     const cause = out === 'dead' ? (p._lastSrc || 'unknown') : out;
     const secs = Math.max(0, Math.round((Date.now() - (this._runStart || Date.now())) / 1000));
-    const rec = { t: this.todayKey(), diag: p.diag, mode, ward: this.depth, out, cause, cured: cured ? 1 : 0, walrus: walrus ? 1 : 0, kills: this.stats.kills, bosses: this.stats.bosses, items: this.stats.items, pills: this.stats.pills, secs, variant: p.variant ? 1 : 0, bill: this.runBill().total };
+    const rec = { t: this.todayKey(), diag: p.baseDiag === 'undiag' ? 'undiag' : p.diag, mode, ward: this.depth, out, cause, cured: cured ? 1 : 0, walrus: walrus ? 1 : 0, kills: this.stats.kills, bosses: this.stats.bosses, items: this.stats.items, pills: this.stats.pills, secs, variant: p.variant ? 1 : 0, bill: this.runBill().total };
     const log = Meta.data.runlog || (Meta.data.runlog = []);
     log.push(rec);
     while (log.length > 200) log.shift();
@@ -809,6 +884,14 @@ const G = {
     this.crisisDone = false; this.crisisFail = false;
     if (this.crisis === 'outage') this.floorDark = Math.max(this.floorDark, 0.6);
     const p = this.player;
+    // The Undiagnosed: a fresh opinion every floor
+    if (p.baseDiag === 'undiag') {
+      const pool = ['adhd', 'bipolar', 'depression', 'anxiety', 'schizo', 'ocd', 'ptsd', 'insomnia'].filter(d => d !== p.diag);
+      const nd = this.genSeed(['rediag', this.depth], () => U.choice(pool));
+      p.rediagnose(nd);
+      this.toast('🦭 “Actually… it\'s ' + DATA.DIAG[nd].name + '. Definitely. Probably.”', DATA.DIAG[nd].color);
+      SFX.play('stamp');
+    }
     p.pillsThisFloor = 0;
     if (p.diag === 'depression' && !p.variant) p.blanket = true;   // High-Functioning has no blanket, only the mask
     if (p.variant && p.diag === 'ptsd') p._scar = 0;               // Weathered: the scars fade between floors
@@ -921,6 +1004,17 @@ const G = {
     const bossTheme = ['founder', 'thesystem', 'thecure'].includes(this.bossId) ? 'superboss' : 'boss';   // the big three get the dread theme
     if (room.type === 'boss' && !room.cleared && room.bossPending) {
       this.boss = new Boss(this.bossId, this.depth, this);
+      // champion roll: past Ward 8, the rotation bosses can come back wrong
+      if (this.depth >= 8 && !['walrus', 'thecure', 'founder', 'thesystem', 'theboard'].includes(this.bossId)) {
+        const affix = this.genSeed(['champ', this.depth], () => U.chance(0.3) ? U.choice(DATA.BOSS_AFFIXES).id : null);
+        if (affix) {
+          const A = DATA.BOSS_AFFIXES.find(a => a.id === affix);
+          this.boss.affix = affix; this.boss.affixTint = A.tint;
+          if (affix === 'swift') this.boss.aggr = (this.boss.aggr || 1) * 1.25;
+          this.boss.name = A.name + ' ' + this.boss.name;
+          this.boss.sub = A.note;
+        }
+      }
       room.bossPending = false;
       this.setBanner(this.boss.name, this.boss.sub, 2.4);
       SFX.play('boss');
@@ -1240,6 +1334,10 @@ const G = {
       }
       this.pickups.push(new Pickup('full', CW / 2 + U.rand(-60, 60), RY + RH / 2 - 40));
       this.pickups.push(new Pickup('coin', CW / 2 + U.rand(-80, 80), RY + RH / 2));
+      if (this.boss && this.boss.affix) {   // champion bounty
+        this.pickups.push(new Pickup('nickel', CW / 2 - 50, RY + RH / 2 + 30));
+        this.pickups.push(new Pickup('pill', CW / 2 + 50, RY + RH / 2 + 30));
+      }
       room.trapdoor = this.trapdoor = { x: CW / 2, y: RY + RH / 2 - 100 };
       // Ward 5 only: the service elevator opens beside the trapdoor — the other direction
       if (this.depth === 5 && !this.ascent) {
@@ -1462,6 +1560,7 @@ const G = {
       if (this.descendT >= 1.25) { this.state = 'run'; }
       return;
     }
+    if (this.state === 'hub') { this.t += dt; this.hubUpdate(dt); return; }
     if (this.state !== 'run') return;
     this.t += dt;
     this.doorCd -= dt; this.lockCd -= dt; this.machineCd = (this.machineCd || 0) - dt;

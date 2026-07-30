@@ -23,6 +23,8 @@ const Render = {
       this.drawEntities(G);
       if (G.dark > 0.02) this.drawDarkness(G);
       this.drawHUD(G);
+    } else if (G.state === 'hub') {
+      this.drawHub(G);
     } else {
       this.drawMenuAmbient(G);   // atmospheric backdrop behind the menus (esp. the title)
     }
@@ -30,6 +32,99 @@ const Render = {
     if (G.banner) this.drawBanner(G);
     if (G.toasts.length) this.drawToasts(G);
     if (G.state === 'descend') this.drawDescend(G);
+  },
+
+  /* ============ The Waiting Room (walkable hub) ============ */
+  drawHub(G) {
+    const ctx = this.ctx, H = G.hub;
+    if (!H) return;
+    // bright waiting-room shell
+    const wg = ctx.createLinearGradient(0, 0, 0, CH * 0.42);
+    wg.addColorStop(0, '#cfe4e2'); wg.addColorStop(1, '#a8ccc8');
+    ctx.fillStyle = wg; ctx.fillRect(0, 0, CW, CH * 0.42);
+    const fg = ctx.createLinearGradient(0, CH * 0.42, 0, CH);
+    fg.addColorStop(0, '#cbbfa4'); fg.addColorStop(1, '#a89a7e');
+    ctx.fillStyle = fg; ctx.fillRect(0, CH * 0.42, CW, CH * 0.58);
+    ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.fillRect(0, CH * 0.42 - 5, CW, 5);
+    ctx.fillStyle = 'rgba(40,30,45,0.15)'; ctx.fillRect(0, CH * 0.42, CW, 4);
+    // floor tiles
+    ctx.strokeStyle = 'rgba(120,105,80,0.16)'; ctx.lineWidth = 1.5;
+    for (let x = 60; x < CW; x += 90) { ctx.beginPath(); ctx.moveTo(x, CH * 0.42); ctx.lineTo(x, CH); ctx.stroke(); }
+    for (let y = CH * 0.42 + 44; y < CH; y += 46) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(CW, y); ctx.stroke(); }
+    // light pools
+    for (let i = 0; i < 3; i++) {
+      const lx = CW * (0.22 + i * 0.28);
+      const lg = ctx.createRadialGradient(lx, 36, 8, lx, 36, 190);
+      lg.addColorStop(0, 'rgba(255,250,230,0.35)'); lg.addColorStop(1, 'rgba(255,250,230,0)');
+      ctx.fillStyle = lg; ctx.beginPath(); ctx.arc(lx, 36, 190, 0, TAU); ctx.fill();
+    }
+    // stations
+    for (const s of G.hub.stations) {
+      const near = H.prompt === s;
+      if (s.label.includes('DAILY') || s.label.includes('PROTOCOLS')) {   // wall doors
+        ctx.fillStyle = near ? '#8aa8b8' : '#7a8a99';
+        this.rr(ctx, s.x - 44, 30, 88, 150, 8); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.25)'; this.rr(ctx, s.x - 39, 35, 78, 12, 5); ctx.fill();
+        ctx.fillStyle = 'rgba(230,240,250,0.9)'; this.rr(ctx, s.x - 20, 52, 40, 44, 5); ctx.fill();
+        ctx.fillStyle = '#e8c84c'; ctx.beginPath(); ctx.arc(s.x + 28, 118, 4.5, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#f0ead6'; this.rr(ctx, s.x - 40, 4, 80, 20, 4); ctx.fill();
+        ctx.fillStyle = '#7a6a4a'; ctx.font = 'bold 11px Impact,"Arial Black",sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText(s.label.replace(/^\S+ /, ''), s.x, 18);
+      } else if (s.label.includes('CHECKUP')) {   // reception desk + the doctor
+        ctx.fillStyle = '#8a6a44'; this.rr(ctx, s.x - 110, s.y - 4, 220, 56, 10); ctx.fill();
+        ctx.fillStyle = '#9d7c52'; this.rr(ctx, s.x - 110, s.y - 16, 220, 20, 8); ctx.fill();
+        this.drawWalrusFace(ctx, s.x, s.y - 52, 0.6, G.t);
+        ctx.fillStyle = '#f0ead6'; this.rr(ctx, s.x - 62, s.y - 100, 124, 22, 4); ctx.fill();
+        ctx.fillStyle = '#7a6a4a'; ctx.font = 'bold 12px Impact,"Arial Black",sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText('RECEPTION', s.x, s.y - 84);
+      } else if (s.label.includes('HISTORY') || s.label.includes('UNLOCKS')) {   // wall posters
+        ctx.fillStyle = near ? '#f6f0dc' : '#efe6cc';
+        ctx.save(); ctx.translate(s.x, s.y - 34); ctx.rotate(s.x < CW / 2 ? -0.03 : 0.03);
+        this.rr(ctx, -38, -30, 76, 60, 3); ctx.fill();
+        ctx.strokeStyle = '#a8926a'; ctx.lineWidth = 2; this.rr(ctx, -38, -30, 76, 60, 3); ctx.stroke();
+        ctx.fillStyle = '#8a7a58'; ctx.font = this.font(20, true); ctx.textAlign = 'center';
+        ctx.fillText(s.label.includes('HISTORY') ? '📊' : '🏆', 0, 8);
+        ctx.restore();
+      } else {   // side furniture: shelves, closet, boards
+        ctx.fillStyle = near ? '#a8927a' : '#96826a';
+        this.rr(ctx, s.x - 34, s.y - 40, 68, 80, 8); ctx.fill();
+        ctx.strokeStyle = 'rgba(60,45,30,0.4)'; ctx.lineWidth = 2; this.rr(ctx, s.x - 34, s.y - 40, 68, 80, 8); ctx.stroke();
+        ctx.font = this.font(22, true); ctx.textAlign = 'center'; ctx.fillStyle = '#f4eee0';
+        ctx.fillText(s.label.slice(0, 2), s.x, s.y + 6);
+      }
+    }
+    // the chairs + seated patients
+    const prevCtx = this.ctx;
+    for (const seat of G.hub.seats) {
+      ctx.strokeStyle = '#7a6a58'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(seat.x - 16, seat.y + 22); ctx.lineTo(seat.x - 16, seat.y - 4); ctx.lineTo(seat.x + 16, seat.y - 4); ctx.lineTo(seat.x + 16, seat.y + 22); ctx.stroke(); ctx.lineCap = 'butt';
+      ctx.save(); ctx.translate(seat.x, seat.y); ctx.scale(1.05, 1.05);
+      seat.pl.x = 0; seat.pl.y = 0;
+      try { this.drawPlayer(seat.pl, { t: G.t }); } catch (e) { }
+      ctx.restore();
+    }
+    // commissary props in the corner (flavor)
+    ctx.save(); ctx.translate(CW - 130, CH - 74); ctx.scale(0.8, 0.8);
+    ctx.fillStyle = '#b04848'; this.rr(ctx, -22, -34, 44, 64, 5); ctx.fill();
+    ctx.fillStyle = 'rgba(200,230,240,0.85)'; this.rr(ctx, -16, -28, 24, 38, 3); ctx.fill();
+    ctx.restore();
+    // you
+    this.shadow(H.p.x, H.p.y + 14, 13, 5, 0.24);
+    try { this.drawPlayer(H.p, G); } catch (e) { }
+    // prompt
+    if (H.prompt) {
+      ctx.fillStyle = 'rgba(24,19,28,0.85)';
+      const label = H.prompt.label + (H.prompt.hint ? ' — ' + H.prompt.hint : '');
+      ctx.font = this.font(14, true); ctx.textAlign = 'center';
+      const tw = ctx.measureText(label).width + 30;
+      this.rr(ctx, CW / 2 - tw / 2, CH - 58, tw, 30, 8); ctx.fill();
+      ctx.fillStyle = '#f0e8d8';
+      ctx.fillText(label, CW / 2, CH - 38);
+      if (!H.prompt.door) { ctx.fillStyle = 'rgba(232,200,76,0.9)'; ctx.font = this.font(11, true); ctx.fillText('SPACE / ENTER', CW / 2, CH - 12); }
+    } else {
+      ctx.fillStyle = 'rgba(58,48,56,0.55)'; ctx.font = this.font(12, true); ctx.textAlign = 'center';
+      ctx.fillText('THE WAITING ROOM · walk into a door, or walk up + SPACE · ESC for the menu', CW / 2, CH - 14);
+    }
   },
 
   /* atmospheric menu backdrop: warm lamp glow, drifting dust, vignette (shows through the title's lighter scrim) */
@@ -1029,6 +1124,58 @@ const Render = {
       }
     }
 
+    // the Undiagnosed (portrait state, before the first floor's opinion lands)
+    if (p.diag === 'undiag') {
+      ctx.fillStyle = 'rgba(200,200,200,0.9)';
+      ctx.font = this.font(15, true); ctx.textAlign = 'center';
+      ctx.fillText('?', 0, -22 + Math.sin((G && G.t || 0) * 2.4) * 2);
+    }
+
+    // achievement hat (cosmetic, worn everywhere — but only by YOU, not every extra on screen)
+    const hat = Meta.data.hat;
+    if (hat && !p.noHat && (Meta.data.unlocks || {})[(DATA.HATS.find(h => h.id === hat) || {}).ach]) {
+      ctx.save(); ctx.translate(0, -19);
+      if (hat === 'crown') {
+        ctx.fillStyle = '#e8c84c';
+        ctx.beginPath(); ctx.moveTo(-10, 2); ctx.lineTo(-10, -6); ctx.lineTo(-5, -1); ctx.lineTo(0, -8); ctx.lineTo(5, -1); ctx.lineTo(10, -6); ctx.lineTo(10, 2); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = '#a8862a'; ctx.lineWidth = 1.2; ctx.stroke();
+        ctx.fillStyle = '#e05a6a'; ctx.beginPath(); ctx.arc(0, -1, 1.6, 0, TAU); ctx.fill();
+      } else if (hat === 'gradcap') {
+        ctx.fillStyle = '#2c2a36'; ctx.beginPath(); ctx.moveTo(-13, -2); ctx.lineTo(0, -8); ctx.lineTo(13, -2); ctx.lineTo(0, 4); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#3c3a48'; this.rr(ctx, -6, 0, 12, 4, 1.5); ctx.fill();
+        ctx.strokeStyle = '#e8c84c'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(0, -8); ctx.lineTo(9, -6); ctx.lineTo(9, 1); ctx.stroke();
+        ctx.fillStyle = '#e8c84c'; ctx.beginPath(); ctx.arc(9, 2.5, 1.8, 0, TAU); ctx.fill();
+      } else if (hat === 'hardhat') {
+        ctx.fillStyle = '#e8b93e'; ctx.beginPath(); ctx.arc(0, 1, 10, Math.PI, TAU); ctx.fill();
+        this.rr(ctx, -12, 0, 24, 3.5, 2); ctx.fill();
+        ctx.fillStyle = '#f4d878'; this.rr(ctx, -2.5, -9, 5, 6, 2); ctx.fill();
+      } else if (hat === 'plushhat') {
+        this.drawWalrusFace(ctx, 0, -2, 0.11, G ? G.t : 0);
+      } else if (hat === 'halo') {
+        ctx.strokeStyle = 'rgba(232,200,76,0.9)'; ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.ellipse(0, -7, 11, 3.5, 0, 0, TAU); ctx.stroke();
+        ctx.strokeStyle = 'rgba(255,240,180,0.5)'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.ellipse(0, -7, 11, 3.5, 0, 0, TAU); ctx.stroke();
+      } else if (hat === 'visor') {
+        ctx.fillStyle = 'rgba(60,138,90,0.85)';
+        ctx.beginPath(); ctx.moveTo(-11, 0); ctx.quadraticCurveTo(0, -7, 11, 0); ctx.lineTo(9, 3); ctx.quadraticCurveTo(0, -3, -9, 3); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = '#2c5a3a'; ctx.lineWidth = 1; ctx.stroke();
+      } else if (hat === 'ticket') {
+        ctx.save(); ctx.rotate(-0.12);
+        ctx.fillStyle = '#f2ead2'; this.rr(ctx, -8, -6, 16, 10, 2); ctx.fill();
+        ctx.strokeStyle = '#a08a5a'; ctx.lineWidth = 1; this.rr(ctx, -8, -6, 16, 10, 2); ctx.stroke();
+        ctx.fillStyle = '#8a7248'; ctx.font = this.font(6, true); ctx.textAlign = 'center'; ctx.fillText('#1', 0, 1);
+        ctx.restore();
+      } else if (hat === 'partyhat') {
+        ctx.fillStyle = '#b86bff';
+        ctx.beginPath(); ctx.moveTo(-7, 2); ctx.lineTo(0, -12); ctx.lineTo(7, 2); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#e8c84c'; ctx.beginPath(); ctx.arc(0, -12, 2.2, 0, TAU); ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.moveTo(-4, -3); ctx.lineTo(4, -5); ctx.stroke();
+      }
+      ctx.restore();
+    }
+
     // Second Opinion badge — a small gold Ⅱ pinned to the chart
     if (p.variant) {
       const D = DATA.DIAG[p.diag];
@@ -1614,6 +1761,14 @@ const Render = {
     ctx.translate(b.x, b.y);
     if (b.dead) { ctx.globalAlpha = 1 - b.deathT; ctx.rotate(b.deathT * 2); }
     if (b.introT > 0) { const s = U.clamp(1 - b.introT / 1.6, 0.1, 1); ctx.scale(s, s); ctx.globalAlpha = s; }
+    // champion aura
+    if (b.affix && !b.dead) {
+      ctx.save();
+      ctx.strokeStyle = b.affixTint || '#e8c84c'; ctx.lineWidth = 3;
+      ctx.shadowColor = b.affixTint || '#e8c84c'; ctx.shadowBlur = 14;
+      ctx.beginPath(); ctx.arc(0, 0, b.r + 9 + Math.sin((G.t || 0) * 4) * 2, 0, TAU); ctx.stroke();
+      ctx.restore();
+    }
     const flash = b.hitFlash > 0;
 
     switch (b.id) {

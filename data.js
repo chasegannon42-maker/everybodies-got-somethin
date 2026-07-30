@@ -216,6 +216,15 @@ DATA.DIAG = {
     mech: "SLEEP DEBT: your Sleep drains as you go. Run it low and you go WIRED — +40% damage & fire rate — but the ward dims and things that aren't there start shooting at you. POWER NAP restores sleep and heals — if you can afford to stand perfectly still.",
     rx: "melatonin"
   },
+  undiag: {
+    name: "Undifferentiated",
+    short: "Diagnosis Pending (Forever)",
+    tag: "he simply cannot pin you down",
+    color: "#c8c8c8",
+    blurb: "Nine specialists, nine referrals, nine opinions. Dr. Walrus has started a betting pool. Every floor, he takes another swing.",
+    mech: "REDIAGNOSED: every ward, Dr. Walrus changes his mind — your entire condition (mechanics, ability, everything) becomes a random diagnosis at each descent. Your meds and hearts carry over. Good luck keeping up with the chart.",
+    rx: null
+  },
   fine: {
     name: "Perfectly Fine",
     short: "DENIAL (severe)",
@@ -702,6 +711,29 @@ DATA.SIDE_EFFECTS = [
   { id: 'restless',       name: "Restlessness",   icon: "⚡", desc: "Akathisia — everything on this ward moves faster." },
   { id: 'hypervigilance', name: "Hypervigilance", icon: "👁", desc: "You can't relax. Enemy shots fly sharper here." },
   { id: 'rumination',     name: "Rumination",     icon: "🔁", desc: "You keep coming back to it — each room's threat returns once." }
+];
+
+/* ============ CHAMPION BOSSES (deep-ward affixes) ============
+   Past Ward 8 a rotation boss can spawn as a champion. */
+DATA.BOSS_AFFIXES = [
+  { id: 'armored',  name: "ARMORED",  tint: '#9aa8b8', note: "periodically refuses to be hit" },
+  { id: 'swift',    name: "SWIFT",    tint: '#e8c84c', note: "everything comes faster" },
+  { id: 'feverish', name: "FEVERISH", tint: '#e07830', note: "burns where it walks" },
+  { id: 'cloned',   name: "CLONED",   tint: '#b86bff', note: "its echo attacks too" },
+  { id: 'terminal', name: "TERMINAL", tint: '#e05a5a', note: "desperate from the halfway mark" }
+];
+
+/* ============ ACHIEVEMENT HATS (cosmetics) ============
+   Earned by achievements, picked in Settings, worn everywhere. */
+DATA.HATS = [
+  { id: 'partyhat', name: "Party Hat",        ach: 'allDiag',      hint: "play all nine diagnoses" },
+  { id: 'plushhat', name: "Tiny Walrus",      ach: 'walrus3',      hint: "beat Dr. Walrus three times" },
+  { id: 'halo',     name: "Halo (Allegedly)", ach: 'cured',        hint: "reach THE CURE" },
+  { id: 'crown',    name: "Founder's Crown",  ach: 'founderDown',  hint: "topple THE FOUNDER" },
+  { id: 'gradcap',  name: "Graduation Cap",   ach: 'therapyGrad',  hint: "master a therapy branch" },
+  { id: 'hardhat',  name: "Hard Hat",         ach: 'crisisPro',    hint: "survive 3 CODE GRAYs" },
+  { id: 'visor',    name: "Auditor's Visor",  ach: 'auditClean',   hint: "put down THE AUDITOR" },
+  { id: 'ticket',   name: "Ticket Stub",      ach: 'protocolFive', hint: "complete 5 Protocols" }
 ];
 
 /* ============ PERSONAL EFFECTS (trinkets) ============

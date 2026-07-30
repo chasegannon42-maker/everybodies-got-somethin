@@ -755,9 +755,24 @@ class Boss {
     }
 
     // contact damage (generic)
+    // ---------- CHAMPION AFFIXES ----------
+    if (this.affix && !this.dead) {
+      if (this.affix === 'armored') {   // periodically refuses to be hit
+        this._armT = (this._armT == null ? 8 : this._armT) - dt;
+        if (this._armT <= 0 && this.vulnerable) { this.vulnerable = false; this._armOff = 1.2; G.texts.push(new FloatText(this.x, this.y - this.r - 12, 'ARMORED', '#9aa8b8')); SFX.play('lock'); }
+        if (this._armOff != null) { this._armOff -= dt; if (this._armOff <= 0) { this.vulnerable = true; this._armOff = null; this._armT = 8; } }
+      } else if (this.affix === 'feverish') {   // burns where it walks
+        this._fevT = (this._fevT || 0) - dt;
+        if (this._fevT <= 0) { this._fevT = 2.5; G.zones.push(new Zone(this.x, this.y + this.r * 0.5, 30, 3.6, 'ember', '#e07830')); }
+      } else if (this.affix === 'cloned') {   // its echo attacks too
+        this._echoT = (this._echoT || 5) - dt;
+        if (this._echoT <= 0) { this._echoT = 5; this.ring(10, 120, 'rgba(184,107,255,0.9)', U.rand(0, TAU), this.aimP(G) + Math.PI, 0.7); SFX.play('voice'); }
+      }
+    }
+
     // ---------- DESPERATION: the original six get ugly below 25% ----------
     const DESP = { gatekeeper: 'LOCKDOWN.', larperking: 'ALL OF THEM. AT ONCE.', adjuster: 'PAPER BLIZZARD.', withdrawal: 'THE SHAKES.', stigma: 'BLACKOUT.', burnout: 'EMBER RAIN.' };
-    if (DESP[this.id] && this.hp < this.maxhp * 0.25 && !this.dead) {
+    if (DESP[this.id] && this.hp < this.maxhp * (this.affix === 'terminal' ? 0.5 : 0.25) && !this.dead) {
       if (!this._desp) {
         this._desp = true; this._despT = 1.2;
         G.toast('“' + DESP[this.id] + '”', '#e05a5a');
