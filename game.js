@@ -619,7 +619,7 @@ const G = {
   showHub() {
     this.state = 'hub';
     this.hideOverlay();
-    document.body.classList.remove('inrun');
+    document.body.classList.add('inrun');   // phones need the move stick in here
     SFX.setMusic('dayroom');
     const order = ['adhd', 'bipolar', 'depression', 'anxiety', 'schizo', 'ocd', 'ptsd', 'insomnia', 'fine', 'undiag'];
     const fineOpen = Meta.data.fineSeen || Meta.data.walrusKills > 0;
@@ -657,24 +657,30 @@ const G = {
     if (p.moving) p.aimAng = Math.atan2(mv.y, mv.x);
     p.x = U.clamp(p.x + mv.x * 250 * dt, 46, CW - 46);
     p.y = U.clamp(p.y + mv.y * 250 * dt, 78, CH - 40);
-    if (Input.take('pause')) { this.showTitle(); return; }
-    // stations
+    if (Input.take('pause')) { document.body.classList.remove('inrun'); this.showTitle(); return; }
+    const go = (fn, snd) => { document.body.classList.remove('inrun'); SFX.play(snd || 'door'); fn(); };
+    const touch = Input.usingTouch;
+    // stations — on touch, standing still inside one for a beat opens it
+    const lastPrompt = H.prompt;
     H.prompt = null;
     for (const s of H.stations) {
       if (U.dist(p.x, p.y, s.x, s.y) < s.r) {
         H.prompt = s;
-        if (s.door || Input.take('confirm') || Input.take('ability')) { SFX.play('door'); s.act(); return; }
+        H.dwell = (lastPrompt === s && !p.moving) ? (H.dwell || 0) + dt : 0;
+        if (s.door || Input.take('confirm') || Input.take('ability') || (touch && H.dwell > 0.55)) { go(s.act); return; }
         break;
       }
     }
-    // seated patients: walk up + confirm to open their chart
+    // seated patients: walk up + confirm (or hold still, on touch) to open their chart
     if (!H.prompt) for (const seat of H.seats) {
       if (U.dist(p.x, p.y, seat.x, seat.y) < 44) {
-        H.prompt = { label: DATA.DIAG[seat.id].name, hint: 'open their chart (start a run)', seat };
-        if (Input.take('confirm') || Input.take('ability')) { SFX.play('ui'); this.showCard(seat.id); return; }
+        H.prompt = { label: DATA.DIAG[seat.id].name, hint: touch ? 'hold still to open their chart' : 'open their chart (start a run)', seat };
+        H.dwell = (lastPrompt && lastPrompt.seat === seat && !p.moving) ? (H.dwell || 0) + dt : 0;
+        if (Input.take('confirm') || Input.take('ability') || (touch && H.dwell > 0.55)) { go(() => this.showCard(seat.id), 'ui'); return; }
         break;
       }
     }
+    if (!H.prompt) H.dwell = 0;
   },
 
   /* ---------- The Itemized Bill (post-run insurance statement) ---------- */
