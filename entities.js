@@ -1331,6 +1331,14 @@ class Enemy {
       }
       if (spread) { for (let i = 0; i < 8; i++) { const a = (i / 8) * TAU; G.parts.push(new Particle(this.x, this.y, Math.cos(a) * 160, Math.sin(a) * 160, 0.4, '#8fd08a', 3)); } SFX.play('pop'); }
     }
+    // THE COMPLAINT DEPARTMENT: feedback, resolved
+    if (this._complaint) {
+      Meta.data.insight = (Meta.data.insight || 0) + 6;
+      G._goalInsight += 6;
+      Meta.save();
+      G.toast('📋 “' + this._complaint + '” — RESOLVED. +◆6. Thank you for your feedback.', '#8fd08a');
+      SFX.play('fanfare');
+    }
     // IT REMEMBERS YOU: revenge pays
     if (this._nemesis) {
       G.pickups.push(new Pickup('nickel', this.x - 14, this.y));
@@ -1423,7 +1431,7 @@ class Pickup {
     this.type = type; this.x = x; this.y = y;
     this.t = U.rand(0, 3); this.dead = false;
     this.colorIdx = type === 'pill' ? U.randi(0, 9) : 0;
-    this.trinketId = type === 'trinket' ? U.choice(DATA.TRINKETS).id : null;
+    this.trinketId = type === 'trinket' ? U.choice(DATA.TRINKETS.filter(t => t.id !== 'masterkey')).id : null;   // the Master Key is never just lying around
     this.vx = U.rand(-40, 40); this.vy = U.rand(-40, 40); this.settle = 0.3;
   }
   update(dt, G) {
@@ -1570,6 +1578,16 @@ function spawnEnemiesForRoom(room, depth, G) {
     G.enemies.push(ne);
     G.toast('🩸 It remembers you.', '#e05a5a');
     SFX.play('sting');
+  }
+  // THE COMPLAINT DEPARTMENT: your grievance has been assigned a body
+  if (G._complaint && !G._complaintSpawned && room.type === 'normal' && spots.length > count) {
+    G._complaintSpawned = true;
+    const s = U.shuffle(spots).find(sp => !chosen.includes(sp)) || spots[0];
+    const ce = new Enemy(DATA.pickEnemy(depth, G.wing), s.x, s.y, depth, false, hpMult * 1.8, U.choice(DATA.ELITES).id);
+    ce._complaint = G._complaint; ce.spawnT = 0.8;
+    G.enemies.push(ce);
+    G.toast('📋 Your complaint has been processed. It\'s over there.', '#e0a05a');
+    SFX.play('stamp');
   }
   for (const s of chosen) {
     const id = DATA.pickEnemy(depth, G.wing);

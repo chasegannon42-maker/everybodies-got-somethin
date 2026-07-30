@@ -1121,6 +1121,41 @@ const Render = {
         if (U.dist(G.player.x, G.player.y, ped.x, ped.y) < 80) { ctx.fillStyle = '#e8c84c'; ctx.font = this.font(11, true); ctx.fillText('2¢ · it\'s binding', ped.x, ped.y + 46); }
         continue;
       }
+      if (ped.kind === 'basementdoor') {   // a floor hatch that was always there
+        this.shadow(ped.x, ped.y + 8, 24, 8, 0.25);
+        ctx.save(); ctx.translate(ped.x, ped.y);
+        ctx.fillStyle = '#6a5238'; this.rr(ctx, -26, -16, 52, 32, 4); ctx.fill();
+        ctx.strokeStyle = '#4a3824'; ctx.lineWidth = 2.5; this.rr(ctx, -26, -16, 52, 32, 4); ctx.stroke();
+        for (let l = -18; l <= 18; l += 9) { ctx.beginPath(); ctx.moveTo(l, -14); ctx.lineTo(l, 14); ctx.stroke(); }
+        ctx.fillStyle = '#c8a24a'; ctx.beginPath(); ctx.arc(16, 0, 3.5, 0, TAU); ctx.fill();   // ring pull
+        ctx.restore();
+        ctx.fillStyle = '#e8c84c'; ctx.font = this.font(10, true); ctx.textAlign = 'center';
+        ctx.fillText('STAFF ONLY', ped.x, ped.y - 24);
+        if (U.dist(G.player.x, G.player.y, ped.x, ped.y) < 80) { ctx.fillStyle = '#c8e0a0'; ctx.font = this.font(10, true); ctx.fillText('🕯 down to the basement', ped.x, ped.y + 30); }
+        continue;
+      }
+      if (ped.kind === 'basementexit') {   // stairs, going up into the fluorescent hum
+        ctx.save(); ctx.translate(ped.x, ped.y);
+        ctx.fillStyle = '#241c14'; this.rr(ctx, -26, -34, 52, 58, 4); ctx.fill();
+        for (let s2 = 0; s2 < 4; s2++) { ctx.fillStyle = 'rgba(232,200,120,' + (0.15 + s2 * 0.12) + ')'; ctx.fillRect(-20 + s2 * 3, 14 - s2 * 12, 40 - s2 * 6, 8); }
+        ctx.restore();
+        ctx.fillStyle = '#e8c84c'; ctx.font = this.font(10, true); ctx.textAlign = 'center';
+        ctx.fillText('⬆ BACK UP', ped.x, ped.y - 44);
+        continue;
+      }
+      if (ped.kind === 'diploma') {   // the framed truth, slightly crooked
+        ctx.save(); ctx.translate(ped.x, ped.y); ctx.rotate(-0.04);
+        ctx.fillStyle = '#8a6a3a'; this.rr(ctx, -30, -22, 60, 44, 3); ctx.fill();
+        ctx.fillStyle = '#f0ead8'; this.rr(ctx, -25, -17, 50, 34, 2); ctx.fill();
+        ctx.fillStyle = '#6a6272'; ctx.font = this.font(6, true); ctx.textAlign = 'center';
+        ctx.fillText('CRUISE SHIP', 0, -8);
+        ctx.fillText('MEDICAL ACADEMY', 0, -1);
+        ctx.fillStyle = '#c8a24a'; ctx.beginPath(); ctx.arc(14, 9, 5, 0, TAU); ctx.fill();   // gold seal
+        ctx.strokeStyle = '#8a6a3a'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-18, 10); ctx.lineTo(4, 10); ctx.stroke();
+        ctx.restore();
+        if (U.dist(G.player.x, G.player.y, ped.x, ped.y) < 80) { ctx.fillStyle = '#c8b0e0'; ctx.font = this.font(10, true); ctx.textAlign = 'center'; ctx.fillText('🎓 squint at it', ped.x, ped.y + 34); }
+        continue;
+      }
       if (ped.kind === 'janitor') {   // forty years. one bucket.
         const rb = Math.sin(G.t * 1.8 + ped.x) * 1.2;
         this.shadow(ped.x, ped.y + 16, 14, 5, 0.22);
@@ -2380,6 +2415,15 @@ const Render = {
         ctx.fillStyle = '#e05a5a'; ctx.font = this.font(9, true); ctx.textAlign = 'center';
         ctx.fillText('REMEMBERS YOU', e.x, e.y - e.r - 16);
       }
+      if (e._complaint) {   // your grievance, embodied
+        ctx.save();
+        ctx.strokeStyle = 'rgba(224,160,90,0.85)'; ctx.lineWidth = 2.5;
+        ctx.shadowColor = '#e0a05a'; ctx.shadowBlur = 10;
+        ctx.beginPath(); ctx.arc(e.x, e.y, e.r + 8 + Math.sin(G.t * 5) * 2, 0, TAU); ctx.stroke();
+        ctx.restore();
+        ctx.fillStyle = '#e0a05a'; ctx.font = this.font(9, true); ctx.textAlign = 'center';
+        ctx.fillText('“' + e._complaint.slice(0, 26) + (e._complaint.length > 26 ? '…' : '') + '”', e.x, e.y - e.r - 16);
+      }
     }
     // shadow patients: the eyes are the only bright thing left
     if (e._shadow && !e.dying && e.spawnT <= 0) {
@@ -3300,6 +3344,17 @@ const Render = {
       if (hpHere >= 2) this.drawHeart(hx, hy, 10, '#e05a5a', false);
       else if (hpHere === 1) this.drawHeart(hx, hy, 10, '#e05a5a', true);
       else this.drawHeart(hx, hy, 10, '#4a3a44', false);
+    }
+    // speedrun clock (top-right, under the ward name)
+    if (Meta.data.speedrun && G.runTime != null && !G.overtime) {
+      const t = G.runTime, fmt = Math.floor(t / 60) + ':' + ('0' + Math.floor(t % 60)).slice(-2) + '.' + Math.floor((t % 1) * 10);
+      ctx.textAlign = 'right';
+      ctx.fillStyle = '#f0e8d8'; ctx.font = this.font(13, true);
+      ctx.fillText('⏱ ' + fmt, CW - 18, 64);
+      if (G._lastSplitDelta != null) {
+        ctx.fillStyle = G._lastSplitDelta <= 0 ? '#8fd05a' : '#e0a05a'; ctx.font = this.font(10, true);
+        ctx.fillText((G._lastSplitDelta <= 0 ? '−' : '+') + Math.abs(G._lastSplitDelta).toFixed(1) + 's', CW - 18, 78);
+      }
     }
     // OVERTIME: the wave and the running tab, front and center
     if (G.overtime) {

@@ -12,12 +12,14 @@
 
 Dr. Walrus — board-certified in Confidence — gives you a five-question checkup and hands you a label:
 **ADHD, Bipolar Disorder, Chronic Depression, Generalized Anxiety, Schizophrenia, OCD, PTSD,
-Chronic Insomnia**… or, if you insist nothing is wrong, **Denial (severe)**. Nine diagnoses, every
-one a full Isaac-style character with its own stats, mechanics, and signature **PRN ability** —
-hypervigilance and flashbacks, a compulsion gauge, a draining Sleep meter that leaves you
-wired-tired and hallucinating. Then you descend into the infinite wards, fighting Doomscrollers,
-Pharma Ads, Deadlines, and a sea of Larpers, armed with your tears and whatever the pharmacy
-hands you.
+Chronic Insomnia**… or, if you insist nothing is wrong, **Denial (severe)**. Master all nine and
+**The Undiagnosed** opens — a fresh opinion every floor. Every diagnosis is a full Isaac-style
+character with its own stats, mechanics, signature **PRN ability**, an unlockable **Second
+Opinion** variant that flips its rules, and a **Midnight Ward** mastery skin. Then you pick your
+**insurance plan** (Bronze, Silver, or Gold — the premium is your body) and descend into the
+infinite wards, fighting Doomscrollers, Pharma Ads, Deadlines, and a sea of Larpers, armed with
+your tears, whatever the pharmacy hands you, and — if you've earned one — an **Emotional Support
+Animal** with strong opinions about crumbs.
 
 > A satire about a system that hands out labels like candy — not about the people living with them.
 
@@ -29,14 +31,19 @@ Take the checkup and let Dr. Walrus label you — or open **📁 Patient Files**
 character select where every diagnosis is its own playable character with unique stats, mechanics,
 and a starting prescription. (One of them is locked. Try telling the truth.)
 
-| | PC | Mobile |
-|---|---|---|
-| Move | `WASD` | left thumb |
-| Shoot | Arrow keys or mouse | right thumb |
-| Pill | `Q` | 💊 button |
-| Claim Form (bomb) | `E` | 📄 button |
-| Pause | `P` / `Esc` | II button |
-| Mute | `M` | — |
+| | PC | Mobile | Gamepad |
+|---|---|---|---|
+| Move | `WASD` | left thumb | left stick |
+| Shoot | Arrow keys or mouse | right thumb | right stick |
+| Ability | `Space` | ⚡ button | `A` / bumpers |
+| Pill | `Q` | 💊 button | `X` |
+| Claim Form (bomb) | `E` | 📄 button | `B` |
+| Pause | `P` / `Esc` | II button | `Start` |
+| **Patient Two joins** | — | — | `Select` |
+
+**Couch co-op:** press `Select` on a controller mid-run and a second patient checks in — their own
+diagnosis, their own little hearts, revived when the room clears. The pad is theirs; P1 keeps
+keyboard and mouse.
 
 ## The rules of the ward
 
@@ -52,20 +59,44 @@ and a starting prescription. (One of them is locked. Try telling the truth.)
   (bleed for loot), the **ECT Suite** (a prize under the discharge), the **Padded Cell** (every
   bullet ricochets), and **Observation** (dodge the surveillance sweep to earn discharge).
 - **The Support Group:** recruit up to three fellow patients as AI allies who fight alongside you
-  the whole run — heavy covering fire, anxious scatter, manic bursts, homing suspicion.
+  the whole run — heavy covering fire, anxious scatter, manic bursts, homing suspicion. The **Day
+  Room** patients also offer **contracts** (side jobs with real payouts), and from Ward 8 its exit
+  door lets you leave **Against Medical Advice** — sign the form, survive the ward's objection,
+  earn the fourth ending. Die trying and the bill doubles.
+- The ward has moods: **Shadow Wards** (mirrored, dark, double loot), **CODE GRAY** crises,
+  champion bosses, THE AUDITOR roaming with your file, a **Drug Rep** bearing free samples (each
+  with a string attached), a weary **Janitor** selling found items — five purchases earns you the
+  basement — whatever killed you last run coming back with a grudge (**IT REMEMBERS YOU**), and,
+  at depth 13, **THE THIRTEENTH WARD**: curated, candlelit, and holding the Master Key.
+- **The Intercom** watches everything and comments — hoard coins, skip your pills, dodge too well,
+  and Dr. Walrus will mention it over the PA.
 - Bosses are the real stuff: The Gatekeeper ("you don't LOOK sick"), The Adjuster ("claim denied"),
-  Prior Authorization, The Manual (DSM), The Algorithm, The Larper King, Withdrawal, The Stigma,
-  Burnout — with **THE CURE** waiting at Ward 25 and **THE FOUNDER** at Ward 50.
+  Prior Authorization, The Manual (DSM), The Algorithm, The Larper King, The Influencer,
+  **THE PEER REVIEW** (it steals your build and fights you with it), Withdrawal, The Stigma,
+  Burnout — with **THE CURE** waiting at Ward 25, **THE BOARD** at the top of the Ascent,
+  **THE FOUNDER** at Ward 50, and **THE SYSTEM** itself at Ward 100. When you die, an **appeal**
+  can overturn it — once — and the death screen reconstructs your last six seconds, killer circled.
 
 ## Between runs
 
+- **🚪 The Waiting Room** — a walkable hub: every mode is a door, the fund jar fills with your
+  "donated" change, and the furniture you buy with it (aquarium, coffee machine, toy corner) gives
+  real perks. File a grievance at the **📋 Complaint Department** — next run it shows up wearing a
+  name tag, and killing it pays.
 - **🧠 Treatment Plan** — a permanent skill tree. Every run earns **◆ Insight**; spend it across
   five therapy modalities (CBT, DBT, EMDR, Meds Management, Group Work) for permanent perks.
-- **🎲 Prognosis** — challenge runs: Glass Cannon, Pacifist, Cold Turkey, Untreated, Rapid Cycling.
-- **🗓️ Daily Ward** — a date-seeded run everyone shares (streaks + a month calendar), plus
-  shareable seed-code challenges and a **Diagnosis Card** you can post.
+- **🎲 Prognosis** & **🧪 Protocols** — challenge runs and rule-set gauntlets, from Glass Cannon
+  to the 20-minute time slot.
+- **⏰ OVERTIME** — arena mode: one room, escalating waves, management personally attends every
+  tenth. The bill runs live on screen.
+- **🗓️ Daily Ward** — a date-seeded run everyone shares (streaks + a month calendar), a weekly
+  **Quarterly Review**, shareable seed-code challenges, **📦 Care Packages** (gift a friend an
+  item + a note, no servers, just a code), and a **Diagnosis Card** you can post.
 - **📋 Patient Chart** — a codex of every patient, boss, med, and pill you've met; completing a
-  tab pays out a permanent perk. **📊 Run History** keeps your real win-rate receipts.
+  tab pays out a permanent perk. **📊 Run History** keeps your real win-rate receipts, and a
+  **speedrun timer with splits** is one Settings toggle away.
+- **💾 Your save keeps itself** — automatically, on-device, mirrored twice. Back it up or move it
+  between devices with a save code from **Settings → SAVE DATA**.
 
 ## The story
 
@@ -81,7 +112,7 @@ the bottom — and every chapter is re-readable from **📖 Chart Notes** on the
 
 ## The Bestiary
 
-Thirteen bosses stand between you and the "cure," each one a different failure of the system —
+Sixteen bosses stand between you and the "cure," each one a different failure of the system —
 gatekeeping, self-diagnosis culture, insurance denial, the pill mountain, shame, over-labeling,
 the attention economy, wellness grifting… up through the fake finale and the tycoon at the very
 top of the ladder.

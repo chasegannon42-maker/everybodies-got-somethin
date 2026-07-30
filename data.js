@@ -875,7 +875,8 @@ DATA.TRINKETS = [
   { id: 'wristband',   name: "Visitor Wristband",  icon: '🎗', desc: "Practically staff. Commissary machines charge you 1¢ less." },
   { id: 'thermometer', name: "Glass Thermometer",  icon: '🌡', desc: "You can just… tell. Enemy health bars are visible." },
   { id: 'earplugs',    name: "Foam Earplugs",      icon: '🔇', desc: "The noise sorts itself out. Hallucinations shimmer — you can tell what's real." },
-  { id: 'batteredwatch', name: "Battered Watch",   icon: '⌚', desc: "It runs slow, and so does everything else — slow-motion moments last twice as long." }
+  { id: 'batteredwatch', name: "Battered Watch",   icon: '⌚', desc: "It runs slow, and so does everything else — slow-motion moments last twice as long." },
+  { id: 'masterkey',   name: "The Master Key",     icon: '🗝', desc: "The Janitor had a copy all along. Locked treatment rooms open free. Only found on the Thirteenth Ward." }
 ];
 
 /* ============ CHALLENGE PROTOCOLS (curated rule-set runs) ============

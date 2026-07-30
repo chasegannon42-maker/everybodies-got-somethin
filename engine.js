@@ -83,9 +83,78 @@ function collideTiles(layout, x, y, rad) {
 
 /* ---------------- persistent meta ---------------- */
 const Meta = {
-  data: { runs: 0, deaths: 0, kills: 0, bestFloor: 0, walrusKills: 0, itemsSeen: 0, diagBest: {}, fineSeen: 0, unlocks: {}, diagsPlayed: {}, everOverRx: 0, everNoHitFloor: 0, daily: null, seen: { enemies: {}, bosses: {}, items: {}, pills: {} }, dailyStreak: { last: null, count: 0, best: 0 }, dailyHistory: {}, a11y: { bulletContrast: false, reduceMotion: false, easy: false, aimAssist: true, dmgNums: false }, onboarded: 0, chronicUnlocked: 0, cured: 0, chronicBest: 0, founderKills: 0, runlog: [], runAgg: {}, causeAgg: {}, seenStory: {}, storyOff: 0, insight: 0, talents: {}, influencerKills: 0, crisesSurvived: 0, hazardsSeen: {}, everWiredClear: 0, everFullGroup: 0, everKeystone: 0, systemKills: 0, protocolsDone: {}, boardKills: 0, auditorKills: 0, quarterly: null, quarterlyBest: 0, hat: null, fund: 0, facility: {}, appealsWon: 0, amaDone: 0, contractsDone: 0, everGoldWalrus: 0, pet: null, paOff: 0, skinOn: {}, revenges: 0, giftsGot: 0, everCoop: 0, pendingGift: null, overtimeBest: 0, janitorMet: 0, janitorBuys: 0, petXp: {} },
+  data: { runs: 0, deaths: 0, kills: 0, bestFloor: 0, walrusKills: 0, itemsSeen: 0, diagBest: {}, fineSeen: 0, unlocks: {}, diagsPlayed: {}, everOverRx: 0, everNoHitFloor: 0, daily: null, seen: { enemies: {}, bosses: {}, items: {}, pills: {} }, dailyStreak: { last: null, count: 0, best: 0 }, dailyHistory: {}, a11y: { bulletContrast: false, reduceMotion: false, easy: false, aimAssist: true, dmgNums: false }, onboarded: 0, chronicUnlocked: 0, cured: 0, chronicBest: 0, founderKills: 0, runlog: [], runAgg: {}, causeAgg: {}, seenStory: {}, storyOff: 0, insight: 0, talents: {}, influencerKills: 0, crisesSurvived: 0, hazardsSeen: {}, everWiredClear: 0, everFullGroup: 0, everKeystone: 0, systemKills: 0, protocolsDone: {}, boardKills: 0, auditorKills: 0, quarterly: null, quarterlyBest: 0, hat: null, fund: 0, facility: {}, appealsWon: 0, amaDone: 0, contractsDone: 0, everGoldWalrus: 0, pet: null, paOff: 0, skinOn: {}, revenges: 0, giftsGot: 0, everCoop: 0, pendingGift: null, overtimeBest: 0, janitorMet: 0, janitorBuys: 0, petXp: {}, speedrun: 0, splitsPB: {}, pendingComplaint: null, complaintsFiled: 0 },
   load() { try { const j = localStorage.getItem('egs_meta'); if (j) Object.assign(this.data, JSON.parse(j)); } catch (e) { } if (!this.data.seen) this.data.seen = { enemies: {}, bosses: {}, items: {}, pills: {} }; if (!this.data.dailyStreak) this.data.dailyStreak = { last: null, count: 0, best: 0 }; if (!this.data.dailyHistory) this.data.dailyHistory = {}; if (!this.data.a11y) this.data.a11y = { bulletContrast: false, reduceMotion: false, easy: false }; if (!this.data.runlog) this.data.runlog = []; if (!this.data.runAgg) this.data.runAgg = {}; if (!this.data.causeAgg) this.data.causeAgg = {}; if (this.data.insight == null) this.data.insight = 0; if (!this.data.talents) this.data.talents = {}; if (!this.data.hazardsSeen) this.data.hazardsSeen = {}; if (!this.data.protocolsDone) this.data.protocolsDone = {}; if (this.data.fund == null) this.data.fund = 0; if (!this.data.facility) this.data.facility = {}; if (!this.data.skinOn) this.data.skinOn = {}; if (!this.data.petXp) this.data.petXp = {}; },
-  save() { try { localStorage.setItem('egs_meta', JSON.stringify(this.data)); } catch (e) { } },
+  save() {
+    try { localStorage.setItem('egs_meta', JSON.stringify(this.data)); } catch (e) { }
+    this._idbQueue();   // mirror to IndexedDB — sturdier than localStorage on mobile browsers
+  },
+  /* ---- IndexedDB mirror: localStorage gets evicted (iOS) or is ephemeral (in-app browsers);
+         a second copy in IDB survives more of those, and boot restores from it if LS came up empty. ---- */
+  _idb(cb) {
+    try {
+      const rq = indexedDB.open('egs_db', 1);
+      rq.onupgradeneeded = () => { rq.result.createObjectStore('kv'); };
+      rq.onsuccess = () => cb(rq.result);
+      rq.onerror = () => { };
+    } catch (e) { }
+  },
+  _idbQueue() {
+    if (this._idbT) return;
+    this._idbT = setTimeout(() => {
+      this._idbT = null;
+      this._idb(db => {
+        try {
+          const tx = db.transaction('kv', 'readwrite');
+          tx.objectStore('kv').put(JSON.stringify(this.data), 'egs_meta');
+          const cp = localStorage.getItem('egs_save1');
+          if (cp) tx.objectStore('kv').put(cp, 'egs_save1'); else tx.objectStore('kv').delete('egs_save1');
+        } catch (e) { }
+      });
+    }, 800);
+  },
+  idbRestore() {   // called at boot AFTER load(): if localStorage was empty but the mirror isn't, take the mirror
+    const lsEmpty = !localStorage.getItem('egs_meta');
+    this._idb(db => {
+      try {
+        const tx = db.transaction('kv', 'readonly');
+        const rq = tx.objectStore('kv').get('egs_meta');
+        const rq2 = tx.objectStore('kv').get('egs_save1');
+        rq.onsuccess = () => {
+          try {
+            if (lsEmpty && rq.result && !sessionStorage.getItem('egs_restored')) {
+              sessionStorage.setItem('egs_restored', '1');
+              localStorage.setItem('egs_meta', rq.result);
+              if (rq2.result) localStorage.setItem('egs_save1', rq2.result);
+              location.reload();   // come back up with the recovered save
+            }
+          } catch (e) { }
+        };
+      } catch (e) { }
+    });
+    // and ask the browser, politely, to stop deleting us
+    try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) { }
+  },
+  /* ---- portable save codes: the only true cross-device answer without a server ---- */
+  exportCode() {
+    try {
+      const d = JSON.parse(JSON.stringify(this.data));
+      if (d.runlog && d.runlog.length > 15) d.runlog = d.runlog.slice(-15);   // keep the code pasteable
+      if (d.dailyHistory) { const ks = Object.keys(d.dailyHistory).slice(-30); const dh = {}; for (const k of ks) dh[k] = d.dailyHistory[k]; d.dailyHistory = dh; }
+      return 'EGSSAVE' + btoa(unescape(encodeURIComponent(JSON.stringify(d)))).replace(/=+$/, '');
+    } catch (e) { return null; }
+  },
+  importCode(str) {
+    try {
+      const s = String(str || '').trim();
+      if (!s.startsWith('EGSSAVE')) return false;
+      const d = JSON.parse(decodeURIComponent(escape(atob(s.slice(7)))));
+      if (!d || typeof d.runs !== 'number') return false;
+      Object.assign(this.data, d);
+      this.save();
+      return true;
+    } catch (e) { return false; }
+  },
   /* mark a codex entry encountered (cat: enemies|bosses|items|pills) */
   see(cat, id) { if (!this.data.seen) this.data.seen = { enemies: {}, bosses: {}, items: {}, pills: {} }; if (!this.data.seen[cat]) this.data.seen[cat] = {}; this.data.seen[cat][id] = 1; }
 };

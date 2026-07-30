@@ -416,6 +416,8 @@ const G = {
           return `<div class="tagline" style="margin:10px 0 2px">Emotional Support Animal</div><div class="btnrow" style="flex-wrap:wrap">${btns}</div>`;
         })()}
         <button class="btn minor" id="bPaToggle">${ct(!Meta.data.paOff, 'Intercom (Dr. Walrus PA)')}</button>
+        <button class="btn minor" id="bSpeedrun">${ct(!!Meta.data.speedrun, 'Speedrun timer + splits')}</button>
+        <button class="btn minor" id="bSaveData">💾 SAVE DATA (backup / transfer)</button>
         <button class="btn" id="bSetBack">BACK</button>
         <div class="smallprint">Tip: press <span class="kbd">M</span> anytime to mute. Easy mode applies to your next run. Settings are saved on this device.</div>
       </div>`);
@@ -439,7 +441,106 @@ const G = {
     document.querySelectorAll('[data-pet]').forEach(b => b.onclick = () => { SFX.play('ui'); Meta.data.pet = b.dataset.pet || null; Meta.save(); this.showSettings(returnTo); });
     const bpa = document.getElementById('bPaToggle');
     if (bpa) bpa.onclick = () => { SFX.play('ui'); Meta.data.paOff = Meta.data.paOff ? 0 : 1; Meta.save(); bpa.textContent = ct(!Meta.data.paOff, 'Intercom (Dr. Walrus PA)'); };
+    const bsr = document.getElementById('bSpeedrun');
+    if (bsr) bsr.onclick = () => { SFX.play('ui'); Meta.data.speedrun = Meta.data.speedrun ? 0 : 1; Meta.save(); bsr.textContent = ct(!!Meta.data.speedrun, 'Speedrun timer + splits'); };
+    const bsd = document.getElementById('bSaveData');
+    if (bsd) bsd.onclick = () => { SFX.play('ui'); this.showSaveData(() => this.showSettings(returnTo)); };
     document.getElementById('bSetBack').onclick = () => { SFX.play('ui'); returnTo(); };
+  },
+
+  /* ---------- THE JANITOR'S BASEMENT (forty years down here. mind the mop water.) ---------- */
+  enterBasement() {
+    const p = this.player;
+    this._basementReturn = { room: this.room, x: p.x, y: p.y };
+    const br = makeRoom(499, 499, 'dayroom');
+    br._basement = true; br.visited = true; br.spawned = true; br.cleared = true;
+    br.doors = {}; br.secretDoors = {};
+    buildLayout(br, 1);
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) br.layout[r][c] = 0;
+    this.enterRoom(br, null);
+    p.x = CW / 2; p.y = RY + RH - 70;
+    // his break room: two keystones at cost, the good shelf, the truth on the wall
+    const ks = U.shuffle(['cryitout', 'spiralthoughts', 'radicalhonesty', 'xrdose', 'boomerchart', 'uglycry'].filter(id => !p.items.includes(id)));
+    if (ks[0]) this.peds.push({ x: CW / 2 - 130, y: RY + RH / 2 - 20, itemId: ks[0], kind: 'shop', price: 8, taken: false });
+    if (ks[1]) this.peds.push({ x: CW / 2 + 130, y: RY + RH / 2 - 20, itemId: ks[1], kind: 'shop', price: 8, taken: false });
+    this.peds.push({ x: RX + 80, y: RY + 90, kind: 'diploma', taken: false });
+    this.peds.push({ x: CW / 2, y: RY + 80, kind: 'basementexit', taken: false });
+    this.pickups.push(new Pickup('full', CW / 2 - 40, RY + RH - 130));
+    this.pickups.push(new Pickup('pill', CW / 2 + 40, RY + RH - 130));
+    for (let i = 0; i < 3; i++) this.pickups.push(new Pickup('coin', CW / 2 + U.rand(-90, 90), RY + RH / 2 + 60));
+    this.setBanner('🕯 THE BASEMENT', 'forty years of finding things', 2.6);
+    this.toast('🧹 “Touch whatever. The walrus doesn\'t know this floor exists.”', '#b8b0a0');
+    SFX.setMusic('dayroom');
+  },
+  exitBasement() {
+    const R = this._basementReturn;
+    if (!R || !R.room) { this.showTitle(); return; }
+    this.enterRoom(R.room, null);
+    this.player.x = R.x; this.player.y = R.y;
+    this._basementReturn = null;
+    this.toast('🧹 “Mind the stairs. And the everything else.”', '#b8b0a0');
+  },
+
+  /* ---------- THE COMPLAINT DEPARTMENT (your feedback, weaponized) ---------- */
+  showComplaints(returnTo) {
+    this.state = 'complaints';
+    const pending = Meta.data.pendingComplaint;
+    this.overlay(`
+      <div class="panel">
+        <h1 class="logo" style="font-size:26px">📋 THE COMPLAINT DEPARTMENT</h1>
+        <div class="tagline">file a formal grievance. next run, it will be assigned a body. kill it for ◆6.</div>
+        ${pending ? `<div class="rx" style="border-color:#e0a05a"><div class="stamp">PENDING</div><div class="mech">“${pending}”</div><div class="presc">awaiting embodiment. it will find you next run.</div></div>` : ''}
+        <div class="setrow"><label>Your grievance (40):</label>
+          <input type="text" id="cplIn" class="seedfield" maxlength="40" placeholder="the vending machine ate my 3¢" autocomplete="off"></div>
+        <button class="btn" id="bCplFile">✍ FILE IT (in triplicate)</button>
+        <div class="smallprint">complaints filed: ${Meta.data.complaintsFiled || 0} · resolution rate: disputed</div>
+        <button class="btn minor" id="bCplBack">BACK</button>
+      </div>`);
+    document.getElementById('bCplFile').onclick = () => {
+      const v = String(document.getElementById('cplIn').value || '').trim().slice(0, 40);
+      if (!v) { SFX.play('error'); this.toast('The form requires words. Any words.', '#e08a8a'); return; }
+      Meta.data.pendingComplaint = v;
+      Meta.data.complaintsFiled = (Meta.data.complaintsFiled || 0) + 1;
+      Meta.save();
+      SFX.play('stamp');
+      this.toast('📋 Filed. Processed. Weaponized. See you next run.', '#e0a05a');
+      this.showComplaints(returnTo);
+    };
+    document.getElementById('bCplBack').onclick = () => { SFX.play('ui'); (returnTo || (() => this.showTitle()))(); };
+  },
+
+  /* ---------- SAVE DATA (backup & cross-device transfer, no servers involved) ---------- */
+  showSaveData(returnTo) {
+    this.state = 'savedata';
+    this.overlay(`
+      <div class="panel">
+        <h1 class="logo" style="font-size:26px">💾 SAVE DATA</h1>
+        <div class="tagline">your progress saves automatically on this device. to move it — or bulletproof it — use a save code.</div>
+        <button class="btn" id="bSaveExport">📋 COPY MY SAVE CODE</button>
+        <div class="smallprint" id="saveMsg">everything: unlocks, the skill tree, the fund, pets, bests. paste it on any device.</div>
+        <div class="setrow" style="margin-top:12px"><label>Got a code?</label>
+          <input type="text" id="saveIn" class="seedfield" placeholder="EGSSAVE…" autocomplete="off" spellcheck="false"></div>
+        <button class="btn" id="bSaveImport">📥 RESTORE FROM CODE</button>
+        <div class="smallprint" style="color:#e0a05a">⚠ tip: if you opened this game from a chat app, the built-in browser may not keep saves. open it in your real browser (Safari/Chrome) and add it to your home screen — then it keeps.</div>
+        <button class="btn minor" id="bSaveBack">BACK</button>
+      </div>`);
+    document.getElementById('bSaveExport').onclick = (e) => {
+      SFX.play('ui');
+      const code = Meta.exportCode();
+      const msg = document.getElementById('saveMsg');
+      if (!code) { msg.textContent = 'export failed — that shouldn\'t happen. tell the walrus.'; return; }
+      const done = () => { e.target.textContent = '✓ COPIED — KEEP IT SOMEWHERE SAFE'; msg.textContent = code.length > 900 ? 'long code — paste it into a note.' : 'paste it on your other device, or keep it as a backup.'; };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(code).then(done).catch(() => { msg.textContent = code; });
+      else msg.textContent = code;
+    };
+    document.getElementById('bSaveImport').onclick = () => {
+      const ok = Meta.importCode(document.getElementById('saveIn').value);
+      if (!ok) { SFX.play('error'); this.toast('That code didn\'t take. Check you copied all of it.', '#e08a8a'); return; }
+      SFX.play('fanfare');
+      this.toast('💾 Save restored. Welcome back to the ward.', '#8fd08a');
+      setTimeout(() => location.reload(), 900);
+    };
+    document.getElementById('bSaveBack').onclick = () => { SFX.play('ui'); (returnTo || (() => this.showTitle()))(); };
   },
 
   /* first-run orientation, shown once before the first checkup */
@@ -520,11 +621,17 @@ const G = {
           <span class="kbd">Q</span> swallow pill · <span class="kbd">E</span> place Claim Form (it explodes) ·
           <span class="kbd">P</span> pause · <span class="kbd">M</span> mute<br><br>
           <b>Mobile:</b> left thumb moves, right thumb shoots. Buttons for pills & claims.<br><br>
+          <b>Gamepad:</b> sticks move & shoot · <span class="kbd">A</span> ability · <span class="kbd">X</span> pill · <span class="kbd">B</span> claim ·
+          <span class="kbd">SELECT</span> drops <b>Patient Two</b> in (couch co-op — they pick their own chart) · <span class="kbd">START</span> pause<br><br>
           <b>The rest:</b> clear rooms, take your meds (or don't), find the Specialist
           (needs a <b>Referral</b> 🔑), buy things with <b>Copays</b> ¢, beat the boss,
           descend forever. Dr. Walrus is waiting on every 5th ward.<br><br>
           <b>Patient Files</b> on the title screen is the character select — every diagnosis
-          plays differently, Isaac-style. The checkup just picks one for you.
+          plays differently, Isaac-style. The checkup just picks one for you.<br><br>
+          <b>Between runs:</b> pick your <b>Insurance Plan</b> at enrollment · walk <b>The Waiting Room</b> hub —
+          the Wellness Fund upgrades the building, the Complaint Department weaponizes your feedback ·
+          earn an <b>Emotional Support Animal</b> in Settings · leftover coins are "donated" when you're discharged.
+          Your save keeps itself on this device — back it up or move it in <b>Settings → SAVE DATA</b>.
         </div>
         <button class="btn" id="bBack">BACK</button>
       </div>`);
@@ -756,6 +863,12 @@ const G = {
     this._amaFailed = false; this._amaDone = false;
     this.p2 = null;   // Patient Two rejoins per run (Select on the pad)
     this.overtime = null;   // OVERTIME arms below if _startOvertime
+    this.runTime = 0; this.splits = []; this._lastSplitDelta = null;   // speedrun clock
+    this._basementOffered = false; this._basementReturn = null; this._diplomaSeen = false;
+    // THE COMPLAINT DEPARTMENT: your grievance reports for duty
+    this._complaint = (!daily && Meta.data.pendingComplaint) ? String(Meta.data.pendingComplaint).slice(0, 40) : null;
+    this._complaintSpawned = false;
+    if (this._complaint) { Meta.data.pendingComplaint = null; Meta.save(); }
     // intercom state + your recurring nemesis (last two deaths, same cause)
     this._ic = null; this._cleanStreak = 0; this._icFloors = {}; this._icPattern = null;
     const deads = (Meta.data.runlog || []).filter(r => r.out === 'dead').slice(-2);
@@ -807,7 +920,8 @@ const G = {
         { x: 600, y: 96, r: 46, door: false, label: '🏆 UNLOCKS',    hint: 'the corkboard', act: () => this.showUnlocks(() => this.showHub()) },
         { x: 140, y: 560, r: 48, door: false, label: '⚙ SETTINGS',   hint: 'the janitor closet', act: () => this.showSettings(() => this.showHub()) },
         { x: 820, y: 560, r: 48, door: false, label: '📋 PATIENT CHART', hint: 'the codex', act: () => this.showCodex(() => this.showHub()) },
-        { x: 330, y: 565, r: 46, door: false, label: '🫙 WELLNESS FUND', hint: 'balance: ' + (Meta.data.fund || 0) + '¢', act: () => this.showFacility(() => this.showHub()) }
+        { x: 330, y: 565, r: 46, door: false, label: '🫙 WELLNESS FUND', hint: 'balance: ' + (Meta.data.fund || 0) + '¢', act: () => this.showFacility(() => this.showHub()) },
+        { x: 480, y: 565, r: 44, door: false, label: '📋 COMPLAINTS', hint: Meta.data.pendingComplaint ? 'one pending' : 'file a grievance', act: () => this.showComplaints(() => this.showHub()) }
       ]
     };
   },
@@ -924,6 +1038,7 @@ const G = {
       };
       for (const f of this.SAVE_FIELDS) S[f] = p[f];
       localStorage.setItem(this.SAVE_KEY, JSON.stringify(S));
+      Meta._idbQueue();   // keep the IndexedDB mirror current too
     } catch (e) { }
   },
   clearCheckpoint() { try { localStorage.removeItem(this.SAVE_KEY); } catch (e) { } },
@@ -1103,6 +1218,18 @@ const G = {
       }
     });
     this._janitorFloor = false;   // the Janitor makes one appearance per floor, tops
+    // THE THIRTEENTH WARD: not generated. curated. it was always going to be ward 13.
+    this.ward13 = (this.depth === 13 && !this.ascent && !this.bossRush && !this.overtime);
+    if (this.ward13) {
+      const cycle = ['seclusion', 'ect', 'padded', 'observation', 'clinic', 'dayroom'];
+      let ci = 0;
+      for (const r of this.floorRooms) {
+        if (r.type === 'normal') { r.type = cycle[ci % cycle.length]; ci++; }
+        if (r.type === 'item') r.lockOpen = true;   // the doors here don't believe in keys
+      }
+      this.setBanner('🕯 THE THIRTEENTH WARD', 'there is no room 13. there is only ward 13.', 3.2);
+      SFX.play('sting');
+    }
     // SHADOW WARD: some floors flip dark — mirrored halls, shadow patients, double loot
     this.shadowWard = (this.depth >= 6 && !this.ascent && !this.bossRush)
       ? this.genSeed(['shadow', this.depth], () => U.chance(0.18))
@@ -1143,6 +1270,10 @@ const G = {
     if (this.shadowWard) {   // the shadow swallows whatever wing this was
       this.wingPal = { floor: '#2e2440', line: '#241c34', wall: '#3c2c52', trim: '#161020' };
       this.floorDark = Math.max(this.floorDark, 0.35);
+    }
+    if (this.ward13) {   // candlelit rot — ward 13 has its own weather
+      this.wingPal = { floor: '#332838', line: '#281f2c', wall: '#452e3e', trim: '#140e16' };
+      this.floorDark = Math.max(this.floorDark, 0.4);
     }
     // intercom floor commentary (once per run per floor)
     if (!this._icFloors) this._icFloors = {};
@@ -1462,7 +1593,11 @@ const G = {
     if (!target) return;
     // locked specialist door
     if (target.type === 'item' && !target.lockOpen) {
-      if (this.player.keys > 0) {
+      if (this.player.trinket === 'masterkey') {   // the Janitor's copy — everything opens
+        target.lockOpen = true;
+        this.toast('🗝 The Master Key turns. Of course it does.', '#e8c84c');
+        SFX.play('pickup');
+      } else if (this.player.keys > 0) {
         this.player.keys--;
         target.lockOpen = true;
         SFX.play('pickup');
@@ -1675,6 +1810,13 @@ const G = {
         }
         this.toast('“Doctor! Great news about your condition. Have you met our new friend?”', '#8fd08a');
       }
+      // WARD 13 pays out the one thing the building never meant to give you
+      if (this.ward13) {
+        const mk = new Pickup('trinket', CW / 2 + 130, RY + RH / 2 - 40);
+        mk.trinketId = 'masterkey';
+        this.pickups.push(mk);
+        this.toast('🗝 Something fell from the rafters. It looks… important.', '#e8c84c');
+      }
       room.trapdoor = this.trapdoor = { x: CW / 2, y: RY + RH / 2 - 100 };
       // Ward 5 only: the service elevator opens beside the trapdoor — the other direction
       if (this.depth === 5 && !this.ascent) {
@@ -1807,6 +1949,23 @@ const G = {
   doDescend() {
     if (this.floorHits === 0) this.goalEvent('floorclean');   // Clean Bill
     if (this.p2 && !Meta.data.everCoop) { Meta.data.everCoop = 1; Meta.save(); this.checkUnlocks(); }   // Group Rate
+    // speedrun split: time-to-clear this ward vs your PB
+    if (Meta.data.speedrun && this.runTime != null && !this.dailyKind && !this.overtime) {
+      this.splits = this.splits || [];
+      this.splits.push(this.runTime);
+      const key = this.player.baseDiag === 'undiag' ? 'undiag' : this.player.diag;
+      const pb = (Meta.data.splitsPB || (Meta.data.splitsPB = {}))[key];
+      const i = this.splits.length - 1;
+      const prev = pb && pb.splits && pb.splits[i] != null ? pb.splits[i] : null;
+      this._lastSplitDelta = prev != null ? this.runTime - prev : null;
+      const fmt = (t) => Math.floor(t / 60) + ':' + ('0' + Math.floor(t % 60)).slice(-2);
+      this.toast('⏱ Ward ' + this.depth + ' — ' + fmt(this.runTime) + (this._lastSplitDelta != null ? ' (' + (this._lastSplitDelta <= 0 ? '−' : '+') + Math.abs(this._lastSplitDelta).toFixed(1) + 's)' : ''), this._lastSplitDelta != null && this._lastSplitDelta <= 0 ? '#8fd05a' : '#e0a05a');
+      // PB: deepest, then fastest to that depth
+      if (!pb || this.splits.length > pb.splits.length || (this.splits.length === pb.splits.length && this.runTime < pb.total)) {
+        Meta.data.splitsPB[key] = { total: this.runTime, splits: this.splits.slice() };
+        Meta.save();
+      }
+    }
     // ALL-NIGHTER: the candle burns at both ends
     if (this.player && this.player.variant && this.player.diag === 'insomnia') {
       this.player.hp = Math.max(1, this.player.hp - 1);
@@ -2187,6 +2346,12 @@ const G = {
             if (U.chance(0.35)) setTimeout(() => { if (this.state === 'run') this.toast('🧹 ' + U.choice(DATA.JANITOR.wisdom), '#b8b0a0'); }, 2600);
             SFX.play('coin');
             this.checkUnlocks();
+            // five purchases in: he finally trusts you
+            if ((Meta.data.janitorBuys || 0) >= 5 && !this._basementOffered) {
+              this._basementOffered = true;
+              this.peds.push({ x: ped.x + 60, y: ped.y + 20, kind: 'basementdoor', taken: false });
+              setTimeout(() => { if (this.state === 'run') { this.toast('🧹 “I\'ve seen the basement. Want to?”', '#e8c84c'); SFX.play('voice'); } }, 1400);
+            }
           }
         } else if (this.lockCd <= 0) { this.lockCd = 1.6; this.toast('🧹 ' + U.choice(DATA.JANITOR.broke), '#b8b0a0'); SFX.play('error'); }
       } else if (ped.kind === 'contract') {   // a fellow patient with a side job
@@ -2199,6 +2364,21 @@ const G = {
           ped.taken = true;
           this.contracts.push({ id: def.id, def, prog: 0, done: false });
           this.toast('📝 CONTRACT: ' + def.name + ' — ' + def.desc + ' → ' + def.rtext, '#8fd08a');
+          SFX.play('voice');
+        }
+      } else if (ped.kind === 'basementdoor') {   // STAFF ONLY. you're staff now, apparently.
+        ped.taken = true;
+        this.enterBasement();
+        return;
+      } else if (ped.kind === 'basementexit') {   // back up the stairs
+        ped.taken = true;
+        this.exitBasement();
+        return;
+      } else if (ped.kind === 'diploma') {   // the framed truth
+        if (this.lockCd <= 0) {
+          this.lockCd = 2.4;
+          this.toast('🎓 “CRUISE SHIP MEDICAL ACADEMY — Doctor of Vibes, D. WALRUS.” It\'s laminated.', '#c8b0e0');
+          if (!this._diplomaSeen) { this._diplomaSeen = true; setTimeout(() => { if (this.state === 'run') this.toast('🧹 “Told you. Decent tipper, though.”', '#b8b0a0'); }, 2600); }
           SFX.play('voice');
         }
       } else if (ped.kind === 'ama') {   // the exit. you can just... leave?
@@ -2288,6 +2468,8 @@ const G = {
     if (this.p2) this.p2Update(dt);
     // OVERTIME waves
     if (this.overtime) this.overtimeUpdate(dt);
+    // speedrun clock
+    if (Meta.data.speedrun) this.runTime = (this.runTime || 0) + dt;
     // death recap ring buffer (the last ~6 seconds, reconstructed at the morgue)
     this._recapT = (this._recapT || 0) + dt;
     if (this._recapT >= 0.1 && p && !p.dead) {
@@ -2326,11 +2508,16 @@ const G = {
     this.state = 'pause';
     SFX.play('ui');
     const goalRows = (this.goals || []).map(g =>
-      `<div class="sumrow"><span>${g.done ? '✓' : '🎯'} <span style="color:${g.done ? '#2c5a33' : '#55445e'}">${g.name}</span> <i style="opacity:.7">— ${g.desc}</i></span><b>${g.done ? '+◆' + g.insight : (g.n > 1 ? Math.min(g.prog, g.n) + '/' + g.n : '·')}</b></div>`).join('');
+      `<div class="sumrow"><span>${g.done ? '✓' : '🎯'} <span style="color:${g.done ? '#2c5a33' : '#55445e'}">${g.name}</span> <i style="opacity:.7">— ${g.desc}</i></span><b>${g.done ? '+◆' + g.insight : (g.n > 1 ? Math.min(g.prog, g.n) + '/' + g.n : '·')}</b></div>`).join('')
+      + (this.contracts || []).filter(c => !c.done).map(c =>
+      `<div class="sumrow"><span>📝 <span style="color:#3c6a42">${c.def.name}</span> <i style="opacity:.7">— ${c.def.desc}</i></span><b>${c.def.n > 1 ? Math.min(c.prog, c.def.n) + '/' + c.def.n : '·'}</b></div>`).join('');
+    const PL = DATA.PLANS.find(x => x.id === (this.plan || 'silver'));
+    const petD = this.player.pet ? DATA.PETS.find(x => x.id === this.player.pet.type) : null;
     this.overlay(`
       <div class="panel">
         <h1 class="logo" style="font-size:30px">PAUSED</h1>
         <div class="stats-line">${DATA.DIAG[this.player.diag].name} · ward ${this.depth} · ${this.stats.kills} symptoms managed</div>
+        <div class="stats-line" style="opacity:.75">${PL ? PL.icon + ' ' + PL.name + ' plan' : ''}${petD ? ' · ' + petD.icon + ' ' + petD.name + (this.player.pet.evo ? ' ★' : '') : ''}${this.player.trinket ? ' · ' + (DATA.TRINKETS.find(t => t.id === this.player.trinket) || {}).name : ''}</div>
         ${goalRows ? `<div class="summary" style="margin-top:8px">${goalRows}</div>` : ''}
         <button class="btn" id="bResume">RESUME</button>
         <button class="btn minor" id="bP2Toggle">🎮 ${this.p2 ? 'PATIENT TWO LEAVES' : 'PATIENT TWO JOINS (pad)'}</button>
@@ -2747,6 +2934,7 @@ const G = {
         </div>
         <div class="summary">
           ${this.overtime ? row('<span style="color:#e8c84c">⏰ OVERTIME — wave reached</span>', '<span style="color:#e8c84c">' + this.overtime.wave + (this.overtime.wave >= (Meta.data.overtimeBest || 0) ? ' ⭐' : '') + '</span>') : ''}
+          ${Meta.data.speedrun && this.runTime ? row('⏱ Final time', Math.floor(this.runTime / 60) + ':' + ('0' + Math.floor(this.runTime % 60)).slice(-2)) : ''}
           ${row('Symptoms managed', st.kills)}
           ${row('Bosses defeated', st.bosses)}
           ${row('Prescriptions collected', st.items)}
@@ -3206,6 +3394,9 @@ const G = {
   const canvas = document.getElementById('game');
   Render.ctx = canvas.getContext('2d');
   Meta.load();
+  Meta.idbRestore();   // if localStorage came up empty but the IndexedDB mirror has a save, recover it
+  window.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') Meta.save(); });
+  window.addEventListener('pagehide', () => Meta.save());
   Haptics.init();
   Input.init(canvas);
 
