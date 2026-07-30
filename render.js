@@ -83,6 +83,8 @@ const Render = {
       this.drawHub(G);
     } else if (G.state === 'appeal') {
       this.drawAppeal(G);
+    } else if (G.state === 'credits') {
+      this.drawCredits(G);
     } else {
       this.drawMenuAmbient(G);   // atmospheric backdrop behind the menus (esp. the title)
     }
@@ -90,6 +92,34 @@ const Render = {
     if (G.banner) this.drawBanner(G);
     if (G.toasts.length) this.drawToasts(G);
     if (G.state === 'descend') this.drawDescend(G);
+  },
+
+  /* ============ THE CREDITS (rolling, like the eyes of the billing department) ============ */
+  drawCredits(G) {
+    const ctx = this.ctx;
+    ctx.fillStyle = '#0e0a12'; ctx.fillRect(0, 0, CW, CH);
+    // a faint lamp glow, one last time
+    const g = ctx.createRadialGradient(CW / 2, CH * 0.35, 40, CW / 2, CH * 0.35, 480);
+    g.addColorStop(0, 'rgba(70,58,88,0.28)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, CW, CH);
+    const scroll = (G.creditsT || 0) * 34;
+    ctx.textAlign = 'center';
+    let y = CH + 40 - scroll;
+    for (const line of DATA.CREDITS) {
+      const kind = line[0], txt = line[1] || '';
+      if (kind === 'gap') { y += 34; continue; }
+      if (y > -40 && y < CH + 40) {
+        if (kind === 'title') { ctx.font = 'bold 30px Impact,"Arial Black",sans-serif'; ctx.fillStyle = '#e8c84c'; }
+        else if (kind === 'role') { ctx.font = 'bold 13px Impact,"Arial Black",sans-serif'; ctx.fillStyle = '#8a7c98'; }
+        else if (kind === 'sub') { ctx.font = 'italic bold 13px "Trebuchet MS","Segoe UI",sans-serif'; ctx.fillStyle = '#b8aec4'; }
+        else { ctx.font = 'bold 15px "Trebuchet MS","Segoe UI",sans-serif'; ctx.fillStyle = '#f0e8d8'; }
+        ctx.fillText(txt, CW / 2, y);
+      }
+      y += kind === 'title' ? 44 : 26;
+    }
+    ctx.font = 'bold 10px "Trebuchet MS",sans-serif'; ctx.fillStyle = 'rgba(240,232,216,0.4)';
+    ctx.textAlign = 'right';
+    ctx.fillText('tap / SPACE to skip', CW - 16, CH - 12);
   },
 
   /* ============ THE APPEALS PROCESS (stamp-timing minigame) ============ */
@@ -1810,6 +1840,24 @@ const Render = {
         ctx.beginPath(); ctx.moveTo(-15, -14); ctx.lineTo(-6, -12.5); ctx.moveTo(15, -14); ctx.lineTo(6, -12.5); ctx.stroke(); ctx.lineCap = 'butt';
         if (p.napActive > 0) { ctx.fillStyle = 'rgba(127,212,200,0.9)'; ctx.font = 'bold 13px sans-serif'; ctx.fillText('z', 15, -20); }
       }
+    } else if (p.diag === 'burnout') {
+      // the amber sweatband of someone who "is fine" + a tiny travel mug welded to one hand
+      ctx.fillStyle = '#d09a3a';
+      this.rr(ctx, -14, -18, 28, 5, 2.5); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.35)'; this.rr(ctx, -14, -18, 28, 2, 2); ctx.fill();
+      ctx.fillStyle = '#8a6a3a'; this.rr(ctx, 10, 6, 7, 9, 2); ctx.fill();   // the mug
+      ctx.fillStyle = '#3a2c1e'; this.rr(ctx, 11, 7, 5, 2.5, 1); ctx.fill();
+      if (p.battery > 75) {   // OVERDRIVE hum
+        ctx.strokeStyle = 'rgba(232,192,90,' + (0.4 + Math.sin((G.t || 0) * 8) * 0.2) + ')'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(0, -2, 24, 0, TAU); ctx.stroke();
+      } else if (p.battery < 25) {   // running on fumes: little grey wisps
+        for (let w = 0; w < 2; w++) {
+          const wt = ((G.t || 0) * 0.7 + w * 0.5) % 1;
+          ctx.strokeStyle = 'rgba(150,140,130,' + (0.5 - wt * 0.45) + ')'; ctx.lineWidth = 1.6; ctx.lineCap = 'round';
+          ctx.beginPath(); ctx.moveTo(-6 + w * 12, -22 - wt * 10); ctx.quadraticCurveTo(-2 + w * 12 + Math.sin(wt * 9) * 3, -27 - wt * 10, -4 + w * 12, -32 - wt * 12); ctx.stroke();
+          ctx.lineCap = 'butt';
+        }
+      }
     }
 
     // the Undiagnosed (portrait state, before the first floor's opinion lands)
@@ -1971,7 +2019,7 @@ const Render = {
     ctx.save();
     ctx.translate(e.x, e.y);
     if (tunnelA < 1) ctx.globalAlpha *= Math.max(0.05, tunnelA);
-    if (e._shadow) ctx.filter = 'brightness(0.45) saturate(0.6)';   // shadow patient: mostly silhouette
+    if (e._shadow) ctx.globalAlpha *= 0.85;   // shadow patient: the dark crush happens post-draw (ctx.filter here cost 36% of the frame)
     if (e.charmed) {   // recruited ally: a green halo + a little heart
       const pl = 0.5 + Math.sin(G.t * 5) * 0.22;
       ctx.strokeStyle = 'rgba(143,208,90,' + pl + ')'; ctx.lineWidth = 2.5;
@@ -2463,8 +2511,10 @@ const Render = {
         ctx.fillText('“' + e._complaint.slice(0, 26) + (e._complaint.length > 26 ? '…' : '') + '”', e.x, e.y - e.r - 16);
       }
     }
-    // shadow patients: the eyes are the only bright thing left
+    // shadow patients: crush the body to silhouette (cheap paint, not ctx.filter), leave the eyes burning
     if (e._shadow && !e.dying && e.spawnT <= 0) {
+      ctx.fillStyle = 'rgba(20,13,29,0.66)';
+      ctx.beginPath(); ctx.arc(e.x, e.y, e.r + 2.5, 0, TAU); ctx.fill();
       const gl = 0.65 + Math.sin(G.t * 4 + e.x) * 0.2;
       ctx.fillStyle = 'rgba(200,160,255,' + gl + ')';
       ctx.beginPath(); ctx.arc(e.x - 4, e.y - e.r * 0.3, 2, 0, TAU); ctx.arc(e.x + 4, e.y - e.r * 0.3, 2, 0, TAU); ctx.fill();
@@ -3516,6 +3566,19 @@ const Render = {
       }
     }
 
+    // Burnout battery (bottom-left, beside the ability pip)
+    if (p.diag === 'burnout') {
+      const gx = 74, gy = CH - 52, gw = 96, gh = 12;
+      const frac = U.clamp(p.battery / 100, 0, 1);
+      ctx.fillStyle = 'rgba(20,14,22,0.7)'; this.rr(ctx, gx, gy, gw, gh, 4); ctx.fill();
+      ctx.fillStyle = p.battery > 75 ? '#e8c05a' : p.battery < 25 ? '#c05840' : '#d09a3a';
+      this.rr(ctx, gx + 1.5, gy + 1.5, Math.max(0, (gw - 3) * frac), gh - 3, 3); ctx.fill();
+      ctx.strokeStyle = 'rgba(232,192,90,0.6)'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(gx + gw * 0.75, gy); ctx.lineTo(gx + gw * 0.75, gy + gh); ctx.stroke();   // overdrive line
+      ctx.fillStyle = 'rgba(240,232,216,0.8)'; ctx.fillRect(gx + gw, gy + 3, 3, gh - 6);   // the battery nub
+      ctx.fillStyle = '#d09a3a'; ctx.font = this.font(9, true); ctx.textAlign = 'left';
+      ctx.fillText('BATTERY' + (p.battery > 75 ? ' · ⚡ OVERDRIVE' : p.battery < 25 ? ' · fumes' : ''), gx, gy - 4);
+    }
     // Insomnia sleep meter (bottom-left, beside the ability pip)
     if (p.diag === 'insomnia') {
       const gx = 74, gy = CH - 52, gw = 96, gh = 12;

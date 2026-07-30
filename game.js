@@ -448,6 +448,27 @@ const G = {
     document.getElementById('bSetBack').onclick = () => { SFX.play('ui'); returnTo(); };
   },
 
+  /* ---------- THE CREDITS (roll them. you earned them. someone will be billed.) ---------- */
+  showCredits() {
+    this.state = 'credits';
+    this.creditsT = 0;
+    this.hideOverlay();
+    SFX.setMusic('cutscene');
+    if (!this._credTapBound) {
+      this._credTapBound = () => { if (this.state === 'credits') this._credSkip = true; };
+      document.getElementById('game').addEventListener('pointerdown', this._credTapBound);
+    }
+    this._credSkip = false;
+  },
+  creditsUpdate(dt) {
+    this.creditsT = (this.creditsT || 0) + dt;
+    const done = this.creditsT * 34 > DATA.CREDITS.length * 34 + CH + 200;   // scrolled past the walrus
+    if (done || this._credSkip || Input.take('confirm') || Input.take('pause')) {
+      this._credSkip = false;
+      this.showTitle();
+    }
+  },
+
   /* ---------- BOSS NEGOTIATION (the fight stops; something is offered) ---------- */
   showBossDeal(boss) {
     this.state = 'bossdeal';
@@ -605,12 +626,13 @@ const G = {
   showFiles() {
     this.state = 'files';
     const fineOpen = Meta.data.fineSeen || Meta.data.walrusKills > 0;
-    const order = ['adhd', 'bipolar', 'depression', 'anxiety', 'schizo', 'ocd', 'ptsd', 'insomnia', 'fine', 'undiag'];
+    const order = ['adhd', 'bipolar', 'depression', 'anxiety', 'schizo', 'ocd', 'ptsd', 'insomnia', 'fine', 'undiag', 'burnout'];
     this._fvar = this._fvar || {};   // which cards are flipped to their Second Opinion
+    const burnoutOpen = Object.values(Meta.data.diagBest || {}).filter(v => v >= 10).length >= 3;
     const cards = order.map(id => {
       const D = DATA.DIAG[id];
       const nineDone = ['adhd','bipolar','depression','anxiety','schizo','ocd','ptsd','insomnia','fine'].filter(d => (Meta.data.diagsPlayed||{})[d]).length >= 9;
-      const locked = (id === 'fine' && !fineOpen) || (id === 'undiag' && !nineDone);
+      const locked = (id === 'fine' && !fineOpen) || (id === 'undiag' && !nineDone) || (id === 'burnout' && !burnoutOpen);
       const best = (Meta.data.diagBest || {})[id];
       const soOpen = !locked && (best || 0) >= 6 && DATA.DIAG2 && DATA.DIAG2[id];   // beat the Ward-5 Walrus with the base
       const flipped = soOpen && this._fvar[id];
@@ -619,8 +641,8 @@ const G = {
         ${soOpen ? `<span class="soflip" data-f="${id}" title="Second Opinion" style="position:absolute;top:4px;right:6px;font-size:13px;cursor:pointer">⇄${flipped ? 'Ⅱ' : ''}</span>` : ''}
         <canvas width="84" height="84" data-cd="${id}" data-cv="${flipped ? 1 : 0}"></canvas>
         <div class="cname" style="color:${locked ? '#8a8078' : D.color}">${locked ? '?????' : (flipped ? D2.name : D.name)}</div>
-        <div class="cline">${locked ? (id === 'undiag' ? 'play all nine diagnoses' : 'tell the truth at a checkup') : (flipped ? D2.tag : D.tag)}</div>
-        <div class="cbest">${locked ? (id === 'undiag' ? 'every chart, once' : 'or defeat Dr. Walrus') : (flipped ? 'Ⅱ · second opinion' : (best ? 'best: ward ' + best : 'no chart yet'))}</div>
+        <div class="cline">${locked ? (id === 'undiag' ? 'play all nine diagnoses' : id === 'burnout' ? 'reach Ward 10 three ways' : 'tell the truth at a checkup') : (flipped ? D2.tag : D.tag)}</div>
+        <div class="cbest">${locked ? (id === 'undiag' ? 'every chart, once' : id === 'burnout' ? 'three diagnoses, ward 10 each' : 'or defeat Dr. Walrus') : (flipped ? 'Ⅱ · second opinion' : (best ? 'best: ward ' + best : 'no chart yet'))}</div>
       </button>`;
     }).join('');
     this.overlay(`
@@ -955,10 +977,11 @@ const G = {
     this.hideOverlay();
     document.body.classList.add('inrun');   // phones need the move stick in here
     SFX.setMusic('dayroom');
-    const order = ['adhd', 'bipolar', 'depression', 'anxiety', 'schizo', 'ocd', 'ptsd', 'insomnia', 'fine', 'undiag'];
+    const order = ['adhd', 'bipolar', 'depression', 'anxiety', 'schizo', 'ocd', 'ptsd', 'insomnia', 'fine', 'undiag', 'burnout'];
     const fineOpen = Meta.data.fineSeen || Meta.data.walrusKills > 0;
     const nineDone = order.slice(0, 9).filter(d => (Meta.data.diagsPlayed || {})[d]).length >= 9;
-    const unlocked = order.filter(id => !(id === 'fine' && !fineOpen) && !(id === 'undiag' && !nineDone));
+    const burnoutOpen = Object.values(Meta.data.diagBest || {}).filter(v => v >= 10).length >= 3;
+    const unlocked = order.filter(id => !(id === 'fine' && !fineOpen) && !(id === 'undiag' && !nineDone) && !(id === 'burnout' && !burnoutOpen));
     const hp = new Player(Meta.data.lastDiag && DATA.DIAG[Meta.data.lastDiag] ? Meta.data.lastDiag : 'adhd');
     hp.x = CW / 2; hp.y = 470;
     const seats = unlocked.map((id, i) => {
@@ -1082,7 +1105,7 @@ const G = {
      A snapshot at the start of every floor; CONTINUE on the title resumes it.
      Seeded runs (daily/challenge) are excluded — those are meant to be one sitting. */
   SAVE_KEY: 'egs_save1',
-  SAVE_FIELDS: ['hp', 'maxhp', 'spd', 'tearDelay', 'dmg', 'shotSpd', 'range', 'wobble', 'luck', 'coins', 'keys', 'bombs', 'coupons', 'pill', 'iframeTime', 'abilMax', 'sleep', 'compulsion', '_scar', '_recRooms', 'trinket', '_rosaryUsed'],
+  SAVE_FIELDS: ['hp', 'maxhp', 'spd', 'tearDelay', 'dmg', 'shotSpd', 'range', 'wobble', 'luck', 'coins', 'keys', 'bombs', 'coupons', 'pill', 'iframeTime', 'abilMax', 'sleep', 'compulsion', '_scar', '_recRooms', 'trinket', '_rosaryUsed', 'battery'],
   saveCheckpoint() {
     if (this.dailyKind || this.overtime || !this.player || this.player.dead) return;
     const p = this.player;
@@ -1387,7 +1410,7 @@ const G = {
     p._rosaryUsed = false;   // the rosary recovers its one grace each floor
     if (p._gymAdd) { p.dmg -= p._gymAdd; }
     p._gymAdd = 0;
-    if (p.flags.pillowHeal) p.heal(2);
+    if (p.flags.pillowHeal) p.heal(p.flags.synRested ? 4 : 2);
     if (p.flags.floorGrace) p.iframes = Math.max(p.iframes, 1.5);   // EMDR Reprocessing: a breath of grace each floor
     if (p.flags.floorPill && p.pill == null) { p.pill = U.randi(0, 9); }   // Executive Dysfunction: a free pill each floor
     if (p.flags.crystals) {
@@ -1756,6 +1779,7 @@ const G = {
       if (p.wired && !Meta.data.everWiredClear) { Meta.data.everWiredClear = 1; Meta.save(); this.checkUnlocks(); }   // Tired & Wired
       p.sleep = U.clamp(p.sleep + 16, 0, 100);   // a moment's quiet lets you catch your breath
     }
+    if (p.diag === 'burnout') p.battery = U.clamp(p.battery + 25, 0, 100);   // the room is done. breathe.
     if (p.allies) for (const a of p.allies) a.revive();   // downed group members get back up between rooms
     if (this.p2 && this.p2._downT > 0) { this.p2._downT = 0; this.p2.hp = Math.max(2, Math.ceil(this.p2.maxhp / 2)); this.p2.iframes = 2; this.toast('🎮 PATIENT TWO is back up. They saw everything.', '#8fd08a'); }
     // SURPRISE INSPECTION: the sweep may confiscate the pill you're holding
@@ -1855,6 +1879,7 @@ const G = {
       this._cureBeaten = true;
       this._runCured = true;   // run log: this run reached the ending
       if (!Meta.data.cured) { Meta.data.cured = 1; Meta.data.chronicUnlocked = 1; }
+      (Meta.data.seenStory || (Meta.data.seenStory = {})).epilogue = 1;   // the epilogue opens in Chart Notes
       if (this.chronic) Meta.data.chronicBest = Math.max(Meta.data.chronicBest || 0, this.depth);
     }
     // THE FOUNDER (Ward 50): the real superboss — prestige
@@ -2175,6 +2200,7 @@ const G = {
     }
     if (this.state === 'hub') { this.t += dt; this.hubUpdate(dt); return; }
     if (this.state === 'appeal') { this.t += dt; this.appealUpdate(dt); return; }
+    if (this.state === 'credits') { this.t += dt; this.creditsUpdate(dt); return; }
     if (this.state !== 'run') return;
     this.t += dt;
     this.doorCd -= dt; this.lockCd -= dt; this.machineCd = (this.machineCd || 0) - dt;
@@ -2659,10 +2685,11 @@ const G = {
   /* ---------- OVERTIME (one room; the ward sends everything; you clock out when you drop) ---------- */
   showOvertime() {
     this.state = 'overtimepick';
-    const order = ['adhd', 'bipolar', 'depression', 'anxiety', 'schizo', 'ocd', 'ptsd', 'insomnia', 'fine', 'undiag'];
+    const order = ['adhd', 'bipolar', 'depression', 'anxiety', 'schizo', 'ocd', 'ptsd', 'insomnia', 'fine', 'undiag', 'burnout'];
     const fineOpen = Meta.data.fineSeen || Meta.data.walrusKills > 0;
     const nineDone = order.slice(0, 9).filter(d => (Meta.data.diagsPlayed || {})[d]).length >= 9;
-    const unlocked = order.filter(id => !(id === 'fine' && !fineOpen) && !(id === 'undiag' && !nineDone));
+    const burnoutOpen = Object.values(Meta.data.diagBest || {}).filter(v => v >= 10).length >= 3;
+    const unlocked = order.filter(id => !(id === 'fine' && !fineOpen) && !(id === 'undiag' && !nineDone) && !(id === 'burnout' && !burnoutOpen));
     const cards = unlocked.map(id => {
       const D = DATA.DIAG[id];
       return `<button class="cmcard" data-otdiag="${id}"><div class="cmname" style="color:${D.color}">${D.name}</div><div class="cmdesc">${D.short}</div></button>`;
@@ -2727,10 +2754,11 @@ const G = {
   /* ---------- PATIENT TWO (couch co-op: the pad is theirs now) ---------- */
   showP2Pick() {
     this.state = 'p2pick';
-    const order = ['adhd', 'bipolar', 'depression', 'anxiety', 'schizo', 'ocd', 'ptsd', 'insomnia', 'fine', 'undiag'];
+    const order = ['adhd', 'bipolar', 'depression', 'anxiety', 'schizo', 'ocd', 'ptsd', 'insomnia', 'fine', 'undiag', 'burnout'];
     const fineOpen = Meta.data.fineSeen || Meta.data.walrusKills > 0;
     const nineDone = order.slice(0, 9).filter(d => (Meta.data.diagsPlayed || {})[d]).length >= 9;
-    const unlocked = order.filter(id => !(id === 'fine' && !fineOpen) && !(id === 'undiag' && !nineDone));
+    const burnoutOpen = Object.values(Meta.data.diagBest || {}).filter(v => v >= 10).length >= 3;
+    const unlocked = order.filter(id => !(id === 'fine' && !fineOpen) && !(id === 'undiag' && !nineDone) && !(id === 'burnout' && !burnoutOpen));
     const cards = unlocked.map(id => {
       const D = DATA.DIAG[id];
       return `<button class="cmcard" data-p2diag="${id}"><div class="cmname" style="color:${D.color}">${D.name}</div><div class="cmdesc">${D.short}</div></button>`;
@@ -3119,10 +3147,12 @@ const G = {
         <button class="btn" id="bEndKeep">▶ KEEP CLIMBING (endless)</button>
         <div class="btnrow">
           <button class="btn minor" id="bEndShare">📤 SHARE</button>
+          <button class="btn minor" id="bEndCredits">🎬 ROLL CREDITS</button>
           <button class="btn minor" id="bEndTitle">TITLE</button>
         </div>
       </div>`);
     this.paintWalrus('endWalrus');
+    document.getElementById('bEndCredits').onclick = () => { SFX.play('ui'); this.recordRun('cured'); this.showCredits(); };
     document.getElementById('bEndKeep').onclick = () => { SFX.play('ui'); this.hideOverlay(); this.state = 'run'; };
     document.getElementById('bEndShare').onclick = () => { SFX.play('ui'); Render.shareCard({ diag: this.player.diag, depth: this.depth, daily: true, key: 'WARD 25', label: this.chronic ? 'CURED · CHRONIC' : 'CURED (ALLEGEDLY)', win: true, stats: { kills: this.stats.kills, bosses: this.stats.bosses, pills: this.stats.pills } }); };
     document.getElementById('bEndTitle').onclick = () => { SFX.play('ui'); this.recordRun('cured'); this.showTitle(); };
@@ -3282,9 +3312,12 @@ const G = {
         <h1 class="logo" style="font-size:26px">CHART NOTES</h1>
         <div class="tagline">${done} / ${chapters.length} chapters · the story under the satire</div>
         <div class="achlist">${rows}</div>
+        ${Meta.data.cured ? '<button class="btn minor" id="bRollCredits">🎬 ROLL CREDITS</button>' : ''}
         <button class="btn" id="bStoryBack">BACK</button>
       </div>`);
     document.querySelectorAll('.ach[data-s]:not(.locked)').forEach(b => b.onclick = () => { SFX.play('ui'); Story.play(b.dataset.s, () => this.showStoryGallery(returnTo)); });
+    const brc = document.getElementById('bRollCredits');
+    if (brc) brc.onclick = () => { SFX.play('ui'); this.showCredits(); };
     document.getElementById('bStoryBack').onclick = () => { SFX.play('ui'); (returnTo || (() => this.showTitle()))(); };
   },
 
@@ -3462,6 +3495,32 @@ const G = {
     if (DATA.BOSSES[c]) return DATA.BOSSES[c].name;
     return c;
   },
+  // 🏆 the trophy wall: everything you've survived, framed
+  trophyHtml() {
+    const m = Meta.data;
+    const plq = (icon, title, val) => `<div style="flex:0 0 auto;background:#efe6cc;border:3px solid #a8926a;border-radius:6px;padding:6px 10px;min-width:104px;text-align:center;box-shadow:0 2px 0 rgba(0,0,0,0.25)">
+      <div style="font-size:17px">${icon}</div><div style="font-size:9px;color:#7a6a4a;font-weight:bold;letter-spacing:0.5px">${title}</div><div style="font-size:13px;font-weight:bold;color:#3a3020">${val}</div></div>`;
+    const plaques = [];
+    if (m.bestFloor > 0) plaques.push(plq('🏥', 'DEEPEST WARD', m.bestFloor));
+    const heatBest = Math.max(0, ...Object.values(m.intensityBest || {}).concat(0));
+    if (heatBest > 0) plaques.push(plq('🔥', 'MAX INTENSITY', heatBest));
+    if (m.overtimeBest > 0) plaques.push(plq('⏰', 'OVERTIME WAVE', m.overtimeBest));
+    const spared = Object.keys(m.sparedBosses || {}).length;
+    if (spared > 0) plaques.push(plq('✌', 'BOSSES SPARED', spared));
+    const petStars = Object.values(m.petXp || {}).filter(v => v >= 40).length;
+    if (petStars > 0) plaques.push(plq('★', 'PETS EVOLVED', petStars));
+    if (m.walrusKills > 0) plaques.push(plq('🦭', 'WALRUS DEFEATS', m.walrusKills));
+    if (m.cured) plaques.push(plq('✨', 'CURED', '“allegedly”'));
+    if (m.amaDone > 0) plaques.push(plq('🚪', 'LEFT AMA', m.amaDone + '×'));
+    if (m.contractsDone > 0) plaques.push(plq('📝', 'CONTRACTS', m.contractsDone));
+    if (m.janitorBuys > 0) plaques.push(plq('🧹', 'JANITOR TAB', m.janitorBuys + ' items'));
+    const sp = Meta.data.splitsPB || {};
+    const bestSplit = Object.keys(sp).map(k => ({ k, t: sp[k].total })).sort((a, b) => a.t - b.t)[0];
+    if (bestSplit) plaques.push(plq('⏱', 'BEST PACE', Math.floor(bestSplit.t / 60) + ':' + ('0' + Math.floor(bestSplit.t % 60)).slice(-2)));
+    if (!plaques.length) return '';
+    return `<div class="tagline" style="margin-bottom:2px">🏆 THE TROPHY WALL</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:10px">${plaques.join('')}</div>`;
+  },
   showStats(returnTo) {
     this.state = 'stats';
     const A = Meta.data.runAgg || {}, C = Meta.data.causeAgg || {}, log = Meta.data.runlog || [];
@@ -3504,6 +3563,7 @@ const G = {
       <div class="panel wide">
         <h1 class="logo" style="font-size:26px">RUN HISTORY</h1>
         <div class="tagline">real playthrough data — stored on this device only</div>
+        ${this.trophyHtml()}
         <div class="achlist" style="gap:0">${body}</div>
         <button class="btn" id="bStatsBack">BACK</button>
       </div>`);
@@ -3589,12 +3649,15 @@ const G = {
   // big status readout in the portrait deck (its own canvas, only when the deck is visible)
   const deckStatusEl = document.getElementById('deckStatus');
   const dsCtx = deckStatusEl ? deckStatusEl.getContext('2d') : null;
+  let _deckRect = null;
+  window.addEventListener('resize', () => { _deckRect = null; });
   function updateDeckStatus() {
-    if (!dsCtx || !deckStatusEl.offsetParent) return; // offsetParent is null when the deck is display:none
+    if (!dsCtx || !deckStatusEl.offsetParent) { _deckRect = null; return; } // offsetParent is null when the deck is display:none
     const hub = G.state === 'hub';
     if (!hub && !G.player) return;
     if (!hub && G.state !== 'run' && G.state !== 'pause' && G.state !== 'descend' && G.state !== 'dead' && G.state !== 'appeal') return;
-    const rect = deckStatusEl.getBoundingClientRect();
+    if (!_deckRect) _deckRect = deckStatusEl.getBoundingClientRect();   // measured once; resize invalidates (per-frame reads force layout)
+    const rect = _deckRect;
     const w = Math.max(1, Math.round(rect.width)), h = Math.max(1, Math.round(rect.height));
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     if (deckStatusEl.width !== Math.round(w * dpr) || deckStatusEl.height !== Math.round(h * dpr)) {
@@ -3614,7 +3677,7 @@ const G = {
     if (G.state === 'cutscene' && typeof Story !== 'undefined' && Story.active) {
       try { Story.update(dt); Story.draw(); } catch (e) { Story.active = false; if (G.showTitle) G.showTitle(); }
     } else {
-      if (G.state === 'run' || G.state === 'descend' || G.state === 'hub' || G.state === 'appeal') G.update(dt);
+      if (G.state === 'run' || G.state === 'descend' || G.state === 'hub' || G.state === 'appeal' || G.state === 'credits') G.update(dt);
       Render.draw(G);
     }
     if (G.state === 'bestiary' && G._bestiary) {

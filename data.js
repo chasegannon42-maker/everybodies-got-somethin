@@ -216,6 +216,15 @@ DATA.DIAG = {
     mech: "SLEEP DEBT: your Sleep drains as you go. Run it low and you go WIRED — +40% damage & fire rate — but the ward dims and things that aren't there start shooting at you. POWER NAP restores sleep and heals — if you can afford to stand perfectly still.",
     rx: "melatonin"
   },
+  burnout: {
+    name: "Burnout (Occupational)",
+    short: "Running On Fumes",
+    tag: "the tank is not half full",
+    color: "#d09a3a",
+    blurb: "You didn't come in for you. You came in because HR made it mandatory. Dr. Walrus took one look at your calendar and gasped — clinically.",
+    mech: "THE BATTERY: everything you do drains it — every shot, every step. Stand still and it recharges. Above 75% you're in OVERDRIVE (+30% damage). Under 25% you fire fumes. CLOCK OUT refills it instantly, because boundaries.",
+    rx: "coffee13"
+  },
   undiag: {
     name: "Undifferentiated",
     short: "Diagnosis Pending (Forever)",
@@ -271,6 +280,7 @@ DATA.ITEMS = {
   antipsy:   { name: "Antipsychotic (XR)", quote: "Reality: now in HD.", desc: "+1 heart, +0.5 damage. Hallucinated enemies shimmer — you can finally tell.", pools: ["special", "oon"], apply(p) { p.maxhp += 2; p.hp += 2; p.dmg += 0.5; p.flags.seeFakes = true; } },
   amps:      { name: "Amphetamine Salts", quote: "Lunch is for the unmedicated.", desc: "+20% speed, +15% fire rate, -1 heart (appetite is a memory).", pools: ["special", "oon"], apply(p) { p.spd *= 1.2; p.tearDelay *= 0.85; p.maxhp = Math.max(2, p.maxhp - 2); p.hp = Math.min(p.hp, p.maxhp); } },
   melatonin: { name: "Melatonin Gummies", quote: "Bear-shaped unconsciousness.", desc: "+1 luck (better drops). Slightly sleepier shots.", pools: ["special", "shop"], apply(p) { p.luck += 1; p.tearDelay *= 1.04; } },
+  coffee13:  { name: "The Thirteenth Coffee", quote: "It stopped working at the ninth. You kept going.", desc: "+5% speed. The Battery drains a little slower. Your hands are FINE.", pools: [], apply(p) { p.spd *= 1.05; p._battSaver = true; } },
   sampler:   { name: "Trial Sample Pack", quote: "The first one's free. So are the rest, legally speaking.", desc: "A free pill, and all pills this run come pre-identified.", pools: ["special", "shop"], apply(p, G) { p.flags.pillsKnown = true; if (p.pill == null) p.pill = U.randi(0, 9); } },
   sideeffects: { name: "Side Effects May Include", quote: "*reads fast* +2 damage and— everything else.", desc: "+2 damage. Every new floor: one random minor side effect. Worth it?", pools: ["special", "oon"], apply(p) { p.dmg += 2; p.flags.sideEffects = true; } },
 
@@ -490,6 +500,53 @@ DATA.bossFor = function (depth, lastBoss) {
   const filtered = pool.filter(b => b !== lastBoss);
   return U.choice(filtered.length ? filtered : pool);
 };
+
+/* ============ THE CREDITS (everyone gets thanked. nobody gets paid.) ============ */
+DATA.CREDITS = [
+  ['title', 'EVERYBODIES GOT SOMETHIN'],
+  ['sub', 'a production of the ward'],
+  ['gap'],
+  ['role', 'STARRING'],
+  ['name', 'You — as The Patient'],
+  ['name', 'Your Symptoms — as Themselves'],
+  ['name', 'Dr. Walrus — as "The Doctor" (title disputed)'],
+  ['gap'],
+  ['role', 'ANTAGONISTS'],
+  ['name', 'The Management — sixteen of them, itemized'],
+  ['name', 'The Bill — always'],
+  ['gap'],
+  ['role', 'SUPPORTING CAST'],
+  ['name', 'The Janitor — forty years, one bucket'],
+  ['name', 'The Support Group — they showed up'],
+  ['name', 'Patient Two — checked in, eventually'],
+  ['name', 'The Emotional Support Animals — good ones, all'],
+  ['gap'],
+  ['role', 'SPECIAL THANKS'],
+  ['name', 'The Wellness Fund — for the aquarium'],
+  ['name', 'The Intercom — for the commentary'],
+  ['name', 'Whoever kept leaving coins in the rocks'],
+  ['gap'],
+  ['role', 'INSURANCE'],
+  ['name', 'Declined to comment'],
+  ['gap'],
+  ['role', 'MEDICAL ACCURACY CONSULTANT'],
+  ['name', '(position unfilled)'],
+  ['gap'],
+  ['sub', 'no symptoms were cured in the making of this game'],
+  ['sub', 'everybody\'s got somethin. be kind. including to yourself.'],
+  ['gap'],
+  ['title', '🦭']
+];
+
+/* ============ ITEM SYNERGIES (some prescriptions were meant for each other) ============ */
+DATA.SYNERGIES = [
+  { id: 'frozenthoughts', a: 'coldcompress', b: 'intrusivethought', name: 'FROZEN THOUGHTS', desc: 'the contagion now chills everyone it touches', apply(p) { p.flags.synFreeze = true; } },
+  { id: 'arson',          a: 'incidentreport', b: 'papertrail',     name: 'ARSON (ALLEGED)', desc: 'ignition odds nearly double — everything is flammable if you file hard enough', apply(p) { p.flags.synArson = true; } },
+  { id: 'thermalshock',   a: 'coldcompress', b: 'incidentreport',   name: 'THERMAL SHOCK', desc: 'burning a chilled patient hits +50% harder', apply(p) { p.flags.synShock = true; } },
+  { id: 'fullhouse',      a: 'grouptherapy', b: 'buddy',            name: 'FULL HOUSE', desc: 'recruitment odds way up — the group practically runs itself', apply(p) { p.flags.synHouse = true; } },
+  { id: 'wellrested',     a: 'pillow', b: 'melatonin',              name: 'WELL RESTED', desc: 'the floor heal doubles — sleep is medicine, confirmed twice', apply(p) { p.flags.synRested = true; } },
+  { id: 'openbook',       a: 'hyperfix', b: 'radicalhonesty',       name: 'OPEN BOOK', desc: 'the truth goes through one more person', apply(p) { p._pierceAdd = (p._pierceAdd || 0) + 1; } }
+];
 
 /* ============ BOSS NEGOTIATION (at the end of the rope, some of them talk) ============ */
 DATA.BOSS_DEALS = {
@@ -717,7 +774,8 @@ DATA.ABILITIES = {
   ocd:        { name: "Recheck", cd: 9, blurb: "Check once more: wipe nearby bullets, reset the compulsion, lock in FOCUS." },
   ptsd:       { name: "5-4-3-2-1", cd: 10, blurb: "Ground yourself: wipe nearby danger, slow the room to a crawl, and come back to now." },
   insomnia:   { name: "Power Nap", cd: 13, blurb: "Steal forty winks: refill Sleep, heal, and phase out untouchable — but you can't move or fire while you're out." },
-  fine:       { name: "Denial", cd: 11, blurb: "\"I'm FINE.\" Briefly refuse to take damage." }
+  fine:       { name: "Denial", cd: 11, blurb: "\"I'm FINE.\" Briefly refuse to take damage." },
+  burnout:    { name: "Clock Out", cd: 9, blurb: "Boundaries, suddenly. The Battery refills to full and nothing can touch you for a breath." }
 };
 
 /* ============ PRESCRIPTION TRANSFORMATIONS ============

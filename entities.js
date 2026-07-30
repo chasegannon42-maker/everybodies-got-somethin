@@ -198,6 +198,7 @@ class Player {
     this.compulsion = 0; this.buffT = 0; this._hadLive = false;   // OCD
     this.lastHitT = 999; this.startleT = 0;   // PTSD (On Edge timer + startle cooldown)
     this.sleep = 100; this.wired = false; this.napActive = 0; this._halluCd = 0; this._microCd = 0;   // Insomnia
+    this.battery = 100; this.overdrive = false;   // Burnout: the tank
     this.trinket = null; this._rosaryUsed = false;   // Personal Effects (held charm)
     this.adren = false;
     this.blanket = (diagId === 'depression');
@@ -251,6 +252,20 @@ class Player {
       this.iframes = Math.max(this.iframes, 2.0);
       SFX.play('item');
       Haptics.buzz([20, 40, 30], 0);
+    }
+    // item synergies: some prescriptions were meant for each other
+    if (G && DATA.SYNERGIES) {
+      this._synergies = this._synergies || [];
+      for (const sy of DATA.SYNERGIES) {
+        if (this._synergies.includes(sy.id)) continue;
+        if (this.items.includes(sy.a) && this.items.includes(sy.b)) {
+          this._synergies.push(sy.id);
+          try { sy.apply(this, G); } catch (e) { }
+          if (G.setBanner) G.setBanner('✨ SYNERGY: ' + sy.name, sy.desc, 3.0);
+          if (G.toast) G.toast('✨ ' + DATA.ITEMS[sy.a].name + ' + ' + DATA.ITEMS[sy.b].name + ' = ' + sy.name, '#e8c84c');
+          SFX.play('evolve');
+        }
+      }
     }
     // prescription transformations: 3 of a theme -> transform
     if (G && DATA.TRANSFORMS) {
@@ -363,6 +378,14 @@ class Player {
         for (let i = 0; i < 6; i++) G.parts.push(new Particle(this.x + U.rand(-14, 14), this.y - 8 - i * 5, U.rand(-8, 8), -26, 1.0, '#7fd4c8', 3));
         break;
       }
+      case 'burnout': {   // Clock Out — boundaries, suddenly
+        this.battery = 100;
+        this.iframes = Math.max(this.iframes, 1.0);
+        G.toast('🔋 CLOCKED OUT. Not reachable. Fully charged.', '#d09a3a');
+        SFX.play('evolve');
+        for (let i = 0; i < 8; i++) { const a = (i / 8) * TAU; G.parts.push(new Particle(this.x, this.y, Math.cos(a) * 150, Math.sin(a) * 150, 0.4, '#e8c05a', 3)); }
+        break;
+      }
       case 'fine': {   // Denial — briefly refuse to take damage
         this.iframes = Math.max(this.iframes, 1.5);
         G.toast('"I\'m FINE."', '#9e9e9e'); SFX.play('ui');
@@ -386,6 +409,7 @@ class Player {
     if (this.variant && this.diag === 'ptsd') d *= 1 + Math.min(0.6, (this._scar || 0) * 0.12);   // SCAR TISSUE
     if (this.diag === 'ptsd' && !this.variant && this.lastHitT > 4) d *= 1.25;   // On Edge: calm and sharp until you're hit
     if (this.diag === 'insomnia' && this.wired) d *= 1.4;   // WIRED: sleep-deprived and dangerous
+    if (this.diag === 'burnout') d *= this.battery > 75 ? 1.3 : this.battery < 25 ? 0.55 : 1;   // OVERDRIVE or fumes
     if (G && G.rapidMods) d *= G.rapidMods.dmg;   // Rapid Cycling
     return d;
   }
@@ -393,6 +417,7 @@ class Player {
     let t = this.tearDelay;
     if (this.adren) t *= 0.85;
     if (this.diag === 'insomnia' && this.wired) t *= 0.8;   // WIRED: twitchy trigger finger
+    if (this.diag === 'burnout' && this.battery < 25) t *= 1.2;   // fumes: the trigger finger clocks out too
     if (this.flags.fineMode) t *= 0.94;
     if (G && G.tearsAura) t *= 1.3;
     if (G && G.rapidMods) t *= G.rapidMods.tears;   // Rapid Cycling (tears>1 = slower)
@@ -404,6 +429,16 @@ class Player {
     this.iframes -= dt; this.hurtFlash -= dt; this.itemHold -= dt;
     this.tempSlow -= dt; this.tearTimer -= dt;
     if (this.abilCd > 0) this.abilCd -= dt * (this.trinket === 'fidgetcube' ? 1.25 : 1);   // the cube keeps your hands busy
+    // Burnout: THE BATTERY — moving drains, stillness restores
+    if (this.diag === 'burnout') {
+      const saver = this._battSaver ? 0.75 : 1;
+      if (this.moving) this.battery -= 1.6 * saver * dt;
+      else this.battery += 9 * dt;
+      this.battery = U.clamp(this.battery, 0, 100);
+      const od = this.battery > 75;
+      if (od && !this.overdrive) G.texts.push(new FloatText(this.x, this.y - 26, '⚡ OVERDRIVE', '#e8c05a'));
+      this.overdrive = od;
+    }
     if (this.espT > 0) this.espT -= dt;   // ☕ Espresso wears off
     if (this.cocoonT > 0) { this.cocoonT -= dt; this.iframes = Math.max(this.iframes, 0.05); }
 
@@ -557,6 +592,7 @@ class Player {
     if (aim) this.aimAng = Math.atan2(aim.y, aim.x);
     if (aim && this.tearTimer <= 0 && this.itemHold <= 0.6 && this.napActive <= 0 && !this.flags.pacifist) {   // Pacifist: no tears — familiars & Claim Forms only
       this.tearTimer = this.effTearDelay();
+      if (this.diag === 'burnout') this.battery = U.clamp(this.battery - 2.2 * (this._battSaver ? 0.75 : 1), 0, 100);   // every shot bills the tank
       let a = Math.atan2(aim.y, aim.x);
       let wob = this.flags.noWobble ? 0 : this.wobble * (this.focused ? 0.3 : 1);
       a += U.rand(-wob, wob);
@@ -578,7 +614,7 @@ class Player {
         const tear = new Tear(this.x + Math.cos(sh.a) * 12, this.y + Math.sin(sh.a) * 12 - 6, svx, svy, this.effDmg() * sh.s, this.range, big);
         if (this.flags.homingTears) tear.home = 2.2;   // rumination: the tears can't let go
         if (this.flags.spiralTears) tear._spiral = 2.7;         // Spiral Thoughts
-        if (this.flags.pierceTears) tear._pierce = 3;           // Radical Honesty
+        if (this.flags.pierceTears) tear._pierce = 3 + (this._pierceAdd || 0);           // Radical Honesty (+ Open Book)
         if (this.flags.boomTears) { tear._boom = true; tear._life0 = tear.life; }   // Boomerang Chart
         if (this.flags.mortarTears) { tear._mortar = true; tear.r += 2.5; }         // The Ugly Cry
         G.tears.push(tear);
@@ -601,6 +637,7 @@ class Player {
     this.compulsion = 0; this._hadLive = false;
     this.lastHitT = 999; this.startleT = 0;
     this.sleep = 100; this.wired = false; this.napActive = 0; this._halluCd = 0; this._microCd = 0;
+    this.battery = 100; this.overdrive = false;
     this.adren = false; this._panicT = 0;
     this.blanket = (nd === 'depression');
     this.cocoonT = 0; this.dashT = 0; this.espT = 0;
@@ -761,9 +798,9 @@ class Tear {
         e.hurt(d, G);
         // status effects — the compress, the report, the thought
         if (G.player.flags.chillTears && !e.fake) { e._chill = Math.min(4, (e._chill || 0) + 1); e._chillT = 1.4; }
-        if (G.player.flags.burnTears && !e.fake && U.chance(0.25)) { e._burn = 3; e._burnDps = Math.max(0.6, G.player.dmg * 0.5); }
+        if (G.player.flags.burnTears && !e.fake && U.chance(G.player.flags.synArson ? 0.45 : 0.25)) { e._burn = 3; e._burnDps = Math.max(0.6, G.player.dmg * 0.5) * (G.player.flags.synShock && e._chill > 0 ? 1.5 : 1); }
         // Peer Support: a chance the shot recruits them to the group instead of just hurting (the Auditor is unrecruitable)
-        if (G.player.flags.charm && !e.fake && !e.dying && e.hp > 0 && e.id !== 'auditor' && U.chance(0.16)) {
+        if (G.player.flags.charm && !e.fake && !e.dying && e.hp > 0 && e.id !== 'auditor' && U.chance(G.player.flags.synHouse ? 0.26 : 0.16)) {
           e.charmed = true; e.charmIdleT = 0; e.hp = Math.max(e.hp, e.maxhp * 0.5);
           G.toast('recruited to the group', '#8fd05a'); SFX.play('heal');
           for (let i = 0; i < 8; i++) { const a = (i / 8) * TAU; G.parts.push(new Particle(e.x, e.y, Math.cos(a) * 120, Math.sin(a) * 120, 0.5, '#8fd05a', 3)); }
@@ -1328,7 +1365,7 @@ class Enemy {
       let spread = 0;
       for (const e of G.enemies) {
         if (e === this || e.dying || e.fake || e.spawnT > 0 || spread >= 3) continue;
-        if (U.dist(this.x, this.y, e.x, e.y) < 130) { e.hurt(Math.max(1, G.player.dmg * 0.6), G, true); e._plague = true; spread++; }
+        if (U.dist(this.x, this.y, e.x, e.y) < 130) { e.hurt(Math.max(1, G.player.dmg * 0.6), G, true); e._plague = true; if (G.player.flags.synFreeze) { e._chill = Math.min(4, (e._chill || 0) + 2); e._chillT = 1.4; } spread++; }
       }
       if (spread) { for (let i = 0; i < 8; i++) { const a = (i / 8) * TAU; G.parts.push(new Particle(this.x, this.y, Math.cos(a) * 160, Math.sin(a) * 160, 0.4, '#8fd08a', 3)); } SFX.play('pop'); }
     }

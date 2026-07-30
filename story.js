@@ -713,6 +713,10 @@ const STORY = {
   ],
   board: [
     { art: 'boardTable', stamp: 'RESTRUCTURED', lines: ['The vote failed. The gavel is on the', 'floor and nobody is chairing anything.', 'Minutes were not taken.', '', 'You rode the elevator UP, and it', 'turned out the top was just people.'] }
+  ],
+  epilogue: [
+    { art: 'daylight', stamp: 'LATER', lines: ['Recovery, it turns out, is not a', 'capsule or a discharge form.', 'It is Tuesdays. It is water and sleep', 'and answering one (1) text.', 'Some days the ward. Some days the sun.'] },
+    { art: 'kindness', stamp: 'ONGOING', lines: ['You still have the chart. You keep it', 'in a drawer now, not in your chest.', '', 'Everybody\'s got somethin.', 'You have several. You are, somehow,', 'still entirely yourself.'] }
   ]
 };
 
@@ -727,5 +731,6 @@ const STORY_CHAPTERS = [
   { id: 'ward50pre', title: 'Ward 50 — The Tower' },
   { id: 'founder',   title: 'Ward 50 — The Fall' },
   { id: 'board',     title: 'The Ascent — The Board' },
-  { id: 'ward100pre', title: 'Ward 100 — The Building' }
+  { id: 'ward100pre', title: 'Ward 100 — The Building' },
+  { id: 'epilogue',  title: 'Epilogue — Tuesdays' }
 ];
