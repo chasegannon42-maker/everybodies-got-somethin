@@ -2482,8 +2482,10 @@ const G = {
   const deckStatusEl = document.getElementById('deckStatus');
   const dsCtx = deckStatusEl ? deckStatusEl.getContext('2d') : null;
   function updateDeckStatus() {
-    if (!dsCtx || !deckStatusEl.offsetParent || !G.player) return; // offsetParent is null when the deck is display:none
-    if (G.state !== 'run' && G.state !== 'pause' && G.state !== 'descend' && G.state !== 'dead') return;
+    if (!dsCtx || !deckStatusEl.offsetParent) return; // offsetParent is null when the deck is display:none
+    const hub = G.state === 'hub';
+    if (!hub && !G.player) return;
+    if (!hub && G.state !== 'run' && G.state !== 'pause' && G.state !== 'descend' && G.state !== 'dead') return;
     const rect = deckStatusEl.getBoundingClientRect();
     const w = Math.max(1, Math.round(rect.width)), h = Math.max(1, Math.round(rect.height));
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -2491,7 +2493,8 @@ const G = {
       deckStatusEl.width = Math.round(w * dpr); deckStatusEl.height = Math.round(h * dpr);
     }
     dsCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    Render.drawDeckStatus(dsCtx, w, h, G);
+    if (hub) Render.drawDeckHub(dsCtx, w, h, G);
+    else Render.drawDeckStatus(dsCtx, w, h, G);
   }
 
   let last = performance.now();
@@ -2502,7 +2505,7 @@ const G = {
     if (G.state === 'cutscene' && typeof Story !== 'undefined' && Story.active) {
       try { Story.update(dt); Story.draw(); } catch (e) { Story.active = false; if (G.showTitle) G.showTitle(); }
     } else {
-      if (G.state === 'run' || G.state === 'descend') G.update(dt);
+      if (G.state === 'run' || G.state === 'descend' || G.state === 'hub') G.update(dt);
       Render.draw(G);
     }
     if (G.state === 'bestiary' && G._bestiary) {

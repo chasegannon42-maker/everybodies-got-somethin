@@ -3118,6 +3118,45 @@ const Render = {
     const prev = this.ctx; this.ctx = ctx; // so drawHeart/drawCoin/etc. target the deck canvas
     try { this._deckStatusBody(ctx, W, H, G, p); } finally { this.ctx = prev; }
   },
+  drawDeckHub(ctx, W, H, G) {   // portrait deck readout while wandering the Waiting Room
+    ctx.clearRect(0, 0, W, H);
+    const Hb = G.hub;
+    ctx.textAlign = 'center';
+    let y = Math.max(20, Math.min(28, H * 0.2));
+    ctx.font = this.font(Math.min(17, W * 0.05), true);
+    ctx.fillStyle = '#e8ddc8';
+    ctx.fillText('🚪 THE WAITING ROOM', W / 2, y);
+    const pr = Hb && Hb.prompt;
+    if (pr) {
+      y += Math.min(30, H * 0.22);
+      ctx.font = this.font(Math.min(16, W * 0.047), true);
+      ctx.fillStyle = '#e8c84c';
+      ctx.fillText(pr.label, W / 2, y);
+      if (pr.hint) {
+        y += Math.min(20, H * 0.15);
+        ctx.font = this.font(Math.min(12, W * 0.036));
+        ctx.fillStyle = '#b3a7b8';
+        ctx.fillText(pr.hint, W / 2, y);
+      }
+      // dwell progress: hold still and it fills
+      if (Input.usingTouch && !pr.door) {
+        const frac = U.clamp((Hb.dwell || 0) / 0.55, 0, 1);
+        const bw = Math.min(W * 0.5, 220);
+        y += Math.min(18, H * 0.12);
+        ctx.fillStyle = 'rgba(255,255,255,0.14)';
+        ctx.fillRect(W / 2 - bw / 2, y, bw, 7);
+        ctx.fillStyle = '#e8c84c';
+        ctx.fillRect(W / 2 - bw / 2, y, bw * frac, 7);
+      }
+    } else {
+      y += Math.min(26, H * 0.2);
+      ctx.font = this.font(Math.min(12, W * 0.036));
+      ctx.fillStyle = '#b3a7b8';
+      ctx.fillText('walk with the pad', W / 2, y);
+      y += Math.min(18, H * 0.13);
+      ctx.fillText('doors open as you walk in — hold still at anything else', W / 2, y);
+    }
+  },
   _deckStatusBody(ctx, W, H, G, p) {
     const D = DATA.DIAG[p.diag];
     ctx.textAlign = 'center';
