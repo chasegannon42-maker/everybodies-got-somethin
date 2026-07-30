@@ -226,7 +226,10 @@ const G = {
         <button class="btn" id="bStart">🩺 START CHECKUP</button>
         <button class="btn" id="bDaily">🗓️ DAILY WARD</button>
         <button class="btn minor" id="bFiles">📁 PATIENT FILES (choose your diagnosis)</button>
-        <button class="btn minor" id="bPrognosis">🎲 PROGNOSIS (challenge runs)</button>
+        <div class="btnrow">
+          <button class="btn minor" id="bPrognosis">🎲 PROGNOSIS</button>
+          <button class="btn minor" id="bProtocols">🧪 PROTOCOLS</button>
+        </div>
         <button class="btn minor" id="bTreatment">🧠 TREATMENT PLAN (skill tree) · ◆ ${Meta.data.insight || 0}</button>
         <button class="btn minor" id="bChart">📋 PATIENT CHART (codex)</button>
         <div class="btnrow">
@@ -250,6 +253,7 @@ const G = {
     document.getElementById('bDaily').onclick = () => { SFX.init(); SFX.play('ui'); this.showDaily(); };
     document.getElementById('bFiles').onclick = () => { SFX.init(); SFX.play('ui'); this.showFiles(); };
     document.getElementById('bPrognosis').onclick = () => { SFX.init(); SFX.play('ui'); this.showPrognosis(); };
+    document.getElementById('bProtocols').onclick = () => { SFX.init(); SFX.play('ui'); this.showProtocols(); };
     document.getElementById('bTreatment').onclick = () => { SFX.init(); SFX.play('ui'); this.showTreatmentPlan(() => this.showTitle()); };
     document.getElementById('bChart').onclick = () => { SFX.init(); SFX.play('ui'); this.showCodex(() => this.showTitle()); };
     document.getElementById('bStoryT').onclick = () => { SFX.init(); SFX.play('ui'); this.showStoryGallery(); };
@@ -402,8 +406,8 @@ const G = {
   },
   // story interlude when first reaching a milestone ward; returns true if one is now playing
   maybeInterlude() {
-    if (Meta.data.storyOff || typeof Story === 'undefined' || this.bossRush) return false;
-    const id = { 5: 'ward5', 10: 'ward10', 15: 'ward15', 20: 'ward20', 50: 'ward50pre' }[this.depth];
+    if (Meta.data.storyOff || typeof Story === 'undefined' || this.bossRush || this.ascent) return false;
+    const id = { 5: 'ward5', 10: 'ward10', 15: 'ward15', 20: 'ward20', 50: 'ward50pre', 100: 'ward100pre' }[this.depth];
     // the interlude interrupts the descend animation, so its onDone must rebuild the floor AND restore play
     if (id && !(Meta.data.seenStory && Meta.data.seenStory[id])) { Story.play(id, () => { this.newFloor(); this.state = 'run'; }); return true; }
     return false;
@@ -504,6 +508,10 @@ const G = {
     this.chronic = !!this._startChronic; this._startChronic = false;
     this.bossRush = !!this._startBossRush; this._startBossRush = false;
     this.prognosis = this._startPrognosis || null; this._startPrognosis = null;   // challenge-run modifier
+    this.protocol = this._startProtocol || null; this._startProtocol = null;      // Challenge Protocol rule-set
+    if (this.protocol === 'understaffed') this.bossRush = true;
+    this.protoT = this.protocol === 'timeslot' ? 1200 : null;   // the 20-minute slot
+    this.ascent = false; this.ascentBase = 0;
     this.rapidMods = { dmg: 1, spd: 1, tears: 1, def: 1 };
     this.easy = !!(Meta.data.a11y && Meta.data.a11y.easy);
     this.wardPath = 'day';   // set by the Treatment Plan each descent
@@ -526,7 +534,9 @@ const G = {
     this.player = this.genSeed(['player'], () => new Player(diagId, this.variantRun));
     this.applyCodexPerks(this.player);   // rewards earned by completing chart tabs
     this.applyPrognosis(this.player);    // challenge-run start effects
+    if (this.protocol === 'waitingroom') { this.player.maxhp = 2; this.player.hp = 2; this.player.flags.noHeal = true; }   // one heart, no healing
     this.applyTalents(this.player);      // Treatment Plan (permanent skill-tree perks)
+    if (this.protocol === 'waitingroom') { this.player.maxhp = 2; this.player.hp = Math.min(this.player.hp, 2); }   // talents can't buy hearts here either
     this.pillAssign = this.genSeed(['pills'], () => U.shuffle(DATA.PILLS.map((_, i) => i)).slice(0, 10));
     this.pillKnown = new Set();
     this.depth = 1;
@@ -552,6 +562,32 @@ const G = {
     document.body.classList.add('inrun');
   },
 
+  /* ---------- The Itemized Bill (post-run insurance statement) ---------- */
+  runBill() {
+    const st = this.stats || {}, d = this.depth || 1;
+    const rows = [
+      ['Facility fee', d + (d === 1 ? ' ward' : ' wards'), d * 5000],
+      ['Room turnover fee', st.rooms, (st.rooms || 0) * 850],
+      ['Symptom management', st.kills, (st.kills || 0) * 120],
+      ['Boss consultation', st.bosses, (st.bosses || 0) * 35000],
+      ['Dispensing fee', st.items, (st.items || 0) * 1200],
+      ['Pills, misc.', st.pills, (st.pills || 0) * 90]
+    ].filter(r => r[2] > 0);
+    const total = rows.reduce((a, r) => a + r[2], 0);
+    return { rows, total };
+  },
+  billHtml() {
+    const B = this.runBill();
+    const fmt = n => '$' + n.toLocaleString('en-US');
+    return `<div class="summary" style="margin-top:8px">
+      <div class="sumrow"><span><b>🧾 ITEMIZED STATEMENT</b> <i style="opacity:.6">(not a bill*)</i></span><b></b></div>
+      ${B.rows.map(r => `<div class="sumrow"><span>${r[0]} × ${r[1]}</span><b>${fmt(r[2])}</b></div>`).join('')}
+      <div class="sumrow"><span>Amount covered by insurance</span><b>$0.00</b></div>
+      <div class="sumrow"><span><b>PATIENT RESPONSIBILITY</b></span><b style="color:#c05050">${fmt(B.total)}</b></div>
+      <div class="sumrow"><span style="opacity:.55;font-size:11px">*it is a bill</span><b></b></div>
+    </div>`;
+  },
+
   /* ---------- Save & Continue (floor checkpoints) ----------
      A snapshot at the start of every floor; CONTINUE on the title resumes it.
      Seeded runs (daily/challenge) are excluded — those are meant to be one sitting. */
@@ -563,7 +599,7 @@ const G = {
     try {
       const S = {
         v: 1, diag: p.diag, variant: p.variant ? 1 : 0, depth: this.depth,
-        chronic: this.chronic ? 1 : 0, bossRush: this.bossRush ? 1 : 0, prognosis: this.prognosis || null,
+        chronic: this.chronic ? 1 : 0, bossRush: this.bossRush ? 1 : 0, prognosis: this.prognosis || null, protocol: this.protocol || null, protoT: this.protoT, ascent: this.ascent ? 1 : 0, ascentBase: this.ascentBase || 0,
         lastBoss: this.lastBoss || null,
         flags: p.flags, items: p.items, comorbidities: p.comorbidities || [],
         transforms: p._transforms || [], transformTint: p.transformTint || null,
@@ -581,7 +617,7 @@ const G = {
   },
   resumeRun(S) {
     this._resuming = true;
-    this._startChronic = !!S.chronic; this._startBossRush = !!S.bossRush; this._startPrognosis = S.prognosis || null;
+    this._startChronic = !!S.chronic; this._startBossRush = !!S.bossRush; this._startPrognosis = S.prognosis || null; this._startProtocol = S.protocol || null;
     this.beginRun(S.diag, null, !!S.variant);
     this._resuming = false;
     const p = this.player;
@@ -599,6 +635,8 @@ const G = {
     this._goalInsight = S.goalInsight || 0;
     this.depth = S.depth || 1;
     this.lastBoss = S.lastBoss || null;
+    if (S.protoT != null) this.protoT = S.protoT;
+    this.ascent = !!S.ascent; this.ascentBase = S.ascentBase || 0;
     this.newFloor();
     this.toast('📂 Chart reopened — ward ' + this.depth + '. Welcome back.', '#8fd0e0');
   },
@@ -648,13 +686,13 @@ const G = {
     this.clearCheckpoint();   // the run ended — no continuing past this
 
     const p = this.player;
-    const mode = this.prognosis ? this.prognosis : this.chronic ? 'chronic' : this.bossRush ? 'bossrush' : this.dailyKind === 'daily' ? 'daily' : this.dailyKind === 'challenge' ? 'challenge' : 'normal';
+    const mode = this.protocol ? this.protocol : this.prognosis ? this.prognosis : this.chronic ? 'chronic' : this.bossRush ? 'bossrush' : this.dailyKind === 'daily' ? 'daily' : this.dailyKind === 'challenge' ? 'challenge' : 'normal';
     if (this.prognosis) { const pb = Meta.data.prognosisBest || (Meta.data.prognosisBest = {}); pb[this.prognosis] = Math.max(pb[this.prognosis] || 0, this.depth); }
     const cured = !!this._runCured || out === 'cured';
     const walrus = (Meta.data.walrusKills || 0) > (this._startWalrusKills || 0);
     const cause = out === 'dead' ? (p._lastSrc || 'unknown') : out;
     const secs = Math.max(0, Math.round((Date.now() - (this._runStart || Date.now())) / 1000));
-    const rec = { t: this.todayKey(), diag: p.diag, mode, ward: this.depth, out, cause, cured: cured ? 1 : 0, walrus: walrus ? 1 : 0, kills: this.stats.kills, bosses: this.stats.bosses, items: this.stats.items, pills: this.stats.pills, secs, variant: p.variant ? 1 : 0 };
+    const rec = { t: this.todayKey(), diag: p.diag, mode, ward: this.depth, out, cause, cured: cured ? 1 : 0, walrus: walrus ? 1 : 0, kills: this.stats.kills, bosses: this.stats.bosses, items: this.stats.items, pills: this.stats.pills, secs, variant: p.variant ? 1 : 0, bill: this.runBill().total };
     const log = Meta.data.runlog || (Meta.data.runlog = []);
     log.push(rec);
     while (log.length > 200) log.shift();
@@ -680,6 +718,7 @@ const G = {
     this.grid = gen.grid;
     this.floorRooms = gen.rooms;
     this.bossId = gen.bossId;
+    if (this.ascent && this.depth - this.ascentBase >= 5) this.bossId = 'theboard';   // A5: the top of the elevator
     // Boss Rush: skip the fighting between rooms — empty every normal room so it's a straight shot to the boss
     if (this.bossRush) this.floorRooms.forEach(r => { if (r.type === 'normal') { r.spawned = true; r.cleared = true; } r.discovered = true; });
     this.lastBoss = gen.bossId === 'walrus' ? this.lastBoss : gen.bossId;
@@ -701,11 +740,13 @@ const G = {
       : null;
     // SPECIALTY WING: some wards belong to a themed wing — its own palette and crowd
     this.wing = (this.depth >= 4)
-      ? this.genSeed(['wing', this.depth], () => U.chance(0.3) ? U.choice(DATA.WINGS).id : null)
+      ? this.genSeed(['wing', this.depth], () => U.chance(0.3) ? U.choice(DATA.WINGS.filter(w => !w.noRoll)).id : null)
       : null;
+    if (this.ascent) this.wing = 'boardroom';   // the Ascent is Administration all the way up
     const wingDef = this.wing ? DATA.WINGS.find(w => w.id === this.wing) : null;
     this.wingPal = wingDef ? wingDef.pal : null;
     if (wingDef && wingDef.dark) this.floorDark = Math.max(this.floorDark, wingDef.dark);
+    if (this.protocol === 'nightshift') this.floorDark = Math.max(this.floorDark, 0.55);   // the lights never come on
     // CODE GRAY: occasionally a whole ward goes into crisis (depth 4+)
     this.crisis = (this.depth >= 4)
       ? this.genSeed(['crisis', this.depth], () => U.chance(0.2) ? U.choice(DATA.CRISES).id : null)
@@ -831,6 +872,7 @@ const G = {
     } else {
       SFX.setMusic('run');
     }
+    if (room.type === 'clinic' && !room.cleared && room._minibossName && !room.greeted) { room.greeted = true; this.setBanner('⚕ ' + room._minibossName, 'office hours', 2.2); SFX.play('boss'); }
     if (room.type === 'secret' && !room.greeted) { room.greeted = true; this.toast(DATA.TOASTS.secret); }
     if (room.type === 'oon' && !room.greeted) { room.greeted = true; this.toast(DATA.TOASTS.oon, '#e08a8a'); }
   },
@@ -869,11 +911,12 @@ const G = {
           room.pickups.push(new Pickup('full', CW / 2 - 60, RY + RH / 2 + 64));
           room.pickups.push(new Pickup('nickel', CW / 2 + 60, RY + RH / 2 + 64));
         }
+        if (this.protocol === 'deductible') for (const pd of room.peds) if (pd.kind === 'item') pd.price = 10;   // nothing is free
         break;
       }
       case 'shop': {
         room.cleared = true;
-        const copayMul = 1 + (this.depth - 1) * 0.07;   // copays climb with the ward (it's the healthcare system, baby)
+        const copayMul = (1 + (this.depth - 1) * 0.07) * (this.protocol === 'deductible' ? 2 : 1);   // copays climb with the ward (it's the healthcare system, baby)
         const disc = p.flags.discount ? 0.5 : (this.wardPath === 'outpatient' ? 0.75 : 1);
         const px = (n) => Math.max(1, Math.ceil(n * disc * copayMul));
         const yc = RY + RH / 2 + 30, yi = RY + RH / 2 - 80;
@@ -933,6 +976,14 @@ const G = {
         room.peds.push({ x: RX + RW - 96, y: RY + RH / 2 - 30, kind: 'recruit', allyId: DATA.ALLIES[U.randi(0, DATA.ALLIES.length - 1)].id, taken: false });
         // the commissary corner: one machine per Day Room
         room.peds.push({ x: RX + 90, y: RY + 96, kind: U.choice(['vending', 'claw', 'horoscope']), taken: false, uses: 3 });
+        break;
+      }
+      case 'clinic': {   // The Clinic — a miniboss is holding office hours
+        room.cleared = false;
+        const mb = new Enemy(U.choice(['chargenurse', 'resident', 'orderly']), CW / 2, RY + 120, this.depth, false, 1);
+        mb.noDrop = true; mb._miniboss = true;
+        this.enemies.push(mb);
+        room._minibossName = DATA.ENEMIES[mb.id].name;
         break;
       }
       case 'seclusion': {   // Seclusion Room — a sacrifice altar: bleed for escalating loot
@@ -1025,6 +1076,23 @@ const G = {
       const type = U.choice(['coin', 'coin', 'half', 'pill', 'coin', 'key', 'bomb']);
       this.pickups.push(new Pickup(type, CW / 2 + U.rand(-40, 40), RY + RH / 2 + U.rand(-30, 30)));
     }
+    // Challenge Protocols with room-clear clauses
+    if (this.protocol === 'maximumdose') this.pickups.push(new Pickup('pill', CW / 2 + U.rand(-50, 50), RY + RH / 2 + U.rand(-30, 30)));
+    if (this.protocol === 'wordsalad' && U.chance(0.3)) {
+      const pool = DATA.pickPool('special', p.items);
+      const id = U.choice(pool.length ? pool : DATA.POOLS.special);
+      p.addItem(id, this);
+      this.toast('🥗 dispensed: ' + DATA.ITEMS[id].name, '#9db85a');
+    }
+    // The Clinic pays out: the miniboss was guarding a med
+    if (room.type === 'clinic' && !room._clinicPaid) {
+      room._clinicPaid = true;
+      this.genSeed(['clinic', this.depth, room.gx, room.gy], () => {
+        const pool = DATA.pickPool('special', p.items);
+        room.peds.push({ x: CW / 2, y: RY + RH / 2, itemId: U.choice(pool.length ? pool : DATA.POOLS.special), kind: 'item', taken: false });
+      });
+      this.toast('⚕ Office hours are over.', '#8fd05a');
+    }
     // In Recovery: the work pays off — heal every 2nd room cleared
     if (p.flags.recovery) {
       p._recRooms = (p._recRooms || 0) + 1;
@@ -1065,10 +1133,24 @@ const G = {
       this._runFounder = true;
       Meta.data.founderKills = (Meta.data.founderKills || 0) + 1;
     }
+    // Challenge Protocol completed: survive the rule-set to the Ward-5 boss
+    if (this.protocol && this.depth >= 5 && !(Meta.data.protocolsDone || {})[this.protocol]) {
+      (Meta.data.protocolsDone || (Meta.data.protocolsDone = {}))[this.protocol] = 1;
+      Meta.data.insight = (Meta.data.insight || 0) + 25;
+      const P = DATA.PROTOCOLS.find(x => x.id === this.protocol);
+      this.toast('🧪 PROTOCOL COMPLETE: ' + (P ? P.name : this.protocol) + ' — +◆25 Insight', '#8fd0e0');
+      SFX.play('fanfare');
+    }
     // THE SYSTEM (Ward 100): the true ceiling
     if (this.bossId === 'thesystem') {
       this._systemBeaten = true;
       Meta.data.systemKills = (Meta.data.systemKills || 0) + 1;
+    }
+    // THE BOARD (top of the Ascent): motion denied
+    if (this.bossId === 'theboard') {
+      this._boardBeaten = true;
+      this.ascent = false;   // the only way from here is back down
+      Meta.data.boardKills = (Meta.data.boardKills || 0) + 1;
     }
     Meta.save();
     this.checkUnlocks();
@@ -1084,6 +1166,11 @@ const G = {
       this.pickups.push(new Pickup('full', CW / 2 + U.rand(-60, 60), RY + RH / 2 - 40));
       this.pickups.push(new Pickup('coin', CW / 2 + U.rand(-80, 80), RY + RH / 2));
       room.trapdoor = this.trapdoor = { x: CW / 2, y: RY + RH / 2 - 100 };
+      // Ward 5 only: the service elevator opens beside the trapdoor — the other direction
+      if (this.depth === 5 && !this.ascent) {
+        room.peds.push({ x: CW / 2 + 170, y: RY + RH / 2 - 100, kind: 'elevator', taken: false });
+        this.toast('🛗 A service elevator dings open. It only goes UP.', '#c8a24a');
+      }
       // out-of-network door (25%)
       if (U.chance(0.25)) {
         for (const d of U.shuffle(Object.keys(DIRS))) {
@@ -1107,6 +1194,7 @@ const G = {
     if (this._cureBeaten) { this._cureBeaten = false; setTimeout(() => { if (this.state === 'run') { if (storyOn) Story.play('cure', () => this.showEnding()); else this.showEnding(); } }, 900); }
     if (this._founderBeaten) { this._founderBeaten = false; setTimeout(() => { if (this.state === 'run') { if (storyOn) Story.play('founder', () => this.showFounderEnding()); else this.showFounderEnding(); } }, 900); }
     if (this._systemBeaten) { this._systemBeaten = false; setTimeout(() => { if (this.state === 'run') this.showSystemEnding(); }, 900); }
+    if (this._boardBeaten) { this._boardBeaten = false; setTimeout(() => { if (this.state === 'run') { if (storyOn) Story.play('board', () => this.showBoardEnding()); else this.showBoardEnding(); } }, 900); }
   },
 
   /* ---------- explosions / paperwork ---------- */
@@ -1367,6 +1455,17 @@ const G = {
     }
     this.stamps = this.stamps.filter(s => s.t > -0.2);
 
+    // THE 20-MINUTE SLOT: the appointment is ending
+    if (this.protocol === 'timeslot' && this.protoT != null && !p.dead) {
+      this.protoT -= dt;
+      if (this.protoT <= 60 && !this._slotWarned) { this._slotWarned = true; this.toast('⏰ One minute remaining in your slot.', '#e0a05a'); SFX.play('error'); }
+      if (this.protoT <= 0) {
+        p._lastSrc = 'timeslot'; p.hp = 0; p.dead = true;
+        this.toast('⏰ Your time is up. Thank you for choosing us.', '#e05a5a');
+        SFX.play('die');
+      }
+    }
+
     // CODE GRAY: LOCKDOWN — clear every ward room before the doors seal
     if (this.crisis === 'lockdown' && !this.crisisDone && !this.crisisFail) {
       this.crisisT -= dt;
@@ -1414,7 +1513,7 @@ const G = {
 
     // room clear (charmed allies don't count as threats keeping the doors shut)
     const hostiles = this.enemies.some(e => !e.charmed);
-    if (!room.cleared && (room.type === 'normal' || room.type === 'padded') && room.spawned && !hostiles) this.onRoomCleared();
+    if (!room.cleared && (room.type === 'normal' || room.type === 'padded' || room.type === 'clinic') && room.spawned && !hostiles) this.onRoomCleared();
     if (!room.cleared && room.type === 'boss' && this.boss && this.boss.dead && this.enemies.length === 0 && !room.cleared) {
       // onBossDead already ran via boss.die
     }
@@ -1447,6 +1546,15 @@ const G = {
           p.hurt(1, this, 'sacrifice');   // hurt() sets i-frames, so you can't spam the altar
           this.shake = Math.max(this.shake, 6);
         }
+      } else if (ped.kind === 'elevator') {   // the Ascent: ride up into Administration
+        ped.taken = true;
+        this.ascent = true; this.ascentBase = this.depth;
+        this.wardPath = 'inpatient';   // executive floors: tougher, richer
+        this.setBanner('🏢 THE ASCENT', 'administration level A1', 2.4);
+        this.toast('The doors close. The muzak is somehow worse up here.', '#c8a24a');
+        SFX.play('descend');
+        this.doDescend();
+        return;
       } else if (ped.kind === 'vending') {   // Commissary: 3¢ for whatever falls
         if (this.machineCd <= 0) {
           if (p.coins < 3) { if (this.lockCd <= 0) { this.lockCd = 1.2; this.texts.push(new FloatText(ped.x, ped.y - 44, 'need 3¢', '#e8c84c')); SFX.play('error'); } }
@@ -1565,10 +1673,11 @@ const G = {
       if (s.type === 'coupon') { p.coupons = (p.coupons || 0) + 1; this.toast('🎟 GoodRx coupon — 50% off your next med', '#9db85a'); }
     }
 
-    // trapdoor
+    // trapdoor (during the Ascent it's the elevator to the next Administration level — no treatment plan up here)
     if (this.trapdoor && U.dist(this.trapdoor.x, this.trapdoor.y, p.x, p.y) < 26) {
       if (this.floorHits === 0 && !Meta.data.everNoHitFloor) { Meta.data.everNoHitFloor = 1; this.checkUnlocks(); }
-      this.offerComorbidity();
+      if (this.ascent) { this.wardPath = 'inpatient'; this.doDescend(); }
+      else this.offerComorbidity();
       return;
     }
 
@@ -1686,6 +1795,7 @@ const G = {
           ${this._insightGained || this._goalInsight ? row('<span style="color:#8fd0e0">◆ Insight earned</span>', '<span style="color:#8fd0e0">+' + ((this._insightGained || 0) + (this._goalInsight || 0)) + '</span>') : ''}
         </div>
         ${this._insightGained ? `<div class="tagline" style="margin-top:-6px">spend it in the 🧠 Treatment Plan on the title screen</div>` : ''}
+        ${this.billHtml()}
         ${unlockHtml}
         <div class="walrusbox">
           <canvas class="walrusCanvas" width="132" height="132" id="deadWalrus"></canvas>
@@ -1731,6 +1841,7 @@ const G = {
           <div class="mech">Everybody's got somethin. You've just got somethin AND a high score.</div>
         </div>
         ${Meta.data.chronicUnlocked ? `<div class="newunlocks"><div class="nutitle">🏆 CHRONIC MODE UNLOCKED</div><div class="nurow"><span>A harder New Game+ — find it on the title screen.</span></div></div>` : ''}
+        ${this.billHtml()}
         <button class="btn" id="bEndKeep">▶ KEEP CLIMBING (endless)</button>
         <div class="btnrow">
           <button class="btn minor" id="bEndShare">📤 SHARE</button>
@@ -1740,6 +1851,36 @@ const G = {
     this.paintWalrus('endWalrus');
     document.getElementById('bEndKeep').onclick = () => { SFX.play('ui'); this.hideOverlay(); this.state = 'run'; };
     document.getElementById('bEndShare').onclick = () => { SFX.play('ui'); Render.shareCard({ diag: this.player.diag, depth: this.depth, daily: true, key: 'WARD 25', label: this.chronic ? 'CURED · CHRONIC' : 'CURED (ALLEGEDLY)', win: true, stats: { kills: this.stats.kills, bosses: this.stats.bosses, pills: this.stats.pills } }); };
+    document.getElementById('bEndTitle').onclick = () => { SFX.play('ui'); this.recordRun('cured'); this.showTitle(); };
+  },
+
+  /* ---------- THE BOARD ending (top of the Ascent) ---------- */
+  showBoardEnding() {
+    this.state = 'ending';
+    SFX.setMusic('menu'); SFX.play('sting');
+    const bk = Meta.data.boardKills || 1;
+    this.overlay(`
+      <div class="panel wide">
+        <h1 class="logo" style="font-size:30px">MOTION<br>DENIED</h1>
+        <div class="walrusbox">
+          <canvas class="walrusCanvas" width="132" height="132" id="endWalrusB"></canvas>
+          <div class="bubble">You took the elevator UP. Nobody takes the elevator up. Five executive floors, and at the top — three suits voting on your care without ever having met you. The vote just failed. Permanently.</div>
+        </div>
+        <div class="rx" style="border-color:#c8a24a">
+          <div class="stamp" style="color:#c8a24a;border-color:#c8a24a">RESTRUCTURED</div>
+          <div class="sub">${DATA.DIAG[this.player.diag].name} · the Ascent${this.chronic ? ' · CHRONIC' : ''}</div>
+          <div class="mech">THE BOARD dissolved ×${bk}. The wards are still down there — but the top floor answers to nobody now.</div>
+        </div>
+        ${this.billHtml()}
+        <button class="btn" id="bEndKeep">▼ BACK TO THE WARDS (descend on)</button>
+        <div class="btnrow">
+          <button class="btn minor" id="bEndShare">📤 SHARE</button>
+          <button class="btn minor" id="bEndTitle">TITLE</button>
+        </div>
+      </div>`);
+    this.paintWalrus('endWalrusB');
+    document.getElementById('bEndKeep').onclick = () => { SFX.play('ui'); this.hideOverlay(); this.state = 'run'; };
+    document.getElementById('bEndShare').onclick = () => { SFX.play('ui'); Render.shareCard({ diag: this.player.diag, depth: this.depth, daily: true, key: 'THE ASCENT', label: 'DISSOLVED THE BOARD', win: true, stats: { kills: this.stats.kills, bosses: this.stats.bosses, pills: this.stats.pills } }); };
     document.getElementById('bEndTitle').onclick = () => { SFX.play('ui'); this.recordRun('cured'); this.showTitle(); };
   },
 
@@ -1760,6 +1901,7 @@ const G = {
           <div class="sub">${DATA.DIAG[this.player.diag].name} · Ward ${this.depth}${this.chronic ? ' · CHRONIC' : ''}</div>
           <div class="mech">THE SYSTEM dismantled ×${sk}. The rarest line on any chart, anywhere.</div>
         </div>
+        ${this.billHtml()}
         <button class="btn" id="bEndKeep">▶ KEEP CLIMBING (why not)</button>
         <div class="btnrow">
           <button class="btn minor" id="bEndShare">📤 SHARE</button>
@@ -1789,6 +1931,7 @@ const G = {
           <div class="sub">${DATA.DIAG[this.player.diag].name} · Ward ${this.depth}${this.chronic ? ' · CHRONIC' : ''}</div>
           <div class="mech">THE FOUNDER defeated ×${fk}. The rarest line on your chart.</div>
         </div>
+        ${this.billHtml()}
         <button class="btn" id="bEndKeep">▶ KEEP CLIMBING (endless)</button>
         <div class="btnrow">
           <button class="btn minor" id="bEndShare">📤 SHARE</button>
@@ -1875,7 +2018,7 @@ const G = {
   showBestiary(returnTo) {
     this.state = 'bestiary';
     const seen = (Meta.data.seen && Meta.data.seen.bosses) || {};
-    const order = ['gatekeeper', 'larperking', 'adjuster', 'priorauth', 'stigma', 'dsm', 'algorithm', 'influencer', 'withdrawal', 'burnout', 'walrus', 'thecure', 'founder', 'thesystem'];
+    const order = ['gatekeeper', 'larperking', 'adjuster', 'priorauth', 'stigma', 'dsm', 'algorithm', 'influencer', 'withdrawal', 'burnout', 'walrus', 'thecure', 'founder', 'thesystem', 'theboard'];
     const got = order.filter(id => seen[id]).length;
     const cards = order.map(id => {
       const B = DATA.BOSSES[id];
@@ -1929,6 +2072,27 @@ const G = {
       </div>`);
     document.querySelectorAll('.cmcard[data-p]').forEach(b => b.onclick = () => { SFX.play('ui'); this._startPrognosis = b.dataset.p; this.showFiles(); });
     document.getElementById('bPrognBack').onclick = () => { SFX.play('ui'); (returnTo || (() => this.showTitle()))(); };
+  },
+
+  /* ---------- Challenge Protocols (curated rule-set runs) ---------- */
+  showProtocols(returnTo) {
+    this.state = 'protocols';
+    const done = Meta.data.protocolsDone || {};
+    const cards = DATA.PROTOCOLS.map(pr => `
+      <button class="cmcard" data-p="${pr.id}" ${done[pr.id] ? 'style="outline:2px solid #3a7a3a"' : ''}>
+        <div class="cmname">${pr.icon} ${pr.name} ${done[pr.id] ? '✓' : ''}</div>
+        <div class="cmdesc">${pr.desc}</div>
+        <div class="cmtag">${done[pr.id] ? 'completed — protocol on file' : 'incomplete · reach Ward 6 to file it (+◆25)'}</div>
+      </button>`).join('');
+    this.overlay(`
+      <div class="panel wide">
+        <h1 class="logo" style="font-size:26px">PROTOCOLS</h1>
+        <div class="tagline">${Object.keys(done).length} / ${DATA.PROTOCOLS.length} filed · curated ways to make it worse</div>
+        <div class="cmgrid">${cards}</div>
+        <button class="btn minor" id="bProtoBack">BACK</button>
+      </div>`);
+    document.querySelectorAll('.cmcard[data-p]').forEach(b => b.onclick = () => { SFX.play('ui'); this._startProtocol = b.dataset.p; this.showFiles(); });
+    document.getElementById('bProtoBack').onclick = () => { SFX.play('ui'); (returnTo || (() => this.showTitle()))(); };
   },
 
   /* ---------- Treatment Plan (between-run skill tree) ---------- */
@@ -1996,7 +2160,7 @@ const G = {
 
   /* ---------- run history / real win-rate data ---------- */
   _causeName(c) {
-    const map = { spikes: 'Spike pit', ember: 'Burnout embers', explosion: 'an explosion', adjuster: "The Adjuster's stamp", bullet: 'a stray bullet', 'ocd-intrusive': 'intrusive thoughts', flashback: 'a flashback', sacrifice: 'the Seclusion altar', ect: 'the ECT Suite', observation: 'the Observation sweep', unknown: 'unknown causes', quit: 'walked away', cured: 'reached the Cure' };
+    const map = { spikes: 'Spike pit', ember: 'Burnout embers', explosion: 'an explosion', adjuster: "The Adjuster's stamp", bullet: 'a stray bullet', 'ocd-intrusive': 'intrusive thoughts', flashback: 'a flashback', timeslot: 'the 20-minute slot', panic: 'the crowd', sacrifice: 'the Seclusion altar', ect: 'the ECT Suite', observation: 'the Observation sweep', unknown: 'unknown causes', quit: 'walked away', cured: 'reached the Cure' };
     if (map[c]) return map[c];
     if (DATA.ENEMIES[c]) return DATA.ENEMIES[c].name;
     if (DATA.BOSSES[c]) return DATA.BOSSES[c].name;

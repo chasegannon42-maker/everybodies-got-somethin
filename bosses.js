@@ -643,6 +643,56 @@ class Boss {
         this.clampPos();
         break;
       }
+      /* ---------- THE BOARD (top of the Ascent) ---------- */
+      case 'theboard': {
+        const PH = this.hp < this.maxhp * 0.34 ? 3 : this.hp < this.maxhp * 0.67 ? 2 : 1;
+        this.x = CW / 2 + Math.sin(this.t * 0.45) * 120;
+        this.y = RY + 118 + Math.sin(this.t * 0.9) * 14;
+        if (PH !== this._ph) { this._ph = PH; G.toast(['', '“MOTION TO DENY.”', '“BUDGET CUTS.”', '“HOSTILE VOTE.”'][PH], '#c8a24a'); SFX.play('voice'); }
+        if (PH === 1) {   // MOTION TO DENY: stamped audits + gap rings
+          this.atkT -= dt;
+          if (this.atkT <= 0) {
+            this.atkT = 1.8;
+            const tx = U.clamp(p.x + U.rand(-70, 70), RX + 30, RX + RW - 30);
+            const ty = U.clamp(p.y + U.rand(-70, 70), RY + 30, RY + RH - 30);
+            G.stamps.push({ x: tx, y: ty, t: 0.85, r: 52, done: false });
+            SFX.play('stamp');
+          }
+          this.spT -= dt;
+          if (this.spT <= 0) { this.spT = 3.6; this.ring(14, 160, '#d8c090', U.rand(0, TAU), this.aimP(G) + Math.PI, 0.6); }
+        } else if (PH === 2) {   // BUDGET CUTS: scissor volleys crossing at you + a collector
+          this.atkT -= dt;
+          if (this.atkT <= 0) {
+            this.atkT = 1.4;
+            const a = this.aimP(G);
+            for (const off of [-0.55, 0.55]) for (let i = 0; i < 3; i++) this.bullet(a + off - Math.sign(off) * i * 0.18, 215, '#c8a24a');
+            SFX.play('pop');
+          }
+          this.spT -= dt;
+          if (this.spT <= 0) { this.spT = 5.5; this.summon(G, 'copaycollector', 1); G.toast('“Send in collections.”', '#c8a24a'); }
+        } else {   // HOSTILE VOTE: gavel slams + homing votes
+          this.atkT -= dt;
+          if (this.atkT <= 0) {
+            this.atkT = 1.1;
+            for (let i = 0; i < 2; i++) {
+              const tx = U.clamp(p.x + U.rand(-90, 90), RX + 30, RX + RW - 30);
+              const ty = U.clamp(p.y + U.rand(-90, 90), RY + 30, RY + RH - 30);
+              G.stamps.push({ x: tx, y: ty, t: 0.8, r: 50, done: false });
+            }
+            SFX.play('stamp');
+          }
+          this.spT -= dt;
+          if (this.spT <= 0) {
+            this.spT = 2.6;
+            for (let i = 0; i < 3; i++) { const b = this.bullet(this.aimP(G) + U.rand(-0.5, 0.5), 145, '#e0b95a', { life: 3.5 }); b.home = 0.85; }
+            G.toast('“All in favor?”', '#e0b95a');
+          }
+          this.dashT -= dt;
+          if (this.dashT <= 0) { this.dashT = 4.4; this.ring(18, 170, '#d8c090', U.rand(0, TAU), this.aimP(G) + Math.PI, 0.55); SFX.play('boss'); }
+        }
+        this.clampPos();
+        break;
+      }
       /* ---------- DR. WALRUS ---------- */
       case 'walrus': {
         this.atkT -= dt;

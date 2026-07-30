@@ -350,7 +350,10 @@ DATA.ACHIEVEMENTS = [
   { id: 'prognosisAll', name: "Worst-Case Scenarios", desc: "Attempt all five Prognosis challenge runs.",   hint: "Try every way to make it harder.",         check: m => m.prognosisBest && Object.keys(m.prognosisBest).length >= 5 },
   { id: 'crisisPro', name: "Crisis Counselor",     desc: "Earn the payout from 3 CODE GRAY ward crises.",   hint: "Hazard pay, three times.",                 check: m => (m.crisesSurvived || 0) >= 3 },
   { id: 'keystone', name: "Off-Label Use",         desc: "Pick up a keystone prescription.",                hint: "Some meds change everything about you.",   check: m => !!m.everKeystone },
-  { id: 'systemDown', name: "Out of Network",      desc: "Dismantle THE SYSTEM at Ward 100.",               hint: "Descend one hundred wards. All of them.",  check: m => (m.systemKills || 0) >= 1 }
+  { id: 'systemDown', name: "Out of Network",      desc: "Dismantle THE SYSTEM at Ward 100.",               hint: "Descend one hundred wards. All of them.",  check: m => (m.systemKills || 0) >= 1 },
+  { id: 'protocolFirst', name: "Informed Consent", desc: "Complete a Challenge Protocol.",                  hint: "Survive one of the ten Protocols to Ward 6.", check: m => Object.keys(m.protocolsDone || {}).length >= 1 },
+  { id: 'protocolFive', name: "Peer-Reviewed",     desc: "Complete 5 Challenge Protocols.",                 hint: "The methodology is sound.",                check: m => Object.keys(m.protocolsDone || {}).length >= 5 },
+  { id: 'boardDown', name: "Golden Parachute",     desc: "Dissolve THE BOARD at the top of the Ascent.",    hint: "After Ward 5, take the elevator UP.",      check: m => (m.boardKills || 0) >= 1 }
 ];
 DATA.checkAchievements = function (m) {
   if (!m.unlocks) m.unlocks = {};
@@ -398,7 +401,11 @@ DATA.ENEMIES = {
   wellnessbot: { name: "Wellness Bot", hp: 18, spd: 46, r: 16, dmg: 1, beh: 'shieldbot', clr: '#8fd0c8' },
   spiral:    { name: "The Spiral", hp: 9, spd: 0, r: 13, dmg: 1, beh: 'orbit', clr: '#d08ab0' },
   comparison:{ name: "The Comparison", hp: 14, spd: 62, r: 16, dmg: 1, beh: 'compare', clr: '#9ab86a' },
-  waitingnum:{ name: "Now Serving", hp: 10, spd: 0, r: 16, dmg: 1, beh: 'ticket', clr: '#e8dcc0' }
+  waitingnum:{ name: "Now Serving", hp: 10, spd: 0, r: 16, dmg: 1, beh: 'ticket', clr: '#e8dcc0' },
+  /* --- ward minibosses (clinic rooms) --- */
+  chargenurse: { name: "THE CHARGE NURSE", hp: 55, spd: 42, r: 24, dmg: 1, beh: 'nursey', clr: '#e8ecf0', shotCd: 0.55, bulSpd: 210 },
+  resident:    { name: "THE RESIDENT", hp: 48, spd: 58, r: 22, dmg: 1, beh: 'resident', clr: '#7ab8a0', bulSpd: 180 },
+  orderly:     { name: "THE ORDERLY", hp: 74, spd: 34, r: 27, dmg: 1, beh: 'orderly', clr: '#9aa4b8' }
 };
 DATA.enemyPoolFor = function (depth) {
   // deeper enemies get relatively more common the further past their unlock you go,
@@ -442,6 +449,7 @@ DATA.BOSSES = {
   thecure:    { name: "THE CURE", sub: "“It was inside you all along. (It wasn't.)”", hp: 300 },
   founder:    { name: "THE FOUNDER", sub: "“I didn't invent the disease. I monetized the cure.”", hp: 400 },
   thesystem:  { name: "THE SYSTEM", sub: "“Your call is important to us. Estimated wait: forever.”", hp: 620 },
+  theboard:   { name: "THE BOARD", sub: "“All in favor of denying coverage? Motion carries.”", hp: 470 },
   walrus:     { name: "DR. WALRUS, M.D.*", sub: "*mail-order", hp: 300 }
 };
 DATA.bossFor = function (depth, lastBoss) {
@@ -479,7 +487,10 @@ DATA.CODEX_CHART = {
     wellnessbot: "Beep boop, have you tried yoga? Shields its friends from your progress.",
     spiral: "It starts wide and gets closer. It always gets closer.",
     comparison: "Everyone's doing better than you. The healthier you look, the harder it tries.",
-    waitingnum: "NOW SERVING #47. You are #112. When the counter hits zero, everyone loses it."
+    waitingnum: "NOW SERVING #47. You are #112. When the counter hits zero, everyone loses it.",
+    chargenurse: "Runs the floor. Sees everything. If you're moving, you're a problem — and she solves problems.",
+    resident: "Thirty hours into the shift, doing an impression of every boss he's ever seen. Badly.",
+    orderly: "Not angry. Not fast. Just always, always closer than he was."
   },
   bosses: {
     gatekeeper: "Guards the diagnosis you already have. You don't LOOK sick enough.",
@@ -495,6 +506,7 @@ DATA.CODEX_CHART = {
     thecure: "What everyone's chasing. Turns out it was the friends we diagnosed along the way.",
     founder: "The man who turned every feeling into a market. Waits at the very top of the ladder — Ward 50.",
     thesystem: "Not a person. All of it at once — the denials, the pharmacy, the feed. Ward 100. The last argument.",
+    theboard: "Three suits, one table, zero patients seen. Waits at the top of the elevator, voting on you.",
     walrus: "Board-certified in Confidence. The doctor will see you now. Forever."
   }
 };
@@ -686,6 +698,22 @@ DATA.SIDE_EFFECTS = [
   { id: 'restless',       name: "Restlessness",   icon: "⚡", desc: "Akathisia — everything on this ward moves faster." },
   { id: 'hypervigilance', name: "Hypervigilance", icon: "👁", desc: "You can't relax. Enemy shots fly sharper here." },
   { id: 'rumination',     name: "Rumination",     icon: "🔁", desc: "You keep coming back to it — each room's threat returns once." }
+];
+
+/* ============ CHALLENGE PROTOCOLS (curated rule-set runs) ============
+   Ten pre-built ways to make it worse. Completing one (beat the Ward-5
+   boss) pays +25 ◆ Insight and is tracked in Meta.protocolsDone. */
+DATA.PROTOCOLS = [
+  { id: 'waitingroom', name: "The Waiting Room", icon: '🪑', desc: "One heart. No healing. Ever. Sit with it." },
+  { id: 'wordsalad',   name: "Word Salad",       icon: '🥗', desc: "No choosing your meds — rooms may dispense a random prescription when cleared." },
+  { id: 'nightshift',  name: "Night Shift",      icon: '🌙', desc: "The lights never come on. Any of them. On any floor." },
+  { id: 'understaffed', name: "Understaffed",    icon: '🩺', desc: "Nobody's minding the wards — a straight shot from boss to boss." },
+  { id: 'litigious',   name: "Litigious",        icon: '📄', desc: "Everything that goes down drops paperwork. You may as well file it." },
+  { id: 'maximumdose', name: "Maximum Dose",     icon: '💊', desc: "A pill after every room. The only way out is through the pharmacy." },
+  { id: 'timeslot',    name: "The 20-Minute Slot", icon: '⏰', desc: "Your appointment ends in 20 minutes. Then you are discharged. Permanently." },
+  { id: 'allelites',   name: "Grand Rounds",     icon: '👑', desc: "Every patient on every floor is a champion. Attendance is mandatory." },
+  { id: 'deductible',  name: "High Deductible",  icon: '💳', desc: "Nothing is free. 'Free' meds bill you 10¢ and every copay is doubled." },
+  { id: 'infection',   name: "Secondary Infection", icon: '🦠', desc: "Every hit you take spawns a Side Effect. Try not to get hit. Ha." }
 ];
 
 /* ============ CODE GRAY (floor-wide crisis events) ============
@@ -950,7 +978,10 @@ DATA.WINGS = [
     mix: ['gaslighter', 'intrusive', 'scroller'], dark: 0.4 },
   { id: 'surgical', name: "THE SURGICAL THEATER", sub: "sterile precision", icon: "🩻",
     pal: { floor: '#48565a', line: '#3a474a', wall: '#59696e', trim: '#1e282b' },
-    mix: ['projection', 'comparison', 'deadline'] }
+    mix: ['projection', 'comparison', 'deadline'] },
+  { id: 'boardroom', name: "ADMINISTRATION", sub: "executive floors", icon: "🏢", noRoll: true,
+    pal: { floor: '#5a4a34', line: '#4a3c28', wall: '#6a5638', trim: '#2a2012' },
+    mix: ['copaycollector', 'comparison', 'deadline', 'ad'] }
 ];
 
 /* ============ FLAVOR TEXT ============ */

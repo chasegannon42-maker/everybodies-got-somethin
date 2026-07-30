@@ -259,7 +259,7 @@ const Story = {
 
     // nameplate chip (the panel's chart stamp)
     if (p.stamp) {
-      ctx.font = 'bold 13px "Comic Sans MS","Segoe Print",cursive,sans-serif';
+      ctx.font = 'bold 14px Impact,"Arial Black",sans-serif';
       const tw = ctx.measureText(p.stamp).width + 26;
       ctx.fillStyle = '#e8c84c'; this._round(ctx, BX + 18, BY - 14, tw, 26, 8); ctx.fill();
       ctx.strokeStyle = 'rgba(60,45,20,0.55)'; ctx.lineWidth = 2; this._round(ctx, BX + 18, BY - 14, tw, 26, 8); ctx.stroke();
@@ -270,7 +270,7 @@ const Story = {
     // typewritten narration
     const shown = this.fullText.slice(0, Math.floor(this.typed));
     ctx.fillStyle = '#f0e8d8'; ctx.textAlign = 'left';
-    ctx.font = '17px "Comic Sans MS","Segoe Print",cursive,sans-serif';
+    ctx.font = 'bold 17px "Trebuchet MS","Segoe UI",Verdana,sans-serif';
     const tx = BX + 26, ty0 = BY + 36;
     const lines = shown.split('\n');
     for (let i = 0; i < lines.length; i++) ctx.fillText(lines[i], tx, ty0 + i * 23);
@@ -285,17 +285,17 @@ const Story = {
     if (this.typed >= this.fullText.length && this.trans <= 0) {
       ctx.globalAlpha = this.fade * (0.55 + Math.sin(this.t * 4) * 0.35);
       ctx.fillStyle = '#e8c84c'; ctx.textAlign = 'right';
-      ctx.font = 'bold 17px "Comic Sans MS","Segoe Print",cursive,sans-serif';
+      ctx.font = 'bold 18px Impact,"Arial Black",sans-serif';
       ctx.fillText('▸', BX + BW - 20, BY + BH - 14);
       ctx.globalAlpha = this.fade;
     }
     ctx.fillStyle = 'rgba(240,232,216,0.4)'; ctx.textAlign = 'right';
-    ctx.font = '11px "Comic Sans MS","Segoe Print",cursive,sans-serif';
+    ctx.font = 'bold 11px "Trebuchet MS","Segoe UI",Verdana,sans-serif';
     ctx.fillText(this.idx + 1 + ' / ' + this.scene.length, BX + BW - 18, BY + 18);
 
     // hint under the box
     ctx.globalAlpha = this.fade * 0.55;
-    ctx.fillStyle = '#8a7c68'; ctx.textAlign = 'center'; ctx.font = '12px "Comic Sans MS",cursive,sans-serif';
+    ctx.fillStyle = '#8a7c68'; ctx.textAlign = 'center'; ctx.font = 'bold 12px "Trebuchet MS","Segoe UI",Verdana,sans-serif';
     ctx.fillText((typeof Input !== 'undefined' && Input.usingTouch) ? 'tap to continue' : 'space / click to continue', CW / 2, CH - 6);
     ctx.globalAlpha = this.fade;
 
@@ -303,7 +303,7 @@ const Story = {
     ctx.fillStyle = 'rgba(30,24,32,0.62)'; this._round(ctx, CW - 138, 14, 116, 30, 8); ctx.fill();
     ctx.strokeStyle = 'rgba(240,232,216,0.35)'; ctx.lineWidth = 1.5; this._round(ctx, CW - 138, 14, 116, 30, 8); ctx.stroke();
     ctx.fillStyle = 'rgba(240,232,216,0.85)'; ctx.textAlign = 'center';
-    ctx.font = '13px "Comic Sans MS","Segoe Print",cursive,sans-serif';
+    ctx.font = 'bold 13px Impact,"Arial Black",sans-serif';
     ctx.fillText('SKIP ⏭', CW - 80, 34);
     ctx.restore();
     ctx.textAlign = 'left'; ctx.globalAlpha = 1;
@@ -340,7 +340,7 @@ const Story = {
     ctx.beginPath(); ctx.moveTo(CW / 2, 120); ctx.lineTo(CW / 2, 98); ctx.moveTo(CW / 2, 120); ctx.lineTo(CW / 2 + 16, 128); ctx.stroke();
     // PLEASE WAIT sign
     ctx.fillStyle = '#e8dcc0'; Render.rr(ctx, CW / 2 - 92, 170, 184, 34, 6); ctx.fill();
-    ctx.fillStyle = '#7a6a4a'; ctx.font = 'bold 16px "Comic Sans MS",cursive,sans-serif'; ctx.textAlign = 'center';
+    ctx.fillStyle = '#7a6a4a'; ctx.font = 'bold 16px Impact,"Arial Black",sans-serif'; ctx.textAlign = 'center';
     ctx.fillText('PLEASE WAIT', CW / 2, 193);
     this._spot(CW / 2, MIDY + 58, 90);
     this.drawYou(CW / 2, MIDY, 1.9);
@@ -381,12 +381,12 @@ const Story = {
     ctx.fillStyle = 'rgba(30,22,38,0.25)'; Render.rr(ctx, -134, 66, 268, 16, 8); ctx.fill();
     ctx.fillStyle = '#f6f1e2'; Render.rr(ctx, -140, -44, 280, 108, 12); ctx.fill();
     ctx.strokeStyle = clr; ctx.lineWidth = 6; Render.rr(ctx, -140, -44, 280, 108, 12); ctx.stroke();
-    ctx.fillStyle = '#8a7c68'; ctx.font = 'bold 13px "Comic Sans MS",cursive,sans-serif'; ctx.textAlign = 'center';
+    ctx.fillStyle = '#8a7c68'; ctx.font = 'bold 13px Impact,"Arial Black",sans-serif'; ctx.textAlign = 'center';
     ctx.fillText('HELLO, MY DIAGNOSIS IS', 0, -18);
-    ctx.fillStyle = clr; ctx.font = 'bold 26px "Comic Sans MS",cursive,sans-serif';
+    ctx.fillStyle = clr; ctx.font = 'bold 30px Impact,"Arial Black",sans-serif';
     const nm = D ? D.name : 'SOMETHIN';
     ctx.fillText(nm.length > 22 ? nm.slice(0, 21) + '…' : nm, 0, 18);
-    ctx.fillStyle = '#8a7c68'; ctx.font = '12px "Comic Sans MS",cursive,sans-serif';
+    ctx.fillStyle = '#8a7c68'; ctx.font = 'bold 12px "Trebuchet MS","Segoe UI",Verdana,sans-serif';
     ctx.fillText('(everybody\'s got somethin)', 0, 46);
     ctx.restore();
   };
@@ -417,7 +417,7 @@ const Story = {
     for (const dx of xs) this._door(dx, CH * 0.58, 88, 158, '#7a8a99');
     for (const dx of xs) {   // ward plates
       ctx.fillStyle = '#e8dcc0'; Render.rr(ctx, dx - 22, CH * 0.58 - 190, 44, 20, 4); ctx.fill();
-      ctx.fillStyle = '#7a6a4a'; ctx.font = 'bold 12px "Comic Sans MS",cursive,sans-serif'; ctx.textAlign = 'center';
+      ctx.fillStyle = '#7a6a4a'; ctx.font = 'bold bold 12px "Trebuchet MS","Segoe UI",sans-serif'; ctx.textAlign = 'center';
       ctx.fillText('5', dx, CH * 0.58 - 175);
     }
     this._spot(CW / 2, MIDY + 74, 86);
@@ -448,7 +448,7 @@ const Story = {
     ctx.fillStyle = '#9d7c52'; Render.rr(ctx, CW / 2 + 2, CH * 0.6 - 54, 346, 24, 8); ctx.fill();
     ctx.fillStyle = '#5a6a72'; Render.rr(ctx, CW / 2 + 60, CH * 0.6 - 128, 130, 80, 8); ctx.fill();
     ctx.fillStyle = '#c8e0d8'; Render.rr(ctx, CW / 2 + 70, CH * 0.6 - 118, 110, 34, 4); ctx.fill();
-    ctx.fillStyle = '#3a5a4a'; ctx.font = 'bold 17px "Comic Sans MS",cursive,sans-serif'; ctx.textAlign = 'center';
+    ctx.fillStyle = '#3a5a4a'; ctx.font = 'bold 17px Impact,"Arial Black",sans-serif'; ctx.textAlign = 'center';
     ctx.fillText('¢ 9999', CW / 2 + 125, CH * 0.6 - 94);
     // coins arcing from you to the register
     for (let i = 0; i < 4; i++) {
@@ -499,7 +499,7 @@ const Story = {
       Render.rr(ctx, bx - w / 2, y, w, 52, 6); ctx.fill();
       ctx.fillStyle = 'rgba(230,240,200,0.75)';
       for (let wnd = 0; wnd < Math.max(2, 5 - i); wnd++) Render.rr(ctx, bx - w / 2 + 14 + wnd * 34, y + 14, 20, 24, 3), ctx.fill();
-      ctx.fillStyle = '#8fd05a'; ctx.font = 'bold 15px "Comic Sans MS",cursive,sans-serif'; ctx.textAlign = 'center';
+      ctx.fillStyle = '#8fd05a'; ctx.font = 'bold 15px Impact,"Arial Black",sans-serif'; ctx.textAlign = 'center';
       ctx.fillText('$', bx + w / 2 - 16, y + 34);
     }
     // the founder at the top, in the last light
@@ -608,6 +608,49 @@ const Story = {
     this.drawYou(190, 428, 1.75);
   };
 
+  SC.systemTower = function (ctx, t) {   // ward 100 approach: the whole machine at once
+    const sky = ctx.createLinearGradient(0, 0, 0, CH);
+    sky.addColorStop(0, '#1c1c30'); sky.addColorStop(0.6, '#343050'); sky.addColorStop(1, '#4c3a54');
+    ctx.fillStyle = sky; ctx.fillRect(0, 0, CW, CH);
+    ctx.fillStyle = '#242034'; ctx.fillRect(0, CH * 0.74, CW, CH * 0.26);
+    // the SYSTEM tower, floor by lit floor
+    const bx = CW / 2 + 130;
+    for (let i = 0; i < 8; i++) {
+      const w = 200 - i * 12, y = CH * 0.74 - (i + 1) * 52;
+      ctx.fillStyle = i % 2 ? '#3c3850' : '#464258';
+      Render.rr(ctx, bx - w / 2, y, w, 48, 5); ctx.fill();
+      const litClr = ['#e08a8a', '#8fd05a', '#5a9de0'][i % 3];
+      ctx.fillStyle = (Math.floor(t * 1.5) + i) % 3 === 0 ? litClr : 'rgba(230,235,245,0.16)';
+      for (let wnd = 0; wnd < 4; wnd++) Render.rr(ctx, bx - w / 2 + 16 + wnd * 34, y + 14, 20, 20, 3), ctx.fill();
+    }
+    ctx.fillStyle = '#e8e2f0'; Render.rr(ctx, bx - 26, CH * 0.74 - 8 * 52 - 26, 52, 20, 4); ctx.fill();
+    ctx.fillStyle = '#4a4458'; ctx.font = 'bold 15px Impact,"Arial Black",sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('☤', bx, CH * 0.74 - 8 * 52 - 11);
+    this._spot(210, 470, 76, 0.3);
+    this.drawYou(210, 428, 1.7);
+  };
+
+  SC.boardTable = function (ctx, t) {   // the boardroom, after the vote
+    this._room('#4c4258', '#38304a', '#5a4a3a', '#463a2c', CH * 0.6);
+    // a long mahogany table
+    ctx.fillStyle = '#6a4a2e'; Render.rr(ctx, CW / 2 - 250, CH * 0.6 - 26, 500, 34, 10); ctx.fill();
+    ctx.fillStyle = '#7d5a38'; Render.rr(ctx, CW / 2 - 250, CH * 0.6 - 34, 500, 14, 8); ctx.fill();
+    // scattered papers + a fallen gavel
+    for (let i = 0; i < 5; i++) {
+      ctx.save(); ctx.translate(CW / 2 - 170 + i * 84, CH * 0.6 - 30); ctx.rotate((i - 2) * 0.2);
+      ctx.fillStyle = '#f4ecd8'; Render.rr(ctx, -18, -12, 36, 24, 2); ctx.fill();
+      ctx.restore();
+    }
+    ctx.save(); ctx.translate(CW / 2 + 190, CH * 0.6 + 24); ctx.rotate(0.9);
+    ctx.fillStyle = '#5a3a22'; Render.rr(ctx, -16, -7, 32, 14, 5); ctx.fill();
+    ctx.fillStyle = '#6a4a2e'; Render.rr(ctx, -3, 5, 6, 22, 2); ctx.fill();
+    ctx.restore();
+    // the board itself, mid-collapse
+    this.drawBossActor('theboard', CW / 2 + 60, 240, 1.05, 'low');
+    this._spot(190, 470, 76, 0.26);
+    this.drawYou(190, 428, 1.8);
+  };
+
   SC.kindness = function (ctx, t) {   // the note at the end
     const sky = ctx.createLinearGradient(0, 0, 0, CH);
     sky.addColorStop(0, '#f0d8b8'); sky.addColorStop(1, '#e0b898');
@@ -664,6 +707,12 @@ const STORY = {
   founder: [
     { art: 'towerFalls', stamp: 'DELISTED', lines: ['You toppled him.', 'For one shining moment the ticker is', 'red and the tower is coming down.'] },
     { art: 'kindness', stamp: 'NOTE', lines: ['The machine is not gone. It never', 'really goes. But you did that — you,', 'with your tears and your bad sleep.', '', 'Everybody\'s got somethin. Be kind.', 'Including to yourself.'] }
+  ],
+  ward100pre: [
+    { art: 'systemTower', stamp: 'WARD 100', lines: ['Ward 100. Below the founders, below', 'the cures, below everything — the', 'building itself has been waiting.', 'Every denial, every refill, every feed.', 'All of it, at once. The last argument.'] }
+  ],
+  board: [
+    { art: 'boardTable', stamp: 'RESTRUCTURED', lines: ['The vote failed. The gavel is on the', 'floor and nobody is chairing anything.', 'Minutes were not taken.', '', 'You rode the elevator UP, and it', 'turned out the top was just people.'] }
   ]
 };
 
@@ -676,5 +725,7 @@ const STORY_CHAPTERS = [
   { id: 'ward20',    title: 'Ward 20 — The Mirror' },
   { id: 'cure',      title: 'Ward 25 — The Cure' },
   { id: 'ward50pre', title: 'Ward 50 — The Tower' },
-  { id: 'founder',   title: 'Ward 50 — The Fall' }
+  { id: 'founder',   title: 'Ward 50 — The Fall' },
+  { id: 'board',     title: 'The Ascent — The Board' },
+  { id: 'ward100pre', title: 'Ward 100 — The Building' }
 ];

@@ -592,6 +592,24 @@ const Render = {
         if (U.dist(G.player.x, G.player.y, ped.x, ped.y) < 84) { ctx.fillStyle = '#c8e0a0'; ctx.font = this.font(11, true); ctx.fillText('🤝 walk up to recruit', ped.x, ped.y + 34); }
         continue;
       }
+      if (ped.kind === 'elevator') {   // the service elevator — it only goes up
+        this.shadow(ped.x, ped.y + 34, 26, 8, 0.3);
+        ctx.save(); ctx.translate(ped.x, ped.y);
+        const openA = 4 + Math.sin(G.t * 1.4) * 3;   // doors breathe open
+        ctx.fillStyle = '#8a7448'; this.rr(ctx, -30, -44, 60, 80, 6); ctx.fill();
+        ctx.strokeStyle = '#5a4a28'; ctx.lineWidth = 3; this.rr(ctx, -30, -44, 60, 80, 6); ctx.stroke();
+        ctx.fillStyle = '#241c14'; this.rr(ctx, -22, -36, 44, 66, 3); ctx.fill();   // dark shaft
+        const gg2 = ctx.createLinearGradient(0, -36, 0, 30);
+        gg2.addColorStop(0, 'rgba(232,200,120,0.35)'); gg2.addColorStop(1, 'rgba(232,200,120,0.05)');
+        ctx.fillStyle = gg2; this.rr(ctx, -22, -36, 44, 66, 3); ctx.fill();   // warm light inside
+        ctx.fillStyle = '#c8ae6e'; this.rr(ctx, -22 - openA + 12, -36, 12, 66, 2); ctx.fill();   // left door
+        this.rr(ctx, 22 + openA - 24, -36, 12, 66, 2); ctx.fill();                                // right door
+        ctx.fillStyle = Math.floor(G.t * 1.5) % 2 ? '#e8c84c' : '#8a7448';   // UP arrow
+        ctx.beginPath(); ctx.moveTo(0, -52); ctx.lineTo(6, -46); ctx.lineTo(-6, -46); ctx.closePath(); ctx.fill();
+        ctx.restore();
+        if (U.dist(G.player.x, G.player.y, ped.x, ped.y) < 90) { ctx.fillStyle = '#e8c84c'; ctx.font = this.font(11, true); ctx.textAlign = 'center'; ctx.fillText('🛗 ride UP — the Ascent', ped.x, ped.y - 60); }
+        continue;
+      }
       if (ped.kind === 'vending') {   // Commissary vending machine
         this.shadow(ped.x, ped.y + 30, 22, 7, 0.28);
         ctx.save(); ctx.translate(ped.x, ped.y);
@@ -1453,6 +1471,63 @@ const Render = {
         ctx.moveTo(e.r * 0.8, -e.r * 0.75); ctx.lineTo(e.r * 0.8 + 5, -e.r * 0.75 + 8); ctx.lineTo(e.r * 0.8 - 5, -e.r * 0.75 + 8); ctx.closePath(); ctx.fill();
         break;
       }
+      case 'chargenurse': { // starched authority with a clipboard
+        this.orb(ctx, 0, 4, e.r, e.clr, flash);
+        // stern face
+        ctx.fillStyle = '#2c2333';
+        ctx.beginPath(); ctx.arc(-6, -2, 2.2, 0, TAU); ctx.arc(6, -2, 2.2, 0, TAU); ctx.fill();
+        ctx.strokeStyle = '#2c2333'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(-5, 7); ctx.lineTo(5, 7); ctx.stroke();   // flat unimpressed mouth
+        ctx.beginPath(); ctx.moveTo(-9, -8); ctx.lineTo(-3, -6.5); ctx.moveTo(9, -8); ctx.lineTo(3, -6.5); ctx.stroke();   // brows
+        // nurse cap with red cross
+        ctx.fillStyle = '#fff'; this.rr(ctx, -12, -e.r - 8, 24, 11, 3); ctx.fill();
+        ctx.strokeStyle = '#c8ccd2'; ctx.lineWidth = 1.5; this.rr(ctx, -12, -e.r - 8, 24, 11, 3); ctx.stroke();
+        ctx.fillStyle = '#d04040'; ctx.fillRect(-1.5, -e.r - 6.5, 3, 8); ctx.fillRect(-4, -e.r - 4, 8, 3);
+        // clipboard
+        ctx.save(); ctx.translate(e.r * 0.9, 2); ctx.rotate(0.2);
+        ctx.fillStyle = '#8a6a3a'; this.rr(ctx, -7, -10, 14, 20, 2); ctx.fill();
+        ctx.fillStyle = '#f4ecd8'; this.rr(ctx, -5.5, -8, 11, 16, 1.5); ctx.fill();
+        ctx.restore();
+        break;
+      }
+      case 'resident': { // scrubs, coffee, thirty hours deep
+        this.orb(ctx, 0, 4, e.r, e.clr, flash);
+        // heavy eye bags
+        ctx.fillStyle = '#2c2333';
+        ctx.beginPath(); ctx.arc(-6, -3, 2.2, 0, TAU); ctx.arc(6, -3, 2.2, 0, TAU); ctx.fill();
+        ctx.strokeStyle = 'rgba(40,48,56,0.55)'; ctx.lineWidth = 1.6;
+        ctx.beginPath(); ctx.arc(-6, 0, 3.4, 0.2, Math.PI - 0.2); ctx.arc(6, 0, 3.4, 0.2, Math.PI - 0.2); ctx.stroke();
+        // crooked open mouth (mid-yawn)
+        ctx.fillStyle = '#2c2333'; ctx.beginPath(); ctx.ellipse(1, 7, 2.6, 3.4, 0.2, 0, TAU); ctx.fill();
+        // surgical cap
+        ctx.fillStyle = '#5a9a82'; ctx.beginPath(); ctx.arc(0, -e.r * 0.55, e.r * 0.68, Math.PI, TAU); ctx.fill();
+        ctx.strokeStyle = '#3e7862'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(0, -e.r * 0.55, e.r * 0.68, Math.PI, TAU); ctx.stroke();
+        // coffee cup (a lifeline)
+        ctx.save(); ctx.translate(e.r * 0.85, 4); ctx.rotate(Math.sin(G.t * 6) * 0.12);
+        ctx.fillStyle = '#f0ead8'; this.rr(ctx, -4, -7, 9, 12, 2); ctx.fill();
+        ctx.strokeStyle = '#b8a888'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(6, -1, 3.5, -1.2, 1.2); ctx.stroke();
+        ctx.strokeStyle = 'rgba(200,190,170,0.7)'; ctx.beginPath(); ctx.moveTo(0, -9); ctx.quadraticCurveTo(2, -13, 0, -16); ctx.stroke();   // steam
+        ctx.restore();
+        break;
+      }
+      case 'orderly': { // broad, patient, inevitable
+        ctx.scale(1.08, 1);
+        this.orb(ctx, 0, 3, e.r, e.clr, flash);
+        // small calm eyes set wide
+        ctx.fillStyle = '#2c2333';
+        ctx.beginPath(); ctx.arc(-8, -3, 1.9, 0, TAU); ctx.arc(8, -3, 1.9, 0, TAU); ctx.fill();
+        ctx.strokeStyle = '#2c2333'; ctx.lineWidth = 1.8;
+        ctx.beginPath(); ctx.moveTo(-4, 6); ctx.lineTo(4, 6); ctx.stroke();
+        // scrub v-neck
+        ctx.strokeStyle = '#6a7488'; ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.moveTo(-7, e.r * 0.45); ctx.lineTo(0, e.r * 0.75); ctx.lineTo(7, e.r * 0.45); ctx.stroke();
+        // momentum lines when he's built up steam
+        if (e._calm > 3) {
+          ctx.strokeStyle = 'rgba(154,164,184,0.5)'; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.moveTo(-e.r - 9, -6); ctx.lineTo(-e.r - 2, -6); ctx.moveTo(-e.r - 12, 2); ctx.lineTo(-e.r - 4, 2); ctx.stroke();
+        }
+        break;
+      }
       case 'waitingnum': { // the deli-counter ticket of doom
         const urgent = e.count <= 3;
         ctx.rotate(Math.sin(G.t * (urgent ? 14 : 2)) * (urgent ? 0.06 : 0.02));
@@ -1793,6 +1868,46 @@ const Render = {
         // a little "notification" badge
         ctx.fillStyle = '#e05a5a'; ctx.beginPath(); ctx.arc(30, -44, 8, 0, TAU); ctx.fill();
         ctx.fillStyle = '#fff'; ctx.font = this.font(11, true); ctx.textAlign = 'center'; ctx.fillText('∞', 30, -40);
+        break;
+      }
+      case 'theboard': { // three suits, one table, a gavel
+        // the boardroom table
+        ctx.fillStyle = flash ? '#fff' : '#6a4a2e';
+        this.rr(ctx, -66, 14, 132, 26, 8); ctx.fill();
+        ctx.fillStyle = flash ? '#eee' : '#7d5a38';
+        this.rr(ctx, -66, 8, 132, 12, 6); ctx.fill();
+        // three chairmen, heads bobbing out of sync
+        for (let i = -1; i <= 1; i++) {
+          const bx = i * 40, bob = Math.sin(b.t * 1.6 + i * 2.1) * 2;
+          ctx.fillStyle = flash ? '#fff' : '#2c2a36';   // suit
+          this.rr(ctx, bx - 15, -18 + bob, 30, 30, 8); ctx.fill();
+          ctx.fillStyle = '#e8e2d4'; ctx.beginPath();   // collar
+          ctx.moveTo(bx - 5, -16 + bob); ctx.lineTo(bx + 5, -16 + bob); ctx.lineTo(bx, -8 + bob); ctx.closePath(); ctx.fill();
+          ctx.fillStyle = ['#8a2a2a', '#c8a24a', '#2a4a8a'][i + 1];   // power tie
+          ctx.beginPath(); ctx.moveTo(bx, -8 + bob); ctx.lineTo(bx + 3, 0 + bob); ctx.lineTo(bx, 10 + bob); ctx.lineTo(bx - 3, 0 + bob); ctx.closePath(); ctx.fill();
+          ctx.fillStyle = flash ? '#fff' : '#e8c9a6';   // head
+          ctx.beginPath(); ctx.arc(bx, -30 + bob, 12, 0, TAU); ctx.fill();
+          // identical unreadable faces
+          ctx.fillStyle = '#2c2333';
+          this.rr(ctx, bx - 8, -34 + bob, 6, 4, 1.5); ctx.fill(); this.rr(ctx, bx + 2, -34 + bob, 6, 4, 1.5); ctx.fill();
+          ctx.strokeStyle = '#2c2333'; ctx.lineWidth = 1.6;
+          ctx.beginPath(); ctx.moveTo(bx - 4, -23 + bob); ctx.lineTo(bx + 4, -23 + bob); ctx.stroke();
+          // a raised hand when voting (phase 3)
+          if (b._ph === 3 && Math.sin(b.t * 2 + i) > 0.2) {
+            ctx.fillStyle = '#e8c9a6'; ctx.beginPath(); ctx.arc(bx + 18, -34 + bob, 5, 0, TAU); ctx.fill();
+            ctx.strokeStyle = '#2c2a36'; ctx.lineWidth = 4;
+            ctx.beginPath(); ctx.moveTo(bx + 13, -18 + bob); ctx.lineTo(bx + 18, -30 + bob); ctx.stroke();
+          }
+        }
+        // the gavel, mid-swing
+        ctx.save(); ctx.translate(58, -6); ctx.rotate(Math.sin(b.t * 3) * 0.6 - 0.4);
+        ctx.fillStyle = '#5a3a22'; this.rr(ctx, -3, -2, 6, 26, 2); ctx.fill();
+        ctx.fillStyle = '#6a4a2e'; this.rr(ctx, -12, -12, 24, 12, 4); ctx.fill();
+        ctx.restore();
+        // nameplate
+        ctx.fillStyle = '#c8a24a'; this.rr(ctx, -34, 44, 68, 14, 3); ctx.fill();
+        ctx.fillStyle = '#241c28'; ctx.font = this.font(9, true); ctx.textAlign = 'center';
+        ctx.fillText('THE BOARD', 0, 54);
         break;
       }
       case 'thesystem': { // the whole machine: a monolithic hospital tower, departments lit by phase
@@ -2341,6 +2456,14 @@ const Render = {
       ctx.fillText(p.focused ? '◎ JUST RIGHT' : 'COMPULSION', gx, gy - 4);
     }
 
+    // The 20-Minute Slot: appointment countdown (top-center, under the pill slot)
+    if (G.protocol === 'timeslot' && G.protoT != null) {
+      const mm = Math.max(0, Math.floor(G.protoT / 60)), ss = Math.max(0, Math.floor(G.protoT % 60));
+      ctx.textAlign = 'center'; ctx.font = this.font(15, true);
+      ctx.fillStyle = G.protoT < 60 ? (Math.floor(G.protoT * 2) % 2 ? '#f05a5a' : '#a03030') : 'rgba(240,232,216,0.85)';
+      ctx.fillText('⏰ ' + mm + ':' + String(ss).padStart(2, '0'), CW / 2, 72);
+    }
+
     // Treatment Goals (bottom-right, quiet checklist)
     if (G.goals && G.goals.length) {
       ctx.textAlign = 'right'; ctx.font = this.font(10.5, true);
@@ -2422,10 +2545,10 @@ const Render = {
     ctx.textAlign = 'right';
     ctx.font = this.font(14, true);
     ctx.fillStyle = 'rgba(240,232,216,0.85)';
-    ctx.fillText(DATA.floorName(G.depth), CW - 180, 22);
+    ctx.fillText(G.ascent ? 'Administration' : DATA.floorName(G.depth), CW - 180, 22);
     ctx.font = this.font(11);
     ctx.fillStyle = 'rgba(240,232,216,0.5)';
-    ctx.fillText('ward ' + G.depth + ' · ' + DATA.tierName(G.depth), CW - 180, 38);
+    ctx.fillText(G.ascent ? 'level A' + (G.depth - G.ascentBase) + ' · executive' : 'ward ' + G.depth + ' · ' + DATA.tierName(G.depth), CW - 180, 38);
     if (G.complications && G.complications.length) {
       ctx.fillStyle = 'rgba(224,149,90,0.85)';
       ctx.fillText('⚠ ' + G.complications.map(c => c.name.replace(' Ward', '')).join(', '), CW - 180, 52);
@@ -2525,6 +2648,7 @@ const Render = {
       else if (room.type === 'event') ctx.fillText('‽', cx2, cy2);
       else if (room.type === 'dayroom') ctx.fillText('☕', cx2, cy2);
       else if (room.type === 'oon') ctx.fillText('♥', cx2, cy2);
+      else if (room.type === 'clinic') ctx.fillText('⚕', cx2, cy2);
       else if (room.type === 'seclusion') ctx.fillText('🩸', cx2, cy2);
       else if (room.type === 'ect') ctx.fillText('⚡', cx2, cy2);
       else if (room.type === 'padded') ctx.fillText('▨', cx2, cy2);
@@ -2595,7 +2719,7 @@ const Render = {
     ctx.fillText(D.name, W / 2, y);
     ctx.font = this.font(11.5);
     ctx.fillStyle = 'rgba(230,222,210,0.55)';
-    ctx.fillText('WARD ' + G.depth + ' · ' + DATA.tierName(G.depth).toUpperCase(), W / 2, y + 17);
+    ctx.fillText(G.ascent ? 'ADMIN A' + (G.depth - G.ascentBase) + ' · EXECUTIVE' : 'WARD ' + G.depth + ' · ' + DATA.tierName(G.depth).toUpperCase(), W / 2, y + 17);
 
     // status mood line (mania/dip/hyperfocus/adrenaline) when relevant
     let statusTxt = '';
@@ -2663,10 +2787,10 @@ const Render = {
     ctx.textAlign = 'center';
     ctx.font = this.font(30, true);
     ctx.fillStyle = '#f0e8d8';
-    ctx.fillText(DATA.floorName(G.depth), CW / 2, CH / 2 - 20);
+    ctx.fillText(G.ascent ? 'Administration' : DATA.floorName(G.depth), CW / 2, CH / 2 - 20);
     ctx.font = this.font(15);
     ctx.fillStyle = 'rgba(240,232,216,0.6)';
-    ctx.fillText('ward ' + G.depth + ' · ' + DATA.tierName(G.depth), CW / 2, CH / 2 + 8);
+    ctx.fillText(G.ascent ? 'level A' + (G.depth - G.ascentBase) + ' · going up' : 'ward ' + G.depth + ' · ' + DATA.tierName(G.depth), CW / 2, CH / 2 + 8);
     // ward complications
     if (G.complications && G.complications.length) {
       ctx.font = this.font(14, true);

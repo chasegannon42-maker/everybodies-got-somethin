@@ -563,9 +563,16 @@ class Player {
       }
     }
     if (this.flags.hurtCoins) { for (let i = 0; i < 3; i++) G.pickups.push(new Pickup('coin', this.x + U.rand(-30, 30), this.y + U.rand(-30, 30))); }   // oversharing: trauma-dump copays
+    // Secondary Infection protocol: every hit breeds a Side Effect
+    if (G.protocol === 'infection' && !this.dead) {
+      const a2 = U.rand(0, TAU);
+      const e = new Enemy('sideeffect', U.clamp(this.x + Math.cos(a2) * 90, RX + 30, RX + RW - 30), U.clamp(this.y + Math.sin(a2) * 90, RY + 30, RY + RH - 30), G.depth, false, 0.5, null, 0);
+      e.spawnT = 0.5; e.noDrop = true;
+      G.enemies.push(e);
+    }
     if (this.hp <= 0) { this.dead = true; SFX.play('die'); Haptics.buzz([90, 60, 150], 0); }
   }
-  heal(n) { this.hp = Math.min(this.maxhp, this.hp + n); }
+  heal(n) { if (this.flags.noHeal) return; this.hp = Math.min(this.maxhp, this.hp + n); }
 }
 
 /* ---------------- tears (player shots) ---------------- */
@@ -1018,6 +1025,49 @@ class Enemy {
         this.x += Math.cos(a) * S * vigor * dt; this.y += Math.sin(a) * S * vigor * dt;
         break;
       }
+      case 'nursey': {   // THE CHARGE NURSE: if you're moving, you're a problem
+        // slow authoritative drift to mid-room
+        const tx = RX + RW / 2 + Math.sin(this.t * 0.8) * 120, ty = RY + 120 + Math.sin(this.t * 1.3) * 30;
+        const a = U.ang(this.x, this.y, tx, ty);
+        if (U.dist(this.x, this.y, tx, ty) > 10) { this.x += Math.cos(a) * S * dt; this.y += Math.sin(a) * S * dt; }
+        // track patient movement
+        const moved = this._nx != null && U.dist(p.x, p.y, this._nx, this._ny) > 2.4;
+        this._nx = p.x; this._ny = p.y;
+        this.shotT -= dt;
+        if (moved && this.shotT <= 0) {   // caught you out of bed
+          this.shotT = this.shotCd;
+          for (const off of [-0.14, 0, 0.14]) this.fireAt(G, p.x, p.y, this.bulSpd, '#e8ecf0', off);
+        }
+        if (!moved && this.shotT < 0.2) this.shotT = 0.2;   // stillness buys you grace
+        break;
+      }
+      case 'resident': {   // THE RESIDENT: 30 hours deep, doing boss impressions (badly)
+        const a = U.ang(this.x, this.y, p.x, p.y);
+        this.x += Math.cos(a + Math.sin(this.t * 1.8) * 0.9) * S * dt;
+        this.y += Math.sin(a + Math.sin(this.t * 1.8) * 0.9) * S * dt;
+        this.shotT -= dt;
+        if (this.shotT <= 0) {
+          this.shotT = 2.6;
+          const roll = U.randi(0, 2);
+          if (roll === 0) {   // gatekeeper impression: a wobbly ring with two gaps
+            for (let i = 0; i < 10; i++) { const ra = (i / 10) * TAU + U.rand(-0.15, 0.15); if (i === 2 || i === 7) continue; const b = new EBullet(this.x, this.y, Math.cos(ra) * 150, Math.sin(ra) * 150, this.dmg, '#7ab8a0', this.fake); b._src = this.id; G.eBullets.push(b); }
+          } else if (roll === 1) {   // algorithm impression: leads you... the wrong way
+            for (const off of [-0.2, 0, 0.2]) this.fireAt(G, p.x - (p.x - this.x) * 0.2, p.y - (p.y - this.y) * 0.2, this.bulSpd, '#7ab8a0', off + U.rand(-0.2, 0.2));
+          } else if (!this.fake) {   // adjuster impression: one crooked stamp
+            const sx2 = U.clamp(p.x + U.rand(-110, 110), RX + 30, RX + RW - 30);
+            const sy2 = U.clamp(p.y + U.rand(-110, 110), RY + 30, RY + RH - 30);
+            G.stamps.push({ x: sx2, y: sy2, t: 1.0, r: 46, done: false });
+          }
+        }
+        break;
+      }
+      case 'orderly': {   // THE ORDERLY: never fast. always closer.
+        this._calm = (this._calm || 0) + dt;   // patience builds into momentum (resets when hurt)
+        const speed = S * (1 + Math.min(2.6, this._calm * 0.35));
+        const a = U.ang(this.x, this.y, p.x, p.y);
+        this.x += Math.cos(a) * speed * dt; this.y += Math.sin(a) * speed * dt;
+        break;
+      }
       case 'ticket': {   // Now Serving: a countdown the whole room is waiting on
         this.stateT -= dt;
         if (this.stateT <= 0) {
@@ -1083,6 +1133,7 @@ class Enemy {
     if (this._shieldT > 0) d *= 0.55;   // Wellness Bot's bubble takes the edge off
     this.hp -= d;
     this.hitFlash = 0.12;
+    if (this.beh === 'orderly') this._calm = 0;   // pain resets his patience
     // The Gaslighter denies the hit ever happened — and isn't where you thought it was
     if (this.id === 'gaslighter' && !quiet && this.hp > 0 && U.chance(0.4)) {
       const p3 = G.player;
@@ -1128,6 +1179,8 @@ class Enemy {
       }
     }
     if (this.beh === 'bomber') { this.explode(G); return; }
+    // Litigious protocol: everything that goes down drops paperwork
+    if (G.protocol === 'litigious' && !this.fake && U.chance(0.25)) G.pickups.push(new Pickup('bomb', this.x + U.rand(-10, 10), this.y + U.rand(-10, 10)));
     // Copay Collector coughs it all back up (plus interest)
     if (this.id === 'copaycollector' && !this.fake) {
       const n = Math.min(this.stolen + 1, 5);
@@ -1273,7 +1326,7 @@ function spawnEnemiesForRoom(room, depth, G) {
   if (G.chronic) count = Math.round(count * 1.2);
   if (wp) count += (wp.countAdd || 0);
   count = U.clamp(count + U.randi(-1, 1), 3, G.chronic ? 18 : 16);
-  const champChance = U.clamp(dif.champChance + (mods.champAdd || 0), 0, 0.75);
+  const champChance = G.protocol === 'allelites' ? 1 : U.clamp(dif.champChance + (mods.champAdd || 0), 0, 0.75);   // Grand Rounds: everyone's a champion
   const spots = [];
   for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
     if (room.layout[r][c] !== 0) continue;

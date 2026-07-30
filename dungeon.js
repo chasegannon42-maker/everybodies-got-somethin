@@ -172,6 +172,11 @@ function generateFloor(depth, lastBoss) {
     const normals = [...grid.values()].filter(r => r.type === 'normal');
     if (normals.length > 3 && U.chance(0.55)) U.choice(normals).type = U.choice(['seclusion', 'ect', 'padded', 'observation']);
   }
+  // The Clinic: a miniboss holds office hours (depth 3+)
+  if (depth >= 3) {
+    const normals = [...grid.values()].filter(r => r.type === 'normal');
+    if (normals.length > 3 && U.chance(0.35)) U.choice(normals).type = 'clinic';
+  }
 
   // build layouts
   for (const room of grid.values()) buildLayout(room, depth);
