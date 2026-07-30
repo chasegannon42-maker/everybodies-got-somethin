@@ -458,7 +458,10 @@ DATA.ACHIEVEMENTS = [
   { id: 'overtime10', name: "Time and a Half",     desc: "Survive to wave 10 in OVERTIME.",                 hint: "One room. Everything the ward has.",        check: m => (m.overtimeBest || 0) >= 10 },
   { id: 'janitor5',   name: "Employee of the Month", desc: "Buy 5 things from the Janitor.",                hint: "He finds things. Don't ask where.",         check: m => (m.janitorBuys || 0) >= 5 },
   { id: 'petGrown',   name: "Good Influence",      desc: "Evolve an Emotional Support Animal.",             hint: "40 rooms together changes an animal.",      check: m => m.petXp && Object.values(m.petXp).some(v => v >= 40) },
-  { id: 'fileClosed', name: "File Closed",         desc: "Walk out the front door.",                        hint: "The Cure. The Founder. The System. The Board. The AMA door. Then: the actual door.", check: m => !!m.exitDone }
+  { id: 'fileClosed', name: "File Closed",         desc: "Walk out the front door.",                        hint: "The Cure. The Founder. The System. The Board. The AMA door. Then: the actual door.", check: m => !!m.exitDone },
+  { id: 'mentor',     name: "The Mentor",          desc: "Graduate an Intern — three floors, alive.",       hint: "Someone new is checking in on Ward 2. They're terrified.", check: m => !!m.internGrad },
+  { id: 'goodFaith',  name: "Bargained in Good Faith", desc: "Settle a union action with severance.",       hint: "When they unionize, you don't HAVE to fight.", check: m => (m.unionsSettled || 0) >= 1 },
+  { id: 'volunteer',  name: "Back On Purpose",     desc: "Clear a floor wearing the Volunteer Badge.",      hint: "Your file is closed. Theirs aren't.",       check: m => !!m.everVolunteer }
 ];
 DATA.checkAchievements = function (m) {
   if (!m.unlocks) m.unlocks = {};
@@ -734,7 +737,9 @@ DATA.INTERCOM = {
   floor3:  ["You've reached Ward 3. Your insurance has been notified. It laughed.", "Ward 3. The elevators stop pretending after this."],
   floor7:  ["Ward 7. The plants down here are plastic. The feelings are real.", "Ward 7. If you see the Auditor, you didn't."],
   floor12: ["Ward 12. Honestly? We didn't think you'd get this far. Accounting did. Accounting always knows.", "Ward 12. The walls are load-bearing. So is your denial."],
-  pattern: ["Try not to let the {X} get you this time. It's becoming a pattern. We've made it a chart.", "Statistically, the {X} is your problem. Clinically too."]
+  pattern: ["Try not to let the {X} get you this time. It's becoming a pattern. We've made it a chart.", "Statistically, the {X} is your problem. Clinically too."],
+  internLost: ["The intern did not make it. This will be reflected in SOMEONE'S performance review.", "We regret to announce the intern. Past tense.", "The intern's badge has been retired. It was one (1) day old."],
+  internGrad: ["The intern survived three floors. HR is calling it 'a program.'", "Congratulations to the intern, who has been promoted to Slightly Less Terrified."]
 };
 
 /* ============ INSURANCE PLANS (pick your coverage at intake) ============ */
@@ -921,7 +926,8 @@ DATA.ALLIES = [
   { id: 'firework', name: "The Firecracker",  diag: "Bipolar",  tint: '#b86bff', kind: 'manic',    blurb: "Manic bursts of three." },
   { id: 'watcher',  name: "The Watcher",      diag: "Schizo.",  tint: '#ff7a9e', kind: 'paranoid', blurb: "Homing suspicion — never misses for long." },
   { id: 'checker',  name: "The Perfectionist",diag: "OCD",      tint: '#6c7ff0', kind: 'precise',  blurb: "Symmetric twin shots." },
-  { id: 'sponsor',  name: "The Sponsor",      diag: "in recovery", tint: '#8fd05a', kind: 'basic', blurb: "Steady, dependable fire." }
+  { id: 'sponsor',  name: "The Sponsor",      diag: "in recovery", tint: '#8fd05a', kind: 'basic', blurb: "Steady, dependable fire." },
+  { id: 'intern',   name: "The Graduate",     diag: "made it",  tint: '#e8c05a', kind: 'manic',    blurb: "Your old intern. Fights like they have something to prove.", locked: true }
 ];
 
 /* ============ THE TREATMENT PLAN (between-run skill tree) ============

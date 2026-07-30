@@ -849,6 +849,7 @@ const G = {
           <button class="btn minor" id="bHeatUp" style="min-width:44px">+</button>
         </div>
         <div class="tagline" style="opacity:.7" id="heatDesc">each notch stacks a complication — and multiplies ◆ Insight. best so far: ${bestHeat}</div>` : ''}
+        ${Meta.data.exitDone ? `<button class="btn minor" id="bVolT">🎗 VOLUNTEER BADGE: OFF — your file is closed. theirs aren't.</button>` : ''}
         <div class="tagline" style="opacity:.6">seeded runs (daily / quarterly / challenge) are assigned SILVER. you don't get to pick. that's the joke.</div>
       </div>`);
     if (heatOk) {
@@ -861,10 +862,18 @@ const G = {
       document.getElementById('bHeatUp').onclick = () => { SFX.play('ui'); this._enrollHeat = Math.min(10, this._enrollHeat + 1); upd(); };
       document.getElementById('bHeatDn').onclick = () => { SFX.play('ui'); this._enrollHeat = Math.max(0, this._enrollHeat - 1); upd(); };
     }
+    this._enrollVol = false;
+    const bvt = document.getElementById('bVolT');
+    if (bvt) bvt.onclick = () => {
+      SFX.play('ui');
+      this._enrollVol = !this._enrollVol;
+      bvt.textContent = this._enrollVol ? '🎗 VOLUNTEER BADGE: ON — companions +50%, the ward +25%, ◆×2' : '🎗 VOLUNTEER BADGE: OFF — your file is closed. theirs aren\'t.';
+    };
     document.querySelectorAll('[data-plan]').forEach(b => b.onclick = () => {
       SFX.play('item');
       this._startPlan = b.dataset.plan;
       this._startIntensity = this._enrollHeat || 0;
+      this._startVolunteer = !!this._enrollVol;
       this.beginRun(diagId, daily, variant);
     });
   },
@@ -943,6 +952,13 @@ const G = {
     this._startIntensity = 0;
     if (this.intensity >= 4) { this.player.maxhp = Math.max(2, this.player.maxhp - 2); this.player.hp = Math.min(this.player.hp, this.player.maxhp); }
     if (this.intensity > 0) this.toast('🔥 TREATMENT INTENSITY ' + this.intensity + ' — Insight ×' + (1 + this.intensity * 0.15).toFixed(2), '#e08a5a');
+    // THE VOLUNTEER BADGE: you came back for them
+    this.volunteer = !daily && !!this._startVolunteer && !!Meta.data.exitDone;
+    this._startVolunteer = false;
+    if (this.volunteer) {
+      for (const a of this.player.allies) a.dmgMul = (a.dmgMul || 1) * 1.5;
+      this.toast('🎗 VOLUNTEER. Not a patient — a regular. The companions can feel it.', '#e8c05a');
+    }
     if (this.plan === 'bronze') { this.player.coins += 15; }
     if (this.plan === 'gold') { this.player.maxhp = Math.max(2, this.player.maxhp - 2); this.player.hp = Math.min(this.player.hp, this.player.maxhp); }
     if (this.plan !== 'silver') { const PL = DATA.PLANS.find(x => x.id === this.plan); this.toast(PL.icon + ' Enrolled: ' + PL.name + ' — ' + PL.tag, PL.clr); }
@@ -970,6 +986,7 @@ const G = {
     this.runTime = 0; this.splits = []; this._lastSplitDelta = null;   // speedrun clock
     this._basementOffered = false; this._basementReturn = null; this._diplomaSeen = false;
     this._billMul = 1; this._preApproved = 0; this._routeMod = null; this.practice = false;
+    this.intern = null; this._internOffered = false; this._union = null;
     // THE COMPLAINT DEPARTMENT: your grievance reports for duty
     this._complaint = (!daily && Meta.data.pendingComplaint) ? String(Meta.data.pendingComplaint).slice(0, 40) : null;
     this._complaintSpawned = false;
@@ -1352,6 +1369,7 @@ const G = {
       gained = Math.round(gained * (1 + this.intensity * 0.15));   // heat pays
       if (this.depth >= 5) { const ib = Meta.data.intensityBest || (Meta.data.intensityBest = {}); const k = p.baseDiag === 'undiag' ? 'undiag' : p.diag; ib[k] = Math.max(ib[k] || 0, this.intensity); }
     }
+    if (this.volunteer) gained *= 2;   // volunteering pays. in Insight. only in Insight.
     Meta.data.insight = (Meta.data.insight || 0) + gained;
     this._insightGained = gained;
     Meta.save();
@@ -1544,6 +1562,8 @@ const G = {
     this._roomHits = 0;     // per-room damage tally (Day Room contracts)
     this._roomT0 = this.t;  // room-entry clock (the Intercom bills hourly)
     this._recap = [];       // fresh reel for the incident reconstruction
+    this._unionTried = false; this._union = null;   // one organizing drive per room
+    if (this.intern) { this.intern.x = U.clamp(this.player.x - 40, RX + 14, RX + RW - 14); this.intern.y = this.player.y; }
     // Rapid Cycling: every room re-prescribes you
     if (this.prognosis === 'rapid') {
       const sw = U.choice(DATA.RAPID_SWINGS);
@@ -1597,6 +1617,14 @@ const G = {
       this.boss = new Boss(this.bossId, this.depth, this);
       if ((this.intensity || 0) >= 3) this.boss.aggr = (this.boss.aggr || 1) * 1.1;   // Intensity: management hustles
       if (this.hasRule('frailBosses')) { this.boss.hp *= 0.85; this.boss.maxhp *= 0.85; }   // house rules: management is unwell
+      // SECOND SHIFT: past ward 12, the early three sometimes work a double
+      if (this.depth >= 12 && ['gatekeeper', 'larperking', 'adjuster'].includes(this.bossId) && !this.boss.affix) {
+        if (this.genSeed(['shift2', this.depth], () => U.chance(0.5))) {
+          this.boss._shift2 = true;
+          this.boss.hp *= 1.3; this.boss.maxhp *= 1.3;
+          this.toast('🌙 SECOND SHIFT. It has been here for sixteen hours. It is not happier.', '#c8a8d8');
+        }
+      }
       // champion roll: past Ward 8, the rotation bosses can come back wrong
       if (this.depth >= 8 && !['walrus', 'thecure', 'founder', 'thesystem', 'theboard'].includes(this.bossId)) {
         const affix = this.genSeed(['champ', this.depth], () => U.chance(0.3) ? U.choice(DATA.BOSS_AFFIXES).id : null);
@@ -1723,7 +1751,8 @@ const G = {
         const npcs = U.shuffle(DATA.DAYROOM.map((_, i) => i)).slice(0, 3);
         npcs.forEach((ni, k) => room.peds.push({ x: CW / 2 - 20 + k * 150, y: RY + RH / 2 + (k % 2 ? 40 : -20), kind: 'npc', npcId: ni, taken: false }));
         // and one patient looking for a group to join (The Support Group)
-        room.peds.push({ x: RX + RW - 96, y: RY + RH / 2 - 30, kind: 'recruit', allyId: DATA.ALLIES[U.randi(0, DATA.ALLIES.length - 1)].id, taken: false });
+        const allyPool = DATA.ALLIES.filter(a => !a.locked || (a.id === 'intern' && Meta.data.internGrad));
+        room.peds.push({ x: RX + RW - 96, y: RY + RH / 2 - 30, kind: 'recruit', allyId: U.choice(allyPool).id, taken: false });
         // the commissary corner: one machine per Day Room
         room.peds.push({ x: RX + 90, y: RY + 96, kind: U.choice(['vending', 'claw', 'horoscope']), taken: false, uses: 3 });
         // one patient has a side job for you (Day Room contract)
@@ -1839,6 +1868,13 @@ const G = {
         Meta.save();
         this.checkUnlocks();
       }
+    }
+    // THE INTERN: someone new checks in on ward 2, terrified, looking for anyone who seems to know the way
+    if (!this._internOffered && this.depth === 2 && room.type === 'normal' && !this.dailyKind && !this.overtime && U.chance(0.35)) {
+      this._internOffered = true;
+      this.peds.push({ x: CW / 2 + U.rand(-60, 60), y: RY + RH / 2 + U.rand(-20, 40), kind: 'intern', taken: false });
+      this.toast('🪪 Someone small is hiding behind the pedestal. They have a NEW badge.', '#e8c05a');
+      SFX.play('voice');
     }
     // THE JANITOR: he appears where the mess was (10%, once a floor — 25% if he's holding YOUR lost item)
     const holdingYours = Meta.data.lostItem && DATA.ITEMS[Meta.data.lostItem] && !p.items.includes(Meta.data.lostItem);
@@ -2154,6 +2190,20 @@ const G = {
   doDescend() {
     if (this.floorHits === 0) this.goalEvent('floorclean');   // Clean Bill
     if (this.p2 && !Meta.data.everCoop) { Meta.data.everCoop = 1; Meta.save(); this.checkUnlocks(); }   // Group Rate
+    if (this.volunteer && !Meta.data.everVolunteer) { Meta.data.everVolunteer = 1; Meta.save(); this.checkUnlocks(); }   // Back On Purpose
+    // the intern survives another floor
+    if (this.intern) {
+      this.intern.floors++;
+      if (this.intern.floors >= 3) {
+        this.intern = null;
+        if (!Meta.data.internGrad) { Meta.data.internGrad = 1; Meta.save(); this.checkUnlocks(); }
+        this.toast('🎓 THE INTERN GRADUATED. They\'re a recruitable ally now — look for The Graduate in Day Rooms.', '#e8c05a');
+        SFX.play('fanfare');
+        setTimeout(() => { if (this.state === 'run') this.pa('internGrad'); }, 2400);
+      } else {
+        this.toast('🪪 The intern made it down. Floor ' + this.intern.floors + ' of 3. They\'re… beaming?', '#e8c05a');
+      }
+    }
     // speedrun split: time-to-clear this ward vs your PB
     if (Meta.data.speedrun && this.runTime != null && !this.dailyKind && !this.overtime) {
       this.splits = this.splits || [];
@@ -2590,6 +2640,11 @@ const G = {
           this.toast('📝 CONTRACT: ' + def.name + ' — ' + def.desc + ' → ' + def.rtext, '#8fd08a');
           SFX.play('paper');
         }
+      } else if (ped.kind === 'intern') {   // "can I… follow you? you seem like you've done this before."
+        ped.taken = true;
+        this.intern = { x: ped.x, y: ped.y, hp: 4, iframes: 1.5, floors: 0, panic: 0, t: 0, flash: 0 };
+        this.toast('🪪 THE INTERN is shadowing you. Keep them alive for 3 floors. They panic. A lot.', '#e8c05a');
+        SFX.play('voice');
       } else if (ped.kind === 'basementdoor') {   // STAFF ONLY. you're staff now, apparently.
         ped.taken = true;
         this.enterBasement();
@@ -2689,6 +2744,15 @@ const G = {
     this.intercomTick(dt);
     // SEND THE ANIMAL (F / pad Y)
     if (Input.take('petcmd') && p.pet) this.petCommand();
+    // the intern shadows you; the union bargains
+    if (this.intern) this.internUpdate(dt);
+    if (this._union) this.unionUpdate(dt);
+    // union trigger: a big room, a long fight, an idea spreads
+    if (!this._unionTried && this.room && !this.room.cleared && (this.room.type === 'normal' || this.room.type === 'padded') && (this.t - (this._roomT0 || 0)) > 6) {
+      this._unionTried = true;
+      const live = this.enemies.filter(e => !e.dying && !e.fake && !e.charmed && e.spawnT <= 0 && e.id !== 'auditor').length;
+      if (live >= 4 && Math.random() < 0.12) this.unionize();
+    }
     // Patient Two (couch co-op)
     if (Input.take('p2join')) { this.p2 ? this.p2Leave() : this.showP2Pick(); if (this.state !== 'run') return; }
     if (this.p2) this.p2Update(dt);
@@ -2764,6 +2828,88 @@ const G = {
       else { this.saveCheckpoint(); this._runLogged = true; }   // keep the checkpoint; don't log a death/quit
       this.showTitle();
     };
+  },
+
+  /* ---------- THE INTERN (keep them alive three floors and they graduate) ---------- */
+  internUpdate(dt) {
+    const I = this.intern, p = this.player;
+    if (!I) return;
+    I.iframes -= dt; I.t = (I.t || 0) + dt;
+    // panicky follow: aims for a spot behind you, badly
+    const near = this.enemies.some(e => !e.dying && !e.fake && e.spawnT <= 0 && U.dist(I.x, I.y, e.x, e.y) < 150);
+    I.panic = U.lerp(I.panic || 0, near ? 1 : 0, dt * 3);
+    const tx = p.x - Math.cos(p.aimAng || 0) * 44, ty = p.y - Math.sin(p.aimAng || 0) * 44;
+    const d = U.dist(I.x, I.y, tx, ty);
+    if (d > 26) {
+      const a = U.ang(I.x, I.y, tx, ty) + Math.sin(I.t * (near ? 11 : 3)) * (near ? 0.9 : 0.2);
+      const sp = Math.min(230, d * 2.4) * (near ? 1.25 : 1);
+      I.x = U.clamp(I.x + Math.cos(a) * sp * dt, RX + 12, RX + RW - 12);
+      I.y = U.clamp(I.y + Math.sin(a) * sp * dt, RY + 12, RY + RH - 12);
+    }
+    if (I.iframes <= 0) {
+      for (const b of this.eBullets) {
+        if (b.dead || b.fake) continue;
+        if (U.dist(I.x, I.y, b.x, b.y) < b.r + 8) { b.dead = true; this.internHurt(); break; }
+      }
+      if (I.iframes <= 0) for (const e of this.enemies) {
+        if (e.dying || e.fake || e.spawnT > 0 || e.charmed || !(e.dmg > 0)) continue;
+        if (U.dist(I.x, I.y, e.x, e.y) < e.r + 9) { this.internHurt(); break; }
+      }
+    }
+  },
+  internHurt() {
+    const I = this.intern; if (!I || I.iframes > 0) return;
+    I.hp--; I.iframes = 1.4; I.flash = 0.35;
+    SFX.play('hurt');
+    if (I.hp <= 0) {
+      this.intern = null;
+      Meta.data.internLost = (Meta.data.internLost || 0) + 1; Meta.save();
+      this.toast('🪪 The intern didn\'t make it.', '#e08a8a');
+      SFX.play('denied');
+      setTimeout(() => { if (this.state === 'run') this.pa('internLost'); }, 2200);
+    } else {
+      this.texts.push(new FloatText(I.x, I.y - 20, ['“I\'m fine!! ”', '“ow. OW.”', '“is this normal??”'][3 - I.hp] || '“help”', '#e8c05a'));
+    }
+  },
+
+  /* ---------- THE UNION (the room organizes; you fight it or you settle) ---------- */
+  unionize() {
+    const live = this.enemies.filter(e => !e.dying && !e.fake && !e.charmed && e.spawnT <= 0 && e.id !== 'auditor' && !e._form);
+    if (live.length < 4) return;
+    let rep = live[0];
+    for (const e of live) if (e.hp > rep.hp) rep = e;
+    rep._unionRep = true;
+    for (const e of live) e._union = true;
+    this._union = { rep, sevT: 0 };
+    this.setBanner('✊ THE ROOM HAS UNIONIZED', 'damage routes to the elected rep · or stand with them (5¢ severance)', 3.2);
+    this.toast('✊ “FAIR SHIFTS! NO MORE WAVES! BETTER FLUORESCENT LIGHTING!”', '#e0a05a');
+    SFX.play('voice');
+  },
+  unionUpdate(dt) {
+    const UN = this._union; if (!UN) return;
+    const p = this.player;
+    if (!UN.rep || UN.rep.dying) { this._union = null; return; }   // rep down = dissolved (handled in die)
+    // chants
+    if (Math.random() < dt * 0.5) {
+      const m = this.enemies.filter(e => e._union && !e.dying);
+      if (m.length) { const e = U.choice(m); this.texts.push(new FloatText(e.x, e.y - e.r - 8, U.choice(['✊', 'FAIR SHIFTS', 'NO WAVES', 'HAZARD PAY']), '#e0a05a')); }
+    }
+    // severance: stand with the rep, still, holding 5¢
+    const mv = Input.getMove();
+    const still = Math.abs(mv.x) < 0.05 && Math.abs(mv.y) < 0.05;
+    if (still && p.coins >= 5 && U.dist(p.x, p.y, UN.rep.x, UN.rep.y) < 110) {
+      UN.sevT += dt;
+      if (UN.sevT > 0.4 && Math.random() < dt * 6) this.texts.push(new FloatText(p.x, p.y - 26, 'negotiating… ' + Math.ceil((1.5 - UN.sevT) * 10) / 10 + 's', '#8fd0e0'));
+      if (UN.sevT >= 1.5) {
+        p.coins -= 5;
+        for (const e of this.enemies) if (e._union && !e.dying) { e.dying = true; e.deadDone = true; this.texts.push(new FloatText(e.x, e.y - 10, '✊ clocked out', '#8fd05a')); }
+        this._union = null;
+        Meta.data.unionsSettled = (Meta.data.unionsSettled || 0) + 1; Meta.save();
+        this.checkUnlocks();
+        this.toast('🤝 Severance paid. They filed out singing. The room is yours.', '#8fd05a');
+        SFX.play('spare');
+      }
+    } else UN.sevT = 0;
   },
 
   /* ---------- SEND THE ANIMAL (each companion has one trick, per cooldown) ---------- */
@@ -2918,7 +3064,7 @@ const G = {
     if (aim && q._tearT <= 0 && !p.flags.pacifist) {
       q._tearT = 0.36;
       q.aimAng = Math.atan2(aim.y, aim.x);
-      const dmg = Math.max(1.5, p.dmg * 0.7);
+      const dmg = Math.max(1.5, p.dmg * 0.7) * (this.volunteer ? 1.5 : 1);
       this.tears.push(new Tear(q.x, q.y - 4, aim.x * 430, aim.y * 430, dmg, 0.85, false));
       SFX.play('shoot');
     }

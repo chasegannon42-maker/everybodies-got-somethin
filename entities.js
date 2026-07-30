@@ -50,7 +50,7 @@ class Pet {
       const d = U.dist(this.x, this.y, p.x - 34, p.y - 8);
       if (d > 20) { this.x += Math.cos(a) * Math.min(d * 3, 260) * dt; this.y += Math.sin(a) * Math.min(d * 3, 260) * dt; }
       if (this.actT <= 0) {
-        this.actT = this.evo ? 25 : 45;
+        this.actT = (this.evo ? 25 : 45) * (G.volunteer ? 0.7 : 1);
         G.pickups.push(new Pickup(this.evo && U.chance(0.25) ? 'nickel' : 'coin', this.x, this.y));
         G.texts.push(new FloatText(this.x, this.y - 18, '🕊 found this somewhere', '#c8c0b8'));
         SFX.play('coin');
@@ -66,7 +66,7 @@ class Pet {
           if (b.dead || b.fake || swatted >= cap) continue;
           if (U.dist(this.x, this.y, b.x, b.y) < 95) { this._swipeT = 0.2; this._swipeAt = { x: b.x, y: b.y }; b.fizzle ? b.fizzle(G) : (b.dead = true); swatted++; }
         }
-        if (swatted) { this.actT = this.evo ? 1.3 : 2.4; SFX.play('swat'); }
+        if (swatted) { this.actT = (this.evo ? 1.3 : 2.4) * (G.volunteer ? 0.7 : 1); SFX.play('swat'); }
       }
       if (this._swipeT > 0) this._swipeT -= dt;
     } else if (this.type === 'snake') {   // slithers at your problems
@@ -76,7 +76,7 @@ class Pet {
       const a = U.ang(this.x, this.y, tgt.x, tgt.y) + Math.sin(this.t * 5) * 0.5;
       const spd = best ? 150 : 120;
       if (U.dist(this.x, this.y, tgt.x, tgt.y) > (best ? 4 : 30)) { this.x += Math.cos(a) * spd * dt; this.y += Math.sin(a) * spd * dt; }
-      if (best && U.dist(this.x, this.y, best.x, best.y) < (this.evo ? 23 : 19) + best.r) best.hurt((this.evo ? 9 : 6) * dt, G, true);
+      if (best && U.dist(this.x, this.y, best.x, best.y) < (this.evo ? 23 : 19) + best.r) best.hurt((this.evo ? 9 : 6) * (G.volunteer ? 1.5 : 1) * dt, G, true);
       this.segs.unshift({ x: this.x, y: this.y });
       if (this.segs.length > (this.evo ? 16 : 9)) this.segs.pop();
     } else if (this.type === 'goldfish') {   // bowl bobs beside you; nearby enemies forget
@@ -88,7 +88,7 @@ class Pet {
         const sorted = G.enemies.filter(e => !e.fake && e.spawnT <= 0 && !e.dying && U.dist(this.x, this.y, e.x, e.y) < 140)
           .sort((a, b2) => U.dist(this.x, this.y, a.x, a.y) - U.dist(this.x, this.y, b2.x, b2.y));
         for (const e of sorted) { if (dazed >= cap) break; e._dazeT = 1.3; G.texts.push(new FloatText(e.x, e.y - 20, '…who?', '#8fd0e0')); dazed++; }
-        if (dazed) { this.actT = this.evo ? 5 : 8; SFX.play('voice'); }
+        if (dazed) { this.actT = (this.evo ? 5 : 8) * (G.volunteer ? 0.7 : 1); SFX.play('voice'); }
       }
     }
     this.x = U.clamp(this.x, RX + 10, RX + RW - 10);
@@ -684,12 +684,13 @@ class Player {
   /* recruit a fellow patient into the Support Group (cap 3, no duplicates while there's fresh blood) */
   recruitAlly(G, id) {
     if (this.allies.length >= 3) { if (G) { G.toast('The group is full (3).', '#8fd05a'); } return false; }
-    let pool = DATA.ALLIES.filter(a => !this.allies.some(x => x.id === a.id));
-    if (!pool.length) pool = DATA.ALLIES;
+    let pool = DATA.ALLIES.filter(a => !this.allies.some(x => x.id === a.id) && (!a.locked || (a.id === 'intern' && Meta.data.internGrad)));
+    if (!pool.length) pool = DATA.ALLIES.filter(a => !a.locked);
     const pick = id ? (DATA.ALLIES.find(a => a.id === id) || U.choice(pool)) : U.choice(pool);
     const ally = new Ally(pick.id);
     ally.x = this.x + U.rand(-40, 40); ally.y = this.y + U.rand(-40, 40);
     if (this.flags.allyTough) { ally.maxhp = 4; ally.hp = 4; ally.dmgMul = 1.35; }   // Facilitator talent
+    if (G && G.volunteer) ally.dmgMul = (ally.dmgMul || 1) * 1.5;   // the badge: they fight harder near you
     this.allies.push(ally);
     if (this.allies.length >= 3 && !Meta.data.everFullGroup) { Meta.data.everFullGroup = 1; Meta.save(); if (G && G.checkUnlocks) G.checkUnlocks(); }   // Group Session
     if (G && G.goalEvent) G.goalEvent('ally');
@@ -1379,6 +1380,12 @@ class Enemy {
 
   hurt(d, G, quiet) {
     if (this.dying || this.spawnT > 0.3) return;
+    // THE UNION: an injury to one is routed to the rep (solidarity, structurally)
+    if (this._union && !this._unionRep && G._union && G._union.rep && !G._union.rep.dying && d < 9999) {
+      G.parts.push(new Particle(this.x, this.y, (G._union.rep.x - this.x) * 2, (G._union.rep.y - this.y) * 2, 0.25, '#e0a05a', 2.5));
+      G._union.rep.hurt(d * 0.9, G, quiet);
+      return;
+    }
     // The Premium: cannot be harmed until it has billed you (forensic nukes exempt)
     if (this.beh === 'premium' && !this._premOpen && !this.fake && d < 9999) {
       if (!quiet && Math.random() < 0.3) { G.texts.push(new FloatText(this.x, this.y - 20, 'PREMIUM — not yet billed', '#e0b83a')); SFX.play('lock'); }
@@ -1458,6 +1465,17 @@ class Enemy {
       Meta.save();
       G.toast('📋 “' + this._complaint + '” — RESOLVED. +◆6. Thank you for your feedback.', '#8fd08a');
       SFX.play('bell');
+    }
+    // THE UNION: the rep falls, the drive dissolves — everyone takes the loss hard
+    if (this._unionRep && G._union) {
+      G._union = null;
+      for (const e of G.enemies) {
+        if (!e._union || e.dying || e === this) continue;
+        e._union = false;
+        e.hurt(2, G, true);
+        G.texts.push(new FloatText(e.x, e.y - 14, '✊…', '#a89078'));
+      }
+      G.toast('The rep is down. The drive collapses. Management sends its regards.', '#a89078');
     }
     // The Placebo: it was nothing. it was confetti.
     if (this.id === 'placebo' && !this.fake) {
@@ -1684,7 +1702,7 @@ function spawnEnemiesForRoom(room, depth, G) {
   const dif = DATA.difficulty(depth);
   const mods = G.floorMods || {};
   const wp = (DATA.WARD_PATHS && DATA.WARD_PATHS[G.wardPath]) || null;
-  const hpMult = (p.flags.fineMode ? (p.flags.recovery ? 1.25 : 1.15) : 1) * (mods.hpMul || 1) * (G.chronic ? 1.5 : 1) * (G.easy ? 0.7 : 1) * (wp ? wp.hpMul : 1) * ((G.intensity || 0) >= 1 ? 1.1 : 1) * (G.hasRule && G.hasRule('toughCrowd') ? 1.15 : 1);
+  const hpMult = (p.flags.fineMode ? (p.flags.recovery ? 1.25 : 1.15) : 1) * (mods.hpMul || 1) * (G.chronic ? 1.5 : 1) * (G.easy ? 0.7 : 1) * (wp ? wp.hpMul : 1) * ((G.intensity || 0) >= 1 ? 1.1 : 1) * (G.hasRule && G.hasRule('toughCrowd') ? 1.15 : 1) * (G.volunteer ? 1.25 : 1);
   let count = dif.count;
   if (mods.countMul) count = Math.round(count * mods.countMul);
   if (G.chronic) count = Math.round(count * 1.2);

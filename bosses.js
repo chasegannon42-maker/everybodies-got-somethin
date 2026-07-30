@@ -156,6 +156,31 @@ class Boss {
       return;
     }
     if (this._dealHold) return;   // frozen mid-offer, hands visible
+    // SECOND SHIFT: the early three, sixteen hours in — extra habits per boss
+    if (this._shift2) {
+      this._s2T = (this._s2T == null ? 5 : this._s2T) - dt;
+      if (this._s2T <= 0) {
+        this._s2T = P2 ? 5 : 6.5;
+        if (this.id === 'gatekeeper') {   // double rope: mirrored gap rings
+          const gap = this.aimP(G);
+          this.ring(14, 185, '#b8b0d0', 0, gap, 0.55);
+          this.ring(14, 185, '#d0c8e8', 0.11, gap + Math.PI, 0.55);
+          SFX.play('pop');
+        } else if (this.id === 'larperking') {   // he read a SECOND article
+          const a = this.aimP(G);
+          for (const off of [-0.3, -0.15, 0, 0.15, 0.3]) this.bullet(a + off, 230, '#c8b878', { r: 8 });
+          G.texts.push(new FloatText(this.x, this.y - this.r - 12, '“per my SECOND source—”', '#c8b878'));
+        } else if (this.id === 'adjuster') {   // the audit: paper rain
+          for (let i = 0; i < 9; i++) {
+            const bx = RX + 50 + (i / 8) * (RW - 100);
+            const b = new EBullet(bx, RY + 16, 0, 155, this.dmg, '#e8dcc0');
+            b.r = 7; b._src = this.id;
+            G.eBullets.push(b);
+          }
+          SFX.play('paper');
+        }
+      }
+    }
     // Incident Report: even management burns
     if (this._burn > 0) {
       this._burn -= dt;

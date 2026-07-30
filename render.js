@@ -71,7 +71,7 @@ const Render = {
           ctx.textAlign = 'right';
           ctx.font = 'bold 26px Impact,"Arial Black",sans-serif';
           ctx.fillStyle = G.boss.affix ? (G.boss.affixTint || '#e05a5a') : '#e05a5a';
-          ctx.fillText(((G.boss.affix ? G.boss.affix.toUpperCase() + ' ' : '') + B.name).slice(0, 30), CW - 60 + slide, CH * 0.53);
+          ctx.fillText(((G.boss._shift2 ? 'SECOND SHIFT ' : '') + (G.boss.affix ? G.boss.affix.toUpperCase() + ' ' : '') + B.name).slice(0, 34), CW - 60 + slide, CH * 0.53);
           ctx.font = 'italic bold 11px "Trebuchet MS","Segoe UI",sans-serif';
           ctx.fillStyle = '#c4b4ae';
           ctx.fillText(String(B.sub || '').slice(0, 52), CW - 62 + slide, CH * 0.53 + 18);
@@ -1572,6 +1572,7 @@ const Render = {
     for (const a of G.player.allies) this.drawAlly(a, G);
     if (G.player.pet) this.drawPet(G.player.pet, G);
     if (G.p2) this.drawP2(G.p2, G);
+    if (G.intern) this.drawIntern(G.intern, G);
     this.drawPlayer(G.player, G);
 
     // tears — glossy droplets with shadow
@@ -1693,6 +1694,35 @@ const Render = {
     ctx.fillStyle = 'rgba(240,232,216,0.5)'; ctx.font = 'bold 8px "Trebuchet MS",sans-serif'; ctx.textAlign = 'left';
     ctx.fillText('−6s', 12, H - 3);
     ctx.textAlign = 'right'; ctx.fillText('☠', W - 12, H - 3);
+  },
+
+  /* ============ THE INTERN (smaller, newer, terrified) ============ */
+  drawIntern(I, G) {
+    const ctx = this.ctx;
+    const blink = I.iframes > 0 && Math.sin(G.t * 24) > 0.2;
+    this.shadow(I.x, I.y + 11, 10, 4, 0.22);
+    ctx.save();
+    ctx.translate(I.x, I.y);
+    if (blink) ctx.globalAlpha = 0.45;
+    ctx.scale(0.78, 0.78);   // smaller. newer.
+    ctx.fillStyle = '#c9b696'; ctx.beginPath(); ctx.ellipse(-4, 13, 3.4, 2.4, 0, 0, TAU); ctx.ellipse(4, 13, 3.4, 2.4, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#e2d0b0'; ctx.beginPath(); ctx.ellipse(0, 7, 7.5, 6, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#f4e6cc'; ctx.beginPath(); ctx.arc(0, -6, 13, 0, TAU); ctx.fill();
+    ctx.strokeStyle = 'rgba(58,40,50,0.3)'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.arc(0, -6, 13, 0, TAU); ctx.stroke();
+    // wide worried eyes, tracking the nearest bad thing
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(-4.5, -7, 3.4, 4, 0, 0, TAU); ctx.ellipse(4.5, -7, 3.4, 4, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#2c2333'; ctx.beginPath(); ctx.arc(-4.5, -6.5, 1.8, 0, TAU); ctx.arc(4.5, -6.5, 1.8, 0, TAU); ctx.fill();
+    ctx.strokeStyle = '#8a6a50'; ctx.lineWidth = 1.6; ctx.lineCap = 'round';   // worried brows
+    ctx.beginPath(); ctx.moveTo(-8, -13); ctx.lineTo(-2, -11.5); ctx.moveTo(8, -13); ctx.lineTo(2, -11.5); ctx.stroke(); ctx.lineCap = 'butt';
+    ctx.strokeStyle = '#7a5a48'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.arc(0, -1, 2.6, Math.PI + 0.4, TAU - 0.4); ctx.stroke();   // tiny worried o-mouth
+    if (I.panic > 0.4) {   // sweat
+      ctx.fillStyle = 'rgba(140,200,240,0.8)';
+      ctx.beginPath(); ctx.ellipse(10, -12 + (G.t * 30 % 8), 1.6, 2.4, 0, 0, TAU); ctx.fill();
+    }
+    ctx.restore();
+    // the badge
+    ctx.fillStyle = '#e8c05a'; ctx.font = this.font(8, true); ctx.textAlign = 'center';
+    ctx.fillText('🪪 INTERN · ' + '♥'.repeat(Math.max(0, I.hp)), I.x, I.y - 24);
   },
 
   /* ============ Patient Two (couch co-op) ============ */
@@ -1993,6 +2023,13 @@ const Render = {
       ctx.fillText('?', 0, -22 + Math.sin((G && G.t || 0) * 2.4) * 2);
     }
 
+    // the Volunteer Badge: a gold ribbon, pinned where the intake bracelet used to go
+    if (G && G.volunteer && p === G.player) {
+      ctx.fillStyle = '#e8c05a';
+      ctx.beginPath(); ctx.arc(-7, 4, 3, 0, TAU); ctx.fill();
+      ctx.strokeStyle = '#e8c05a'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(-8.5, 6); ctx.lineTo(-10, 11); ctx.moveTo(-5.5, 6); ctx.lineTo(-4, 11); ctx.stroke(); ctx.lineCap = 'butt';
+    }
     // achievement hat (cosmetic, worn everywhere — but only by YOU, not every extra on screen)
     const hat = Meta.data.hat;
     if (hat && !p.noHat && (Meta.data.unlocks || {})[(DATA.HATS.find(h => h.id === hat) || {}).ach]) {
@@ -2635,6 +2672,19 @@ const Render = {
         ctx.restore();
         ctx.fillStyle = '#e0a05a'; ctx.font = this.font(9, true); ctx.textAlign = 'center';
         ctx.fillText('“' + e._complaint.slice(0, 26) + (e._complaint.length > 26 ? '…' : '') + '”', e.x, e.y - e.r - 16);
+      }
+    }
+    // THE UNION: picket signs up
+    if (e._union && !e.dying && e.spawnT <= 0) {
+      const bb = Math.sin(G.t * 3 + e.x) * 2;
+      ctx.save(); ctx.translate(e.x + e.r * 0.7, e.y - e.r - 6 + bb); ctx.rotate(0.12);
+      ctx.strokeStyle = '#8a6a3a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, 10); ctx.lineTo(0, -4); ctx.stroke();
+      ctx.fillStyle = '#f0ead8'; this.rr(ctx, -11, -14, 22, 11, 2); ctx.fill();
+      ctx.fillStyle = '#a03030'; ctx.font = this.font(7, true); ctx.textAlign = 'center'; ctx.fillText(e._unionRep ? 'REP' : '✊', 0, -6);
+      ctx.restore();
+      if (e._unionRep) {
+        ctx.strokeStyle = 'rgba(224,160,90,0.8)'; ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.arc(e.x, e.y, e.r + 7 + Math.sin(G.t * 4) * 2, 0, TAU); ctx.stroke();
       }
     }
     // the deep roster wears its gimmicks openly
