@@ -83,7 +83,7 @@ function collideTiles(layout, x, y, rad) {
 
 /* ---------------- persistent meta ---------------- */
 const Meta = {
-  data: { runs: 0, deaths: 0, kills: 0, bestFloor: 0, walrusKills: 0, itemsSeen: 0, diagBest: {}, fineSeen: 0, unlocks: {}, diagsPlayed: {}, everOverRx: 0, everNoHitFloor: 0, daily: null, seen: { enemies: {}, bosses: {}, items: {}, pills: {} }, dailyStreak: { last: null, count: 0, best: 0 }, dailyHistory: {}, a11y: { bulletContrast: false, reduceMotion: false, easy: false, aimAssist: true, dmgNums: false }, onboarded: 0, chronicUnlocked: 0, cured: 0, chronicBest: 0, founderKills: 0, runlog: [], runAgg: {}, causeAgg: {}, seenStory: {}, storyOff: 0, insight: 0, talents: {}, influencerKills: 0, crisesSurvived: 0, hazardsSeen: {}, everWiredClear: 0, everFullGroup: 0, everKeystone: 0, systemKills: 0, protocolsDone: {}, boardKills: 0, auditorKills: 0, quarterly: null, quarterlyBest: 0, hat: null, fund: 0, facility: {}, appealsWon: 0, amaDone: 0, contractsDone: 0, everGoldWalrus: 0, pet: null, paOff: 0, skinOn: {}, revenges: 0, giftsGot: 0, everCoop: 0, pendingGift: null, overtimeBest: 0, janitorMet: 0, janitorBuys: 0, petXp: {}, speedrun: 0, splitsPB: {}, pendingComplaint: null, complaintsFiled: 0, intensityBest: {}, sparedBosses: {} },
+  data: { runs: 0, deaths: 0, kills: 0, bestFloor: 0, walrusKills: 0, itemsSeen: 0, diagBest: {}, fineSeen: 0, unlocks: {}, diagsPlayed: {}, everOverRx: 0, everNoHitFloor: 0, daily: null, seen: { enemies: {}, bosses: {}, items: {}, pills: {} }, dailyStreak: { last: null, count: 0, best: 0 }, dailyHistory: {}, a11y: { bulletContrast: false, reduceMotion: false, easy: false, aimAssist: true, dmgNums: false }, onboarded: 0, chronicUnlocked: 0, cured: 0, chronicBest: 0, founderKills: 0, runlog: [], runAgg: {}, causeAgg: {}, seenStory: {}, storyOff: 0, insight: 0, talents: {}, influencerKills: 0, crisesSurvived: 0, hazardsSeen: {}, everWiredClear: 0, everFullGroup: 0, everKeystone: 0, systemKills: 0, protocolsDone: {}, boardKills: 0, auditorKills: 0, quarterly: null, quarterlyBest: 0, hat: null, fund: 0, facility: {}, appealsWon: 0, amaDone: 0, contractsDone: 0, everGoldWalrus: 0, pet: null, paOff: 0, skinOn: {}, revenges: 0, giftsGot: 0, everCoop: 0, pendingGift: null, overtimeBest: 0, janitorMet: 0, janitorBuys: 0, petXp: {}, speedrun: 0, splitsPB: {}, pendingComplaint: null, complaintsFiled: 0, intensityBest: {}, sparedBosses: {}, lostItem: null, exitDone: 0 },
   load() { try { const j = localStorage.getItem('egs_meta'); if (j) Object.assign(this.data, JSON.parse(j)); } catch (e) { } if (!this.data.seen) this.data.seen = { enemies: {}, bosses: {}, items: {}, pills: {} }; if (!this.data.dailyStreak) this.data.dailyStreak = { last: null, count: 0, best: 0 }; if (!this.data.dailyHistory) this.data.dailyHistory = {}; if (!this.data.a11y) this.data.a11y = { bulletContrast: false, reduceMotion: false, easy: false }; if (!this.data.runlog) this.data.runlog = []; if (!this.data.runAgg) this.data.runAgg = {}; if (!this.data.causeAgg) this.data.causeAgg = {}; if (this.data.insight == null) this.data.insight = 0; if (!this.data.talents) this.data.talents = {}; if (!this.data.hazardsSeen) this.data.hazardsSeen = {}; if (!this.data.protocolsDone) this.data.protocolsDone = {}; if (this.data.fund == null) this.data.fund = 0; if (!this.data.facility) this.data.facility = {}; if (!this.data.skinOn) this.data.skinOn = {}; if (!this.data.petXp) this.data.petXp = {}; },
   save() {
     try { localStorage.setItem('egs_meta', JSON.stringify(this.data)); } catch (e) { }
@@ -544,7 +544,7 @@ const Input = {
   usingTouch: false,
   moveStick: { active: false, id: -1, ax: 0, ay: 0, dx: 0, dy: 0 },
   aimStick: { active: false, id: -1, ax: 0, ay: 0, dx: 0, dy: 0 },
-  _edge: { pill: false, bomb: false, pause: false, confirm: false, mute: false, map: false, ability: false, p2join: false },
+  _edge: { pill: false, bomb: false, pause: false, confirm: false, mute: false, map: false, ability: false, p2join: false, petcmd: false },
   canvas: null,
 
   init(canvas) {
@@ -557,6 +557,7 @@ const Input = {
       if (e.code === 'KeyP' || e.code === 'Escape') this._edge.pause = true;
       if (e.code === 'Enter' || e.code === 'Space') this._edge.confirm = true;
       if (e.code === 'KeyM') this._edge.mute = true;
+      if (e.code === 'KeyF') this._edge.petcmd = true;
       if (e.code === 'Space' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') this._edge.ability = true;
       if (e.code === 'Tab') { this._edge.map = true; e.preventDefault(); }
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
@@ -654,7 +655,7 @@ const Input = {
     this._gpAim = (Math.abs(ax) > 0.3 || Math.abs(ay) > 0.3) ? U.norm(ax, ay) : null;
     // buttons: A=confirm+ability (like Space), B=bomb, X=pill, Y=map, Select=Patient Two, Start=pause, LB/RB=ability
     const p2On = typeof G !== 'undefined' && G.p2;
-    const edgeMap = { 0: ['confirm', 'ability'], 1: ['bomb'], 2: ['pill'], 3: ['map'], 4: ['ability'], 5: ['ability'], 8: ['p2join'], 9: ['pause'] };
+    const edgeMap = { 0: ['confirm', 'ability'], 1: ['bomb'], 2: ['pill'], 3: ['petcmd'], 4: ['ability'], 5: ['ability'], 8: ['p2join'], 9: ['pause'] };
     for (const bi in edgeMap) {
       const down = gp.buttons[bi] && gp.buttons[bi].pressed;
       if (down && !this._gpPrev[bi]) for (const name of edgeMap[bi]) {

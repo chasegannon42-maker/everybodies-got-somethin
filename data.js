@@ -457,7 +457,8 @@ DATA.ACHIEVEMENTS = [
   { id: 'couch',      name: "Group Rate",          desc: "Finish a floor with Patient Two in the room.",    hint: "Bring a friend. Misery loves it.",          check: m => !!m.everCoop },
   { id: 'overtime10', name: "Time and a Half",     desc: "Survive to wave 10 in OVERTIME.",                 hint: "One room. Everything the ward has.",        check: m => (m.overtimeBest || 0) >= 10 },
   { id: 'janitor5',   name: "Employee of the Month", desc: "Buy 5 things from the Janitor.",                hint: "He finds things. Don't ask where.",         check: m => (m.janitorBuys || 0) >= 5 },
-  { id: 'petGrown',   name: "Good Influence",      desc: "Evolve an Emotional Support Animal.",             hint: "40 rooms together changes an animal.",      check: m => m.petXp && Object.values(m.petXp).some(v => v >= 40) }
+  { id: 'petGrown',   name: "Good Influence",      desc: "Evolve an Emotional Support Animal.",             hint: "40 rooms together changes an animal.",      check: m => m.petXp && Object.values(m.petXp).some(v => v >= 40) },
+  { id: 'fileClosed', name: "File Closed",         desc: "Walk out the front door.",                        hint: "The Cure. The Founder. The System. The Board. The AMA door. Then: the actual door.", check: m => !!m.exitDone }
 ];
 DATA.checkAchievements = function (m) {
   if (!m.unlocks) m.unlocks = {};

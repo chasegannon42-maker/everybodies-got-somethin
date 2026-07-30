@@ -1027,7 +1027,8 @@ const G = {
         { x: 140, y: 560, r: 48, door: false, label: '⚙ SETTINGS',   hint: 'the janitor closet', act: () => this.showSettings(() => this.showHub()) },
         { x: 820, y: 560, r: 48, door: false, label: '📋 PATIENT CHART', hint: 'the codex', act: () => this.showCodex(() => this.showHub()) },
         { x: 330, y: 565, r: 46, door: false, label: '🫙 WELLNESS FUND', hint: 'balance: ' + (Meta.data.fund || 0) + '¢', act: () => this.showFacility(() => this.showHub()) },
-        { x: 480, y: 565, r: 44, door: false, label: '📋 COMPLAINTS', hint: Meta.data.pendingComplaint ? 'one pending' : 'file a grievance', act: () => this.showComplaints(() => this.showHub()) }
+        { x: 480, y: 565, r: 44, door: false, label: '📋 COMPLAINTS', hint: Meta.data.pendingComplaint ? 'one pending' : 'file a grievance', act: () => this.showComplaints(() => this.showHub()) },
+        { x: 480, y: 628, r: 40, door: this.exitReady(), label: this.exitReady() ? '🚪 THE FRONT DOOR' : '🔒 FRONT DOOR', hint: this.exitReady() ? 'it\'s open. it\'s actually open.' : 'locked since intake', act: () => this.tryExit() }
       ]
     };
   },
@@ -1060,6 +1061,44 @@ const G = {
       this.showFacility(returnTo);
     });
     document.getElementById('bFacBack').onclick = () => { SFX.play('ui'); this.hideOverlay(); (returnTo || (() => this.showTitle()))(); };
+  },
+
+  /* ---------- THE EXIT INTERVIEW (the front door, finally) ---------- */
+  exitReady() {
+    const m = Meta.data;
+    return !!(m.cured && (m.founderKills || 0) > 0 && (m.systemKills || 0) > 0 && (m.boardKills || 0) > 0 && (m.amaDone || 0) > 0);
+  },
+  tryExit() {
+    if (!this.exitReady()) {
+      const m = Meta.data;
+      const need = [
+        !m.cured && 'THE CURE (Ward 25)',
+        !(m.founderKills > 0) && 'THE FOUNDER (Ward 50)',
+        !(m.systemKills > 0) && 'THE SYSTEM (Ward 100)',
+        !(m.boardKills > 0) && 'THE BOARD (the Ascent)',
+        !(m.amaDone > 0) && 'leave AMA once'
+      ].filter(Boolean);
+      this.toast('🔒 Still on file: ' + need.join(' · '), '#e08a8a');
+      SFX.play('lock');
+      this.showHub();   // rebuild (the go() wrapper stripped 'inrun')
+      return;
+    }
+    this.state = 'exit';
+    this.exitT = 0;
+    this.hideOverlay();
+    SFX.setMusic('cutscene');
+    SFX.play('keyturn');
+  },
+  exitUpdate(dt) {
+    this.exitT = (this.exitT || 0) + dt;
+    if (this.exitT > 14 || ((Input.take('confirm') || Input.take('pause')) && this.exitT > 3)) {
+      if (!Meta.data.exitDone) {
+        Meta.data.exitDone = 1;
+        Meta.save();
+        this.checkUnlocks();
+      }
+      this.showCredits();
+    }
   },
 
   hubUpdate(dt) {
@@ -1273,6 +1312,11 @@ const G = {
     // your remaining change is "donated" to the clinic's Wellness Fund. you were not asked.
     if (p.coins > 0) { Meta.data.fund = (Meta.data.fund || 0) + p.coins; this._fundDonated = p.coins; p.coins = 0; }
     else this._fundDonated = 0;
+    // THE LOST & FOUND: one piece of the build slips into the vents (the Janitor will find it)
+    if (out === 'dead' && p.items && p.items.length > 1) {
+      const losable = p.items.filter(id => DATA.ITEMS[id] && (DATA.ITEMS[id].pools || []).length);   // starters stay lost forever
+      if (losable.length) { Meta.data.lostItem = U.choice(losable); }
+    }
     const mode = this.overtime ? 'overtime' : this.protocol ? this.protocol : this.prognosis ? this.prognosis : this.chronic ? 'chronic' : this.bossRush ? 'bossrush' : this.dailyKind === 'daily' ? 'daily' : this.dailyKind === 'quarterly' ? 'quarterly' : this.dailyKind === 'challenge' ? 'challenge' : 'normal';
     if (this.prognosis) { const pb = Meta.data.prognosisBest || (Meta.data.prognosisBest = {}); pb[this.prognosis] = Math.max(pb[this.prognosis] || 0, this.depth); }
     const cured = !!this._runCured || out === 'cured';
@@ -1751,7 +1795,7 @@ const G = {
     }
     if (target.type === 'secret' && !this.secretFound) return;
     SFX.play('door');
-    this.enterRoom(target, DIRS[dir].opp);
+    this.enterRoom(target, dir);   // travel direction: moving N puts you at the new room's SOUTH door (was passing .opp — you'd spawn on the far side)
   },
 
   onRoomCleared() {
@@ -1796,11 +1840,13 @@ const G = {
         this.checkUnlocks();
       }
     }
-    // THE JANITOR: he appears where the mess was (10%, once a floor)
-    if (!this._janitorFloor && (room.type === 'normal' || room.type === 'padded') && U.chance(0.1)) {
+    // THE JANITOR: he appears where the mess was (10%, once a floor — 25% if he's holding YOUR lost item)
+    const holdingYours = Meta.data.lostItem && DATA.ITEMS[Meta.data.lostItem] && !p.items.includes(Meta.data.lostItem);
+    if (!this._janitorFloor && (room.type === 'normal' || room.type === 'padded') && U.chance(holdingYours ? 0.25 : 0.1)) {
       this._janitorFloor = true;
       const pool = U.shuffle([].concat(DATA.POOLS.special, DATA.POOLS.shop)).filter(id => !p.items.includes(id));
-      this.peds.push({ x: CW / 2 + U.rand(-80, 80), y: RY + RH / 2 + U.rand(-30, 30), kind: 'janitor', itemId: pool[0] || DATA.POOLS.special[0], price: U.randi(5, 9), taken: false, _greeted: false });
+      const stock = holdingYours ? Meta.data.lostItem : (pool[0] || DATA.POOLS.special[0]);
+      this.peds.push({ x: CW / 2 + U.rand(-80, 80), y: RY + RH / 2 + U.rand(-30, 30), kind: 'janitor', itemId: stock, price: U.randi(5, 9), taken: false, _greeted: false, _lost: holdingYours });
       SFX.play('door');
     }
     SFX.play('door');
@@ -2234,6 +2280,7 @@ const G = {
     if (this.state === 'hub') { this.t += dt; this.hubUpdate(dt); return; }
     if (this.state === 'appeal') { this.t += dt; this.appealUpdate(dt); return; }
     if (this.state === 'credits') { this.t += dt; this.creditsUpdate(dt); return; }
+    if (this.state === 'exit') { this.t += dt; this.exitUpdate(dt); return; }
     if (this.state !== 'run') return;
     this.t += dt;
     this.doorCd -= dt; this.lockCd -= dt; this.machineCd = (this.machineCd || 0) - dt;
@@ -2506,7 +2553,7 @@ const G = {
           ped._greeted = true;
           const met = (Meta.data.janitorMet || 0) > 0;
           Meta.data.janitorMet = (Meta.data.janitorMet || 0) + 1; Meta.save();
-          this.toast('🧹 ' + U.choice(met ? DATA.JANITOR.again : DATA.JANITOR.greet), '#b8b0a0');
+          this.toast('🧹 ' + (ped._lost ? '“Found this in the vents after… last time. Looked important. Looked yours.”' : U.choice(met ? DATA.JANITOR.again : DATA.JANITOR.greet)), ped._lost ? '#e8c84c' : '#b8b0a0');
           SFX.play('voice');
         }
         if (p.coins >= ped.price) {
@@ -2517,8 +2564,9 @@ const G = {
             p.addItem(ped.itemId, this);
             this.stats.items++;
             this.goalEvent('buy');
+            if (ped._lost) { Meta.data.lostItem = null; }   // reclaimed
             Meta.data.janitorBuys = (Meta.data.janitorBuys || 0) + 1; Meta.save();
-            this.toast('🧹 ' + U.choice(DATA.JANITOR.buy), '#b8b0a0');
+            this.toast('🧹 ' + (ped._lost ? '“Welcome back to it. No questions. Well — one: how?”' : U.choice(DATA.JANITOR.buy)), '#b8b0a0');
             if (U.chance(0.35)) setTimeout(() => { if (this.state === 'run') this.toast('🧹 ' + U.choice(DATA.JANITOR.wisdom), '#b8b0a0'); }, 2600);
             SFX.play('coin');
             this.checkUnlocks();
@@ -2639,6 +2687,8 @@ const G = {
     if (this.amaRun) this.amaUpdate(dt);
     // the PA crackles
     this.intercomTick(dt);
+    // SEND THE ANIMAL (F / pad Y)
+    if (Input.take('petcmd') && p.pet) this.petCommand();
     // Patient Two (couch co-op)
     if (Input.take('p2join')) { this.p2 ? this.p2Leave() : this.showP2Pick(); if (this.state !== 'run') return; }
     if (this.p2) this.p2Update(dt);
@@ -2714,6 +2764,34 @@ const G = {
       else { this.saveCheckpoint(); this._runLogged = true; }   // keep the checkpoint; don't log a death/quit
       this.showTitle();
     };
+  },
+
+  /* ---------- SEND THE ANIMAL (each companion has one trick, per cooldown) ---------- */
+  petCommand() {
+    const p = this.player, pet = p.pet;
+    if (!pet) return;
+    if (pet.cmdCd > 0) { if (this.lockCd <= 0) { this.lockCd = 0.8; this.toast('the animal is resting (' + Math.ceil(pet.cmdCd) + 's)', '#b8b0a0'); } return; }
+    pet.cmdCd = 8;
+    if (pet.type === 'pigeon') {         // FETCH: everything shiny comes home
+      this._fetchT = 2.2;
+      this.toast('🕊 FETCH. It knows what that means now.', '#c8c0b8');
+      SFX.play('coin');
+    } else if (pet.type === 'cat') {     // GUARD: three seconds of total air superiority
+      pet._guardT = 3;
+      this.toast('🐈 GUARD MODE. The table is protected.', '#d08a4a');
+      SFX.play('swat');
+    } else if (pet.type === 'snake') {   // STRIKE: a lunge along your aim
+      const a = p.aimAng || 0;
+      pet._lungeA = a; pet._lungeT = 0.45;
+      pet.x = p.x; pet.y = p.y;
+      this.toast('🐍 It has heard your problems. It is going to them.', '#5a9a5a');
+      SFX.play('whoosh');
+    } else if (pet.type === 'goldfish') {// FORGET: the whole room loses its train of thought
+      let n = 0;
+      for (const e of this.enemies) { if (e.fake || e.dying || e.spawnT > 0) continue; if (U.dist(pet.x, pet.y, e.x, e.y) < 220) { e._dazeT = 1.6; n++; } }
+      this.toast('🐟 ' + (n ? n + ' patients suddenly can\'t remember why they were upset.' : 'the room was already forgetful.'), '#8fd0e0');
+      SFX.play('voice');
+    }
   },
 
   /* ---------- OVERTIME (one room; the ward sends everything; you clock out when you drop) ---------- */
@@ -3712,7 +3790,7 @@ const G = {
     if (G.state === 'cutscene' && typeof Story !== 'undefined' && Story.active) {
       try { Story.update(dt); Story.draw(); } catch (e) { Story.active = false; if (G.showTitle) G.showTitle(); }
     } else {
-      if (G.state === 'run' || G.state === 'descend' || G.state === 'hub' || G.state === 'appeal' || G.state === 'credits') G.update(dt);
+      if (G.state === 'run' || G.state === 'descend' || G.state === 'hub' || G.state === 'appeal' || G.state === 'credits' || G.state === 'exit') G.update(dt);
       Render.draw(G);
     }
     if (G.state === 'bestiary' && G._bestiary) {

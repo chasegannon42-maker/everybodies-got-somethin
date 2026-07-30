@@ -17,6 +17,34 @@ class Pet {
   update(dt, G) {
     const p = G.player;
     this.t += dt; this.actT -= dt;
+    if (this.cmdCd > 0) this.cmdCd -= dt;
+    if (G._fetchT > 0) G._fetchT -= dt;
+    // GUARD MODE: the cat swats everything, every frame, for a moment
+    if (this._guardT > 0) {
+      this._guardT -= dt;
+      for (const b of G.eBullets) {
+        if (b.dead || b.fake) continue;
+        if (U.dist(this.x, this.y, b.x, b.y) < 110) { this._swipeT = 0.15; this._swipeAt = { x: b.x, y: b.y }; b.fizzle ? b.fizzle(G) : (b.dead = true); }
+      }
+    }
+    // STRIKE: the snake lunges along the aim, biting through
+    if (this._lungeT > 0) {
+      this._lungeT -= dt;
+      this.x += Math.cos(this._lungeA) * 640 * dt;
+      this.y += Math.sin(this._lungeA) * 640 * dt;
+      this.x = U.clamp(this.x, RX + 10, RX + RW - 10); this.y = U.clamp(this.y, RY + 10, RY + RH - 10);
+      for (const e of G.enemies) {
+        if (e.fake || e.dying || e.spawnT > 0 || e.charmed) continue;
+        if (U.dist(this.x, this.y, e.x, e.y) < 20 + e.r && !(this._bit && this._bit.has(e))) {
+          (this._bit || (this._bit = new Set())).add(e);
+          e.hurt(Math.max(6, p.dmg * 1.2), G);
+        }
+      }
+      this.segs.unshift({ x: this.x, y: this.y });
+      if (this.segs.length > (this.evo ? 16 : 9)) this.segs.pop();
+      if (this._lungeT <= 0) this._bit = null;
+      return;   // the lunge overrides normal slither
+    }
     if (this.type === 'pigeon') {   // flutters near you; periodically finds change
       const a = U.ang(this.x, this.y, p.x - 34, p.y - 8);
       const d = U.dist(this.x, this.y, p.x - 34, p.y - 8);
@@ -1561,7 +1589,7 @@ class Pickup {
     const wants = (this.type === 'coin' || this.type === 'nickel' || this.type === 'key' || this.type === 'bomb')
       || ((this.type === 'half' || this.type === 'full') && p.hp < p.maxhp)
       || (this.type === 'pill' && p.pill == null);
-    const MR = (p.pet && p.pet.type === 'pigeon') ? (p.pet.evo ? 150 : 110) : 56;   // the Pigeon herds loose change your way
+    const MR = (G._fetchT > 0) ? 9999 : (p.pet && p.pet.type === 'pigeon') ? (p.pet.evo ? 150 : 110) : 56;   // FETCH pulls the whole room; the Pigeon herds loose change your way
     const md = U.dist(this.x, this.y, p.x, p.y);
     if (wants && md < MR && md > 1 && this.settle <= 0) {   // loose change rolls toward you
       const pull = (240 * (1 - md / MR) + 50) * dt;

@@ -85,6 +85,8 @@ const Render = {
       this.drawAppeal(G);
     } else if (G.state === 'credits') {
       this.drawCredits(G);
+    } else if (G.state === 'exit') {
+      this.drawExit(G);
     } else {
       this.drawMenuAmbient(G);   // atmospheric backdrop behind the menus (esp. the title)
     }
@@ -92,6 +94,78 @@ const Render = {
     if (G.banner) this.drawBanner(G);
     if (G.toasts.length) this.drawToasts(G);
     if (G.state === 'descend') this.drawDescend(G);
+  },
+
+  /* ============ THE EXIT INTERVIEW (the walk out. the actual outside.) ============ */
+  drawExit(G) {
+    const ctx = this.ctx, T = G.exitT || 0;
+    // sky: warm morning, the kind the ward never had
+    const sky = ctx.createLinearGradient(0, 0, 0, CH);
+    sky.addColorStop(0, '#8fc4e8'); sky.addColorStop(0.55, '#e8d8b0'); sky.addColorStop(1, '#d8b890');
+    ctx.fillStyle = sky; ctx.fillRect(0, 0, CW, CH);
+    // the sun, unbilled
+    ctx.fillStyle = 'rgba(255,244,200,0.9)'; ctx.beginPath(); ctx.arc(CW * 0.78, 110, 46, 0, TAU); ctx.fill();
+    const sg = ctx.createRadialGradient(CW * 0.78, 110, 40, CW * 0.78, 110, 200);
+    sg.addColorStop(0, 'rgba(255,244,200,0.5)'); sg.addColorStop(1, 'rgba(255,244,200,0)');
+    ctx.fillStyle = sg; ctx.beginPath(); ctx.arc(CW * 0.78, 110, 200, 0, TAU); ctx.fill();
+    // birds, doing fine without a diagnosis
+    ctx.strokeStyle = 'rgba(60,50,60,0.7)'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+    for (let b = 0; b < 3; b++) {
+      const bx = ((T * 26 + b * 180) % (CW + 100)) - 50, by = 90 + b * 34 + Math.sin(T * 2 + b) * 6;
+      ctx.beginPath(); ctx.moveTo(bx - 7, by); ctx.quadraticCurveTo(bx - 2, by - 5, bx, by); ctx.quadraticCurveTo(bx + 2, by - 5, bx + 7, by); ctx.stroke();
+    }
+    ctx.lineCap = 'butt';
+    // the building, behind you now
+    ctx.fillStyle = '#b8aa98'; ctx.fillRect(0, 120, 190, CH - 260);
+    ctx.fillStyle = '#8a7c68';
+    for (let w = 0; w < 4; w++) for (let h = 0; h < 5; h++) ctx.fillRect(18 + w * 42, 140 + h * 62, 26, 34);
+    ctx.fillStyle = '#5a4a38'; ctx.fillRect(150, CH - 220, 40, 80);   // the door you came out of
+    ctx.fillStyle = 'rgba(255,250,220,0.8)'; ctx.fillRect(166, CH - 216, 8, 72);
+    // sidewalk + street
+    ctx.fillStyle = '#c8bca8'; ctx.fillRect(0, CH - 150, CW, 70);
+    ctx.strokeStyle = 'rgba(120,110,95,0.4)'; ctx.lineWidth = 2;
+    for (let sx = 0; sx < CW; sx += 90) { ctx.beginPath(); ctx.moveTo(sx, CH - 150); ctx.lineTo(sx - 14, CH - 80); ctx.stroke(); }
+    ctx.fillStyle = '#7a7268'; ctx.fillRect(0, CH - 80, CW, 80);
+    ctx.setLineDash([26, 22]); ctx.strokeStyle = 'rgba(232,216,160,0.8)'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(0, CH - 40); ctx.lineTo(CW, CH - 40); ctx.stroke(); ctx.setLineDash([]);
+    // the send-off crowd at the door: the janitor, the walrus, whoever you spared
+    const crowd = [['#5a6a72', '🧹'], ['#8a7460', '🦭']].concat(Object.keys(Meta.data.sparedBosses || {}).slice(0, 3).map(() => ['#9a8ab0', '']));
+    crowd.forEach((c, i) => {
+      const cx = 60 + i * 42, cy = CH - 170;
+      this.shadow(cx, cy + 16, 12, 4, 0.2);
+      ctx.fillStyle = c[0]; ctx.beginPath(); ctx.ellipse(cx, cy + 2, 10, 12, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#e8c9a6'; ctx.beginPath(); ctx.arc(cx, cy - 12, 7, 0, TAU); ctx.fill();
+      const wv = Math.sin(T * 5 + i) * 0.5;   // waving
+      ctx.strokeStyle = c[0]; ctx.lineWidth = 3; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(cx + 8, cy - 2); ctx.lineTo(cx + 14, cy - 14 + wv * 6); ctx.stroke(); ctx.lineCap = 'butt';
+      if (c[1]) { ctx.font = this.font(10); ctx.textAlign = 'center'; ctx.fillText(c[1], cx, cy - 24); }
+    });
+    // you, walking out — actually walking, actually out
+    const px = Math.min(CW - 80, 210 + T * 52);
+    if (G.hub && G.hub.p) {
+      const pl = G.hub.p;
+      pl.x = px; pl.y = CH - 168; pl.moving = true; pl.aimAng = 0;
+      this.shadow(px, CH - 152, 14, 5, 0.25);
+      try { this.drawPlayer(pl, G); } catch (e) { }
+    }
+    // the doors of light behind you at the start
+    if (T < 2) { ctx.fillStyle = 'rgba(255,250,230,' + (1 - T / 2) * 0.85 + ')'; ctx.fillRect(0, 0, CW, CH); }
+    // FILE CLOSED
+    if (T > 4.5) {
+      const k = U.clamp((T - 4.5) / 0.35, 0, 1);
+      ctx.save(); ctx.translate(CW / 2, 150); ctx.rotate(-0.12); ctx.scale(2.4 - k * 1.4, 2.4 - k * 1.4); ctx.globalAlpha = Math.min(1, k * 1.6);
+      ctx.strokeStyle = '#a03030'; ctx.lineWidth = 5; this.rr(ctx, -140, -34, 280, 68, 8); ctx.stroke();
+      ctx.fillStyle = '#a03030'; ctx.font = 'bold 44px Impact,"Arial Black",sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('FILE CLOSED', 0, 16);
+      ctx.restore();
+    }
+    if (T > 6.5) {
+      ctx.fillStyle = 'rgba(60,50,60,0.85)'; ctx.font = 'bold 15px "Trebuchet MS","Segoe UI",sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('Everybody\'s got somethin.', CW / 2, CH - 200);
+      if (T > 8) ctx.fillText('You had several. You walked out anyway.', CW / 2, CH - 178);
+    }
+    ctx.fillStyle = 'rgba(60,50,60,0.45)'; ctx.font = 'bold 10px "Trebuchet MS",sans-serif'; ctx.textAlign = 'right';
+    if (T > 3) ctx.fillText('SPACE to continue', CW - 16, CH - 12);
   },
 
   /* ============ THE CREDITS (rolling, like the eyes of the billing department) ============ */
@@ -383,6 +457,31 @@ const Render = {
         for (let m = 0; m < 5; m++) { ctx.beginPath(); ctx.moveTo(s.x - 38, s.y + 42); ctx.lineTo(s.x - 44 + m * 3, s.y + 54); ctx.stroke(); }
         ctx.lineCap = 'butt';
         ctx.fillStyle = '#f4eee0'; ctx.font = this.font(13); ctx.textAlign = 'center'; ctx.fillText('⚙', s.x, s.y + 34);
+      } else if (s.label.includes('FRONT DOOR')) {   // the way out. it was always right there.
+        const ready = !s.label.includes('🔒');
+        ctx.save(); ctx.translate(s.x, Math.min(s.y, CH - 26));
+        if (ready) {   // light leaks around the frame
+          const gg2 = ctx.createRadialGradient(0, 0, 8, 0, 0, 90);
+          gg2.addColorStop(0, 'rgba(255,244,190,0.5)'); gg2.addColorStop(1, 'rgba(255,244,190,0)');
+          ctx.fillStyle = gg2; ctx.beginPath(); ctx.arc(0, 0, 90, 0, TAU); ctx.fill();
+        }
+        ctx.fillStyle = '#5a4a38'; this.rr(ctx, -46, -22, 92, 44, 5); ctx.fill();   // threshold
+        ctx.fillStyle = ready ? '#e8ddc0' : '#4e4238';
+        this.rr(ctx, -40, -18, 38, 36, 3); ctx.fill(); this.rr(ctx, 2, -18, 38, 36, 3); ctx.fill();   // double doors (top-down mat)
+        ctx.strokeStyle = 'rgba(40,32,24,0.6)'; ctx.lineWidth = 2;
+        this.rr(ctx, -40, -18, 38, 36, 3); ctx.stroke(); this.rr(ctx, 2, -18, 38, 36, 3); ctx.stroke();
+        if (!ready) {   // chained
+          ctx.strokeStyle = '#8a8e96'; ctx.lineWidth = 3;
+          ctx.beginPath(); ctx.moveTo(-34, -10); ctx.lineTo(34, 10); ctx.stroke();
+          ctx.fillStyle = '#c8a24a'; ctx.beginPath(); ctx.arc(0, 0, 6, 0, TAU); ctx.fill();
+          ctx.fillStyle = '#3a3020'; ctx.fillRect(-1.5, -1, 3, 4);
+        } else {
+          ctx.fillStyle = 'rgba(255,250,220,' + (0.5 + Math.sin(G.t * 3) * 0.25) + ')';
+          ctx.fillRect(-2, -18, 4, 36);   // the light between the doors
+        }
+        ctx.restore();
+        ctx.fillStyle = ready ? '#e8c84c' : '#8a8078'; ctx.font = this.font(9, true); ctx.textAlign = 'center';
+        ctx.fillText(ready ? 'EXIT' : 'STAFF WILL NOT OPEN THIS', s.x, Math.min(s.y, CH - 26) - 28);
       } else if (s.label.includes('WELLNESS')) {   // the donation jar. it's always been here. donate.
         this.shadow(s.x, s.y + 30, 22, 7, 0.2);
         ctx.fillStyle = '#8a6a48'; this.rr(ctx, s.x - 20, s.y + 8, 40, 22, 4); ctx.fill();   // little stand
