@@ -16,6 +16,78 @@ DATA.WALRUS_INTROS = [
 
 DATA.QUESTIONS = [
   {
+    q: "How many browser tabs are open right now?",
+    a: [
+      { t: "Four. A reasonable four.", w: { fine: 2 }, quip: "Nobody has four. Denial, possibly." },
+      { t: "Ninety. They're all important.", w: { adhd: 3 }, quip: "Important to WHOM." },
+      { t: "One. I finish things.", w: { ocd: 2 }, quip: "'Finish.' Underlined. Circled. Hm." },
+      { t: "I don't know and it's stressing me out.", w: { anxiety: 2 }, quip: "The tabs know. The tabs always know." }
+    ]
+  },
+  {
+    q: "A stranger says 'how are you?' What happens?",
+    a: [
+      { t: "'Good!' (a lie, delivered instantly)", w: { depression: 2, fine: 1 }, quip: "The speed. Impressive. Concerning." },
+      { t: "I tell them. Everything. For nine minutes.", w: { bipolar: 2, adhd: 1 }, quip: "And how did the stranger take it." },
+      { t: "I rehearse the answer for the rest of the day.", w: { anxiety: 2, ocd: 1 }, quip: "Rehearsal. For a two-word play." },
+      { t: "Was that a stranger? Are we sure?", w: { schizo: 2, ptsd: 1 }, quip: "…I'll check the cameras. Kidding. (Am I.)" }
+    ]
+  },
+  {
+    q: "What's your relationship with your alarm clock?",
+    a: [
+      { t: "Nine alarms. All named. All ignored.", w: { depression: 2, adhd: 1 }, quip: "Named after WHAT is my question." },
+      { t: "I wake before it. To beat it.", w: { anxiety: 2, ocd: 1 }, quip: "You cannot defeat a clock. And yet." },
+      { t: "Alarm? I was already up. Since Tuesday.", w: { insomnia: 3 }, quip: "Which Tuesday. Don't answer." },
+      { t: "Healthy. Normal. One alarm.", w: { fine: 2 }, quip: "One alarm. Sure. And I'm a cardiologist." }
+    ]
+  },
+  {
+    q: "You hear a noise at 3 a.m. It is:",
+    a: [
+      { t: "The house settling. Houses settle.", w: { fine: 2 }, quip: "Into WHAT, though." },
+      { t: "Consequences.", w: { ptsd: 2, depression: 1 }, quip: "…let's circle back to that one." },
+      { t: "I know exactly what it is, I'm awake anyway.", w: { insomnia: 2 }, quip: "Of course you are." },
+      { t: "Something that requires me to check all the locks. Twice.", w: { ocd: 2, anxiety: 1 }, quip: "Twice is the minimum, really." }
+    ]
+  },
+  {
+    q: "Describe your energy levels this week.",
+    a: [
+      { t: "Monday: god. Tuesday–Sunday: gravel.", w: { bipolar: 3 }, quip: "The Monday god thing. Tell me more. Actually don't." },
+      { t: "A flat, dependable low.", w: { depression: 2 }, quip: "'Dependable.' You're making it sound like a truck." },
+      { t: "Fully charged. Always. What's a 'rest'?", w: { adhd: 2, insomnia: 1 }, quip: "A rest is a thing batteries do. You'd hate it." },
+      { t: "Fine. Normal. Why is everyone asking?", w: { fine: 2 }, quip: "One person asked. Me. Just now." }
+    ]
+  },
+  {
+    q: "Someone rearranges your desk. You:",
+    a: [
+      { t: "Notice within seconds. Fix it. Say nothing. Forever.", w: { ocd: 3 }, quip: "The 'forever' is doing a lot of work." },
+      { t: "Wouldn't notice. It was already chaos.", w: { adhd: 2 }, quip: "A system, you'd call it. Everyone does." },
+      { t: "Assume it means something. What does it mean?", w: { schizo: 2, anxiety: 1 }, quip: "It means someone touched your desk. Probably." },
+      { t: "People shouldn't touch my things.", w: { ptsd: 2 }, quip: "Agreed, for the record." }
+    ]
+  },
+  {
+    q: "Pick a beverage.",
+    a: [
+      { t: "Coffee. Then coffee. Then a treat: coffee.", w: { insomnia: 2, adhd: 1 }, quip: "The treat one is the problem." },
+      { t: "Water. Eight glasses. Logged.", w: { ocd: 2, fine: 1 }, quip: "LOGGED. Fascinating. Alarming." },
+      { t: "Whatever's closest. Time is fake.", w: { depression: 2 }, quip: "Time is, in fact, billing in six-minute increments." },
+      { t: "Something with electrolytes, in case.", w: { anxiety: 2 }, quip: "In case of WHAT is always my favorite part." }
+    ]
+  },
+  {
+    q: "Your phone battery is at 4%. How do you feel?",
+    a: [
+      { t: "Free.", w: { depression: 2, fine: 1 }, quip: "That's the most honest thing anyone's said in here." },
+      { t: "This is an emergency. A real one.", w: { anxiety: 3 }, quip: "It is 4% of an emergency, mathematically." },
+      { t: "It's been at 4% for three days. Thrilling.", w: { adhd: 2, bipolar: 1 }, quip: "Living on the edge of a lightning bolt icon." },
+      { t: "I have a charger on my person at all times.", w: { ocd: 2 }, quip: "'On my person.' Like a marshal. Okay." }
+    ]
+  },
+  {
     q: "Do you ever lose focus?",
     a: [
       { t: "Sometimes, if it's boring", w: { adhd: 2 }, quip: "'Boring.' Interesting. Writing that in pen." },
@@ -434,6 +506,11 @@ DATA.ENEMIES = {
   spiral:    { name: "The Spiral", hp: 9, spd: 0, r: 13, dmg: 1, beh: 'orbit', clr: '#d08ab0' },
   comparison:{ name: "The Comparison", hp: 14, spd: 62, r: 16, dmg: 1, beh: 'compare', clr: '#9ab86a' },
   waitingnum:{ name: "Now Serving", hp: 10, spd: 0, r: 16, dmg: 1, beh: 'ticket', clr: '#e8dcc0' },
+  /* --- the deep roster (ward 8+) --- */
+  secondop:  { name: "The Second Opinion", hp: 15, spd: 74, r: 15, dmg: 1, beh: 'chase', clr: '#b06be0' },
+  waitlist:  { name: "The Waitlist", hp: 22, spd: 30, r: 19, dmg: 1, beh: 'waitlist', clr: '#c8b890' },
+  premium:   { name: "The Premium", hp: 14, spd: 96, r: 14, dmg: 0, beh: 'premium', clr: '#e0b83a' },
+  placebo:   { name: "The Placebo", hp: 1, spd: 60, r: 20, dmg: 1, beh: 'chase', clr: '#e8e0f0' },
   /* --- the roaming hunter --- */
   auditor:  { name: "THE AUDITOR", hp: 135, spd: 58, r: 22, dmg: 1, beh: 'auditor', clr: '#a8a29a', shotCd: 3.4, bulSpd: 195 },
   /* --- ward minibosses (clinic rooms) --- */
@@ -452,7 +529,9 @@ DATA.enemyPoolFor = function (depth) {
     { id: 'enabler', d: 5, w: 1.4 },
     { id: 'copaycollector', d: 3, w: 1.6 }, { id: 'gaslighter', d: 4, w: 1.6 }, { id: 'spiral', d: 4, w: 1.7 },
     { id: 'projection', d: 5, w: 1.5 }, { id: 'wellnessbot', d: 5, w: 1.3 }, { id: 'waitingnum', d: 5, w: 1.2 },
-    { id: 'comparison', d: 6, w: 1.5 }
+    { id: 'comparison', d: 6, w: 1.5 },
+    { id: 'secondop', d: 8, w: 1.7 }, { id: 'waitlist', d: 8, w: 1.3 },
+    { id: 'premium', d: 9, w: 1.5 }, { id: 'placebo', d: 8, w: 1.1 }
   ].filter(e => depth >= e.d);
   for (const e of P) e.w *= 1 + 0.12 * Math.max(0, depth - e.d);
   return P;
@@ -500,6 +579,22 @@ DATA.bossFor = function (depth, lastBoss) {
   const filtered = pool.filter(b => b !== lastBoss);
   return U.choice(filtered.length ? filtered : pool);
 };
+
+/* ============ DAILY HOUSE RULES (same rules for everyone, posted at the door) ============ */
+DATA.HOUSE_RULES = [
+  { id: 'brokenCoolers', icon: '🚱', name: 'Coolers out of order', desc: 'Day Room water coolers heal nothing today' },
+  { id: 'doublePills',   icon: '💊', name: 'Free samples day',     desc: 'every cleared room dispenses a pill' },
+  { id: 'shadowAll',     icon: '🌑', name: 'Rolling blackouts',    desc: 'every ward from 6 down runs dark (shadow rules)' },
+  { id: 'richWards',     icon: '💰', name: 'Petty cash audit',     desc: 'rooms drop noticeably more change' },
+  { id: 'frailBosses',   icon: '🤒', name: 'Management is unwell', desc: 'bosses at −15% health' },
+  { id: 'toughCrowd',    icon: '💪', name: 'Wellness seminar day', desc: 'patients at +15% health' },
+  { id: 'repDay',        icon: '💼', name: 'Rep in the building', desc: 'the Drug Rep appears after every boss today' },
+  { id: 'pricier',       icon: '📈', name: 'Rate adjustment',      desc: 'all copays +30%' },
+  { id: 'stocked',       icon: '🏪', name: 'Overstock',            desc: 'an extra unlocked pharmacy on ward 1' },
+  { id: 'fastCrowd',     icon: '🏃', name: 'Fire drill (ongoing)', desc: 'everything moves 10% faster' },
+  { id: 'luckyDay',      icon: '🍀', name: 'Someone blessed the vents', desc: '+1 luck for everyone' },
+  { id: 'fogOfWar',      icon: '🗺', name: 'Maps recalled',        desc: 'the minimap is down for maintenance' }
+];
 
 /* ============ THE CREDITS (everyone gets thanked. nobody gets paid.) ============ */
 DATA.CREDITS = [
@@ -696,6 +791,10 @@ DATA.CODEX_CHART = {
   enemies: {
     scroller: "Chronically online. Prognosis: one more scroll.",
     notif: "Demands your attention. Refuses to be marked as read.",
+    secondop: "Disagrees with the first opinion on principle. Wound it and it produces a colleague who disagrees with IT.",
+    waitlist: "Not hostile, exactly. It just keeps adding names ahead of yours. The tickets it prints are, though.",
+    premium: "Cannot be harmed until it has billed you. One touch, one copay, and suddenly it's mortal like the rest of us.",
+    placebo: "Looks devastating. Glows like a champion. Dies to literally anything. The confetti is real, though.",
     larper: "Read one (1) article. Now an expert. Sincerity: guarded.",
     ad: "Ask your doctor if being a walking commercial is right for you.",
     doubt: "Are you SURE it's real? It isn't sure either.",

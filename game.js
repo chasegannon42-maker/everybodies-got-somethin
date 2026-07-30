@@ -168,6 +168,13 @@ const G = {
           <div class="bubble">Today you're <b style="color:${D.color}">${D.name}</b>. Same rooms, same items, same bosses for every player — combat's still live, so it's pure skill. Screenshot your card and dare your friends.</div>
         </div>
         ${bestLine}${streakLine}
+        ${(() => {
+          const rules = this.dailyRules(info.seed).map(id => DATA.HOUSE_RULES.find(x => x.id === id)).filter(Boolean);
+          return rules.length ? `<div class="rx" style="border-color:#c8a24a;margin-top:6px">
+            <div class="stamp" style="color:#c8a24a;border-color:#c8a24a">HOUSE RULES</div>
+            <div class="mech">${rules.map(r => r.icon + ' <b>' + r.name + '</b> — ' + r.desc).join('<br>')}</div>
+          </div>` : '';
+        })()}
         ${this._dailyCalendar()}
         ${(() => {
           const Q = this._quarterly(), qi = this.quarterlyInfo();
@@ -447,6 +454,15 @@ const G = {
     if (bsd) bsd.onclick = () => { SFX.play('ui'); this.showSaveData(() => this.showSettings(returnTo)); };
     document.getElementById('bSetBack').onclick = () => { SFX.play('ui'); returnTo(); };
   },
+
+  /* ---------- DAILY HOUSE RULES (posted at the door; same for everyone) ---------- */
+  dailyRules(seed) {
+    return withSeed(hashSeed(seed, ['houserules']), () => {
+      const n = U.chance(0.55) ? 2 : 1;
+      return U.shuffle(DATA.HOUSE_RULES.slice()).slice(0, n).map(r => r.id);
+    });
+  },
+  hasRule(id) { return !!(this.houseRules && this.houseRules.includes(id)); },
 
   /* ---------- THE CREDITS (roll them. you earned them. someone will be billed.) ---------- */
   showCredits() {
@@ -915,6 +931,13 @@ const G = {
     // insurance plan (dailies & seeded runs are assigned SILVER — no marketplace for you)
     this.plan = (!daily && this._startPlan) ? this._startPlan : 'silver';
     this._startPlan = null;
+    // DAILY HOUSE RULES: posted at the door, enforced by the building
+    this.houseRules = (daily && daily.isDaily && daily.seed != null) ? this.dailyRules(daily.seed) : [];
+    if (this.houseRules.length) {
+      const named = this.houseRules.map(id => { const r = DATA.HOUSE_RULES.find(x => x.id === id); return r ? r.icon + ' ' + r.name : id; }).join(' · ');
+      this.toast('📜 HOUSE RULES: ' + named, '#c8a24a');
+      if (this.hasRule('luckyDay')) this.player.luck += 1;
+    }
     // Treatment Intensity (heat) — post-cure difficulty dial, dailies stay standard
     this.intensity = (!daily && this._startIntensity) ? this._startIntensity : 0;
     this._startIntensity = 0;
@@ -1298,6 +1321,11 @@ const G = {
     this.bossId = gen.bossId;
     if (this.ascent && this.depth - this.ascentBase >= 5) this.bossId = 'theboard';   // A5: the top of the elevator
     // GOLD plan: one extra pharmacy room per floor, lock already open — executive access
+    // house rules: Overstock — an extra unlocked pharmacy on ward 1
+    if (this.hasRule('stocked') && this.depth === 1) this.genSeed(['stockedroom'], () => {
+      const normals = this.floorRooms.filter(r => r.type === 'normal');
+      if (normals.length > 1) { const r = U.choice(normals); r.type = 'item'; r.lockOpen = true; if (r.layout) for (let rr = 2; rr <= 4; rr++) for (let cc = 5; cc <= 7; cc++) r.layout[rr][cc] = 0; }
+    });
     if (this.plan === 'gold') this.genSeed(['goldroom', this.depth], () => {
       const normals = this.floorRooms.filter(r => r.type === 'normal');
       if (normals.length > 1) {
@@ -1337,6 +1365,7 @@ const G = {
       ? this.genSeed(['shadow', this.depth], () => U.chance(0.18))
       : false;
     if (this._forceShadow && !this.ward13) this.shadowWard = true;   // the elevator said so
+    if (this.hasRule('shadowAll') && this.depth >= 6 && !this.ward13) this.shadowWard = true;   // house rules: rolling blackouts
     if (this.shadowWard) {
       for (const r of this.floorRooms) if (r.layout) r.layout = r.layout.map(row => row.slice().reverse());   // the halls are wrong-handed here
       this.setBanner('🌑 SHADOW WARD', 'the lights hum wrong here', 2.6);
@@ -1523,6 +1552,7 @@ const G = {
     if (room.type === 'boss' && !room.cleared && room.bossPending) {
       this.boss = new Boss(this.bossId, this.depth, this);
       if ((this.intensity || 0) >= 3) this.boss.aggr = (this.boss.aggr || 1) * 1.1;   // Intensity: management hustles
+      if (this.hasRule('frailBosses')) { this.boss.hp *= 0.85; this.boss.maxhp *= 0.85; }   // house rules: management is unwell
       // champion roll: past Ward 8, the rotation bosses can come back wrong
       if (this.depth >= 8 && !['walrus', 'thecure', 'founder', 'thesystem', 'theboard'].includes(this.bossId)) {
         const affix = this.genSeed(['champ', this.depth], () => U.chance(0.3) ? U.choice(DATA.BOSS_AFFIXES).id : null);
@@ -1590,7 +1620,7 @@ const G = {
       }
       case 'shop': {
         room.cleared = true;
-        const copayMul = (1 + (this.depth - 1) * 0.07) * (this.protocol === 'deductible' ? 2 : 1) * (this.plan === 'bronze' ? 1.5 : this.plan === 'gold' ? 0.6 : 1) * ((this.intensity || 0) >= 2 ? 1.25 : 1);   // copays climb with the ward (it's the healthcare system, baby)
+        const copayMul = (1 + (this.depth - 1) * 0.07) * (this.protocol === 'deductible' ? 2 : 1) * (this.plan === 'bronze' ? 1.5 : this.plan === 'gold' ? 0.6 : 1) * ((this.intensity || 0) >= 2 ? 1.25 : 1) * (this.hasRule('pricier') ? 1.3 : 1);   // copays climb with the ward (it's the healthcare system, baby)
         const disc = (p.flags.discount ? 0.5 : (this.wardPath === 'outpatient' ? 0.75 : 1)) * (p.trinket === 'expiredcoupon' ? 0.7 : 1) * (p._facShopMul || 1);
         const px = (n) => Math.max(1, Math.ceil(n * disc * copayMul));
         const yc = RY + RH / 2 + 30, yi = RY + RH / 2 - 80;
@@ -1794,6 +1824,9 @@ const G = {
       const type = U.choice(['coin', 'coin', 'half', 'pill', 'coin', 'key', 'bomb']);
       this.pickups.push(new Pickup(type, CW / 2 + U.rand(-40, 40), RY + RH / 2 + U.rand(-30, 30)));
     }
+    // house rules with room-clear clauses
+    if (this.hasRule('doublePills')) this.pickups.push(new Pickup('pill', CW / 2 + U.rand(-50, 50), RY + RH / 2 + U.rand(-30, 30)));
+    if (this.hasRule('richWards')) for (let i = 0; i < 2; i++) this.pickups.push(new Pickup(U.chance(0.25) ? 'nickel' : 'coin', CW / 2 + U.rand(-70, 70), RY + RH / 2 + U.rand(-40, 40)));
     // Challenge Protocols with room-clear clauses
     if (this.protocol === 'maximumdose') this.pickups.push(new Pickup('pill', CW / 2 + U.rand(-50, 50), RY + RH / 2 + U.rand(-30, 30)));
     if (this.protocol === 'wordsalad' && U.chance(0.3)) {
@@ -1925,7 +1958,7 @@ const G = {
         this.pickups.push(new Pickup('pill', CW / 2 + 50, RY + RH / 2 + 30));
       }
       // THE DRUG REP (35%, depth 3+): free samples. every one of them comes with a string attached.
-      if (this.depth >= 3 && !p.flags.untreated && U.chance(0.35)) {
+      if (this.depth >= 3 && !p.flags.untreated && (this.hasRule('repDay') || U.chance(0.35))) {
         const rx0 = CW / 2 + 190, ry0 = RY + RH / 2 + 70;
         room.peds.push({ x: rx0, y: ry0 - 46, kind: 'drugrep', taken: false });
         const pool = DATA.pickPool('boss', p.items);
@@ -2351,7 +2384,8 @@ const G = {
         this.showEvent(DATA.EVENTS[ped.eventId], ped);
         return;   // pause the loop; modal is up
       } else if (ped.kind === 'cooler') {   // Day Room water cooler
-        if (p.hp < p.maxhp) { p.heal(p.flags.bigCooler ? 3 : 2); ped.taken = true; this.texts.push(new FloatText(ped.x, ped.y - 30, '+♥ hydrated', '#8fd0e0')); SFX.play('heal'); }
+        if (this.hasRule('brokenCoolers')) { if (this.lockCd <= 0) { this.lockCd = 1.4; this.toast('🚱 OUT OF ORDER. (house rules)', '#a89a8a'); SFX.play('denied'); } }
+        else if (p.hp < p.maxhp) { p.heal(p.flags.bigCooler ? 3 : 2); ped.taken = true; this.texts.push(new FloatText(ped.x, ped.y - 30, '+♥ hydrated', '#8fd0e0')); SFX.play('heal'); }
         else if (this.lockCd <= 0) { this.lockCd = 1.0; this.toast('You feel fine. Physically.', '#8fd0e0'); }
       } else if (ped.kind === 'sacrifice') {   // Seclusion Room — bleed on the altar for escalating loot
         if (p.iframes <= 0 && this.lockCd <= 0) {
@@ -2919,6 +2953,7 @@ const G = {
     const p = this.player;
     this._amaDone = true;
     Meta.data.amaDone = (Meta.data.amaDone || 0) + 1;
+    (Meta.data.seenStory || (Meta.data.seenStory = {})).amaend = 1;   // the chapter opens in Chart Notes
     Meta.save();
     this.checkUnlocks();
     this.recordRun('ama');

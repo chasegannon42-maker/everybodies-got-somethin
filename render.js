@@ -519,6 +519,33 @@ const Render = {
       ctx.fillStyle = '#e05a6a'; ctx.beginPath(); ctx.arc(12, -4, 4, 0, TAU); ctx.fill();   // a ball
       ctx.restore();
     }
+    // ---- NIGHT SHIFT: after 9pm local, the ward runs on lamplight and one tired man ----
+    const hr = new Date().getHours();
+    if (hr >= 21 || hr < 6) {
+      ctx.fillStyle = 'rgba(14,12,30,0.42)'; ctx.fillRect(0, 0, CW, CH);
+      // lamp pools over the reception and the rug
+      for (const [lx, ly, lr] of [[CW / 2, 150, 200], [CW / 2, 400, 260]]) {
+        const lg = ctx.createRadialGradient(lx, ly, 20, lx, ly, lr);
+        lg.addColorStop(0, 'rgba(232,200,120,0.14)'); lg.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = lg; ctx.beginPath(); ctx.arc(lx, ly, lr, 0, TAU); ctx.fill();
+      }
+      // the walrus is asleep at the desk
+      ctx.fillStyle = 'rgba(232,220,200,0.8)'; ctx.font = this.font(13, true); ctx.textAlign = 'center';
+      ctx.fillText('z', CW / 2 + 44, 96 + Math.sin(G.t * 1.4) * 2);
+      ctx.font = this.font(9, true); ctx.fillText('z', CW / 2 + 54, 86 + Math.sin(G.t * 1.4 + 1) * 2);
+      // the janitor, mopping by lamplight
+      const jx = CW / 2 - 130 + Math.sin(G.t * 0.4) * 60, jy = 240;
+      this.shadow(jx, jy + 16, 13, 5, 0.3);
+      ctx.save(); ctx.translate(jx, jy);
+      ctx.fillStyle = '#4a5560'; this.rr(ctx, -8, -6, 16, 20, 5); ctx.fill();
+      ctx.fillStyle = '#d8c2a2'; ctx.beginPath(); ctx.arc(0, -13, 7, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#8a929c'; ctx.beginPath(); ctx.arc(0, -16.5, 7, Math.PI, 0); ctx.fill();
+      ctx.strokeStyle = '#6a5232'; ctx.lineWidth = 2.2;
+      ctx.beginPath(); ctx.moveTo(10, 12); ctx.lineTo(14, -18); ctx.stroke();
+      ctx.restore();
+      ctx.fillStyle = 'rgba(200,190,220,0.55)'; ctx.font = this.font(10, true); ctx.textAlign = 'center';
+      ctx.fillText('🌙 night shift — mind the wet floor', CW / 2, 246 + 40);
+    }
     // ---- you ----
     this.shadow(H.p.x, H.p.y + 14, 13, 5, 0.24);
     try { this.drawPlayer(H.p, G); } catch (e) { }
@@ -2511,6 +2538,25 @@ const Render = {
         ctx.fillText('“' + e._complaint.slice(0, 26) + (e._complaint.length > 26 ? '…' : '') + '”', e.x, e.y - e.r - 16);
       }
     }
+    // the deep roster wears its gimmicks openly
+    if (!e.dying && e.spawnT <= 0) {
+      if (e.id === 'placebo') {   // a champion's aura it absolutely has not earned
+        ctx.save();
+        ctx.strokeStyle = 'rgba(232,200,76,0.8)'; ctx.lineWidth = 3;
+        ctx.shadowColor = '#e8c84c'; ctx.shadowBlur = 12;
+        ctx.beginPath(); ctx.arc(e.x, e.y, e.r + 8 + Math.sin(G.t * 4) * 2, 0, TAU); ctx.stroke();
+        ctx.restore();
+      } else if (e.id === 'secondop') {
+        ctx.fillStyle = '#b06be0'; ctx.font = this.font(10, true); ctx.textAlign = 'center';
+        ctx.fillText(e._split ? 'Ⅱb' : 'Ⅱ', e.x, e.y - e.r - 6);
+      } else if (e.id === 'premium' && !e._premOpen) {
+        ctx.fillStyle = '#e0b83a'; ctx.font = this.font(11, true); ctx.textAlign = 'center';
+        ctx.fillText('🔒$', e.x, e.y - e.r - 6);
+      } else if (e.id === 'waitlist') {
+        ctx.strokeStyle = 'rgba(60,50,40,0.7)'; ctx.lineWidth = 1.4;
+        for (let l = 0; l < 3; l++) { ctx.beginPath(); ctx.moveTo(e.x - 6, e.y - 4 + l * 5); ctx.lineTo(e.x + 6, e.y - 4 + l * 5); ctx.stroke(); }
+      }
+    }
     // shadow patients: crush the body to silhouette (cheap paint, not ctx.filter), leave the eyes burning
     if (e._shadow && !e.dying && e.spawnT <= 0) {
       ctx.fillStyle = 'rgba(20,13,29,0.66)';
@@ -3733,10 +3779,10 @@ const Render = {
         ctx.restore();
       }
     }
-    // Brain Fog side-effect: the minimap is gone
-    if (G.sideEffect === 'brainfog') {
+    // Brain Fog side-effect / Maps Recalled house rule: the minimap is gone
+    if (G.sideEffect === 'brainfog' || (G.hasRule && G.hasRule('fogOfWar'))) {
       ctx.save(); ctx.font = this.font(11, true); ctx.textAlign = 'right';
-      ctx.fillStyle = 'rgba(200,190,210,0.45)'; ctx.fillText('🌫 …where were we?', CW - 20, 74);
+      ctx.fillStyle = 'rgba(200,190,210,0.45)'; ctx.fillText(G.sideEffect === 'brainfog' ? '🌫 …where were we?' : '🗺 recalled for maintenance', CW - 20, 74);
       ctx.restore(); return;
     }
     const cell = 17, gap = 2;

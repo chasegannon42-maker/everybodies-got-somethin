@@ -784,6 +784,50 @@ class Boss {
       }
       /* ---------- DR. WALRUS ---------- */
       case 'walrus': {
+        // ESCALATION: the doctor keeps studying you — Form II at Ward 10, III at 15, IV at 20+
+        const FORM = this._form || (this._form = Math.min(4, Math.max(1, Math.floor(this.depth / 5))));
+        if (!this._formTold && FORM > 1) {
+          this._formTold = true;
+          G.toast('🦭 DR. WALRUS — ' + ['', 'FORM I', 'FORM II: Board-Recertified', 'FORM III: The Head Mirror', 'FORM IV: Second Opinion (his)'][FORM], '#c8a24a');
+          if (Meta.data.walrusFormBest == null || FORM > Meta.data.walrusFormBest) { Meta.data.walrusFormBest = FORM; Meta.save(); }
+        }
+        // Form II+: prescription-pad flicks between attacks
+        if (FORM >= 2) {
+          this._padT = (this._padT == null ? 2.5 : this._padT) - dt;
+          if (this._padT <= 0 && this.state === 0) {
+            this._padT = P2 ? 2.4 : 3.2;
+            const a = this.aimP(G);
+            for (const off of [-0.18, 0, 0.18]) { const bl = this.bullet(a + off, 235, DATA.PILL_COLORS[U.randi(0, 9)]); bl.r = 7; }
+            SFX.play('pop');
+          }
+        }
+        // Form III+: the head mirror — a telegraphed lance of light
+        if (FORM >= 3) {
+          this._mirT = (this._mirT == null ? 7 : this._mirT) - dt;
+          if (this._mirT <= 0 && this.state === 0) {
+            this._mirT = P2 ? 8 : 10;
+            this._mirA = this.aimP(G);
+            this._mirCharge = 0.9;
+            G.toast('the head mirror catches the light—', '#e8e0c0');
+            SFX.play('charge');
+          }
+          if (this._mirCharge != null) {
+            this._mirCharge -= dt;
+            if (Math.random() < dt * 20) G.parts.push(new Particle(this.x + Math.cos(this._mirA) * 30, this.y - 20 + Math.sin(this._mirA) * 30, Math.cos(this._mirA) * 60, Math.sin(this._mirA) * 60, 0.2, '#fff8d0', 2.5));
+            if (this._mirCharge <= 0) {
+              this._mirCharge = null;
+              for (let i = 0; i < 14; i++) { const bl = this.bullet(this._mirA + U.rand(-0.02, 0.02), 520 + i * 14, '#fff2c0'); bl.r = 5; bl.life = 1.6; }
+              SFX.play('boom');
+            }
+          }
+        }
+        // Form IV: a locum walrus is consulted (once, at half health)
+        if (FORM >= 4 && !this._locum && P2) {
+          this._locum = true;
+          this.summon(G, 'resident', 2);
+          G.toast('🦭 "Getting a second opinion. Mine, again — but twice."', '#c8a24a');
+          SFX.play('voice');
+        }
         this.atkT -= dt;
         if (this.state === 0) {
           this.x = CW / 2 + Math.sin(this.t * 0.6) * 200;

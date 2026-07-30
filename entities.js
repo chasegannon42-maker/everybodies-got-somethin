@@ -1257,6 +1257,45 @@ class Enemy {
         this.x += Math.cos(a) * speed * dt; this.y += Math.sin(a) * speed * dt;
         break;
       }
+      case 'waitlist': {   // The Waitlist: drifts, and keeps adding names ahead of yours
+        const wa = U.ang(this.x, this.y, p.x, p.y) + Math.sin(this.t * 1.4) * 1.2;
+        this.x += Math.cos(wa) * S * dt; this.y += Math.sin(wa) * S * dt;
+        this.shotT = (this.shotT == null ? 4 : this.shotT) - dt;
+        if (this.shotT <= 0 && !this.fake) {
+          this.shotT = 4.5;
+          const kids = G.enemies.filter(e => !e.dying && e._fromWaitlist === this).length;
+          if (kids < 2) {
+            const a2 = U.rand(0, TAU);
+            const kid = new Enemy('waitingnum', U.clamp(this.x + Math.cos(a2) * 60, RX + 30, RX + RW - 30), U.clamp(this.y + Math.sin(a2) * 60, RY + 30, RY + RH - 30), this.depth, false, 0.8);
+            kid._fromWaitlist = this; kid.noDrop = true; kid.spawnT = 0.5;
+            G.enemies.push(kid);
+            G.texts.push(new FloatText(this.x, this.y - 22, '+1 to the list', '#c8b890'));
+            SFX.play('paper');
+          }
+        }
+        break;
+      }
+      case 'premium': {   // The Premium: untouchable until it bills you
+        if (this.state === 0) {   // hunting for the transaction
+          const a2 = U.ang(this.x, this.y, p.x, p.y);
+          this.x += Math.cos(a2) * S * dt; this.y += Math.sin(a2) * S * dt;
+          if (U.dist(this.x, this.y, p.x, p.y) < this.r + p.r + 2 && p.iframes <= 0) {
+            if (p.coins > 0) { const take = Math.min(p.coins, 2); p.coins -= take; G.texts.push(new FloatText(p.x, p.y - 24, '-' + take + '¢ premium due', '#e0b83a')); SFX.play('coin'); }
+            else { p.hurt(1, G, 'premium'); }
+            this.state = 1;
+            this._premOpen = true;
+            G.texts.push(new FloatText(this.x, this.y - 22, 'PAID IN FULL — now it can die', '#e8c84c'));
+          }
+        } else if (this._impatient) {   // last one standing: fine, it comes to collect in person
+          const a2 = U.ang(this.x, this.y, p.x, p.y);
+          this.x += Math.cos(a2) * Math.max(S, 84) * dt; this.y += Math.sin(a2) * Math.max(S, 84) * dt;
+        } else {   // billed and mortal: keep-away
+          const a2 = U.ang(p.x, p.y, this.x, this.y);
+          this.x += Math.cos(a2 + Math.sin(this.t * 3) * 0.4) * S * 0.8 * dt;
+          this.y += Math.sin(a2 + Math.sin(this.t * 3) * 0.4) * S * 0.8 * dt;
+        }
+        break;
+      }
       case 'ticket': {   // Now Serving: a countdown the whole room is waiting on
         this.stateT -= dt;
         if (this.stateT <= 0) {
@@ -1312,6 +1351,11 @@ class Enemy {
 
   hurt(d, G, quiet) {
     if (this.dying || this.spawnT > 0.3) return;
+    // The Premium: cannot be harmed until it has billed you (forensic nukes exempt)
+    if (this.beh === 'premium' && !this._premOpen && !this.fake && d < 9999) {
+      if (!quiet && Math.random() < 0.3) { G.texts.push(new FloatText(this.x, this.y - 20, 'PREMIUM — not yet billed', '#e0b83a')); SFX.play('lock'); }
+      return;
+    }
     if (this.fake) {
       this.dying = true; this.deadDone = true;
       SFX.play('pop');
@@ -1320,6 +1364,7 @@ class Enemy {
       return;
     }
     if (this._shieldT > 0) d *= 0.55;   // Wellness Bot's bubble takes the edge off
+    if (this.id === 'placebo' && d > 0) d = 999;   // dies to literally anything. that's the bit.
     this.hp -= d;
     this.hitFlash = 0.12;
     if (Meta.data.a11y && Meta.data.a11y.dmgNums && !quiet && d >= 0.5 && G.texts.length < 36) {
@@ -1327,6 +1372,15 @@ class Enemy {
       ft.small = true; G.texts.push(ft);
     }
     if (this.beh === 'orderly') this._calm = 0;   // pain resets his patience
+    // The Second Opinion: wound it and it produces a colleague who disagrees
+    if (this.id === 'secondop' && !this._split && !this.fake && this.hp > 0 && U.chance(0.5)) {
+      this._split = true;
+      const c = new Enemy('secondop', U.clamp(this.x + U.rand(-50, 50), RX + 26, RX + RW - 26), U.clamp(this.y + U.rand(-40, 40), RY + 26, RY + RH - 26), this.depth, false, 0.6);
+      c._split = true; c.spawnT = 0.45; c.noDrop = true;
+      G.enemies.push(c);
+      G.texts.push(new FloatText(this.x, this.y - 22, '“actually, I disagree—”', '#b06be0'));
+      SFX.play('voice');
+    }
     // The Gaslighter denies the hit ever happened — and isn't where you thought it was
     if (this.id === 'gaslighter' && !quiet && this.hp > 0 && U.chance(0.4)) {
       const p3 = G.player;
@@ -1376,6 +1430,17 @@ class Enemy {
       Meta.save();
       G.toast('📋 “' + this._complaint + '” — RESOLVED. +◆6. Thank you for your feedback.', '#8fd08a');
       SFX.play('bell');
+    }
+    // The Placebo: it was nothing. it was confetti.
+    if (this.id === 'placebo' && !this.fake) {
+      for (let i = 0; i < 24; i++) {
+        const a = (i / 24) * TAU;
+        G.parts.push(new Particle(this.x, this.y, Math.cos(a) * U.rand(90, 240), Math.sin(a) * U.rand(90, 240) - 60, U.rand(0.4, 0.8), U.choice(['#e8c84c', '#e05a8a', '#5ad0c8', '#b06be0', '#8fd05a']), U.rand(2.5, 4.5)));
+      }
+      G.pickups.push(new Pickup('coin', this.x - 10, this.y));
+      G.pickups.push(new Pickup('coin', this.x + 10, this.y));
+      G.texts.push(new FloatText(this.x, this.y - 22, 'it was nothing', '#e8e0f0'));
+      SFX.play('pop');
     }
     // IT REMEMBERS YOU: revenge pays
     if (this._nemesis) {
@@ -1591,7 +1656,7 @@ function spawnEnemiesForRoom(room, depth, G) {
   const dif = DATA.difficulty(depth);
   const mods = G.floorMods || {};
   const wp = (DATA.WARD_PATHS && DATA.WARD_PATHS[G.wardPath]) || null;
-  const hpMult = (p.flags.fineMode ? (p.flags.recovery ? 1.25 : 1.15) : 1) * (mods.hpMul || 1) * (G.chronic ? 1.5 : 1) * (G.easy ? 0.7 : 1) * (wp ? wp.hpMul : 1) * ((G.intensity || 0) >= 1 ? 1.1 : 1);
+  const hpMult = (p.flags.fineMode ? (p.flags.recovery ? 1.25 : 1.15) : 1) * (mods.hpMul || 1) * (G.chronic ? 1.5 : 1) * (G.easy ? 0.7 : 1) * (wp ? wp.hpMul : 1) * ((G.intensity || 0) >= 1 ? 1.1 : 1) * (G.hasRule && G.hasRule('toughCrowd') ? 1.15 : 1);
   let count = dif.count;
   if (mods.countMul) count = Math.round(count * mods.countMul);
   if (G.chronic) count = Math.round(count * 1.2);
@@ -1633,6 +1698,7 @@ function spawnEnemiesForRoom(room, depth, G) {
     const e = new Enemy(id, s.x + U.rand(-8, 8), s.y + U.rand(-8, 8), depth, false, hpMult, elite);
     if (G.shadowWard) { e.hp *= 1.3; e.maxhp *= 1.3; e._shadow = true; }   // shadow patients: darker, tougher, better tippers
     if (mods.spdMul) e.spd *= mods.spdMul;
+    if (G.hasRule && G.hasRule('fastCrowd')) e.spd *= 1.1;   // house rules: fire drill (ongoing)
     if (G.sideEffect === 'restless') e.spd *= 1.15;   // ward side-effect: Restlessness
     if (mods.dmgAdd) e.dmg += mods.dmgAdd;
     if (mods.fastSpawn) e.spawnT = 0.22;
