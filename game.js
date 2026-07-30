@@ -186,6 +186,7 @@ const G = {
         <div class="btnrow">
           ${rec ? `<button class="btn minor" id="bDailyShare">📤 SHARE</button>` : ''}
           <button class="btn minor" id="bDailyChallenge">🔗 CHALLENGE</button>
+          <button class="btn minor" id="bDailyCp">📦 CARE PKG</button>
         </div>
         <button class="btn minor" id="bDailyBack">BACK</button>
         <div class="smallprint">Seed resets at local midnight. Replays allowed — only your best counts.</div>
@@ -198,6 +199,7 @@ const G = {
     const sh = document.getElementById('bDailyShare');
     if (sh) sh.onclick = () => { SFX.play('ui'); Render.shareCard({ diag: info.diag, depth: rec.best, daily: true, key: info.key, win: rec.win, stats: rec.stats, code: this.seedCode(info.seed) }); };
     document.getElementById('bDailyChallenge').onclick = () => { SFX.play('ui'); this.showChallenge(() => this.showDaily()); };
+    document.getElementById('bDailyCp').onclick = () => { SFX.play('ui'); this.showCarePackage(() => this.showDaily()); };
     document.getElementById('bDailyBack').onclick = () => { SFX.play('ui'); this.showTitle(); };
   },
 
@@ -240,6 +242,64 @@ const G = {
     document.getElementById('bPlayCode').onclick = play;
     document.getElementById('seedInput').addEventListener('keydown', (ev) => { if (ev.key === 'Enter') play(); });
     document.getElementById('bChalBack').onclick = () => { SFX.play('ui'); (returnTo || (() => this.showDaily()))(); };
+  },
+
+  /* ---------- CARE PACKAGES (gift an item + a note; no servers, just a code) ---------- */
+  makeGiftCode(itemId, note) {
+    try { return 'EGSCP' + btoa(unescape(encodeURIComponent(JSON.stringify({ i: itemId, n: String(note || '').slice(0, 40) })))).replace(/=+$/, ''); } catch (e) { return null; }
+  },
+  parseGiftCode(str) {
+    try {
+      const s = String(str || '').trim();
+      if (!s.startsWith('EGSCP')) return null;
+      const o = JSON.parse(decodeURIComponent(escape(atob(s.slice(5)))));
+      if (!o || !DATA.ITEMS[o.i]) return null;
+      return { i: o.i, n: String(o.n || '').slice(0, 40) };
+    } catch (e) { return null; }
+  },
+  showCarePackage(returnTo) {
+    this.state = 'carepkg';
+    const seen = Object.keys((Meta.data.seen && Meta.data.seen.items) || {}).filter(id => DATA.ITEMS[id]);
+    const opts = seen.map(id => `<option value="${id}">${DATA.ITEMS[id].name}</option>`).join('');
+    const pending = Meta.data.pendingGift;
+    this.overlay(`
+      <div class="panel">
+        <h1 class="logo" style="font-size:26px">📦 CARE PACKAGES</h1>
+        <div class="tagline">gift a friend one item you've seen + a note. dr. walrus reads all mail. for safety.</div>
+        ${seen.length ? `
+        <div class="setrow"><label>Send an item:</label>
+          <select id="cpItem" class="seedfield">${opts}</select></div>
+        <div class="setrow"><label>Your note (40):</label>
+          <input type="text" id="cpNote" class="seedfield" maxlength="40" placeholder="get well never" autocomplete="off"></div>
+        <button class="btn" id="bCpMake">✉ MAKE THE CODE</button>
+        <div class="smallprint" id="cpMsg">the code carries the item + your note. paste it anywhere.</div>` : `<div class="tagline">see some items first — you can't gift what you haven't met.</div>`}
+        <div class="setrow" style="margin-top:14px"><label>Got a package?</label>
+          <input type="text" id="cpIn" class="seedfield" placeholder="EGSCP…" autocomplete="off" spellcheck="false"></div>
+        <button class="btn" id="bCpRedeem">🎁 REDEEM</button>
+        ${pending ? `<div class="tagline" style="color:#8fd08a">waiting for you next run: <b>${DATA.ITEMS[pending.i].name}</b> — “${pending.n}”</div>` : ''}
+        <button class="btn minor" id="bCpBack">BACK</button>
+      </div>`);
+    const bm = document.getElementById('bCpMake');
+    if (bm) bm.onclick = () => {
+      SFX.play('ui');
+      const code = this.makeGiftCode(document.getElementById('cpItem').value, document.getElementById('cpNote').value);
+      const msg = document.getElementById('cpMsg');
+      if (!code) { msg.textContent = 'that didn\'t wrap right — try again.'; return; }
+      const txt = 'A care package from the ward: ' + code + '  →  https://chasegannon42-maker.github.io/everybodies-got-somethin/';
+      const done = () => { msg.textContent = '✓ copied — send it to someone who needs ' + DATA.ITEMS[document.getElementById('cpItem').value].name + '.'; };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done).catch(() => { msg.textContent = 'copy this: ' + code; });
+      else msg.textContent = 'copy this: ' + code;
+    };
+    document.getElementById('bCpRedeem').onclick = () => {
+      const g = this.parseGiftCode(document.getElementById('cpIn').value);
+      if (!g) { SFX.play('error'); this.toast('That package is empty. Or cursed. Either way: no.', '#e08a8a'); return; }
+      Meta.data.pendingGift = g;
+      Meta.save();
+      SFX.play('fanfare');
+      this.toast('📦 Signed for. It arrives at your next run.', '#8fd08a');
+      this.showCarePackage(returnTo);
+    };
+    document.getElementById('bCpBack').onclick = () => { SFX.play('ui'); (returnTo || (() => this.showDaily()))(); };
   },
 
   /* ---------- flow: title / quiz / card ---------- */
@@ -650,6 +710,19 @@ const G = {
       const pd = DATA.PETS.find(x => x.id === Meta.data.pet);
       if (pd && pd.unlock(Meta.data)) this.player.pet = new Pet(pd.id);
     }
+    // a care package arrived (someone out there is thinking of you)
+    if (Meta.data.pendingGift && !daily) {
+      const g = Meta.data.pendingGift;
+      if (DATA.ITEMS[g.i]) {
+        this.player.addItem(g.i, this);
+        this.toast('📦 CARE PACKAGE: ' + DATA.ITEMS[g.i].name + (g.n ? ' — “' + g.n + '”' : '') + ' (inspected. for safety.)', '#8fd08a');
+        SFX.play('fanfare');
+        Meta.data.giftsGot = (Meta.data.giftsGot || 0) + 1;
+      }
+      Meta.data.pendingGift = null;
+      Meta.save();
+      this.checkUnlocks();
+    }
     // insurance plan (dailies & seeded runs are assigned SILVER — no marketplace for you)
     this.plan = (!daily && this._startPlan) ? this._startPlan : 'silver';
     this._startPlan = null;
@@ -675,10 +748,15 @@ const G = {
     this.contracts = [];   // Day Room side jobs (max 2 active)
     this.amaRun = null;    // Against Medical Advice escape state
     this._amaFailed = false; this._amaDone = false;
+    this.p2 = null;   // Patient Two rejoins per run (Select on the pad)
     // intercom state + your recurring nemesis (last two deaths, same cause)
     this._ic = null; this._cleanStreak = 0; this._icFloors = {}; this._icPattern = null;
     const deads = (Meta.data.runlog || []).filter(r => r.out === 'dead').slice(-2);
     if (deads.length === 2 && deads[0].cause === deads[1].cause && deads[0].cause) this._icPattern = this._causeName(deads[0].cause);
+    // IT REMEMBERS YOU: whatever got you last run is coming back for a look (regular patients only)
+    const lastDead = deads[deads.length - 1];
+    this.nemesisId = (!daily && lastDead && DATA.ENEMIES[lastDead.cause] && lastDead.cause !== 'auditor' && lastDead.cause !== 'form') ? lastDead.cause : null;
+    this._nemesisSpawned = false;
     this._runCured = false;
     this._runStart = Date.now();
     this.larperToastShown = false;
@@ -1176,6 +1254,7 @@ const G = {
     else { p.x = midX; p.y = RY + RH - 90; }
     if (p.allies) for (const a of p.allies) { a.x = p.x + U.rand(-36, 36); a.y = p.y + U.rand(-36, 36); }   // group files in with you
     if (p.pet) { p.pet.x = p.x - 30; p.pet.y = p.y + 14; p.pet.segs = []; }   // the animal keeps up
+    if (this.p2) { this.p2.x = U.clamp(p.x + 38, RX + 16, RX + RW - 16); this.p2.y = p.y; }   // Patient Two files in behind you
 
     // THE AUDITOR follows you through the door
     if (this.auditorHp > 0 && !this.auditorDown) {
@@ -1426,6 +1505,7 @@ const G = {
       p.sleep = U.clamp(p.sleep + 16, 0, 100);   // a moment's quiet lets you catch your breath
     }
     if (p.allies) for (const a of p.allies) a.revive();   // downed group members get back up between rooms
+    if (this.p2 && this.p2._downT > 0) { this.p2._downT = 0; this.p2.hp = Math.max(2, Math.ceil(this.p2.maxhp / 2)); this.p2.iframes = 2; this.toast('🎮 PATIENT TWO is back up. They saw everything.', '#8fd08a'); }
     // SURPRISE INSPECTION: the sweep may confiscate the pill you're holding
     if (this.crisis === 'inspection' && p.pill != null && U.chance(0.25)) {
       p.pill = null;
@@ -1489,6 +1569,7 @@ const G = {
     room.cleared = true;
     this.doorsOpen = true;
     this.stats.bosses++;
+    if (this.p2 && this.p2._downT > 0) { this.p2._downT = 0; this.p2.hp = Math.max(2, Math.ceil(this.p2.maxhp / 2)); this.p2.iframes = 2; this.toast('🎮 PATIENT TWO is back up. They saw everything.', '#8fd08a'); }
     this.goalEvent('boss');
     Meta.data.bestFloor = Math.max(Meta.data.bestFloor, this.depth);
     if (!Meta.data.diagBest) Meta.data.diagBest = {};
@@ -1685,6 +1766,7 @@ const G = {
   /* ---------- comorbidity choice on descent ---------- */
   doDescend() {
     if (this.floorHits === 0) this.goalEvent('floorclean');   // Clean Bill
+    if (this.p2 && !Meta.data.everCoop) { Meta.data.everCoop = 1; Meta.save(); this.checkUnlocks(); }   // Group Rate
     // ALL-NIGHTER: the candle burns at both ends
     if (this.player && this.player.variant && this.player.diag === 'insomnia') {
       this.player.hp = Math.max(1, this.player.hp - 1);
@@ -2138,6 +2220,9 @@ const G = {
     if (this.amaRun) this.amaUpdate(dt);
     // the PA crackles
     this.intercomTick(dt);
+    // Patient Two (couch co-op)
+    if (Input.take('p2join')) { this.p2 ? this.p2Leave() : this.showP2Pick(); if (this.state !== 'run') return; }
+    if (this.p2) this.p2Update(dt);
     // death — but everyone deserves one appeal
     if (p.dead) {
       if (this.amaRun && !this.amaRun.done) this._amaFailed = true;   // died mid-elopement: the bill doubles
@@ -2175,10 +2260,16 @@ const G = {
         <div class="stats-line">${DATA.DIAG[this.player.diag].name} · ward ${this.depth} · ${this.stats.kills} symptoms managed</div>
         ${goalRows ? `<div class="summary" style="margin-top:8px">${goalRows}</div>` : ''}
         <button class="btn" id="bResume">RESUME</button>
+        <button class="btn minor" id="bP2Toggle">🎮 ${this.p2 ? 'PATIENT TWO LEAVES' : 'PATIENT TWO JOINS (pad)'}</button>
         <button class="btn minor" id="bSettings2">⚙ SETTINGS</button>
         <button class="btn minor" id="bQuit">${this.dailyKind ? 'QUIT TO TITLE' : '💾 SAVE & QUIT'}</button>
       </div>`);
     document.getElementById('bResume').onclick = () => { SFX.play('ui'); this.hideOverlay(); this.state = 'run'; };
+    document.getElementById('bP2Toggle').onclick = () => {
+      SFX.play('ui');
+      if (this.p2) { this.p2Leave(); this.hideOverlay(); this.state = 'run'; }
+      else { this.hideOverlay(); this.showP2Pick(); }
+    };
     document.getElementById('bSettings2').onclick = () => { SFX.play('ui'); this.showSettings(() => this.showPause()); };
     document.getElementById('bQuit').onclick = () => {
       SFX.play('ui');
@@ -2186,6 +2277,84 @@ const G = {
       else { this.saveCheckpoint(); this._runLogged = true; }   // keep the checkpoint; don't log a death/quit
       this.showTitle();
     };
+  },
+
+  /* ---------- PATIENT TWO (couch co-op: the pad is theirs now) ---------- */
+  showP2Pick() {
+    this.state = 'p2pick';
+    const order = ['adhd', 'bipolar', 'depression', 'anxiety', 'schizo', 'ocd', 'ptsd', 'insomnia', 'fine', 'undiag'];
+    const fineOpen = Meta.data.fineSeen || Meta.data.walrusKills > 0;
+    const nineDone = order.slice(0, 9).filter(d => (Meta.data.diagsPlayed || {})[d]).length >= 9;
+    const unlocked = order.filter(id => !(id === 'fine' && !fineOpen) && !(id === 'undiag' && !nineDone));
+    const cards = unlocked.map(id => {
+      const D = DATA.DIAG[id];
+      return `<button class="cmcard" data-p2diag="${id}"><div class="cmname" style="color:${D.color}">${D.name}</div><div class="cmdesc">${D.short}</div></button>`;
+    }).join('');
+    this.overlay(`
+      <div class="panel wide">
+        <h1 class="logo" style="font-size:26px">🎮 PATIENT TWO</h1>
+        <div class="tagline">someone else checks in. pick their chart — left stick walks, right stick argues.</div>
+        <div class="cmgrid">${cards}</div>
+        <button class="btn minor" id="bP2Never">actually, they left</button>
+      </div>`);
+    document.querySelectorAll('[data-p2diag]').forEach(b => b.onclick = () => {
+      SFX.play('stamp');
+      const q = new Player(b.dataset.p2diag);
+      q.x = this.player.x + 40; q.y = this.player.y;
+      q.maxhp = 8; q.hp = 8; q.noHat = true; q._downT = 0; q._tearT = 0; q.iframes = 1.5;
+      this.p2 = q;
+      this.hideOverlay(); this.state = 'run';
+      this.toast('🎮 PATIENT TWO checked in: ' + DATA.DIAG[q.diag].name + '. The intake form is shared now.', DATA.DIAG[q.diag].color);
+    });
+    document.getElementById('bP2Never').onclick = () => { SFX.play('ui'); this.hideOverlay(); this.state = 'run'; };
+  },
+  p2Leave() {
+    if (!this.p2) return;
+    this.toast('🎮 PATIENT TWO discharged themselves. Typical.', '#b3a7b8');
+    this.p2 = null;
+  },
+  p2Update(dt) {
+    const q = this.p2, p = this.player;
+    q.iframes -= dt; q.hurtFlash = Math.max(0, (q.hurtFlash || 0) - dt);
+    if (q._downT > 0) return;   // waiting on a room clear (or a kind word)
+    const mv = Input._gpMove, aim = Input._gpAim;
+    q.moving = Math.abs(mv.x) > 0.05 || Math.abs(mv.y) > 0.05;
+    if (q.moving) {
+      const sp = 215;
+      const nx = U.clamp(q.x + mv.x * sp * dt, RX + 12, RX + RW - 12);
+      const ny = U.clamp(q.y + mv.y * sp * dt, RY + 12, RY + RH - 12);
+      const tx = pxToTile(nx, q.y);
+      if (!(tx.c >= 0 && tx.r >= 0 && tx.c < COLS && tx.r < ROWS && tileSolid(this.room.layout, tx.c, tx.r))) q.x = nx;
+      const ty = pxToTile(q.x, ny);
+      if (!(ty.c >= 0 && ty.r >= 0 && ty.c < COLS && ty.r < ROWS && tileSolid(this.room.layout, ty.c, ty.r))) q.y = ny;
+      if (!aim) q.aimAng = Math.atan2(mv.y, mv.x);
+    }
+    q._tearT -= dt;
+    if (aim && q._tearT <= 0 && !p.flags.pacifist) {
+      q._tearT = 0.36;
+      q.aimAng = Math.atan2(aim.y, aim.x);
+      const dmg = Math.max(1.5, p.dmg * 0.7);
+      this.tears.push(new Tear(q.x, q.y - 4, aim.x * 430, aim.y * 430, dmg, 0.85, false));
+      SFX.play('shoot');
+    }
+    // contact damage (they are also a patient)
+    if (q.iframes <= 0) {
+      for (const e of this.enemies) {
+        if (e.dying || e.fake || e.spawnT > 0 || e.charmed || !(e.dmg > 0)) continue;
+        if (U.dist(q.x, q.y, e.x, e.y) < e.r + 11) { this.p2Hurt(1); break; }
+      }
+      if (this.boss && !this.boss.dead && this.boss.introT <= 0 && U.dist(q.x, q.y, this.boss.x, this.boss.y) < this.boss.r + 11) this.p2Hurt(1);
+    }
+  },
+  p2Hurt(n) {
+    const q = this.p2; if (!q || q.iframes > 0 || q._downT > 0) return;
+    q.hp -= n; q.iframes = 1.3; q.hurtFlash = 0.35;
+    SFX.play('hurt');
+    if (q.hp <= 0) {
+      q._downT = 999;
+      this.toast('🎮 PATIENT TWO is down — clear the room to get them up.', '#e08a8a');
+      SFX.play('error');
+    }
   },
 
   /* ---------- THE INTERCOM (Dr. Walrus is watching. commenting, even.) ---------- */

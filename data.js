@@ -293,6 +293,9 @@ DATA.ITEMS = {
   pillow:    { name: "The Good Pillow", quote: "The cold side. Always.", desc: "Heal a full heart at the start of every floor. Sleep is medicine, who knew. (Everyone. Everyone knew.)", pools: ["special", "shop"], apply(p) { p.flags.pillowHeal = true; } },
   papertrail:{ name: "Paper Trail", quote: "Document EVERYTHING.", desc: "Paperwork piles always drop something when destroyed.", pools: ["special"], apply(p) { p.flags.paperTrail = true; } },
   grouptherapy:{ name: "Group Therapy", quote: "Have you considered… joining us?", desc: "Your tears sometimes RECRUIT an enemy to the group — they fight for you until they burn out.", pools: ["special", "boss"], apply(p) { p.flags.charm = true; } },
+  coldcompress:{ name: "Cold Compress", quote: "Just breathe. Colder.", desc: "Your tears CHILL — each hit stacks a slow on the patient (they get so, so tired).", pools: ["special", "shop"], apply(p) { p.flags.chillTears = true; } },
+  incidentreport:{ name: "Incident Report", quote: "This WILL be escalated.", desc: "Your tears can IGNITE — paperwork burns, and so does everything it touches.", pools: ["special", "boss"], apply(p) { p.flags.burnTears = true; } },
+  intrusivethought:{ name: "Intrusive Thought", quote: "It spreads if you feed it.", desc: "Kills release the thought — nearby patients CATCH it, take damage, and pass it on when they go.", pools: ["special", "boss"], apply(p) { p.flags.contagion = true; } },
   buddy:     { name: "Buddy System", quote: "Nobody walks the ward alone.", desc: "A fellow patient joins your Support Group and fights alongside you for the rest of the run.", pools: ["special", "boss"], apply(p, G) { p.recruitAlly(G); } },
 
   /* --- keystone prescriptions: build-arounds that change HOW you fire (one active at a time) --- */
@@ -366,7 +369,10 @@ DATA.ACHIEVEMENTS = [
   { id: 'auditClean', name: "Clean Books",         desc: "Put down THE AUDITOR.",                           hint: "Sometimes the thing follows you. Turn around.", check: m => (m.auditorKills || 0) >= 1 },
   { id: 'ama',        name: "Elopement Risk",      desc: "Leave Against Medical Advice.",                   hint: "Ward 8+, find the Day Room. Sign the form. Run.", check: m => (m.amaDone || 0) >= 1 },
   { id: 'contracts5', name: "Reliable Patient",    desc: "Complete 5 Day Room contracts.",                  hint: "The other patients need things.",          check: m => (m.contractsDone || 0) >= 5 },
-  { id: 'goldplan',   name: "Cadillac Coverage",   desc: "Beat Dr. Walrus on the Gold plan.",               hint: "Pay dearly up front. Enjoy the discounts.", check: m => !!m.everGoldWalrus }
+  { id: 'goldplan',   name: "Cadillac Coverage",   desc: "Beat Dr. Walrus on the Gold plan.",               hint: "Pay dearly up front. Enjoy the discounts.", check: m => !!m.everGoldWalrus },
+  { id: 'revenge',    name: "Grudge Settled",      desc: "Put down the one that REMEMBERS YOU.",            hint: "It got you once. It came back to gloat.",   check: m => (m.revenges || 0) >= 1 },
+  { id: 'penpal',     name: "Pen Pal",             desc: "Redeem a Care Package.",                          hint: "Someone out there is thinking of you. Concerning.", check: m => (m.giftsGot || 0) >= 1 },
+  { id: 'couch',      name: "Group Rate",          desc: "Finish a floor with Patient Two in the room.",    hint: "Bring a friend. Misery loves it.",          check: m => !!m.everCoop }
 ];
 DATA.checkAchievements = function (m) {
   if (!m.unlocks) m.unlocks = {};

@@ -1315,6 +1315,7 @@ const Render = {
     for (const f of G.player.familiars) this.drawFamiliar(f, G);
     for (const a of G.player.allies) this.drawAlly(a, G);
     if (G.player.pet) this.drawPet(G.player.pet, G);
+    if (G.p2) this.drawP2(G.p2, G);
     this.drawPlayer(G.player, G);
 
     // tears — glossy droplets with shadow
@@ -1386,6 +1387,21 @@ const Render = {
   },
 
   /* ============ the player doodle ============ */
+  /* ============ Patient Two (couch co-op) ============ */
+  drawP2(q, G) {
+    const ctx = this.ctx;
+    const down = q._downT > 0;
+    ctx.save();
+    if (down) ctx.globalAlpha = 0.55;
+    try { this.drawPlayer(q, G); } catch (e) { }
+    ctx.restore();
+    // the Ⅱ chip so the couch knows who's who
+    ctx.fillStyle = down ? '#8a7c88' : (DATA.DIAG[q.diag] || DATA.DIAG.adhd).color;
+    ctx.font = this.font(11, true); ctx.textAlign = 'center';
+    ctx.fillText(down ? 'Ⅱ ✚' : 'Ⅱ', q.x, q.y - 34);
+    if (down) { ctx.fillStyle = '#c8b8c0'; ctx.font = this.font(9, true); ctx.fillText('clear the room', q.x, q.y - 24); }
+  },
+
   /* ============ emotional support animals ============ */
   drawPet(pet, G) {
     const ctx = this.ctx;
@@ -2239,6 +2255,35 @@ const Render = {
       }
     }
     ctx.restore();
+    // status effects: the compress, the report, the thought, the grudge
+    if (!e.dying && e.spawnT <= 0) {
+      if (e._chill > 0) {
+        ctx.fillStyle = 'rgba(140,200,240,' + (0.14 + e._chill * 0.07) + ')';
+        ctx.beginPath(); ctx.arc(e.x, e.y, e.r + 2, 0, TAU); ctx.fill();
+        ctx.fillStyle = 'rgba(200,235,255,0.9)'; ctx.font = this.font(9 + e._chill, true); ctx.textAlign = 'center';
+        ctx.fillText('❄', e.x + e.r * 0.7, e.y - e.r * 0.7);
+      }
+      if (e._burn > 0) {
+        const fl = Math.sin(G.t * 14 + e.x) * 2;
+        ctx.fillStyle = 'rgba(232,148,74,0.85)';
+        ctx.beginPath(); ctx.moveTo(e.x - 4, e.y - e.r - 2); ctx.quadraticCurveTo(e.x, e.y - e.r - 12 - fl, e.x + 4, e.y - e.r - 2); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = 'rgba(224,192,80,0.9)';
+        ctx.beginPath(); ctx.moveTo(e.x - 2, e.y - e.r - 2); ctx.quadraticCurveTo(e.x, e.y - e.r - 7 - fl, e.x + 2, e.y - e.r - 2); ctx.closePath(); ctx.fill();
+      }
+      if (e._plague) {
+        ctx.fillStyle = 'rgba(143,208,138,' + (0.4 + Math.sin(G.t * 6) * 0.2) + ')';
+        ctx.beginPath(); ctx.arc(e.x - e.r * 0.7, e.y - e.r * 0.7, 3, 0, TAU); ctx.fill();
+      }
+      if (e._nemesis) {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(224,90,90,0.85)'; ctx.lineWidth = 2.5;
+        ctx.shadowColor = '#e05a5a'; ctx.shadowBlur = 12;
+        ctx.beginPath(); ctx.arc(e.x, e.y, e.r + 8 + Math.sin(G.t * 5) * 2, 0, TAU); ctx.stroke();
+        ctx.restore();
+        ctx.fillStyle = '#e05a5a'; ctx.font = this.font(9, true); ctx.textAlign = 'center';
+        ctx.fillText('REMEMBERS YOU', e.x, e.y - e.r - 16);
+      }
+    }
     // shadow patients: the eyes are the only bright thing left
     if (e._shadow && !e.dying && e.spawnT <= 0) {
       const gl = 0.65 + Math.sin(G.t * 4 + e.x) * 0.2;
@@ -3158,6 +3203,22 @@ const Render = {
       if (hpHere >= 2) this.drawHeart(hx, hy, 10, '#e05a5a', false);
       else if (hpHere === 1) this.drawHeart(hx, hy, 10, '#e05a5a', true);
       else this.drawHeart(hx, hy, 10, '#4a3a44', false);
+    }
+    // Patient Two's little row
+    if (G.p2) {
+      const q = G.p2, rows = Math.ceil(hearts / 6);
+      const qy = 26 + rows * 24 + 4;
+      ctx.fillStyle = (DATA.DIAG[q.diag] || DATA.DIAG.adhd).color;
+      ctx.font = this.font(10, true); ctx.textAlign = 'left';
+      ctx.fillText('Ⅱ', 20, qy + 4);
+      for (let i = 0; i < Math.ceil(q.maxhp / 2); i++) {
+        const hpHere = q.hp - i * 2;
+        const col = q._downT > 0 ? '#4a3a44' : '#e08a8a';
+        if (hpHere >= 2) this.drawHeart(38 + i * 18, qy, 7, col, false);
+        else if (hpHere === 1) this.drawHeart(38 + i * 18, qy, 7, col, true);
+        else this.drawHeart(38 + i * 18, qy, 7, '#4a3a44', false);
+      }
+      if (q._downT > 0) { ctx.fillStyle = '#c8b8c0'; ctx.font = this.font(9, true); ctx.fillText('DOWN', 38 + Math.ceil(q.maxhp / 2) * 18 + 6, qy + 3); }
     }
     // blanket shield
     if (p.diag === 'depression' && p.blanket) {

@@ -147,6 +147,13 @@ class Boss {
     if (this.introT > 0) { this.introT -= dt; return; }
     dt *= (this.aggr || 1); // endless: deeper bosses move & attack faster
     const p = G.player;
+    // Incident Report: even management burns
+    if (this._burn > 0) {
+      this._burn -= dt;
+      this.hp -= this._burnDps * dt;
+      if (Math.random() < dt * 10) G.parts.push(new Particle(this.x + U.rand(-this.r * 0.6, this.r * 0.6), this.y + U.rand(-this.r * 0.6, 0), U.rand(-20, 20), U.rand(-80, -40), 0.4, U.chance(0.5) ? '#e8944a' : '#e0c050', 3.5));
+      if (this.hp <= 0) { this.die(G); return; }
+    }
     if (this.hp < this.maxhp * 0.5) this.phase = 2;
     const P2 = this.phase === 2;
 

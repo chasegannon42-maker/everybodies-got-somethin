@@ -751,6 +751,9 @@ class Tear {
         if (G.player.flags.hpBars && e.hp >= e.maxhp) d *= 1.15;
         if (G.player.trinket === 'luckypen' && !this._ally && U.chance(0.1)) { d *= 2; G.texts.push(new FloatText(e.x, e.y - 18, 'signed!', '#e8c84c')); }
         e.hurt(d, G);
+        // status effects — the compress, the report, the thought
+        if (G.player.flags.chillTears && !e.fake) { e._chill = Math.min(4, (e._chill || 0) + 1); e._chillT = 1.4; }
+        if (G.player.flags.burnTears && !e.fake && U.chance(0.25)) { e._burn = 3; e._burnDps = Math.max(0.6, G.player.dmg * 0.5); }
         // Peer Support: a chance the shot recruits them to the group instead of just hurting (the Auditor is unrecruitable)
         if (G.player.flags.charm && !e.fake && !e.dying && e.hp > 0 && e.id !== 'auditor' && U.chance(0.16)) {
           e.charmed = true; e.charmIdleT = 0; e.hp = Math.max(e.hp, e.maxhp * 0.5);
@@ -769,6 +772,7 @@ class Tear {
     }
     if (G.boss && !G.boss.dead && G.boss.vulnerable && !this._hitBoss && U.dist(this.x, this.y, G.boss.x, G.boss.y) < this.r + G.boss.r) {
       G.boss.hurt(this.dmg, G);
+      if (G.player.flags.burnTears && U.chance(0.25)) { G.boss._burn = 3; G.boss._burnDps = Math.max(0.6, G.player.dmg * 0.4); }   // even management burns
       if (this._pierce > 0) { this._pierce--; this._hitBoss = true; return; }
       this.splash(G);
       return;
@@ -839,6 +843,13 @@ class EBullet {
     if (U.dist(this.x, this.y, p.x, p.y) < this.r + p.r - 3) {
       if (this.fake) { this.fizzle(G); return; }
       p.hurt(this.dmg, G, this._src);
+      this.dead = true;
+      return;
+    }
+    // hit Patient Two (also a patient, also billable)
+    const q = G.p2;
+    if (q && q._downT <= 0 && !this.fake && U.dist(this.x, this.y, q.x, q.y) < this.r + 8) {
+      G.p2Hurt(this.dmg);
       this.dead = true;
     }
   }
@@ -917,7 +928,15 @@ class Enemy {
     if (this._shieldT > 0) this._shieldT -= dt;   // Wellness Bot aura fades if the bot stops tending you
     if (this._enraged > 0) this._enraged -= dt;   // Now Serving enrage wears off
     if (this._dazeT > 0) { this._dazeT -= dt; return; }   // the Goldfish made it forget what it was doing
-    const slowF = (G.enemySlow > 0 ? 0.55 : 1) * (p.flags.slowField ? 0.88 : 1);   // Analysis Paralysis slows the room
+    // status effects: chill stacks decay, burn ticks
+    if (this._chill > 0) { this._chillT -= dt; if (this._chillT <= 0) { this._chill--; this._chillT = 1.2; } }
+    if (this._burn > 0) {
+      this._burn -= dt;
+      this.hp -= this._burnDps * dt;
+      if (Math.random() < dt * 9) G.parts.push(new Particle(this.x + U.rand(-6, 6), this.y + U.rand(-8, 2), U.rand(-20, 20), U.rand(-70, -30), 0.35, U.chance(0.5) ? '#e8944a' : '#e0c050', 3));
+      if (this.hp <= 0 && !this.dying) { this.hurt(0.01, G, true); }
+    }
+    const slowF = (G.enemySlow > 0 ? 0.55 : 1) * (p.flags.slowField ? 0.88 : 1) * (1 - 0.12 * (this._chill || 0));   // Analysis Paralysis + Cold Compress slow the room
     const S = this.spd * slowF * (this._enraged > 0 ? 1.45 : 1);
 
     // the last patient standing gets impatient — evasive types stop playing keep-away and come to you
@@ -1295,6 +1314,28 @@ class Enemy {
     G.stats.kills++;
     if (G.goalEvent) G.goalEvent('kill');
     if (!G.hyperfixType) G.hyperfixType = this.id;
+    // Intrusive Thought: the thought escapes and finds new hosts (chains via _plague)
+    if ((G.player.flags.contagion || this._plague) && !this.fake) {
+      let spread = 0;
+      for (const e of G.enemies) {
+        if (e === this || e.dying || e.fake || e.spawnT > 0 || spread >= 3) continue;
+        if (U.dist(this.x, this.y, e.x, e.y) < 130) { e.hurt(Math.max(1, G.player.dmg * 0.6), G, true); e._plague = true; spread++; }
+      }
+      if (spread) { for (let i = 0; i < 8; i++) { const a = (i / 8) * TAU; G.parts.push(new Particle(this.x, this.y, Math.cos(a) * 160, Math.sin(a) * 160, 0.4, '#8fd08a', 3)); } SFX.play('pop'); }
+    }
+    // IT REMEMBERS YOU: revenge pays
+    if (this._nemesis) {
+      G.pickups.push(new Pickup('nickel', this.x - 14, this.y));
+      G.pickups.push(new Pickup('full', this.x + 14, this.y));
+      G.pickups.push(new Pickup('trinket', this.x, this.y - 18));
+      Meta.data.insight = (Meta.data.insight || 0) + 5;
+      Meta.data.revenges = (Meta.data.revenges || 0) + 1;
+      G._goalInsight += 5;
+      Meta.save();
+      G.toast('🩸 GRUDGE SETTLED — +◆5, and it dropped everything.', '#e05a5a');
+      SFX.play('fanfare');
+      if (G.checkUnlocks) G.checkUnlocks();
+    }
     Haptics.buzz(this.elite ? 30 : 14, 45); // kill tick; throttled so a burst of deaths = one bump
     makeGibs(G, this.x, this.y, this.clr, Math.round(6 + this.r * 0.4));
     // death pop: a bright radial flash so kills land
@@ -1512,6 +1553,16 @@ function spawnEnemiesForRoom(room, depth, G) {
   }
   const chosen = U.shuffle(spots).slice(0, count);
   const spawned = [];
+  // IT REMEMBERS YOU: your last killer walks in wearing a champion's aura
+  if (G.nemesisId && !G._nemesisSpawned && room.type === 'normal' && spots.length > count) {
+    G._nemesisSpawned = true;
+    const s = U.shuffle(spots).find(sp => !chosen.includes(sp)) || spots[0];
+    const ne = new Enemy(G.nemesisId, s.x, s.y, depth, false, hpMult * 2.2, U.choice(DATA.ELITES).id);
+    ne._nemesis = true; ne.spawnT = 0.8;
+    G.enemies.push(ne);
+    G.toast('🩸 It remembers you.', '#e05a5a');
+    SFX.play('sting');
+  }
   for (const s of chosen) {
     const id = DATA.pickEnemy(depth, G.wing);
     const elite = (id !== 'redflag' && U.chance(champChance)) ? U.choice(DATA.ELITES).id : null;
