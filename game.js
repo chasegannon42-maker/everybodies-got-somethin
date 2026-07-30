@@ -330,6 +330,7 @@ const G = {
         <div class="btnrow">
           <button class="btn minor" id="bPrognosis">🎲 PROGNOSIS</button>
           <button class="btn minor" id="bProtocols">🧪 PROTOCOLS</button>
+          ${(Meta.data.runs || 0) >= 1 ? '<button class="btn minor" id="bOvertime">⏰ OVERTIME</button>' : ''}
         </div>
         <button class="btn minor" id="bTreatment">🧠 TREATMENT PLAN (skill tree) · ◆ ${Meta.data.insight || 0}</button>
         <button class="btn minor" id="bChart">📋 PATIENT CHART (codex)</button>
@@ -352,6 +353,7 @@ const G = {
     if (bCont) bCont.onclick = () => { SFX.init(); SFX.play('ui'); const S = this.loadCheckpoint(); if (S) this.resumeRun(S); else this.showTitle(); };
     document.getElementById('bStart').onclick = () => { SFX.init(); SFX.play('ui'); this.startCheckup(); };
     const bh = document.getElementById('bHub'); if (bh) bh.onclick = () => { SFX.init(); SFX.play('ui'); this.showHub(); };
+    const bot2 = document.getElementById('bOvertime'); if (bot2) bot2.onclick = () => { SFX.init(); SFX.play('ui'); this.showOvertime(); };
     document.getElementById('bDaily').onclick = () => { SFX.init(); SFX.play('ui'); this.showDaily(); };
     document.getElementById('bFiles').onclick = () => { SFX.init(); SFX.play('ui'); this.showFiles(); };
     document.getElementById('bPrognosis').onclick = () => { SFX.init(); SFX.play('ui'); this.showPrognosis(); };
@@ -404,7 +406,11 @@ const G = {
         })()}
         ${(() => {   // emotional support animal picker
           const rows = [{ id: '', icon: '∅', name: 'none', note: 'you are alone. clinically.', ok: true }]
-            .concat(DATA.PETS.map(pt => ({ id: pt.id, icon: pt.icon, name: pt.name, note: pt.unlock(Meta.data) ? pt.note : '🔒 ' + pt.unlockHint, ok: pt.unlock(Meta.data) })));
+            .concat(DATA.PETS.map(pt => {
+              const xp = (Meta.data.petXp || {})[pt.id] || 0;
+              const tag = xp >= 40 ? ' ★' : (xp > 0 ? ' · ' + xp + '/40' : '');
+              return { id: pt.id, icon: pt.icon, name: pt.name + tag, note: pt.unlock(Meta.data) ? pt.note : '🔒 ' + pt.unlockHint, ok: pt.unlock(Meta.data) };
+            }));
           const btns = rows.map(pt =>
             `<button class="btn minor" data-pet="${pt.id}" ${pt.ok ? '' : 'disabled'} style="${(Meta.data.pet || '') === pt.id ? 'outline:2px solid #e8c84c' : ''}${pt.ok ? '' : ';opacity:.5'}" title="${pt.note}">${pt.icon} ${pt.name}</button>`).join('');
           return `<div class="tagline" style="margin:10px 0 2px">Emotional Support Animal</div><div class="btnrow" style="flex-wrap:wrap">${btns}</div>`;
@@ -749,6 +755,7 @@ const G = {
     this.amaRun = null;    // Against Medical Advice escape state
     this._amaFailed = false; this._amaDone = false;
     this.p2 = null;   // Patient Two rejoins per run (Select on the pad)
+    this.overtime = null;   // OVERTIME arms below if _startOvertime
     // intercom state + your recurring nemesis (last two deaths, same cause)
     this._ic = null; this._cleanStreak = 0; this._icFloors = {}; this._icPattern = null;
     const deads = (Meta.data.runlog || []).filter(r => r.out === 'dead').slice(-2);
@@ -766,6 +773,7 @@ const G = {
     this.hideOverlay();
     SFX.setMusic('run');
     document.body.classList.add('inrun');
+    if (this._startOvertime) { this._startOvertime = false; this.setupOvertime(); }   // OVERTIME: one room, all of it
   },
 
   /* ---------- The Waiting Room (walkable hub) ---------- */
@@ -901,7 +909,7 @@ const G = {
   SAVE_KEY: 'egs_save1',
   SAVE_FIELDS: ['hp', 'maxhp', 'spd', 'tearDelay', 'dmg', 'shotSpd', 'range', 'wobble', 'luck', 'coins', 'keys', 'bombs', 'coupons', 'pill', 'iframeTime', 'abilMax', 'sleep', 'compulsion', '_scar', '_recRooms', 'trinket', '_rosaryUsed'],
   saveCheckpoint() {
-    if (this.dailyKind || !this.player || this.player.dead) return;
+    if (this.dailyKind || this.overtime || !this.player || this.player.dead) return;
     const p = this.player;
     try {
       const S = {
@@ -1043,7 +1051,7 @@ const G = {
     // your remaining change is "donated" to the clinic's Wellness Fund. you were not asked.
     if (p.coins > 0) { Meta.data.fund = (Meta.data.fund || 0) + p.coins; this._fundDonated = p.coins; p.coins = 0; }
     else this._fundDonated = 0;
-    const mode = this.protocol ? this.protocol : this.prognosis ? this.prognosis : this.chronic ? 'chronic' : this.bossRush ? 'bossrush' : this.dailyKind === 'daily' ? 'daily' : this.dailyKind === 'quarterly' ? 'quarterly' : this.dailyKind === 'challenge' ? 'challenge' : 'normal';
+    const mode = this.overtime ? 'overtime' : this.protocol ? this.protocol : this.prognosis ? this.prognosis : this.chronic ? 'chronic' : this.bossRush ? 'bossrush' : this.dailyKind === 'daily' ? 'daily' : this.dailyKind === 'quarterly' ? 'quarterly' : this.dailyKind === 'challenge' ? 'challenge' : 'normal';
     if (this.prognosis) { const pb = Meta.data.prognosisBest || (Meta.data.prognosisBest = {}); pb[this.prognosis] = Math.max(pb[this.prognosis] || 0, this.depth); }
     const cured = !!this._runCured || out === 'cured';
     const walrus = (Meta.data.walrusKills || 0) > (this._startWalrusKills || 0);
@@ -1094,6 +1102,7 @@ const G = {
         if (r.layout) for (let rr = 2; rr <= 4; rr++) for (let cc = 5; cc <= 7; cc++) r.layout[rr][cc] = 0;   // clear floor for the pedestal
       }
     });
+    this._janitorFloor = false;   // the Janitor makes one appearance per floor, tops
     // SHADOW WARD: some floors flip dark — mirrored halls, shadow patients, double loot
     this.shadowWard = (this.depth >= 6 && !this.ascent && !this.bossRush)
       ? this.genSeed(['shadow', this.depth], () => U.chance(0.18))
@@ -1226,6 +1235,7 @@ const G = {
     this.roomFade = 0.22;   // a soft blink crossing the threshold
     this._roomHits = 0;     // per-room damage tally (Day Room contracts)
     this._roomT0 = this.t;  // room-entry clock (the Intercom bills hourly)
+    this._recap = [];       // fresh reel for the incident reconstruction
     // Rapid Cycling: every room re-prescribes you
     if (this.prognosis === 'rapid') {
       const sw = U.choice(DATA.RAPID_SWINGS);
@@ -1498,6 +1508,26 @@ const G = {
     if (this._ic && !(this._ic.cds.fast > 0) && this.t - (this._roomT0 || 0) < 5) { this._ic.cds.fast = 110; this.pa('fast'); }
     // Shadow Ward: the dark pays double
     if (this.shadowWard) for (let i = 0; i < 2; i++) this.pickups.push(new Pickup(U.choice(['coin', 'coin', 'nickel', 'half']), CW / 2 + U.rand(-60, 60), RY + RH / 2 + U.rand(-40, 40)));
+    // pet XP: 40 rooms together changes an animal
+    if (p.pet) {
+      const xp = Meta.data.petXp || (Meta.data.petXp = {});
+      xp[p.pet.type] = (xp[p.pet.type] || 0) + 1;
+      if (xp[p.pet.type] === 40) {
+        p.pet.evo = true;
+        const names = { pigeon: 'THE CARRIER PIGEON', cat: 'SENIOR OFFICE CAT', snake: 'THE EXTENDED METAPHOR', goldfish: 'TWO GOLDFISH (they remember each other)' };
+        this.toast('✨ Your companion evolved: ' + (names[p.pet.type] || p.pet.type) + '!', '#e8c84c');
+        SFX.play('fanfare');
+        Meta.save();
+        this.checkUnlocks();
+      }
+    }
+    // THE JANITOR: he appears where the mess was (10%, once a floor)
+    if (!this._janitorFloor && (room.type === 'normal' || room.type === 'padded') && U.chance(0.1)) {
+      this._janitorFloor = true;
+      const pool = U.shuffle([].concat(DATA.POOLS.special, DATA.POOLS.shop)).filter(id => !p.items.includes(id));
+      this.peds.push({ x: CW / 2 + U.rand(-80, 80), y: RY + RH / 2 + U.rand(-30, 30), kind: 'janitor', itemId: pool[0] || DATA.POOLS.special[0], price: U.randi(5, 9), taken: false, _greeted: false });
+      SFX.play('door');
+    }
     SFX.play('door');
     if (p.flags.gratitude && U.chance(0.25)) { p.heal(1); this.texts.push(new FloatText(p.x, p.y - 24, 'grateful +♥', '#8fd05a')); }
     if (p.diag === 'insomnia') {
@@ -1566,6 +1596,16 @@ const G = {
 
   onBossDead() {
     const room = this.room, p = this.player;
+    // OVERTIME: no rewards, no trapdoor — just the next wave
+    if (this.overtime) {
+      this.stats.bosses++;
+      room.cleared = false;
+      if (this.p2 && this.p2._downT > 0) { this.p2._downT = 0; this.p2.hp = Math.max(2, Math.ceil(this.p2.maxhp / 2)); this.p2.iframes = 2; }
+      this.pickups.push(new Pickup('full', CW / 2, RY + RH / 2));
+      this.toast('⏰ Management clocked out. The floor didn\'t.', '#e8c84c');
+      this.overtime.spawnT = 3.5;
+      return;
+    }
     room.cleared = true;
     this.doorsOpen = true;
     this.stats.bosses++;
@@ -2106,7 +2146,7 @@ const G = {
           for (const o of this.peds) if (o.kind === 'shop' && o.variant) { o.itemId = src[i % src.length] || o.itemId; o.taken = false; i++; }
           SFX.play('coin'); this.toast('Shelves restocked.', '#9db85a');
         } else if (this.lockCd <= 0) { this.lockCd = 1.4; this.texts.push(new FloatText(ped.x, ped.y - 40, 'need ' + ped.price + '¢', '#e8c84c')); SFX.play('error'); }
-      } else if (ped.price) { // shop item (Brand or Generic), GoodRx coupon halves it
+      } else if (ped.price && ped.kind !== 'janitor' && ped.kind !== 'boss') { // shop item (Brand or Generic), GoodRx coupon halves it
         const useCoupon = (p.coupons || 0) > 0;
         const price = useCoupon ? Math.max(1, Math.ceil(ped.price * 0.5)) : ped.price;
         if (p.coins >= price) {
@@ -2126,6 +2166,29 @@ const G = {
           }
           SFX.play('coin');
         } else if (this.lockCd <= 0) { this.lockCd = 1.4; this.texts.push(new FloatText(ped.x, ped.y - 40, 'need ' + price + '¢', '#e8c84c')); SFX.play('error'); }
+      } else if (ped.kind === 'janitor') {   // forty years of mopping, one bucket of found items
+        if (!ped._greeted) {
+          ped._greeted = true;
+          const met = (Meta.data.janitorMet || 0) > 0;
+          Meta.data.janitorMet = (Meta.data.janitorMet || 0) + 1; Meta.save();
+          this.toast('🧹 ' + U.choice(met ? DATA.JANITOR.again : DATA.JANITOR.greet), '#b8b0a0');
+          SFX.play('voice');
+        }
+        if (p.coins >= ped.price) {
+          if (this.lockCd <= 0) {
+            this.lockCd = 1.2;
+            p.coins -= ped.price;
+            ped.taken = true;
+            p.addItem(ped.itemId, this);
+            this.stats.items++;
+            this.goalEvent('buy');
+            Meta.data.janitorBuys = (Meta.data.janitorBuys || 0) + 1; Meta.save();
+            this.toast('🧹 ' + U.choice(DATA.JANITOR.buy), '#b8b0a0');
+            if (U.chance(0.35)) setTimeout(() => { if (this.state === 'run') this.toast('🧹 ' + U.choice(DATA.JANITOR.wisdom), '#b8b0a0'); }, 2600);
+            SFX.play('coin');
+            this.checkUnlocks();
+          }
+        } else if (this.lockCd <= 0) { this.lockCd = 1.6; this.toast('🧹 ' + U.choice(DATA.JANITOR.broke), '#b8b0a0'); SFX.play('error'); }
       } else if (ped.kind === 'contract') {   // a fellow patient with a side job
         const def = DATA.CONTRACTS.find(c => c.id === ped.contractId) || DATA.CONTRACTS[0];
         const active = (this.contracts || []).filter(c => !c.done).length;
@@ -2223,6 +2286,16 @@ const G = {
     // Patient Two (couch co-op)
     if (Input.take('p2join')) { this.p2 ? this.p2Leave() : this.showP2Pick(); if (this.state !== 'run') return; }
     if (this.p2) this.p2Update(dt);
+    // OVERTIME waves
+    if (this.overtime) this.overtimeUpdate(dt);
+    // death recap ring buffer (the last ~6 seconds, reconstructed at the morgue)
+    this._recapT = (this._recapT || 0) + dt;
+    if (this._recapT >= 0.1 && p && !p.dead) {
+      this._recapT = 0;
+      const R = this._recap || (this._recap = []);
+      R.push({ x: p.x, y: p.y, hp: p.hp, b: this.eBullets.filter(b => !b.dead && !b.fake).slice(0, 40).map(b => [Math.round(b.x), Math.round(b.y)]), e: this.enemies.filter(e => !e.dying).slice(0, 12).map(e => [Math.round(e.x), Math.round(e.y)]) });
+      if (R.length > 60) R.shift();
+    }
     // death — but everyone deserves one appeal
     if (p.dead) {
       if (this.amaRun && !this.amaRun.done) this._amaFailed = true;   // died mid-elopement: the bill doubles
@@ -2277,6 +2350,74 @@ const G = {
       else { this.saveCheckpoint(); this._runLogged = true; }   // keep the checkpoint; don't log a death/quit
       this.showTitle();
     };
+  },
+
+  /* ---------- OVERTIME (one room; the ward sends everything; you clock out when you drop) ---------- */
+  showOvertime() {
+    this.state = 'overtimepick';
+    const order = ['adhd', 'bipolar', 'depression', 'anxiety', 'schizo', 'ocd', 'ptsd', 'insomnia', 'fine', 'undiag'];
+    const fineOpen = Meta.data.fineSeen || Meta.data.walrusKills > 0;
+    const nineDone = order.slice(0, 9).filter(d => (Meta.data.diagsPlayed || {})[d]).length >= 9;
+    const unlocked = order.filter(id => !(id === 'fine' && !fineOpen) && !(id === 'undiag' && !nineDone));
+    const cards = unlocked.map(id => {
+      const D = DATA.DIAG[id];
+      return `<button class="cmcard" data-otdiag="${id}"><div class="cmname" style="color:${D.color}">${D.name}</div><div class="cmdesc">${D.short}</div></button>`;
+    }).join('');
+    this.overlay(`
+      <div class="panel wide">
+        <h1 class="logo" style="font-size:26px">⏰ OVERTIME</h1>
+        <div class="tagline">one room. escalating waves of everything the ward has. best: <b style="color:#e8c84c">wave ${Meta.data.overtimeBest || 0}</b></div>
+        <div class="cmgrid">${cards}</div>
+        <div class="tagline" style="opacity:.6">the bill runs the whole time. obviously.</div>
+        <button class="btn minor" id="bOtBack">BACK</button>
+      </div>`);
+    document.querySelectorAll('[data-otdiag]').forEach(b => b.onclick = () => {
+      SFX.play('stamp');
+      this._startOvertime = true;
+      this.beginRun(b.dataset.otdiag);
+    });
+    document.getElementById('bOtBack').onclick = () => { SFX.play('ui'); this.showTitle(); };
+  },
+  setupOvertime() {
+    const room = this.floorRooms.find(r => r.type === 'start') || this.room || this.floorRooms[0];
+    room.doors = {}; room.secretDoors = {}; room.cleared = false; room.spawned = true;
+    if (room.layout) for (let r = 1; r < ROWS - 1; r++) for (let c = 2; c < COLS - 2; c++) if (U.chance(0.9)) room.layout[r][c] = 0;   // mostly open floor
+    this.floorRooms = [room]; this.grid = new Map([[U.key(room.gx, room.gy), room]]);
+    this.enterRoom(room, null);
+    this.overtime = { wave: 0, spawnT: 2.2, bestShown: false };
+    this.setBanner('⏰ OVERTIME', 'the ward would like a word. all of it.', 2.6);
+    SFX.setMusic('boss');
+  },
+  overtimeUpdate(dt) {
+    const OT = this.overtime; if (!OT) return;
+    const live = this.enemies.some(e => !e.dying && e.id !== 'auditor') || (this.boss && !this.boss.dead);
+    if (live) return;
+    OT.spawnT -= dt;
+    if (OT.spawnT > 0) return;
+    OT.wave++;
+    OT.spawnT = 2.2;
+    const w = OT.wave, depth = 1 + Math.floor(w / 3) * 2;
+    if (w % 10 === 0) {   // every 10th wave: management personally attends
+      const bosses = ['gatekeeper', 'larperking', 'adjuster', 'priorauth', 'stigma', 'dsm', 'algorithm', 'influencer', 'peerreview', 'withdrawal', 'burnout'];
+      this.bossId = bosses[(w / 10 - 1) % bosses.length];
+      this.boss = new Boss(this.bossId, depth, this);
+      this.boss.introT = 1.2;
+      this.setBanner('WAVE ' + w, DATA.BOSSES[this.bossId].name + ' clocks in', 2.2);
+    } else {
+      const n = Math.min(14, 3 + Math.ceil(w * 0.8));
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * TAU + Math.random();
+        const id = (w % 3 === 0 && i === 0) ? U.choice(['chargenurse', 'resident', 'orderly']) : DATA.pickEnemy(depth, null);
+        const e = new Enemy(id, U.clamp(CW / 2 + Math.cos(a) * U.rand(150, 300), RX + 36, RX + RW - 36), U.clamp(RY + RH / 2 + Math.sin(a) * U.rand(90, 200), RY + 36, RY + RH - 36), depth, false, 1, (w >= 5 && U.chance(Math.min(0.5, w * 0.03))) ? U.choice(DATA.ELITES).id : null);
+        e.spawnT = 0.6 + i * 0.1;
+        this.enemies.push(e);
+      }
+      this.setBanner('WAVE ' + w, w % 3 === 0 ? 'a supervisor joins the floor' : '', 1.6);
+    }
+    if (w > (Meta.data.overtimeBest || 0)) { Meta.data.overtimeBest = w; Meta.save(); this.checkUnlocks(); }
+    // a small mercy every third wave
+    if (w % 3 === 0) { this.pickups.push(new Pickup('half', CW / 2 + U.rand(-50, 50), RY + RH / 2 + U.rand(-30, 30))); this.pickups.push(new Pickup('coin', CW / 2 + U.rand(-70, 70), RY + RH / 2)); }
+    SFX.play('boss');
   },
 
   /* ---------- PATIENT TWO (couch co-op: the pad is theirs now) ---------- */
@@ -2605,6 +2746,7 @@ const G = {
           <div class="sub">Reached ${DATA.floorName(this.depth)} · Ward ${this.depth} · ${DATA.tierName(this.depth)}${newBest ? ' &nbsp;⭐ NEW BEST' : (prevBest ? ' (best: ward ' + prevBest + ')' : '')}</div>
         </div>
         <div class="summary">
+          ${this.overtime ? row('<span style="color:#e8c84c">⏰ OVERTIME — wave reached</span>', '<span style="color:#e8c84c">' + this.overtime.wave + (this.overtime.wave >= (Meta.data.overtimeBest || 0) ? ' ⭐' : '') + '</span>') : ''}
           ${row('Symptoms managed', st.kills)}
           ${row('Bosses defeated', st.bosses)}
           ${row('Prescriptions collected', st.items)}
@@ -2621,6 +2763,11 @@ const G = {
           <canvas class="walrusCanvas" width="132" height="132" id="deadWalrus"></canvas>
           <div class="bubble"><i>“${this._deathQuip}”</i></div>
         </div>
+        ${(this._recap && this._recap.length > 4) ? `
+        <div style="text-align:center;margin-top:6px">
+          <canvas id="recapCv" width="300" height="190" style="border-radius:8px;max-width:100%"></canvas>
+          <div class="tagline" style="margin-top:2px">the incident, reconstructed — cause: <b style="color:#e05a5a">${this._causeName(this.player._lastSrc || 'unknown')}</b></div>
+        </div>` : ''}
         ${dkind === 'daily'
           ? `<button class="btn" id="bRetryDaily">🗓️ RETRY TODAY'S DAILY</button>`
           : dkind === 'challenge'
@@ -2635,6 +2782,8 @@ const G = {
         <button class="btn minor" id="bTitle">TITLE</button>
       </div>`);
     this.paintWalrus('deadWalrus');
+    const rcv = document.getElementById('recapCv');
+    if (rcv) try { Render.drawRecap(rcv, this); } catch (e) { }
     if (daily) document.getElementById('bRetryDaily').onclick = () => { SFX.play('ui'); this.beginRun(diagId, { seed: dseed, key: dkey, isDaily: dkind === 'daily' }); };
     else document.getElementById('bAgainSame').onclick = () => { SFX.play('ui'); this.showEnrollment(diagId); };
     document.getElementById('bShare').onclick = () => { SFX.play('ui'); Render.shareCard({ diag: diagId, depth: this.depth, daily, key: dkind === 'challenge' ? dcode : dkey, label: dkind === 'challenge' ? 'CHALLENGE' : 'DAILY WARD', win: dailyWin, stats: { kills: st.kills, bosses: st.bosses, pills: st.pills }, code: dcode }); };

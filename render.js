@@ -1121,6 +1121,33 @@ const Render = {
         if (U.dist(G.player.x, G.player.y, ped.x, ped.y) < 80) { ctx.fillStyle = '#e8c84c'; ctx.font = this.font(11, true); ctx.fillText('2¢ · it\'s binding', ped.x, ped.y + 46); }
         continue;
       }
+      if (ped.kind === 'janitor') {   // forty years. one bucket.
+        const rb = Math.sin(G.t * 1.8 + ped.x) * 1.2;
+        this.shadow(ped.x, ped.y + 16, 14, 5, 0.22);
+        ctx.save(); ctx.translate(ped.x, ped.y + rb);
+        ctx.fillStyle = '#5a6a72'; this.rr(ctx, -9, -6, 18, 22, 5); ctx.fill();   // gray coveralls
+        ctx.fillStyle = '#e8c9a6'; ctx.beginPath(); ctx.arc(0, -14, 8, 0, TAU); ctx.fill();
+        ctx.strokeStyle = 'rgba(40,30,40,0.3)'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(0, -14, 8, 0, TAU); ctx.stroke();
+        ctx.fillStyle = '#9aa2aa'; ctx.beginPath(); ctx.arc(0, -18, 8, Math.PI, 0); ctx.fill();   // gray hair
+        ctx.fillStyle = '#2c2333'; ctx.beginPath(); ctx.arc(-3, -14, 1.2, 0, TAU); ctx.arc(3, -14, 1.2, 0, TAU); ctx.fill();
+        ctx.strokeStyle = 'rgba(60,50,60,0.5)'; ctx.lineWidth = 1.2;   // the eye bags of four decades
+        ctx.beginPath(); ctx.arc(-3, -12, 2, 0.2, Math.PI - 0.6); ctx.arc(3, -12, 2, 0.2, Math.PI - 0.6); ctx.stroke();
+        ctx.strokeStyle = '#7a5a38'; ctx.lineWidth = 2.5;   // the mop, at rest
+        ctx.beginPath(); ctx.moveTo(12, 14); ctx.lineTo(17, -22); ctx.stroke();
+        ctx.strokeStyle = '#d8d0b8'; ctx.lineWidth = 1.5; ctx.lineCap = 'round';
+        for (let m = 0; m < 4; m++) { ctx.beginPath(); ctx.moveTo(12, 13); ctx.lineTo(9 + m * 2.4, 20); ctx.stroke(); } ctx.lineCap = 'butt';
+        ctx.fillStyle = '#8a8e96'; this.rr(ctx, -22, 6, 16, 12, 3); ctx.fill();   // the bucket
+        ctx.fillStyle = 'rgba(140,180,200,0.6)'; this.rr(ctx, -20, 8, 12, 3, 2); ctx.fill();
+        ctx.restore();
+        this.drawItemIcon(ped.itemId, ped.x - 14, ped.y - 34 + Math.sin(G.t * 2.4) * 2);   // today's find
+        ctx.fillStyle = '#e8c84c'; ctx.font = this.font(12, true); ctx.textAlign = 'center';
+        ctx.fillText(ped.price + '¢', ped.x, ped.y + 34);
+        ctx.fillStyle = '#b8b0a0'; ctx.font = this.font(9, true);
+        ctx.fillText('THE JANITOR', ped.x, ped.y - 46);
+        const it2 = DATA.ITEMS[ped.itemId];
+        if (it2 && U.dist(G.player.x, G.player.y, ped.x, ped.y) < 80) { ctx.fillStyle = '#f0e8d8'; ctx.font = this.font(11, true); ctx.fillText(it2.name + ' · cash only', ped.x, ped.y + 46); }
+        continue;
+      }
       if (ped.kind === 'contract') {   // a patient with a plan and a pencil
         const def = DATA.CONTRACTS.find(c => c.id === ped.contractId);
         const rb = Math.sin(G.t * 2.4 + ped.x) * 1.8;
@@ -1387,6 +1414,58 @@ const Render = {
   },
 
   /* ============ the player doodle ============ */
+  /* ============ death recap (the incident, reconstructed) ============ */
+  drawRecap(cv, G) {
+    const ctx = cv.getContext('2d');
+    const W = cv.width, H = cv.height;
+    const R = G._recap || [];
+    ctx.fillStyle = '#141018'; ctx.fillRect(0, 0, W, H);
+    // map room coords → canvas
+    const mx = (x) => (x - RX) / RW * (W - 20) + 10;
+    const my = (y) => (y - RY) / RH * (H - 20) + 10;
+    // room sketch
+    ctx.strokeStyle = 'rgba(180,170,200,0.4)'; ctx.lineWidth = 2;
+    ctx.strokeRect(10, 10, W - 20, H - 20);
+    if (G.room && G.room.layout) {
+      for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+        const t = G.room.layout[r][c];
+        if (t === 1 || t === 2) { ctx.fillStyle = t === 1 ? 'rgba(120,110,130,0.35)' : 'rgba(180,160,120,0.3)'; ctx.fillRect(mx(RX + c * TILE) + 1, my(RY + r * TILE) + 1, (W - 20) / COLS - 2, (H - 20) / ROWS - 2); }
+        else if (t === 3) { ctx.fillStyle = 'rgba(200,90,90,0.3)'; ctx.fillRect(mx(RX + c * TILE) + 3, my(RY + r * TILE) + 3, (W - 20) / COLS - 6, (H - 20) / ROWS - 6); }
+      }
+    }
+    // your last walk: a ghost trail brightening toward the end
+    ctx.lineWidth = 2; ctx.lineCap = 'round';
+    for (let i = 1; i < R.length; i++) {
+      const a = i / R.length;
+      ctx.strokeStyle = 'rgba(240,232,216,' + (0.08 + a * 0.55) + ')';
+      ctx.beginPath(); ctx.moveTo(mx(R[i - 1].x), my(R[i - 1].y)); ctx.lineTo(mx(R[i].x), my(R[i].y)); ctx.stroke();
+    }
+    ctx.lineCap = 'butt';
+    const last = R[R.length - 1];
+    if (last) {
+      // the field at the end: enemies as dots, bullets as sparks
+      for (const e of (last.e || [])) { ctx.fillStyle = 'rgba(200,120,140,0.85)'; ctx.beginPath(); ctx.arc(mx(e[0]), my(e[1]), 3.4, 0, TAU); ctx.fill(); }
+      for (const b of (last.b || [])) { ctx.fillStyle = 'rgba(224,110,110,0.9)'; ctx.beginPath(); ctx.arc(mx(b[0]), my(b[1]), 2, 0, TAU); ctx.fill(); }
+      // the spot where it happened
+      const dx = mx(last.x), dy = my(last.y);
+      ctx.strokeStyle = '#f0e8d8'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(dx - 5, dy - 5); ctx.lineTo(dx + 5, dy + 5); ctx.moveTo(dx + 5, dy - 5); ctx.lineTo(dx - 5, dy + 5); ctx.stroke();
+      // circle the nearest hazard — the presumed instrument of discharge
+      let kill = null, kd = 1e9;
+      for (const b of (last.b || [])) { const d = Math.hypot(b[0] - last.x, b[1] - last.y); if (d < kd) { kd = d; kill = b; } }
+      if (!kill || kd > 90) for (const e of (last.e || [])) { const d = Math.hypot(e[0] - last.x, e[1] - last.y); if (d < kd) { kd = d; kill = e; } }
+      if (kill) {
+        ctx.strokeStyle = '#e05a5a'; ctx.lineWidth = 2.5; ctx.setLineDash([4, 3]);
+        ctx.beginPath(); ctx.arc(mx(kill[0]), my(kill[1]), 9, 0, TAU); ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    }
+    // hp ticker along the bottom
+    ctx.fillStyle = 'rgba(240,232,216,0.5)'; ctx.font = 'bold 8px "Trebuchet MS",sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText('−6s', 12, H - 3);
+    ctx.textAlign = 'right'; ctx.fillText('☠', W - 12, H - 3);
+  },
+
   /* ============ Patient Two (couch co-op) ============ */
   drawP2(q, G) {
     const ctx = this.ctx;
@@ -1417,6 +1496,11 @@ const Render = {
       ctx.fillStyle = '#2c2333'; ctx.beginPath(); ctx.arc(6, -4.5, 0.9, 0, TAU); ctx.fill();
       ctx.fillStyle = '#e0a05a'; ctx.beginPath(); ctx.moveTo(8, -4); ctx.lineTo(11, -3.2); ctx.lineTo(8, -2.4); ctx.closePath(); ctx.fill();   // beak
       ctx.fillStyle = '#5a8a5a'; ctx.beginPath(); ctx.ellipse(1.5, -2.5, 2.4, 1.6, 0, 0, TAU) ; ctx.fill();   // iridescent neck
+      if (pet.evo) {   // the carrier satchel
+        ctx.fillStyle = '#8a6a3a'; this.rr(ctx, -3, 1, 7, 5, 1.5); ctx.fill();
+        ctx.strokeStyle = '#8a6a3a'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(-2, 1); ctx.lineTo(2, -4); ctx.stroke();
+        ctx.fillStyle = '#e8c84c'; ctx.fillRect(-1, 3, 2.5, 1.5);
+      }
     } else if (pet.type === 'cat') {
       this.shadow(0, 10, 9, 3.5, 0.2);
       ctx.translate(0, bob * 0.4);
@@ -1427,6 +1511,12 @@ const Render = {
       ctx.beginPath(); ctx.moveTo(2, -8); ctx.lineTo(3, -12); ctx.lineTo(5, -8.5); ctx.closePath();   // ears
       ctx.moveTo(8, -8); ctx.lineTo(9, -12); ctx.lineTo(6.5, -8.5); ctx.closePath(); ctx.fill();
       ctx.fillStyle = '#2c2333'; ctx.beginPath(); ctx.arc(4, -5.5, 0.8, 0, TAU); ctx.arc(7, -5.5, 0.8, 0, TAU); ctx.fill();
+      if (pet.evo) {   // seniority: gray muzzle + reading glasses
+        ctx.fillStyle = 'rgba(220,220,225,0.75)'; ctx.beginPath(); ctx.ellipse(6.5, -3.5, 2.6, 1.8, 0, 0, TAU); ctx.fill();
+        ctx.strokeStyle = 'rgba(200,180,120,0.9)'; ctx.lineWidth = 0.9;
+        ctx.beginPath(); ctx.arc(4, -5.5, 1.8, 0, TAU); ctx.arc(7, -5.5, 1.8, 0, TAU); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(5.8, -5.5); ctx.lineTo(5.2, -5.5); ctx.stroke();
+      }
       if (pet._swipeT > 0 && pet._swipeAt) {   // the swat
         ctx.strokeStyle = 'rgba(255,240,200,0.8)'; ctx.lineWidth = 2;
         const sa = U.ang(pet.x, pet.y, pet._swipeAt.x, pet._swipeAt.y);
@@ -1452,6 +1542,13 @@ const Render = {
       ctx.fillStyle = '#e8944a'; ctx.beginPath(); ctx.ellipse(0, 0, 3.2, 2, 0, 0, TAU); ctx.fill();
       ctx.beginPath(); ctx.moveTo(-2.6, 0); ctx.lineTo(-5, -1.8); ctx.lineTo(-5, 1.8); ctx.closePath(); ctx.fill();
       ctx.restore();
+      if (pet.evo) {   // the second goldfish. they remember each other.
+        const fx2 = Math.sin(pet.t * 2.2 + Math.PI) * 3, dir2 = Math.cos(pet.t * 2.2 + Math.PI) >= 0 ? 1 : -1;
+        ctx.save(); ctx.translate(fx2, 4); ctx.scale(dir2, 1);
+        ctx.fillStyle = '#e8b44a'; ctx.beginPath(); ctx.ellipse(0, 0, 2.6, 1.6, 0, 0, TAU); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(-2.2, 0); ctx.lineTo(-4.2, -1.4); ctx.lineTo(-4.2, 1.4); ctx.closePath(); ctx.fill();
+        ctx.restore();
+      }
     }
     ctx.restore();
   },
@@ -3203,6 +3300,14 @@ const Render = {
       if (hpHere >= 2) this.drawHeart(hx, hy, 10, '#e05a5a', false);
       else if (hpHere === 1) this.drawHeart(hx, hy, 10, '#e05a5a', true);
       else this.drawHeart(hx, hy, 10, '#4a3a44', false);
+    }
+    // OVERTIME: the wave and the running tab, front and center
+    if (G.overtime) {
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#e8c84c'; ctx.font = this.font(16, true);
+      ctx.fillText('⏰ WAVE ' + G.overtime.wave, CW / 2, 62);
+      ctx.fillStyle = 'rgba(224,160,90,0.8)'; ctx.font = this.font(10, true);
+      ctx.fillText('running total: $' + G.runBill().total.toLocaleString('en-US'), CW / 2, 78);
     }
     // Patient Two's little row
     if (G.p2) {

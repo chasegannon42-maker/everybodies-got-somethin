@@ -372,7 +372,10 @@ DATA.ACHIEVEMENTS = [
   { id: 'goldplan',   name: "Cadillac Coverage",   desc: "Beat Dr. Walrus on the Gold plan.",               hint: "Pay dearly up front. Enjoy the discounts.", check: m => !!m.everGoldWalrus },
   { id: 'revenge',    name: "Grudge Settled",      desc: "Put down the one that REMEMBERS YOU.",            hint: "It got you once. It came back to gloat.",   check: m => (m.revenges || 0) >= 1 },
   { id: 'penpal',     name: "Pen Pal",             desc: "Redeem a Care Package.",                          hint: "Someone out there is thinking of you. Concerning.", check: m => (m.giftsGot || 0) >= 1 },
-  { id: 'couch',      name: "Group Rate",          desc: "Finish a floor with Patient Two in the room.",    hint: "Bring a friend. Misery loves it.",          check: m => !!m.everCoop }
+  { id: 'couch',      name: "Group Rate",          desc: "Finish a floor with Patient Two in the room.",    hint: "Bring a friend. Misery loves it.",          check: m => !!m.everCoop },
+  { id: 'overtime10', name: "Time and a Half",     desc: "Survive to wave 10 in OVERTIME.",                 hint: "One room. Everything the ward has.",        check: m => (m.overtimeBest || 0) >= 10 },
+  { id: 'janitor5',   name: "Employee of the Month", desc: "Buy 5 things from the Janitor.",                hint: "He finds things. Don't ask where.",         check: m => (m.janitorBuys || 0) >= 5 },
+  { id: 'petGrown',   name: "Good Influence",      desc: "Evolve an Emotional Support Animal.",             hint: "40 rooms together changes an animal.",      check: m => m.petXp && Object.values(m.petXp).some(v => v >= 40) }
 ];
 DATA.checkAchievements = function (m) {
   if (!m.unlocks) m.unlocks = {};
@@ -486,6 +489,44 @@ DATA.bossFor = function (depth, lastBoss) {
   if (depth >= 6) pool.push('peerreview');   // by now there's enough of you on file to copy
   const filtered = pool.filter(b => b !== lastBoss);
   return U.choice(filtered.length ? filtered : pool);
+};
+
+/* ============ THE JANITOR (he's seen every ward. he's mopped every ward.) ============ */
+DATA.JANITOR = {
+  greet: [
+    "Found this in the vents. Cash only.",
+    "Lost and found. Emphasis on lost.",
+    "Fell off a cart. The cart won't miss it.",
+    "Somebody checked out in a hurry. Their loss. Literally.",
+    "Don't ask where it's been. It's been in the ward. Everything has."
+  ],
+  again: [
+    "You again.",
+    "Still here? Me too. Forty years.",
+    "I mopped this spot an hour ago. Look at it.",
+    "You're my best customer. That's not a compliment to either of us.",
+    "The walrus doesn't know I do this. The walrus doesn't know a lot of things."
+  ],
+  buy: [
+    "Pleasure doing business. That's the only pleasure left in this building.",
+    "No refunds. The concept doesn't exist down here.",
+    "Spend it in good health. Ha. Sorry. Habit.",
+    "I'd have charged the doctor double.",
+    "That thing? Saved my marriage. Then ended it. Good luck."
+  ],
+  broke: [
+    "Cash only, friend. The economy in here runs on copays.",
+    "Come back when the floor pays YOU.",
+    "I take coins, not feelings. Learned that the hard way.",
+    "Nothing personal. The mop needs new heads."
+  ],
+  wisdom: [
+    "Forty years mopping this place. The stains come back. So do the patients.",
+    "The lights hum in B-flat. You get used to it. That's the problem.",
+    "I've seen the basement. There's another basement.",
+    "The walrus? Decent tipper. Terrible doctor.",
+    "Whatever it tells you at the bottom — don't sign anything."
+  ]
 };
 
 /* ============ EMOTIONAL SUPPORT ANIMALS (one equipped, like hats) ============ */

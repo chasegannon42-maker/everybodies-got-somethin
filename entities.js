@@ -12,6 +12,7 @@ class Pet {
     this.x = CW / 2; this.y = CH / 2 + 30;
     this.t = U.rand(0, 3); this.actT = 2; this.vx = 0; this.vy = 0;
     this.segs = [];   // the Metaphor's body
+    this.evo = ((Meta.data.petXp || {})[type] || 0) >= 40;   // 40 rooms together changes an animal
   }
   update(dt, G) {
     const p = G.player;
@@ -21,8 +22,8 @@ class Pet {
       const d = U.dist(this.x, this.y, p.x - 34, p.y - 8);
       if (d > 20) { this.x += Math.cos(a) * Math.min(d * 3, 260) * dt; this.y += Math.sin(a) * Math.min(d * 3, 260) * dt; }
       if (this.actT <= 0) {
-        this.actT = 45;
-        G.pickups.push(new Pickup('coin', this.x, this.y));
+        this.actT = this.evo ? 25 : 45;
+        G.pickups.push(new Pickup(this.evo && U.chance(0.25) ? 'nickel' : 'coin', this.x, this.y));
         G.texts.push(new FloatText(this.x, this.y - 18, '🕊 found this somewhere', '#c8c0b8'));
         SFX.play('coin');
       }
@@ -31,9 +32,13 @@ class Pet {
       const d = U.dist(this.x, this.y, p.x + 30, p.y + 6);
       if (d > 24) { this.x += Math.cos(a) * Math.min(d * 2.6, 240) * dt; this.y += Math.sin(a) * Math.min(d * 2.6, 240) * dt; }
       if (this.actT <= 0) {
-        let best = null, bd = 95;
-        for (const b of G.eBullets) { if (b.dead || b.fake) continue; const bd2 = U.dist(this.x, this.y, b.x, b.y); if (bd2 < bd) { bd = bd2; best = b; } }
-        if (best) { this.actT = 2.4; this._swipeT = 0.2; this._swipeAt = { x: best.x, y: best.y }; best.fizzle ? best.fizzle(G) : (best.dead = true); SFX.play('pop'); }
+        let swatted = 0;
+        const cap = this.evo ? 2 : 1;
+        for (const b of G.eBullets) {
+          if (b.dead || b.fake || swatted >= cap) continue;
+          if (U.dist(this.x, this.y, b.x, b.y) < 95) { this._swipeT = 0.2; this._swipeAt = { x: b.x, y: b.y }; b.fizzle ? b.fizzle(G) : (b.dead = true); swatted++; }
+        }
+        if (swatted) { this.actT = this.evo ? 1.3 : 2.4; SFX.play('pop'); }
       }
       if (this._swipeT > 0) this._swipeT -= dt;
     } else if (this.type === 'snake') {   // slithers at your problems
@@ -43,16 +48,19 @@ class Pet {
       const a = U.ang(this.x, this.y, tgt.x, tgt.y) + Math.sin(this.t * 5) * 0.5;
       const spd = best ? 150 : 120;
       if (U.dist(this.x, this.y, tgt.x, tgt.y) > (best ? 4 : 30)) { this.x += Math.cos(a) * spd * dt; this.y += Math.sin(a) * spd * dt; }
-      if (best && U.dist(this.x, this.y, best.x, best.y) < 19 + best.r) best.hurt(6 * dt, G, true);
+      if (best && U.dist(this.x, this.y, best.x, best.y) < (this.evo ? 23 : 19) + best.r) best.hurt((this.evo ? 9 : 6) * dt, G, true);
       this.segs.unshift({ x: this.x, y: this.y });
-      if (this.segs.length > 9) this.segs.pop();
+      if (this.segs.length > (this.evo ? 16 : 9)) this.segs.pop();
     } else if (this.type === 'goldfish') {   // bowl bobs beside you; nearby enemies forget
       this.x = p.x - 30 + Math.sin(this.t * 1.3) * 5;
       this.y = p.y - 22 + Math.sin(this.t * 2.1) * 3;
       if (this.actT <= 0) {
-        let best = null, bd = 140;
-        for (const e of G.enemies) { if (e.fake || e.spawnT > 0 || e.dying) continue; const d = U.dist(this.x, this.y, e.x, e.y); if (d < bd) { bd = d; best = e; } }
-        if (best) { this.actT = 8; best._dazeT = 1.3; G.texts.push(new FloatText(best.x, best.y - 20, '…who?', '#8fd0e0')); SFX.play('voice'); }
+        let dazed = 0;
+        const cap = this.evo ? 2 : 1;
+        const sorted = G.enemies.filter(e => !e.fake && e.spawnT <= 0 && !e.dying && U.dist(this.x, this.y, e.x, e.y) < 140)
+          .sort((a, b2) => U.dist(this.x, this.y, a.x, a.y) - U.dist(this.x, this.y, b2.x, b2.y));
+        for (const e of sorted) { if (dazed >= cap) break; e._dazeT = 1.3; G.texts.push(new FloatText(e.x, e.y - 20, '…who?', '#8fd0e0')); dazed++; }
+        if (dazed) { this.actT = this.evo ? 5 : 8; SFX.play('voice'); }
       }
     }
     this.x = U.clamp(this.x, RX + 10, RX + RW - 10);
@@ -1442,7 +1450,7 @@ class Pickup {
     const wants = (this.type === 'coin' || this.type === 'nickel' || this.type === 'key' || this.type === 'bomb')
       || ((this.type === 'half' || this.type === 'full') && p.hp < p.maxhp)
       || (this.type === 'pill' && p.pill == null);
-    const MR = (p.pet && p.pet.type === 'pigeon') ? 110 : 56;   // the Pigeon herds loose change your way
+    const MR = (p.pet && p.pet.type === 'pigeon') ? (p.pet.evo ? 150 : 110) : 56;   // the Pigeon herds loose change your way
     const md = U.dist(this.x, this.y, p.x, p.y);
     if (wants && md < MR && md > 1 && this.settle <= 0) {   // loose change rolls toward you
       const pull = (240 * (1 - md / MR) + 50) * dt;
