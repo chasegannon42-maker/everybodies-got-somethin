@@ -589,7 +589,9 @@ const G = {
     this.applyPrognosis(this.player);    // challenge-run start effects
     if (this.protocol === 'waitingroom') { this.player.maxhp = 2; this.player.hp = 2; this.player.flags.noHeal = true; }   // one heart, no healing
     this.applyTalents(this.player);      // Treatment Plan (permanent skill-tree perks)
+    this.applyFacility(this.player);     // Waiting Room furniture perks (the Wellness Fund at work)
     if (this.protocol === 'waitingroom') { this.player.maxhp = 2; this.player.hp = Math.min(this.player.hp, 2); }   // talents can't buy hearts here either
+    this._appealUsed = false; this._appealOffered = false;   // one appeal per run
     this.pillAssign = this.genSeed(['pills'], () => U.shuffle(DATA.PILLS.map((_, i) => i)).slice(0, 10));
     this.pillKnown = new Set();
     this.depth = 1;
@@ -645,10 +647,42 @@ const G = {
         { x: 360, y: 96, r: 46, door: false, label: '📊 RUN HISTORY', hint: 'your receipts', act: () => this.showStats(() => this.showHub()) },
         { x: 600, y: 96, r: 46, door: false, label: '🏆 UNLOCKS',    hint: 'the corkboard', act: () => this.showUnlocks(() => this.showHub()) },
         { x: 140, y: 560, r: 48, door: false, label: '⚙ SETTINGS',   hint: 'the janitor closet', act: () => this.showSettings(() => this.showHub()) },
-        { x: 820, y: 560, r: 48, door: false, label: '📋 PATIENT CHART', hint: 'the codex', act: () => this.showCodex(() => this.showHub()) }
+        { x: 820, y: 560, r: 48, door: false, label: '📋 PATIENT CHART', hint: 'the codex', act: () => this.showCodex(() => this.showHub()) },
+        { x: 330, y: 565, r: 46, door: false, label: '🫙 WELLNESS FUND', hint: 'balance: ' + (Meta.data.fund || 0) + '¢', act: () => this.showFacility(() => this.showHub()) }
       ]
     };
   },
+  /* ---------- Facility Improvements (spend the Wellness Fund on the room itself) ---------- */
+  showFacility(returnTo) {
+    this.state = 'facility';
+    const fund = Meta.data.fund || 0;
+    const fac = Meta.data.facility || (Meta.data.facility = {});
+    const cards = DATA.FACILITY.map(f => {
+      const owned = !!fac[f.id], can = fund >= f.cost;
+      return `<button class="cmcard" data-fac="${f.id}" ${owned ? 'disabled' : ''} style="${owned ? 'opacity:.55' : can ? '' : 'opacity:.75'}">
+        <div class="cmname">${f.icon} ${f.name} ${owned ? '· INSTALLED' : `· ${f.cost}¢`}</div>
+        <div class="cmdesc">${f.desc}</div>
+        <div class="cmtag">${owned ? '✓ ' : ''}${f.perk}</div>
+      </button>`;
+    }).join('');
+    this.overlay(`
+      <div class="panel wide">
+        <h1 class="logo" style="font-size:26px">🫙 THE WELLNESS FUND</h1>
+        <div class="tagline">your leftover copays, "donated" at discharge — balance: <b style="color:#e8c84c">${fund}¢</b></div>
+        <div class="cmgrid">${cards}</div>
+        <div class="tagline" style="opacity:.65">improvements are permanent. the walrus thanks you for your generosity, which was mandatory.</div>
+        <button class="btn minor" id="bFacBack">BACK</button>
+      </div>`);
+    document.querySelectorAll('[data-fac]').forEach(b => b.onclick = () => {
+      const f = DATA.FACILITY.find(x => x.id === b.dataset.fac);
+      if (!f || fac[f.id] || (Meta.data.fund || 0) < f.cost) { SFX.play('error'); return; }
+      Meta.data.fund -= f.cost; fac[f.id] = 1; Meta.save();
+      SFX.play('fanfare');
+      this.showFacility(returnTo);
+    });
+    document.getElementById('bFacBack').onclick = () => { SFX.play('ui'); this.hideOverlay(); (returnTo || (() => this.showTitle()))(); };
+  },
+
   hubUpdate(dt) {
     const H = this.hub; if (!H) { this.showTitle(); return; }
     const p = H.p;
@@ -720,7 +754,7 @@ const G = {
     try {
       const S = {
         v: 1, diag: p.baseDiag === 'undiag' ? 'undiag' : p.diag, variant: p.variant ? 1 : 0, depth: this.depth,
-        chronic: this.chronic ? 1 : 0, bossRush: this.bossRush ? 1 : 0, prognosis: this.prognosis || null, protocol: this.protocol || null, protoT: this.protoT, ascent: this.ascent ? 1 : 0, ascentBase: this.ascentBase || 0,
+        chronic: this.chronic ? 1 : 0, bossRush: this.bossRush ? 1 : 0, prognosis: this.prognosis || null, protocol: this.protocol || null, protoT: this.protoT, ascent: this.ascent ? 1 : 0, ascentBase: this.ascentBase || 0, apl: this._appealUsed ? 1 : 0,
         lastBoss: this.lastBoss || null,
         flags: p.flags, items: p.items, comorbidities: p.comorbidities || [],
         transforms: p._transforms || [], transformTint: p.transformTint || null,
@@ -758,6 +792,7 @@ const G = {
     this.lastBoss = S.lastBoss || null;
     if (S.protoT != null) this.protoT = S.protoT;
     this.ascent = !!S.ascent; this.ascentBase = S.ascentBase || 0;
+    this._appealUsed = !!S.apl;
     this.newFloor();
     this.toast('📂 Chart reopened — ward ' + this.depth + '. Welcome back.', '#8fd0e0');
   },
@@ -786,6 +821,12 @@ const G = {
     if (p.flags.allyTough) for (const a of p.allies) { a.maxhp = 4; a.hp = 4; a.dmgMul = 1.35; }   // retro-apply Facilitator to starting allies
   },
 
+  // Facility Improvements: every owned Waiting Room upgrade's start-of-run perk
+  applyFacility(p) {
+    const fac = Meta.data.facility || {};
+    for (const f of (DATA.FACILITY || [])) if (fac[f.id]) { try { f.apply(p, this); } catch (e) { } }
+  },
+
   // challenge-run start effects (Prognosis)
   applyPrognosis(p) {
     const pr = this.prognosis; if (!pr) return;
@@ -807,6 +848,9 @@ const G = {
     this.clearCheckpoint();   // the run ended — no continuing past this
 
     const p = this.player;
+    // your remaining change is "donated" to the clinic's Wellness Fund. you were not asked.
+    if (p.coins > 0) { Meta.data.fund = (Meta.data.fund || 0) + p.coins; this._fundDonated = p.coins; p.coins = 0; }
+    else this._fundDonated = 0;
     const mode = this.protocol ? this.protocol : this.prognosis ? this.prognosis : this.chronic ? 'chronic' : this.bossRush ? 'bossrush' : this.dailyKind === 'daily' ? 'daily' : this.dailyKind === 'quarterly' ? 'quarterly' : this.dailyKind === 'challenge' ? 'challenge' : 'normal';
     if (this.prognosis) { const pb = Meta.data.prognosisBest || (Meta.data.prognosisBest = {}); pb[this.prognosis] = Math.max(pb[this.prognosis] || 0, this.depth); }
     const cured = !!this._runCured || out === 'cured';
@@ -1079,7 +1123,7 @@ const G = {
       case 'shop': {
         room.cleared = true;
         const copayMul = (1 + (this.depth - 1) * 0.07) * (this.protocol === 'deductible' ? 2 : 1);   // copays climb with the ward (it's the healthcare system, baby)
-        const disc = (p.flags.discount ? 0.5 : (this.wardPath === 'outpatient' ? 0.75 : 1)) * (p.trinket === 'expiredcoupon' ? 0.7 : 1);
+        const disc = (p.flags.discount ? 0.5 : (this.wardPath === 'outpatient' ? 0.75 : 1)) * (p.trinket === 'expiredcoupon' ? 0.7 : 1) * (p._facShopMul || 1);
         const px = (n) => Math.max(1, Math.ceil(n * disc * copayMul));
         const yc = RY + RH / 2 + 30, yi = RY + RH / 2 - 80;
         room.stock = [
@@ -1345,6 +1389,18 @@ const G = {
         this.pickups.push(new Pickup('nickel', CW / 2 - 50, RY + RH / 2 + 30));
         this.pickups.push(new Pickup('pill', CW / 2 + 50, RY + RH / 2 + 30));
       }
+      // THE DRUG REP (35%, depth 3+): free samples. every one of them comes with a string attached.
+      if (this.depth >= 3 && !p.flags.untreated && U.chance(0.35)) {
+        const rx0 = CW / 2 + 190, ry0 = RY + RH / 2 + 70;
+        room.peds.push({ x: rx0, y: ry0 - 46, kind: 'drugrep', taken: false });
+        const pool = DATA.pickPool('boss', p.items);
+        const src = U.shuffle(pool.length >= 2 ? pool : DATA.POOLS.boss.slice());
+        const fxs = U.shuffle(DATA.SAMPLE_FX.map(f => f.id));
+        for (let i = 0; i < 2; i++) {
+          room.peds.push({ x: rx0 - 55 + i * 110, y: ry0 + 34, itemId: src[i % src.length], kind: 'sample', fx: fxs[i], taken: false, repGroup: 'rep' + this.depth });
+        }
+        this.toast('“Doctor! Great news about your condition. Have you met our new friend?”', '#8fd08a');
+      }
       room.trapdoor = this.trapdoor = { x: CW / 2, y: RY + RH / 2 - 100 };
       // Ward 5 only: the service elevator opens beside the trapdoor — the other direction
       if (this.depth === 5 && !this.ascent) {
@@ -1568,6 +1624,7 @@ const G = {
       return;
     }
     if (this.state === 'hub') { this.t += dt; this.hubUpdate(dt); return; }
+    if (this.state === 'appeal') { this.t += dt; this.appealUpdate(dt); return; }
     if (this.state !== 'run') return;
     this.t += dt;
     this.doorCd -= dt; this.lockCd -= dt; this.machineCd = (this.machineCd || 0) - dt;
@@ -1718,7 +1775,7 @@ const G = {
         this.showEvent(DATA.EVENTS[ped.eventId], ped);
         return;   // pause the loop; modal is up
       } else if (ped.kind === 'cooler') {   // Day Room water cooler
-        if (p.hp < p.maxhp) { p.heal(2); ped.taken = true; this.texts.push(new FloatText(ped.x, ped.y - 30, '+♥ hydrated', '#8fd0e0')); SFX.play('heal'); }
+        if (p.hp < p.maxhp) { p.heal(p.flags.bigCooler ? 3 : 2); ped.taken = true; this.texts.push(new FloatText(ped.x, ped.y - 30, '+♥ hydrated', '#8fd0e0')); SFX.play('heal'); }
         else if (this.lockCd <= 0) { this.lockCd = 1.0; this.toast('You feel fine. Physically.', '#8fd0e0'); }
       } else if (ped.kind === 'sacrifice') {   // Seclusion Room — bleed on the altar for escalating loot
         if (p.iframes <= 0 && this.lockCd <= 0) {
@@ -1834,6 +1891,18 @@ const G = {
           }
           SFX.play('coin');
         } else if (this.lockCd <= 0) { this.lockCd = 1.4; this.texts.push(new FloatText(ped.x, ped.y - 40, 'need ' + price + '¢', '#e8c84c')); SFX.play('error'); }
+      } else if (ped.kind === 'drugrep') {   // the rep himself: all smile, no collision
+        if (this.lockCd <= 0) { this.lockCd = 2.0; this.toast('“No pressure! The samples are FREE. Completely free.”', '#8fd08a'); SFX.play('voice'); }
+      } else if (ped.kind === 'sample') {    // free sample — the string attaches immediately
+        ped.taken = true;
+        p.addItem(ped.itemId, this);
+        this.stats.items++;
+        const fx = DATA.SAMPLE_FX.find(f => f.id === ped.fx) || DATA.SAMPLE_FX[0];
+        try { fx.apply(p, this); } catch (e) { }
+        (p.sampleFx || (p.sampleFx = [])).push(fx.name);
+        for (const o of this.peds) if (o !== ped && (o.repGroup === ped.repGroup || o.kind === 'drugrep')) o.taken = true;   // his time is valuable
+        this.toast('FREE SAMPLE! Side effects include: ' + fx.name + '.', '#8fd08a');
+        SFX.play('item');
       } else {
         ped.taken = true;
         p.addItem(ped.itemId, this);
@@ -1882,10 +1951,13 @@ const G = {
       else if (p.x >= RX + RW - 12 && nearMidY && (room.doors.E || (room.secretDoors.E && this.secretFound))) this.moveRoom('E');
     }
 
-    // death
+    // death — but everyone deserves one appeal
     if (p.dead) {
       this.deathT += dt;
-      if (this.deathT > 0.9) this.showDead();
+      if (this.deathT > 0.9) {
+        if (!this._appealUsed && !this._appealOffered && !this.dailyKind && this.depth >= 2) { this._appealOffered = true; this.showAppealOffer(); }
+        else this.showDead();
+      }
     }
 
     // debug keys
@@ -1926,6 +1998,89 @@ const G = {
       else { this.saveCheckpoint(); this._runLogged = true; }   // keep the checkpoint; don't log a death/quit
       this.showTitle();
     };
+  },
+
+  /* ---------- THE APPEALS PROCESS (once per run, the denial can be argued) ---------- */
+  showAppealOffer() {
+    this.state = 'appealoffer';
+    SFX.setMusic('menu'); SFX.play('stamp');
+    const p = this.player;
+    const cause = this._causeName(p._lastSrc || 'unknown');
+    this.overlay(`
+      <div class="panel wide">
+        <div class="rx" style="border-color:#8a3030">
+          <div class="stamp">DENIED</div>
+          <h2 style="color:#c05050">FINAL NOTICE</h2>
+          <div class="sub">Cause of discharge: <b>${cause}</b> · Ward ${this.depth}</div>
+        </div>
+        ${this.billHtml()}
+        <div class="tagline">You may appeal this decision <b>once</b>. The processing fee is <b style="color:#e8c84c">${p.coins}¢</b> — which is, coincidentally, everything you have.</div>
+        <button class="btn" id="bFileAppeal">📄 FILE AN APPEAL (${p.coins}¢ fee)</button>
+        <button class="btn minor" id="bAcceptDeath">ACCEPT THE DECISION</button>
+      </div>`);
+    document.getElementById('bFileAppeal').onclick = () => { SFX.play('stamp'); this._appealFee = p.coins; p.coins = 0; this.showAppeal(); };
+    document.getElementById('bAcceptDeath').onclick = () => { SFX.play('ui'); this.showDead(); };
+  },
+  showAppeal() {
+    this.hideOverlay();
+    this.state = 'appeal';
+    const spd = Math.min(1.9, 0.85 + this.depth * 0.045);   // deeper wards argue faster
+    this.appeal = { t: 0, needle: Math.random(), dir: 1, speed: spd, zoneC: U.rand(0.3, 0.7), zoneW: 0.17, tries: 3, stamps: [], result: null, doneT: 0, flash: 0 };
+    this._appealTap = false;
+    if (!this._appealTapBound) {
+      this._appealTapBound = (e) => { if (this.state === 'appeal') { this._appealTap = true; e.preventDefault(); } };
+      const cv = document.getElementById('game');
+      cv.addEventListener('pointerdown', this._appealTapBound);
+    }
+    SFX.play('voice');
+  },
+  appealUpdate(dt) {
+    const A = this.appeal; if (!A) { this.showDead(); return; }
+    A.t += dt; A.flash -= dt;
+    if (A.result) {   // stamp landed — hold the moment, then resolve
+      A.doneT -= dt;
+      if (A.doneT <= 0) {
+        if (A.result === 'won') {
+          const p = this.player;
+          this._appealUsed = true;
+          Meta.data.appealsWon = (Meta.data.appealsWon || 0) + 1; Meta.save();
+          p.dead = false;
+          p.hp = Math.max(2, Math.ceil(p.maxhp / 2));
+          p.iframes = 2.8;
+          this.deathT = 0;
+          this.eBullets.length = 0; this.zones.length = 0;
+          this.state = 'run';
+          SFX.setMusic(this.boss && !this.boss.dead ? 'boss' : 'run');
+          SFX.play('fanfare');
+          this.toast('🗎 DENIAL OVERTURNED — resume treatment.', '#8fd05a');
+          this.setBanner('OVERTURNED', 'the reviewer sighed audibly', 2.2);
+        } else {
+          this._appealUsed = true;
+          this.showDead();
+        }
+        return;
+      }
+      return;
+    }
+    // the needle sweeps; catch it in the green
+    A.needle += A.dir * A.speed * dt;
+    if (A.needle > 1) { A.needle = 1; A.dir = -1; }
+    if (A.needle < 0) { A.needle = 0; A.dir = 1; }
+    const press = Input.take('confirm') || Input.take('ability') || this._appealTap;
+    this._appealTap = false;
+    if (press) {
+      if (Math.abs(A.needle - A.zoneC) <= A.zoneW / 2) {
+        A.result = 'won'; A.doneT = 1.4; A.stampNow = 'APPROVED';
+        SFX.play('item');
+      } else {
+        A.tries--;
+        A.stamps.push(A.needle);
+        A.flash = 0.35;
+        SFX.play('stamp');
+        A.zoneC = U.rand(0.25, 0.75); A.zoneW = Math.max(0.11, A.zoneW - 0.02); A.speed *= 1.12;
+        if (A.tries <= 0) { A.result = 'lost'; A.doneT = 1.6; A.stampNow = 'UPHELD'; }
+      }
+    }
   },
 
   showDead() {
@@ -1984,6 +2139,7 @@ const G = {
           ${row('Rooms survived', st.rooms)}
           ${(this.goals || []).map(g => row((g.done ? '✓ ' : '✗ ') + '<span style="color:' + (g.done ? '#8fd05a' : '#8a7c88') + '">' + g.name + '</span>', g.done ? '<span style="color:#8fd0e0">+◆' + g.insight + '</span>' : (g.n > 1 ? g.prog + '/' + g.n : '—'))).join('')}
           ${this._insightGained || this._goalInsight ? row('<span style="color:#8fd0e0">◆ Insight earned</span>', '<span style="color:#8fd0e0">+' + ((this._insightGained || 0) + (this._goalInsight || 0)) + '</span>') : ''}
+          ${this._fundDonated ? row('<span style="color:#e8c84c">🫙 “Donated” to the Wellness Fund</span>', '<span style="color:#e8c84c">' + this._fundDonated + '¢</span>') : ''}
         </div>
         ${this._insightGained ? `<div class="tagline" style="margin-top:-6px">spend it in the 🧠 Treatment Plan on the title screen</div>` : ''}
         ${this.billHtml()}
@@ -2209,7 +2365,7 @@ const G = {
   showBestiary(returnTo) {
     this.state = 'bestiary';
     const seen = (Meta.data.seen && Meta.data.seen.bosses) || {};
-    const order = ['gatekeeper', 'larperking', 'adjuster', 'priorauth', 'stigma', 'dsm', 'algorithm', 'influencer', 'withdrawal', 'burnout', 'walrus', 'thecure', 'founder', 'thesystem', 'theboard'];
+    const order = ['gatekeeper', 'larperking', 'adjuster', 'priorauth', 'stigma', 'dsm', 'algorithm', 'influencer', 'peerreview', 'withdrawal', 'burnout', 'walrus', 'thecure', 'founder', 'thesystem', 'theboard'];
     const got = order.filter(id => seen[id]).length;
     const cards = order.map(id => {
       const B = DATA.BOSSES[id];
@@ -2485,7 +2641,7 @@ const G = {
     if (!dsCtx || !deckStatusEl.offsetParent) return; // offsetParent is null when the deck is display:none
     const hub = G.state === 'hub';
     if (!hub && !G.player) return;
-    if (!hub && G.state !== 'run' && G.state !== 'pause' && G.state !== 'descend' && G.state !== 'dead') return;
+    if (!hub && G.state !== 'run' && G.state !== 'pause' && G.state !== 'descend' && G.state !== 'dead' && G.state !== 'appeal') return;
     const rect = deckStatusEl.getBoundingClientRect();
     const w = Math.max(1, Math.round(rect.width)), h = Math.max(1, Math.round(rect.height));
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -2505,7 +2661,7 @@ const G = {
     if (G.state === 'cutscene' && typeof Story !== 'undefined' && Story.active) {
       try { Story.update(dt); Story.draw(); } catch (e) { Story.active = false; if (G.showTitle) G.showTitle(); }
     } else {
-      if (G.state === 'run' || G.state === 'descend' || G.state === 'hub') G.update(dt);
+      if (G.state === 'run' || G.state === 'descend' || G.state === 'hub' || G.state === 'appeal') G.update(dt);
       Render.draw(G);
     }
     if (G.state === 'bestiary' && G._bestiary) {

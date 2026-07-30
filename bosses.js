@@ -461,6 +461,79 @@ class Boss {
         break;
       }
       /* ---------- THE INFLUENCER ---------- */
+      /* ---------- THE PEER REVIEW — your chart, weaponized ---------- */
+      case 'peerreview': {
+        if (!this._tw) {   // first sight of you: it photocopies your entire build
+          this._tw = {
+            td: U.clamp(p.effTearDelay ? p.effTearDelay() : p.tearDelay, 0.18, 0.5),
+            spd: U.clamp((p.effSpd ? p.effSpd() : p.spd) * 0.92, 150, 250),
+            shotSpd: U.clamp((p.shotSpd || 440) * 0.75, 260, 420),
+            diag: p.diag,
+            clr: (DATA.DIAG[p.diag] || DATA.DIAG.adhd).color
+          };
+          this.orbDir = 1;
+          G.toast('“Fascinating methodology. Mind if I replicate?”', '#b0a0d8');
+        }
+        const T = this._tw;
+        const vigor = 0.65 + 0.7 * U.clamp(p.hp / p.maxhp, 0, 1);   // the healthier you present, the harder it argues
+        if (this.state !== 9) {
+          if (!P2) {   // strafes you at review distance, like a player would
+            const d = U.dist(this.x, this.y, p.x, p.y);
+            const rad = U.ang(p.x, p.y, this.x, this.y);
+            const tgtA = rad + this.orbDir * 1.9 * dt * (T.spd / 200);
+            const nd = U.clamp(d + (190 - d) * dt * 1.5, 120, 320);
+            this.x = p.x + Math.cos(tgtA) * nd;
+            this.y = p.y + Math.sin(tgtA) * nd;
+            if (this.x < RX + this.r + 6 || this.x > RX + RW - this.r - 6 || this.y < RY + this.r + 6 || this.y > RY + RH - this.r - 6) this.orbDir *= -1;
+          } else {   // peer pressure: mirrors your movement across the room's center
+            this.moveToward(CW - p.x, (RY + RH / 2) * 2 - p.y, T.spd * 1.05, dt);
+          }
+        }
+        this.clampPos();
+        this.atkT -= dt;   // your own tears, cited back at you
+        if (this.atkT <= 0 && this.state !== 8) {
+          this.atkT = Math.max(0.22, T.td * (P2 ? 1.7 : 2.4) / vigor);
+          const a = this.aimP(G);
+          this.bullet(a + U.rand(-0.06, 0.06), T.shotSpd, T.clr, { r: 9 });
+          if (P2) this.bullet(a + (Math.random() < 0.5 ? -0.22 : 0.22), T.shotSpd * 0.92, T.clr, { r: 8 });
+        }
+        this.spT -= dt;   // periodic revision request: a burst copied from your kit
+        if (this.spT <= 0 && this.state === 0) {
+          this.spT = P2 ? 5 : 7;
+          SFX.play('voice');
+          switch (T.diag) {
+            case 'adhd': case 'insomnia':
+              this.dashDir = this.aimP(G); this.state = 9; this.stateT = 0.55;
+              G.toast('“Replicating locomotion study (n=you).”', '#b0a0d8');
+              break;
+            case 'anxiety': case 'ptsd':
+              this.ring(P2 ? 20 : 14, 190, T.clr, U.rand(0, TAU), this.aimP(G), 0.55);
+              break;
+            case 'ocd':
+              for (const ax of [0, Math.PI / 2, Math.PI, 3 * Math.PI / 2]) for (const off of [-0.12, 0, 0.12]) this.bullet(ax + off, 240, T.clr, { r: 8 });
+              break;
+            case 'schizo': case 'bipolar':
+              for (let i = 0; i < 6; i++) { const bl = this.bullet(U.rand(0, TAU), 150, T.clr); bl.fake = Math.random() < 0.5; }
+              this.bullet(this.aimP(G), 260, T.clr, { r: 10 });
+              break;
+            default:   // depression / fine: the cocoon, then the burst
+              this.vulnerable = false; this.state = 8; this.stateT = 1.1;
+              break;
+          }
+        }
+        if (this.state === 9) {   // replicated dash
+          this.stateT -= dt;
+          this.x += Math.cos(this.dashDir) * 430 * dt;
+          this.y += Math.sin(this.dashDir) * 430 * dt;
+          this.clampPos();
+          if (this.stateT <= 0) this.state = 0;
+        }
+        if (this.state === 8) {   // "under review" — untouchable, then the verdict
+          this.stateT -= dt;
+          if (this.stateT <= 0) { this.state = 0; this.vulnerable = true; this.ring(P2 ? 16 : 12, 175, T.clr, U.rand(0, TAU), this.aimP(G), 0.5); SFX.play('pop'); }
+        }
+        break;
+      }
       case 'influencer': {
         const LIVE = this.hp < this.maxhp * 0.3;   // "going live" enrage
         this.x = CW / 2 + Math.sin(this.t * 0.55) * 200;

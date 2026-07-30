@@ -43,6 +43,8 @@ const Render = {
       this.drawHUD(G);
     } else if (G.state === 'hub') {
       this.drawHub(G);
+    } else if (G.state === 'appeal') {
+      this.drawAppeal(G);
     } else {
       this.drawMenuAmbient(G);   // atmospheric backdrop behind the menus (esp. the title)
     }
@@ -50,6 +52,81 @@ const Render = {
     if (G.banner) this.drawBanner(G);
     if (G.toasts.length) this.drawToasts(G);
     if (G.state === 'descend') this.drawDescend(G);
+  },
+
+  /* ============ THE APPEALS PROCESS (stamp-timing minigame) ============ */
+  drawAppeal(G) {
+    const ctx = this.ctx, A = G.appeal;
+    if (!A) return;
+    // the reviewer's desk, after hours
+    const bg = ctx.createRadialGradient(CW / 2, CH * 0.4, 60, CW / 2, CH * 0.4, 620);
+    bg.addColorStop(0, '#2e2638'); bg.addColorStop(1, '#141018');
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, CW, CH);
+    if (A.flash > 0) { ctx.fillStyle = 'rgba(200,50,50,' + (A.flash / 0.35) * 0.25 + ')'; ctx.fillRect(0, 0, CW, CH); }
+    // the form
+    ctx.save();
+    ctx.translate(CW / 2, CH / 2 - 10);
+    ctx.rotate(-0.008);
+    ctx.fillStyle = 'rgba(0,0,0,0.4)'; this.rr(ctx, -252, -186, 512, 380, 4); ctx.fill();
+    ctx.fillStyle = '#f0ead8'; this.rr(ctx, -258, -192, 512, 380, 4); ctx.fill();
+    ctx.strokeStyle = 'rgba(140,60,60,0.5)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(-224, -192); ctx.lineTo(-224, 188); ctx.stroke();   // red margin
+    ctx.fillStyle = '#3a3342'; ctx.font = 'bold 26px Impact,"Arial Black",sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('APPEAL FORM 27-B', -2, -152);
+    ctx.font = 'bold 12px "Trebuchet MS","Segoe UI",sans-serif'; ctx.fillStyle = '#6a6272';
+    ctx.fillText('RE: the recent unpleasantness · ward ' + G.depth, -2, -130);
+    ctx.fillText('attempts remaining: ' + A.tries, -2, -112);
+    // ruled lines
+    ctx.strokeStyle = 'rgba(90,80,100,0.22)'; ctx.lineWidth = 1;
+    for (let y = -92; y < -30; y += 16) { ctx.beginPath(); ctx.moveTo(-206, y); ctx.lineTo(230, y); ctx.stroke(); }
+    ctx.font = 'italic 11px "Trebuchet MS",sans-serif'; ctx.fillStyle = '#8a8292'; ctx.textAlign = 'left';
+    ctx.fillText('"I was getting better, actually. The symptoms were circumstantial.', -206, -80);
+    ctx.fillText('  I have witnesses (they are also symptoms)."', -206, -64);
+    ctx.textAlign = 'center';
+    // ---- the meter ----
+    const MW = 380, MY = 20;
+    ctx.fillStyle = '#d8d0c0'; this.rr(ctx, -MW / 2 - 6, MY - 20, MW + 12, 40, 8); ctx.fill();
+    ctx.strokeStyle = '#8a8272'; ctx.lineWidth = 2; this.rr(ctx, -MW / 2 - 6, MY - 20, MW + 12, 40, 8); ctx.stroke();
+    // green zone
+    const zx = -MW / 2 + A.zoneC * MW, zw = A.zoneW * MW;
+    ctx.fillStyle = 'rgba(120,190,90,0.85)'; this.rr(ctx, zx - zw / 2, MY - 16, zw, 32, 5); ctx.fill();
+    ctx.fillStyle = '#2c5a33'; ctx.font = 'bold 11px Impact,"Arial Black",sans-serif';
+    ctx.fillText('APPROVED', zx, MY + 4);
+    // missed stamps
+    for (const s of A.stamps) {
+      const sx2 = -MW / 2 + s * MW;
+      ctx.save(); ctx.translate(sx2, MY); ctx.rotate(-0.3);
+      ctx.strokeStyle = 'rgba(170,50,50,0.8)'; ctx.lineWidth = 2;
+      this.rr(ctx, -28, -11, 56, 22, 3); ctx.stroke();
+      ctx.fillStyle = 'rgba(170,50,50,0.8)'; ctx.font = 'bold 12px Impact,"Arial Black",sans-serif';
+      ctx.fillText('DENIED', 0, 4);
+      ctx.restore();
+    }
+    // the needle
+    const nx = -MW / 2 + A.needle * MW;
+    ctx.fillStyle = '#3a3342';
+    ctx.beginPath(); ctx.moveTo(nx, MY - 26); ctx.lineTo(nx - 7, MY - 38); ctx.lineTo(nx + 7, MY - 38); ctx.closePath(); ctx.fill();
+    ctx.fillRect(nx - 1.5, MY - 26, 3, 52);
+    // resolution stamp
+    if (A.result) {
+      const k = U.clamp(1 - A.doneT / (A.result === 'won' ? 1.4 : 1.6), 0, 1);
+      const sc = 2.2 - k * 1.2;
+      ctx.save(); ctx.translate(0, 110); ctx.rotate(-0.18); ctx.scale(sc, sc); ctx.globalAlpha = Math.min(1, k * 2.5);
+      const col = A.result === 'won' ? '#2c7a3a' : '#a02c2c';
+      ctx.strokeStyle = col; ctx.lineWidth = 4; this.rr(ctx, -105, -26, 210, 52, 6); ctx.stroke();
+      ctx.fillStyle = col; ctx.font = 'bold 38px Impact,"Arial Black",sans-serif';
+      ctx.fillText(A.result === 'won' ? 'OVERTURNED' : 'UPHELD', 0, 13);
+      ctx.restore();
+    } else {
+      ctx.fillStyle = '#6a6272'; ctx.font = 'bold 13px "Trebuchet MS","Segoe UI",sans-serif';
+      ctx.fillText('stamp it in the green — SPACE / ⚡ / tap', 0, 92);
+      ctx.font = 'italic 10px "Trebuchet MS",sans-serif'; ctx.fillStyle = '#9a8a92';
+      ctx.fillText('(the fee was ' + (G._appealFee || 0) + '¢. the fee is non-refundable. the fee was everything.)', 0, 112);
+    }
+    ctx.restore();
+    // coffee ring, for authenticity
+    ctx.strokeStyle = 'rgba(140,100,60,0.18)'; ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.arc(CW / 2 + 200, CH / 2 + 130, 26, 0, TAU); ctx.stroke();
   },
 
   /* ============ The Waiting Room (walkable hub) ============ */
@@ -238,6 +315,25 @@ const Render = {
         for (let m = 0; m < 5; m++) { ctx.beginPath(); ctx.moveTo(s.x - 38, s.y + 42); ctx.lineTo(s.x - 44 + m * 3, s.y + 54); ctx.stroke(); }
         ctx.lineCap = 'butt';
         ctx.fillStyle = '#f4eee0'; ctx.font = this.font(13); ctx.textAlign = 'center'; ctx.fillText('⚙', s.x, s.y + 34);
+      } else if (s.label.includes('WELLNESS')) {   // the donation jar. it's always been here. donate.
+        this.shadow(s.x, s.y + 30, 22, 7, 0.2);
+        ctx.fillStyle = '#8a6a48'; this.rr(ctx, s.x - 20, s.y + 8, 40, 22, 4); ctx.fill();   // little stand
+        ctx.fillStyle = '#6a5038'; this.rr(ctx, s.x - 20, s.y + 8, 40, 6, 3); ctx.fill();
+        ctx.fillStyle = 'rgba(190,220,230,0.5)'; this.rr(ctx, s.x - 14, s.y - 28, 28, 38, 6); ctx.fill();   // the jar
+        ctx.strokeStyle = 'rgba(120,150,160,0.8)'; ctx.lineWidth = 2; this.rr(ctx, s.x - 14, s.y - 28, 28, 38, 6); ctx.stroke();
+        ctx.fillStyle = '#c8b090'; this.rr(ctx, s.x - 16, s.y - 34, 32, 7, 3); ctx.fill();   // lid with slot
+        ctx.fillStyle = '#3a3028'; ctx.fillRect(s.x - 7, s.y - 32, 14, 2.5);
+        const lvl = Math.min(1, (Meta.data.fund || 0) / 300);   // it fills as the fund grows
+        if (lvl > 0.02) {
+          ctx.fillStyle = 'rgba(232,200,76,0.85)';
+          const hh = 30 * lvl;
+          this.rr(ctx, s.x - 12, s.y + 8 - hh, 24, hh, 3); ctx.fill();
+          ctx.fillStyle = 'rgba(200,160,50,0.9)';
+          for (let c2 = 0; c2 < Math.min(5, 1 + lvl * 5); c2++) { ctx.beginPath(); ctx.ellipse(s.x - 8 + c2 * 4.5, s.y + 5 - hh + (c2 % 2) * 2.4, 3.4, 1.5, 0.2, 0, TAU); ctx.fill(); }
+        }
+        ctx.fillStyle = '#f0ead8'; this.rr(ctx, s.x - 15, s.y - 14, 30, 11, 2); ctx.fill();   // taped label
+        ctx.fillStyle = '#7a5a3a'; ctx.font = this.font(7, true); ctx.textAlign = 'center'; ctx.fillText('WELLNESS', s.x, s.y - 6);
+        ctx.fillStyle = '#f4eee0'; ctx.font = this.font(12); ctx.fillText('🫙', s.x, s.y + 46);
       } else {   // PATIENT CHART: filing cabinet
         ctx.fillStyle = '#9aa0aa'; this.rr(ctx, s.x - 26, s.y - 46, 52, 92, 5); ctx.fill();
         ctx.strokeStyle = 'rgba(60,64,74,0.5)'; ctx.lineWidth = 2; this.rr(ctx, s.x - 26, s.y - 46, 52, 92, 5); ctx.stroke();
@@ -278,6 +374,83 @@ const Render = {
     }
     ctx.fillStyle = '#2c2333'; this.rr(ctx, 12, -28, 8, 24, 2); ctx.fill();
     ctx.restore();
+    // ---- Facility Improvements: what the Wellness Fund actually bought ----
+    const fac = (typeof Meta !== 'undefined' && Meta.data.facility) || {};
+    if (fac.aquarium) {   // wall tank, left of the DAILY door
+      ctx.save(); ctx.translate(105, 148);
+      ctx.fillStyle = '#3a5a6a'; this.rr(ctx, -44, -26, 88, 52, 6); ctx.fill();
+      ctx.fillStyle = '#5a98b8'; this.rr(ctx, -39, -21, 78, 42, 4); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.18)'; this.rr(ctx, -39, -21, 78, 12, 4); ctx.fill();
+      for (let i = 0; i < 3; i++) {
+        const fx2 = ((G.t * (14 + i * 6) + i * 90) % 116) - 58, fy2 = -8 + i * 12 + Math.sin(G.t * 2 + i) * 3;
+        const dir = Math.floor((G.t * (14 + i * 6) + i * 90) / 116) % 2 ? -1 : 1;
+        ctx.save(); ctx.translate(U.clamp(fx2 * dir, -34, 34), fy2); ctx.scale(dir, 1);
+        ctx.fillStyle = ['#e8a05a', '#e8d05a', '#e05a8a'][i];
+        ctx.beginPath(); ctx.ellipse(0, 0, 5, 3, 0, 0, TAU); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(-4, 0); ctx.lineTo(-8, -3); ctx.lineTo(-8, 3); ctx.closePath(); ctx.fill();
+        ctx.restore();
+      }
+      ctx.strokeStyle = '#2a4048'; ctx.lineWidth = 3; this.rr(ctx, -44, -26, 88, 52, 6); ctx.stroke();
+      ctx.restore();
+    }
+    if (fac.tv) {   // wall television. it's the weather. it's always the weather.
+      ctx.save(); ctx.translate(868, 150);
+      ctx.fillStyle = '#1c1822'; this.rr(ctx, -40, -24, 80, 48, 4); ctx.fill();
+      const tvg = ctx.createLinearGradient(0, -20, 0, 20);
+      tvg.addColorStop(0, '#6a90b0'); tvg.addColorStop(1, '#3a5a78');
+      ctx.fillStyle = tvg; this.rr(ctx, -36, -20, 72, 40, 3); ctx.fill();
+      ctx.fillStyle = '#e8d05a'; ctx.beginPath(); ctx.arc(-20, -8, 6, 0, TAU); ctx.fill();   // sun
+      ctx.fillStyle = 'rgba(255,255,255,0.8)';
+      ctx.beginPath(); ctx.ellipse(8, -4 + Math.sin(G.t) * 1.5, 12, 5, 0, 0, TAU); ctx.ellipse(20, -2, 9, 4, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = 'rgba(20,16,26,0.55)'; this.rr(ctx, -36, 8, 72, 12, 2); ctx.fill();
+      ctx.fillStyle = '#f0e8d8'; ctx.font = this.font(7, true); ctx.textAlign = 'center'; ctx.fillText('72° OUT THERE', 0, 17);
+      ctx.strokeStyle = '#0d0a12'; ctx.lineWidth = 3; this.rr(ctx, -40, -24, 80, 48, 4); ctx.stroke();
+      ctx.restore();
+    }
+    if (fac.coffee) {   // the decaf machine, floor right of the rug
+      ctx.save(); ctx.translate(700, 563);
+      this.shadow(0, 34, 22, 7, 0.2);
+      ctx.fillStyle = '#4a4454'; this.rr(ctx, -18, -34, 36, 64, 5); ctx.fill();
+      ctx.fillStyle = '#2c2836'; this.rr(ctx, -13, -28, 26, 20, 3); ctx.fill();
+      ctx.fillStyle = '#e8c84c'; ctx.font = this.font(9, true); ctx.textAlign = 'center'; ctx.fillText('☕', 0, -14);
+      ctx.fillStyle = '#6a6474'; this.rr(ctx, -10, -2, 20, 12, 2); ctx.fill();
+      ctx.fillStyle = '#f0ead8'; this.rr(ctx, -4, 2, 8, 8, 1); ctx.fill();   // cup
+      const stm = Math.sin(G.t * 3) * 2;
+      ctx.strokeStyle = 'rgba(240,234,216,0.5)'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(stm, -6, 0, -10); ctx.stroke();
+      ctx.restore();
+    }
+    if (fac.plants) {   // more plants. the room is very open now.
+      for (const px2 of [250, 700]) {
+        ctx.save(); ctx.translate(px2, 258);
+        ctx.fillStyle = '#a06a4a'; this.rr(ctx, -10, 0, 20, 14, 3); ctx.fill();
+        ctx.strokeStyle = '#4a7a4a'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+        for (const la of [-0.5, -0.1, 0.35]) { ctx.beginPath(); ctx.moveTo(0, 2); ctx.quadraticCurveTo(la * 22, -14, la * 34, -26 + Math.abs(la) * 8); ctx.stroke(); }
+        ctx.lineCap = 'butt';
+        ctx.restore();
+      }
+    }
+    if (fac.cooler) {   // the NEW cooler. it does not gurgle.
+      ctx.save(); ctx.translate(388, 196);
+      ctx.fillStyle = '#d8dde0'; this.rr(ctx, -9, -8, 18, 30, 3); ctx.fill();
+      ctx.fillStyle = '#7ec8e8'; this.rr(ctx, -7, -22, 14, 16, 4); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.45)'; this.rr(ctx, -5, -20, 4, 10, 2); ctx.fill();
+      ctx.fillStyle = '#8fd0e0'; ctx.font = this.font(7, true); ctx.textAlign = 'center'; ctx.fillText('✨', 0, -26);
+      ctx.restore();
+    }
+    if (fac.toybox) {   // the toy corner. for "the children."
+      ctx.save(); ctx.translate(62, 606);
+      this.shadow(0, 16, 20, 6, 0.18);
+      ctx.fillStyle = '#b08a4a'; this.rr(ctx, -20, -6, 40, 20, 4); ctx.fill();
+      ctx.fillStyle = '#8a6a3a'; this.rr(ctx, -20, -6, 40, 6, 3); ctx.fill();
+      ctx.fillStyle = '#b8a0a8';   // the plush walrus, waiting
+      ctx.beginPath(); ctx.ellipse(2, -12, 11, 8, 0, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.arc(-8, -14, 6, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#f0ead8'; ctx.fillRect(-10, -11, 2, 5); ctx.fillRect(-7, -11, 2, 5);
+      ctx.fillStyle = '#2c2333'; ctx.beginPath(); ctx.arc(-10, -16, 1.2, 0, TAU); ctx.arc(-6, -16, 1.2, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#e05a6a'; ctx.beginPath(); ctx.arc(12, -4, 4, 0, TAU); ctx.fill();   // a ball
+      ctx.restore();
+    }
     // ---- you ----
     this.shadow(H.p.x, H.p.y + 14, 13, 5, 0.24);
     try { this.drawPlayer(H.p, G); } catch (e) { }
@@ -948,10 +1121,29 @@ const Render = {
         if (U.dist(G.player.x, G.player.y, ped.x, ped.y) < 80) { ctx.fillStyle = '#e8c84c'; ctx.font = this.font(11, true); ctx.fillText('2¢ · it\'s binding', ped.x, ped.y + 46); }
         continue;
       }
+      if (ped.kind === 'drugrep') {   // THE DRUG REP — teeth first, briefcase second
+        const rb = Math.sin(G.t * 2.2 + ped.x) * 1.6;
+        this.shadow(ped.x, ped.y + 16, 14, 5, 0.24);
+        ctx.save(); ctx.translate(ped.x, ped.y + rb);
+        ctx.fillStyle = '#3a4a6a'; this.rr(ctx, -10, -8, 20, 24, 6); ctx.fill();   // sharp suit
+        ctx.fillStyle = '#f0ead8'; ctx.beginPath(); ctx.moveTo(0, -6); ctx.lineTo(-4, 4); ctx.lineTo(4, 4); ctx.closePath(); ctx.fill();   // shirt
+        ctx.strokeStyle = '#c04050'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(0, -5); ctx.lineTo(0, 6); ctx.stroke();   // power tie
+        ctx.fillStyle = '#e8c9a6'; ctx.beginPath(); ctx.arc(0, -16, 8, 0, TAU); ctx.fill();   // head
+        ctx.strokeStyle = 'rgba(40,30,40,0.3)'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(0, -16, 8, 0, TAU); ctx.stroke();
+        ctx.fillStyle = '#4a3a28'; ctx.beginPath(); ctx.arc(0, -20, 8, Math.PI, 0); ctx.fill();   // slick hair
+        ctx.fillStyle = '#2c2333'; ctx.beginPath(); ctx.arc(-3, -16, 1.4, 0, TAU); ctx.arc(3, -16, 1.4, 0, TAU); ctx.fill();
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, -13, 4, 0.15, Math.PI - 0.15); ctx.stroke();   // the SMILE
+        ctx.fillStyle = '#6a4a2a'; this.rr(ctx, 8, 2, 14, 11, 2); ctx.fill();   // briefcase
+        ctx.fillStyle = '#c8a24a'; ctx.fillRect(13, 6, 4, 3);
+        ctx.restore();
+        ctx.fillStyle = '#8fd08a'; ctx.font = this.font(10, true); ctx.textAlign = 'center';
+        ctx.fillText('FREE SAMPLES', ped.x, ped.y - 34);
+        continue;
+      }
       const bob = Math.sin(G.t * 2.4 + ped.x) * 3;
       // spotlight glow from above
       const gg = ctx.createRadialGradient(ped.x, ped.y - 26, 4, ped.x, ped.y - 26, 46);
-      const gc = ped.kind === 'oon' ? '230,80,80' : ped.kind === 'boss' ? '230,200,110' : '250,240,200';
+      const gc = ped.kind === 'oon' ? '230,80,80' : ped.kind === 'sample' ? '140,230,140' : ped.kind === 'boss' ? '230,200,110' : '250,240,200';
       gg.addColorStop(0, 'rgba(' + gc + ',0.28)'); gg.addColorStop(1, 'rgba(' + gc + ',0)');
       ctx.fillStyle = gg;
       ctx.beginPath(); ctx.arc(ped.x, ped.y - 26, 46, 0, TAU); ctx.fill();
@@ -973,6 +1165,12 @@ const Render = {
         ctx.font = this.font(14, true); ctx.textAlign = 'center';
         ctx.fillText(ped.kind === 'oon' ? '♥ container' : (shown + '¢' + (coup ? ' 🎟' : '')), ped.x, ped.y + 30);
         if (ped.variant) { ctx.fillStyle = ped.variant === 'generic' ? '#9db85a' : '#e0c040'; ctx.font = this.font(9, true); ctx.fillText(ped.variant === 'generic' ? 'GENERIC' : 'BRAND®', ped.x, ped.y + 42); }
+      }
+      if (ped.kind === 'sample') {   // no charge. no charge at all.
+        ctx.fillStyle = '#8fd08a'; ctx.font = this.font(13, true); ctx.textAlign = 'center';
+        ctx.fillText('FREE*', ped.x, ped.y + 30);
+        const sfx = DATA.SAMPLE_FX.find(f => f.id === ped.fx);
+        if (sfx) { ctx.fillStyle = '#e0a05a'; ctx.font = this.font(9, true); ctx.fillText('*' + sfx.name, ped.x, ped.y + 42); }
       }
       const it = DATA.ITEMS[ped.itemId];
       if (it && U.dist(G.player.x, G.player.y, ped.x, ped.y) < 70) {
@@ -2349,6 +2547,62 @@ const Render = {
         ctx.fillStyle = '#e8e2f0'; this.rr(ctx, -20, -76, 40, 16, 4); ctx.fill();
         ctx.strokeStyle = '#4a4458'; ctx.lineWidth = 1.5; this.rr(ctx, -20, -76, 40, 16, 4); ctx.stroke();
         ctx.fillStyle = '#4a4458'; ctx.font = this.font(11, true); ctx.textAlign = 'center'; ctx.fillText('☤', 0, -63.5);
+        break;
+      }
+      case 'peerreview': { // your own chart looking back at you — a photocopied twin in review-purple
+        const T = b._tw;
+        const dg = T ? T.diag : (G.player ? G.player.diag : 'adhd');
+        if (!b._twinP || b._twinDg !== dg) {
+          try { b._twinP = new Player(dg); b._twinP.noHat = true; b._twinDg = dg; } catch (e) { b._twinP = null; }
+        }
+        // reviewer's aura
+        ctx.save();
+        ctx.strokeStyle = 'rgba(160,140,220,0.5)'; ctx.lineWidth = 2.5;
+        ctx.setLineDash([7, 6]); ctx.lineDashOffset = -(G.t || 0) * 24;
+        ctx.beginPath(); ctx.arc(0, 0, b.r + 14, 0, TAU); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.restore();
+        if (b.state === 8) {   // "under review": buried in paperwork, untouchable
+          ctx.save(); ctx.globalAlpha = 0.9;
+          for (let i = 0; i < 5; i++) {
+            const pa = (G.t || 0) * 1.6 + i * TAU / 5;
+            ctx.save(); ctx.translate(Math.cos(pa) * 30, Math.sin(pa) * 22); ctx.rotate(Math.sin(pa) * 0.4);
+            ctx.fillStyle = '#f0ead8'; ctx.fillRect(-9, -12, 18, 24);
+            ctx.strokeStyle = 'rgba(60,50,70,0.5)'; ctx.lineWidth = 1;
+            for (let l = -7; l <= 7; l += 4) { ctx.beginPath(); ctx.moveTo(-6, l); ctx.lineTo(6, l); ctx.stroke(); }
+            ctx.restore();
+          }
+          ctx.restore();
+        }
+        if (b._twinP) {   // the twin: your model, photocopied badly (mirrored, drained, marked up)
+          const tw = b._twinP;
+          tw.x = 0; tw.y = 0; tw.moving = b.state === 9; tw.aimAng = b.aimP ? b.aimP(G) : 0;
+          ctx.save();
+          ctx.scale(-1.15, 1.15);   // a reflection, slightly wrong
+          ctx.filter = 'brightness(0.68) saturate(0.5)';
+          try { this.drawPlayer(tw, G); } catch (e) { }
+          ctx.filter = 'none';
+          ctx.restore();
+          // red pen: the reviewer's notes, all over you
+          ctx.strokeStyle = 'rgba(200,60,60,0.85)'; ctx.lineWidth = 2.2; ctx.lineCap = 'round';
+          ctx.beginPath(); ctx.moveTo(-16, -6); ctx.quadraticCurveTo(-2, -14, 14, -4); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(-12, 8); ctx.lineTo(-4, 14); ctx.moveTo(-4, 8); ctx.lineTo(-12, 14); ctx.stroke();   // an ✗
+          ctx.lineCap = 'butt';
+        } else {   // fallback: a clipboard ghost
+          ctx.fillStyle = flash ? '#fff' : '#8a7fd0';
+          ctx.beginPath(); ctx.ellipse(0, 0, b.r * 0.9, b.r, 0, 0, TAU); ctx.fill();
+        }
+        // the clipboard familiar, hovering with your file
+        const cb = Math.sin((G.t || 0) * 2.3) * 3;
+        ctx.save(); ctx.translate(b.r + 16, -b.r * 0.5 + cb); ctx.rotate(0.12);
+        ctx.fillStyle = '#8a6a3a'; this.rr(ctx, -10, -13, 20, 26, 3); ctx.fill();
+        ctx.fillStyle = '#f0ead8'; this.rr(ctx, -8, -10, 16, 21, 2); ctx.fill();
+        ctx.fillStyle = '#6a625a'; this.rr(ctx, -4, -15, 8, 5, 2); ctx.fill();
+        ctx.strokeStyle = 'rgba(60,50,70,0.55)'; ctx.lineWidth = 1;
+        for (let l = -6; l <= 6; l += 4) { ctx.beginPath(); ctx.moveTo(-5, l); ctx.lineTo(5, l); ctx.stroke(); }
+        ctx.strokeStyle = 'rgba(200,60,60,0.9)'; ctx.lineWidth = 1.6;
+        ctx.beginPath(); ctx.moveTo(2, 4); ctx.lineTo(5, 7); ctx.moveTo(5, 4); ctx.lineTo(2, 7); ctx.stroke();
+        ctx.restore();
         break;
       }
       case 'influencer': { // wellness guru mid-photoshoot: ring light, shades, phone, crystals

@@ -458,6 +458,7 @@ DATA.BOSSES = {
   priorauth:  { name: "PRIOR AUTHORIZATION", sub: "“Please hold.”", hp: 205 },
   algorithm:  { name: "THE ALGORITHM", sub: "“You might also like: THIS.”", hp: 215 },
   influencer: { name: "THE INFLUENCER", sub: "“This ring light cured me. Use code WALRUS10.”", hp: 210 },
+  peerreview: { name: "THE PEER REVIEW", sub: "“Interesting case. May I?”", hp: 280 },
   thecure:    { name: "THE CURE", sub: "“It was inside you all along. (It wasn't.)”", hp: 300 },
   founder:    { name: "THE FOUNDER", sub: "“I didn't invent the disease. I monetized the cure.”", hp: 400 },
   thesystem:  { name: "THE SYSTEM", sub: "“Your call is important to us. Estimated wait: forever.”", hp: 620 },
@@ -473,9 +474,34 @@ DATA.bossFor = function (depth, lastBoss) {
   if (depth >= 2) pool.push('adjuster', 'priorauth');
   if (depth >= 3) pool.push('stigma', 'dsm', 'algorithm', 'influencer');
   if (depth >= 4) pool.push('withdrawal', 'burnout');
+  if (depth >= 6) pool.push('peerreview');   // by now there's enough of you on file to copy
   const filtered = pool.filter(b => b !== lastBoss);
   return U.choice(filtered.length ? filtered : pool);
 };
+
+/* ============ THE DRUG REP (free samples, with strings) ============ */
+DATA.SAMPLE_FX = [
+  { id: 'tremors',  name: 'hand tremors',        apply: (p) => { p.wobble += 0.055; } },
+  { id: 'drowsy',   name: 'drowsiness',          apply: (p) => { p.spd *= 0.94; } },
+  { id: 'brainzap', name: 'brain zaps',          apply: (p) => { p.tearDelay *= 1.07; } },
+  { id: 'thin',     name: 'lowered resistance',  apply: (p) => { p.maxhp = Math.max(2, p.maxhp - 1); p.hp = Math.min(p.hp, p.maxhp); } },
+  { id: 'doom',     name: 'a vague sense of doom', apply: (p) => { p.luck -= 0.6; } },
+  { id: 'appetite', name: 'delayed reactions',   apply: (p) => { p.shotSpd *= 0.9; } },
+  { id: 'fog',      name: 'mild dissociation',   apply: (p) => { p.range *= 0.9; } },
+  { id: 'jitters',  name: 'the jitters',         apply: (p) => { p.wobble += 0.03; p.spd *= 1.03; } }
+];
+
+/* ============ FACILITY IMPROVEMENTS (the Wellness Fund) ============
+   Leftover run coins are "donated" on discharge. Spend the fund on the
+   Waiting Room itself — visible furniture, each with a small standing perk. */
+DATA.FACILITY = [
+  { id: 'plants',   icon: '🪴', name: 'More Plants',     cost: 60,  desc: 'It really opens the room up.', perk: 'shops 5% off',            apply: (p, G) => { p._facShopMul = 0.95; } },
+  { id: 'coffee',   icon: '☕', name: 'Coffee Machine',   cost: 90,  desc: 'Decaf. Nobody was consulted.', perk: 'start with +1 key',        apply: (p) => { p.keys++; } },
+  { id: 'cooler',   icon: '💧', name: 'New Water Cooler', cost: 110, desc: 'The old one gurgled ominously.', perk: 'coolers heal +1 extra',  apply: (p) => { p.flags.bigCooler = true; } },
+  { id: 'aquarium', icon: '🐠', name: 'Aquarium',        cost: 150, desc: 'The fish have seen things.',   perk: '+0.5 luck on every run',   apply: (p) => { p.luck += 0.5; } },
+  { id: 'tv',       icon: '📺', name: 'Wall Television',  cost: 130, desc: 'Stuck on the weather channel.', perk: 'start with +1 bomb',      apply: (p) => { p.bombs++; } },
+  { id: 'toybox',   icon: '🧸', name: 'Toy Corner',      cost: 260, desc: 'For "the children."',           perk: 'start with a plush walrus', apply: (p) => { p.familiars.push(new Familiar('plush')); } }
+];
 
 /* ============ PATIENT CHART (codex) flavor ============
    Satirical clinical notes — aimed at the over-labeling machine, not people. */
@@ -520,6 +546,7 @@ DATA.CODEX_CHART = {
     founder: "The man who turned every feeling into a market. Waits at the very top of the ladder — Ward 50.",
     thesystem: "Not a person. All of it at once — the denials, the pharmacy, the feed. Ward 100. The last argument.",
     theboard: "Three suits, one table, zero patients seen. Waits at the top of the elevator, voting on you.",
+    peerreview: "Requested your full file 'for methodology reasons.' Now it moves like you, shoots like you, and cites you against yourself. The healthier you look, the harder it argues.",
     walrus: "Board-certified in Confidence. The doctor will see you now. Forever."
   }
 };
