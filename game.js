@@ -471,6 +471,7 @@ const G = {
     });
   },
   hasRule(id) { return !!(this.houseRules && this.houseRules.includes(id)); },
+  hasCal(id) { return this.calDay != null && DATA.CALENDAR[this.calDay] && DATA.CALENDAR[this.calDay].id === id; },
 
   /* ---------- THE PATIENT DIARY (the run writes itself down) ---------- */
   diaryNote(txt) {
@@ -1330,6 +1331,66 @@ const G = {
       RC.exitVx = Math.cos(ea) * 240; RC.exitVy = 0;
     }
   },
+  /* ---------- THE RECORDS ROOM (stealth: three patrols, one original file) ---------- */
+  heistUpdate(dt) {
+    const room = this.room;
+    const H = room && room._heist;
+    if (!H || H.alertedFight || H.stolen) return;
+    const p = this.player;
+    for (const g of H.guards) {
+      const wp = g.wps[g.wi];
+      if (g.pauseT > 0) {
+        g.pauseT -= dt;
+        g.ang += Math.sin(this.t * 1.7 + g.x) * 0.028;   // sweeping the light around
+      } else {
+        const d = U.dist(g.x, g.y, wp.x, wp.y);
+        if (d < 6) { g.wi = (g.wi + 1) % g.wps.length; g.pauseT = U.rand(0.5, 1.1); }
+        else {
+          const a = U.ang(g.x, g.y, wp.x, wp.y);
+          g.ang += Math.atan2(Math.sin(a - g.ang), Math.cos(a - g.ang)) * Math.min(1, dt * 6);
+          g.x += Math.cos(a) * g.spd * dt;
+          g.y += Math.sin(a) * g.spd * dt;
+        }
+      }
+      // the flashlight finds people
+      const pd = U.dist(g.x, g.y, p.x, p.y);
+      let seen = false;
+      if (pd < 205) {
+        const pa2 = U.ang(g.x, g.y, p.x, p.y);
+        const diff = Math.abs(Math.atan2(Math.sin(pa2 - g.ang), Math.cos(pa2 - g.ang)));
+        if (diff < 0.5) {
+          let blocked = false;
+          for (let s = 1; s <= 6; s++) {
+            const t = pxToTile(g.x + (p.x - g.x) * s / 7, g.y + (p.y - g.y) * s / 7);
+            if (tileSolid(room.layout, t.c, t.r)) { blocked = true; break; }
+          }
+          if (!blocked) {
+            seen = true;
+            g.alert = (g.alert || 0) + dt;
+            if (g.alert > 0.5) { this.heistCaught(); return; }
+          }
+        }
+      }
+      if (!seen) g.alert = Math.max(0, (g.alert || 0) - dt * 1.6);
+    }
+  },
+  heistCaught() {
+    const room = this.room, H = room._heist;
+    H.alertedFight = true;
+    H.alerted = true;
+    room.cleared = false;
+    this.setBanner('🚨 FLAGGED', 'the records department would like a word', 2.6);
+    this.toast('“UNAUTHORIZED ACCESS. Forms will be filed. AT you.”', '#e05a5a');
+    for (const g of H.guards) {
+      const e = new Enemy('recordsguard', g.x, g.y, this.depth, false, 1);
+      e.spawnT = 0.6;
+      this.enemies.push(e);
+    }
+    H.guards = [];
+    this.diaryNote('Got flagged mid-heist in the Records Room. The patrols were startled. Then armed. With forms.');
+    SFX.play('boss');
+  },
+
   /* ---------- THE ACTUARY (your mortality, projected to one decimal place) ---------- */
   showActuary(ped) {
     const p = this.player;
@@ -2117,6 +2178,19 @@ const G = {
       this.toast('🎗 VOLUNTEER. Not a patient — a regular. The companions can feel it.', '#e8c05a');
       this.diaryNote('Wore the volunteer badge in. Not my circus anymore. Still my monkeys.');
     }
+    // THE WARD CALENDAR: the building runs on a real week (regular runs only — dailies stay fair)
+    this.calDay = (!daily && !this.practice && !this.sandbox) ? new Date().getDay() : null;
+    if (this.calDay != null) {
+      const CAL = DATA.CALENDAR[this.calDay];
+      if (this.hasCal('monday')) this.player.dmg += 0.3;
+      if (this.hasCal('wednesday')) this.player.bombs += 2;
+      if (this.hasCal('saturday')) this.player.luck += 1;
+      this.toast('📅 ' + CAL.icon + ' ' + CAL.name + ' — ' + CAL.desc, '#c8b878');
+      if (!this.sandbox) {
+        const cd = Meta.data.calDays || (Meta.data.calDays = {});
+        if (!cd[this.calDay]) { cd[this.calDay] = 1; Meta.save(); this.checkUnlocks(); }
+      }
+    }
     if (this.plan === 'bronze') { this.player.coins += 15; }
     if (this.plan === 'gold') { this.player.maxhp = Math.max(2, this.player.maxhp - 2); this.player.hp = Math.min(this.player.hp, this.player.maxhp); }
     if (this.plan !== 'silver') { const PL = DATA.PLANS.find(x => x.id === this.plan); this.toast(PL.icon + ' Enrolled: ' + PL.name + ' — ' + PL.tag, PL.clr); }
@@ -2728,6 +2802,11 @@ const G = {
         setTimeout(() => { if (this.state === 'run') this.toast('🚧 Somewhere on this ward, a room is roped off. It has your outline in it.', '#e0a05a'); }, 1200);
       }
     }
+    // THE RECORDS ROOM: they keep the originals down here (depth 4+, don't be seen)
+    if (this.depth >= 4 && !this.overtime && !this.bossRush && this.genSeed(['records', this.depth], () => U.chance(0.16))) {
+      const normalsR = this.floorRooms.filter(r => r.type === 'normal');
+      if (normalsR.length > 3) U.choice(normalsR).type = 'records';
+    }
     // THE RIVAL books the gym (depth 3+, likelier if they robbed you at a pedestal)
     this.gymSet = false;
     if (this.seed == null && !this.practice && !this.sandbox && !this.overtime && !this.bossRush && this.depth >= 3 && U.chance(this._raceLostThisRun ? 0.5 : 0.2)) {
@@ -2976,6 +3055,12 @@ const G = {
     if (room.type === 'secret' && !room.greeted) { room.greeted = true; this.toast(DATA.TOASTS.secret); }
     if (room.type === 'oon' && !room.greeted) { room.greeted = true; this.toast(DATA.TOASTS.oon, '#e08a8a'); }
     if (room.type === 'gym' && !room.greeted) { room.greeted = true; this.toast('🥊 The gym. Someone chalked a name on the board. It\'s yours, misspelled.', '#d08a4a'); }
+    if (room.type === 'records' && !room.greeted) {
+      room.greeted = true;
+      this.setBanner('🗄 THE RECORDS ROOM', 'they keep the originals here. don\'t be seen.', 3.0);
+      this.toast('🗄 Three patrols. Two stacks. One file with your name on it — the FIRST one.', '#c8b878');
+      SFX.play('sting');
+    }
     if (room.type === 'incident' && !room.greeted) {
       room.greeted = true;
       const inc = Meta.data.incident || {};
@@ -3126,6 +3211,26 @@ const G = {
         room.pickups.push(new Pickup('half', RX + 90, RY + RH - 90));   // the water fountain works, at least
         break;
       }
+      case 'records': {   // THE RECORDS ROOM — two long stacks, three patrols, one original file
+        room.cleared = true;
+        room.theme = 'records';
+        // curated layout: two shelf columns, three aisles
+        for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) room.layout[r][c] = 0;
+        for (let r = 1; r <= 5; r++) { room.layout[r][4] = 1; room.layout[r][8] = 1; }
+        room.paperHp = {};
+        // three patrols walking the aisles
+        const lanes = [2, 6, 10].map(c => RX + c * TILE + TILE / 2);
+        room._heist = {
+          guards: lanes.map((lx, i) => ({
+            x: lx, y: RY + 90 + i * 140, spd: 62 + i * 6, ang: Math.PI / 2, wi: i % 2, alert: 0, pauseT: 0,
+            wps: [{ x: lx, y: RY + 70 }, { x: lx, y: RY + RH - 70 }]
+          })),
+          alerted: false, alertedFight: false, stolen: false
+        };
+        // the original file, top-right corner, in the glow of one desk lamp
+        room.peds.push({ x: RX + 11 * TILE + TILE / 2, y: RY + 64, kind: 'origfile', taken: false });
+        break;
+      }
       case 'incident': {   // THE INCIDENT SITE — roped off, guarded, still yours
         room.cleared = true;   // quiet until the guard notices you
         const inc = Meta.data.incident || {};
@@ -3237,6 +3342,9 @@ const G = {
     if (this._ic && !(this._ic.cds.fast > 0) && this.t - (this._roomT0 || 0) < 5) { this._ic.cds.fast = 110; this.pa('fast'); }
     // Shadow Ward: the dark pays double
     if (this.shadowWard) for (let i = 0; i < 2; i++) this.pickups.push(new Pickup(U.choice(['coin', 'coin', 'nickel', 'half']), CW / 2 + U.rand(-60, 60), RY + RH / 2 + U.rand(-40, 40)));
+    // THE WARD CALENDAR pays its respects
+    if (this.hasCal('wednesday') && U.chance(0.2)) this.pickups.push(new Pickup('bomb', CW / 2 + U.rand(-60, 60), RY + RH / 2 + U.rand(-30, 30)));
+    if (this.hasCal('thursday') && U.chance(0.35)) this.pickups.push(new Pickup(U.chance(0.2) ? 'nickel' : 'coin', CW / 2 + U.rand(-60, 60), RY + RH / 2 + U.rand(-30, 30)));
     // NIGHT SHIFT: differential pay (the coins apologize for the hour)
     if (this.nightShift && U.chance(0.6)) {
       this.pickups.push(new Pickup('coin', CW / 2 + U.rand(-50, 50), RY + RH / 2 + U.rand(-30, 30)));
@@ -3248,7 +3356,7 @@ const G = {
       xp[p.pet.type] = (xp[p.pet.type] || 0) + 1;
       if (xp[p.pet.type] === 40) {
         p.pet.evo = true;
-        const names = { pigeon: 'THE CARRIER PIGEON', cat: 'SENIOR OFFICE CAT', snake: 'THE EXTENDED METAPHOR', goldfish: 'TWO GOLDFISH (they remember each other)' };
+        const names = { pigeon: 'THE CARRIER PIGEON', cat: 'SENIOR OFFICE CAT', snake: 'THE EXTENDED METAPHOR', goldfish: 'TWO GOLDFISH (they remember each other)', dog: 'THE FULL GOLDEN' };
         this.toast('✨ Your companion evolved: ' + (names[p.pet.type] || p.pet.type) + '!', '#e8c84c');
         this.diaryNote('The ' + p.pet.type + ' evolved. It was already perfect. Now it is MORE.');
         SFX.play('evolve');
@@ -3422,6 +3530,7 @@ const G = {
       const BN = (DATA.BOSSES[this.bossId] || { name: this.bossId }).name;
       this.diaryNote('Put down ' + BN + (this.boss && this.boss._shift2 ? ' (working a double, no less)' : '') + ' on ward ' + this.depth + '. Management will send a replacement.');
       if (this.bossId === 'walrus') this.bingoEvent('walrus');
+      if (this.bossId === 'merger' && !this.sandbox && !this.practice) { Meta.data.mergerKills = (Meta.data.mergerKills || 0) + 1; Meta.save(); this.checkUnlocks(); }
     }
     // JOINT COMMISSION cleared: two signatures, double severance
     if (this._wasJoint) {
@@ -3946,7 +4055,7 @@ const G = {
       if (this._loneT > 14) for (const e of liveNow) e._impatient = true;   // even the symptoms get bored
     } else this._loneT = 0;
     const hostiles = this.enemies.some(e => !e.charmed && e.id !== 'auditor');   // the Auditor never blocks the doors — run if you want
-    if (!room.cleared && (room.type === 'normal' || room.type === 'padded' || room.type === 'clinic' || room.type === 'gym' || room.type === 'incident') && room.spawned && !hostiles) this.onRoomCleared();
+    if (!room.cleared && (room.type === 'normal' || room.type === 'padded' || room.type === 'clinic' || room.type === 'gym' || room.type === 'incident' || room.type === 'records') && room.spawned && !hostiles) this.onRoomCleared();
     if (!room.cleared && room.type === 'boss' && this.boss && this.boss.dead && this.enemies.length === 0 && !room.cleared) {
       // onBossDead already ran via boss.die
     }
@@ -3961,7 +4070,7 @@ const G = {
         return;   // pause the loop; modal is up
       } else if (ped.kind === 'cooler') {   // Day Room water cooler
         if (this.hasRule('brokenCoolers')) { if (this.lockCd <= 0) { this.lockCd = 1.4; this.toast('🚱 OUT OF ORDER. (house rules)', '#a89a8a'); SFX.play('denied'); } }
-        else if (p.hp < p.maxhp) { p.heal(p.flags.bigCooler ? 3 : 2); ped.taken = true; this.texts.push(new FloatText(ped.x, ped.y - 30, '+♥ hydrated', '#8fd0e0')); SFX.play('heal'); }
+        else if (p.hp < p.maxhp) { p.heal((p.flags.bigCooler ? 3 : 2) + (this.hasCal('tuesday') ? 1 : 0)); ped.taken = true; this.texts.push(new FloatText(ped.x, ped.y - 30, this.hasCal('tuesday') ? '+♥ hydrated (+ pudding)' : '+♥ hydrated', '#8fd0e0')); SFX.play('heal'); }
         else if (this.lockCd <= 0) { this.lockCd = 1.0; this.toast('You feel fine. Physically.', '#8fd0e0'); }
       } else if (ped.kind === 'sacrifice') {   // Seclusion Room — bleed on the altar for escalating loot
         if (p.iframes <= 0 && this.lockCd <= 0) {
@@ -4127,6 +4236,28 @@ const G = {
         this.diaryNote('Someone with a brand-new badge asked to follow me. I said the wrong thing: "sure."');
         this.toast('🪪 THE INTERN is shadowing you. Keep them alive for 3 floors. They panic. A lot.', '#e8c05a');
         SFX.play('voice');
+      } else if (ped.kind === 'origfile') {   // YOUR original intake file. the first page of all of this.
+        ped.taken = true;
+        const H = this.room._heist || {};
+        H.stolen = true;
+        const clean = !H.alerted;
+        const firstTime = !Meta.data.fileStolen;
+        Meta.data.fileStolen = 1;
+        if (clean && !this.sandbox && !this.practice) Meta.data.heistsClean = (Meta.data.heistsClean || 0) + 1;
+        Meta.data.insight = (Meta.data.insight || 0) + (clean ? 8 : 5);
+        Meta.save();
+        this.checkUnlocks();
+        p.heal(2); p.coins += 8;
+        if (clean) this.setBanner('👻 GHOSTED', 'in and out. the patrols will never know.', 2.6);
+        this.toast('📁 THE ORIGINAL FILE — +♥, +8¢, +◆' + (clean ? 8 : 5) + (clean ? ' (unseen bonus)' : ''), '#8fd08a');
+        if (firstTime) {
+          setTimeout(() => { if (this.state === 'run') { this.toast('📁 Intake, page one. Presenting complaint: “trouble sleeping.”', '#c8b878'); SFX.play('paper'); } }, 1600);
+          setTimeout(() => { if (this.state === 'run') { this.toast('📁 That was it. That was the whole complaint.', '#e8c05a'); SFX.play('voice'); } }, 4200);
+          this.diaryNote('Stole my original intake file. Page one says I came in for trouble sleeping. Page one is very quiet about the rest.');
+        } else {
+          this.diaryNote('Lifted another “original” of my file from the records room. They keep printing originals. That word is losing meaning.');
+        }
+        SFX.play('fanfare');
       } else if (ped.kind === 'actuary') {   // the briefcase. the calculator. your odds.
         if (this.lockCd <= 0) { this.lockCd = 2.0; this.showActuary(ped); return; }
       } else if (ped.kind === 'compound') {   // the back room. the mortar. the smell of progress.
@@ -4246,6 +4377,8 @@ const G = {
       const live = this.enemies.filter(e => !e.dying && !e.fake && !e.charmed && e.spawnT <= 0 && e.id !== 'auditor').length;
       if (live >= 4 && Math.random() < 0.12) this.unionize();
     }
+    // THE RECORDS ROOM: patrol sweeps + vision cones
+    if (this.room && this.room.type === 'records') this.heistUpdate(dt);
     // THE RIVAL: pedestal race in progress
     if (this.race) this.raceUpdate(dt);
     // Patient Two (couch co-op)
@@ -4450,6 +4583,11 @@ const G = {
       for (const e of this.enemies) { if (e.fake || e.dying || e.spawnT > 0) continue; if (U.dist(pet.x, pet.y, e.x, e.y) < 220) { e._dazeT = 1.6; n++; } }
       this.toast('🐟 ' + (n ? n + ' patients suddenly can\'t remember why they were upset.' : 'the room was already forgetful.'), '#8fd0e0');
       SFX.play('voice');
+    } else if (pet.type === 'dog') {     // SIT. STAY. the room calms down around a professional
+      pet.x = p.x + 26; pet.y = p.y + 12;
+      pet._calmT = pet.evo ? 4 : 3;
+      this.toast('🐕 SIT. STAY. The room takes a breath it didn\'t know it needed.', '#e8c05a');
+      SFX.play('heal');
     }
   },
 
@@ -5112,7 +5250,7 @@ const G = {
   showBestiary(returnTo) {
     this.state = 'bestiary';
     const seen = (Meta.data.seen && Meta.data.seen.bosses) || {};
-    const order = ['gatekeeper', 'larperking', 'adjuster', 'priorauth', 'stigma', 'dsm', 'algorithm', 'influencer', 'peerreview', 'withdrawal', 'burnout', 'walrus', 'thecure', 'founder', 'thesystem', 'theboard'];
+    const order = ['gatekeeper', 'larperking', 'adjuster', 'priorauth', 'stigma', 'dsm', 'algorithm', 'influencer', 'peerreview', 'withdrawal', 'burnout', 'merger', 'walrus', 'thecure', 'founder', 'thesystem', 'theboard'];
     const got = order.filter(id => seen[id]).length;
     const cards = order.map(id => {
       const B = DATA.BOSSES[id];

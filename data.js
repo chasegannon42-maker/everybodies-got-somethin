@@ -480,7 +480,10 @@ DATA.ACHIEVEMENTS = [
   { id: 'stairMaster', name: "StairMaster",         desc: "Take the stairs down clean, 3 times.",            hint: "Nobody takes the stairs. Take the stairs.",     check: m => (m.stairsClean || 0) >= 3 },
   { id: 'defyOdds',   name: "Outside The Model",    desc: "Win 3 wagers against the Actuary.",               hint: "The projection is not a diagnosis. Prove it.",  check: m => (m.actuaryWins || 0) >= 3 },
   { id: 'actCorrect', name: "A Model Patient",      desc: "Die exactly as the Actuary predicted.",           hint: "Right ward. They'll frame the printout.",       check: m => (m.actuaryCorrect || 0) >= 1 },
-  { id: 'audiophile', name: "Heavy Rotation",       desc: "Unlock every track on WWRD Ward Radio.",          hint: "The building has nine songs. Hear them all.",   check: m => Object.keys(m.tracksHeard || {}).length >= 9 }
+  { id: 'audiophile', name: "Heavy Rotation",       desc: "Unlock every track on WWRD Ward Radio.",          hint: "The building has nine songs. Hear them all.",   check: m => Object.keys(m.tracksHeard || {}).length >= 9 },
+  { id: 'ownRecords', name: "It's My File",         desc: "Steal your original intake file from the Records Room.", hint: "They keep the originals behind the stacks. Don't be seen.", check: m => !!m.fileStolen },
+  { id: 'mergerDown', name: "Hostile Takeover, Reversed", desc: "Defeat THE MERGER.",                       hint: "Past Ward 30, the acquisition closes. Object to it.", check: m => (m.mergerKills || 0) >= 1 },
+  { id: 'fullWeek',   name: "Regular Programming",  desc: "Check in on all 7 days of the week.",             hint: "The building runs on a real calendar. So do you.", check: m => Object.keys(m.calDays || {}).length >= 7 }
 ];
 DATA.checkAchievements = function (m) {
   if (!m.unlocks) m.unlocks = {};
@@ -542,6 +545,8 @@ DATA.ENEMIES = {
   rival:    { name: "THE RIVAL", hp: 58, spd: 92, r: 15, dmg: 1, beh: 'rival', clr: '#d08a4a', shotCd: 1.7, bulSpd: 205 },
   /* --- night-shift exclusive miniboss --- */
   nightnurse: { name: "THE NIGHT NURSE", hp: 70, spd: 38, r: 24, dmg: 1, beh: 'nightnurse', clr: '#8a90c8', shotCd: 2.8, bulSpd: 170 },
+  /* --- records-room security (spawn only when a heist goes loud) --- */
+  recordsguard: { name: "Records Patrol", hp: 32, spd: 72, r: 15, dmg: 1, beh: 'auditor', clr: '#b0a890', shotCd: 3.1, bulSpd: 180 },
   /* --- ward minibosses (clinic rooms) --- */
   chargenurse: { name: "THE CHARGE NURSE", hp: 55, spd: 42, r: 24, dmg: 1, beh: 'nursey', clr: '#e8ecf0', shotCd: 0.55, bulSpd: 210 },
   resident:    { name: "THE RESIDENT", hp: 48, spd: 58, r: 22, dmg: 1, beh: 'resident', clr: '#7ab8a0', bulSpd: 180 },
@@ -593,6 +598,7 @@ DATA.BOSSES = {
   founder:    { name: "THE FOUNDER", sub: "“I didn't invent the disease. I monetized the cure.”", hp: 400 },
   thesystem:  { name: "THE SYSTEM", sub: "“Your call is important to us. Estimated wait: forever.”", hp: 620 },
   theboard:   { name: "THE BOARD", sub: "“All in favor of denying coverage? Motion carries.”", hp: 470 },
+  merger:     { name: "THE MERGER", sub: "“Synergy. Efficiencies. Your chart, our brand.”", hp: 430 },
   walrus:     { name: "DR. WALRUS, M.D.*", sub: "*mail-order", hp: 300 }
 };
 DATA.bossFor = function (depth, lastBoss) {
@@ -605,6 +611,7 @@ DATA.bossFor = function (depth, lastBoss) {
   if (depth >= 3) pool.push('stigma', 'dsm', 'algorithm', 'influencer');
   if (depth >= 4) pool.push('withdrawal', 'burnout');
   if (depth >= 6) pool.push('peerreview');   // by now there's enough of you on file to copy
+  if (depth >= 30) pool.push('merger', 'merger');   // deep wards: the acquisition closed (double weight)
   const filtered = pool.filter(b => b !== lastBoss);
   return U.choice(filtered.length ? filtered : pool);
 };
@@ -854,7 +861,8 @@ DATA.PETS = [
   { id: 'pigeon',   icon: '🕊', name: 'The Pigeon',   note: 'finds loose change; strong opinions about crumbs', unlock: m => true,                         unlockHint: 'yours by default. it chose you.' },
   { id: 'cat',      icon: '🐈', name: 'Office Cat',   note: 'swats bullets off the table. you are the table',   unlock: m => (m.contractsDone || 0) >= 3,  unlockHint: 'complete 3 Day Room contracts' },
   { id: 'snake',    icon: '🐍', name: 'The Metaphor', note: 'it bites your problems. it IS your problems',      unlock: m => (m.amaDone || 0) >= 1,        unlockHint: 'leave Against Medical Advice once' },
-  { id: 'goldfish', icon: '🐟', name: 'The Goldfish', note: 'enemies near it forget what they were doing',      unlock: m => (m.appealsWon || 0) >= 1,     unlockHint: 'win an appeal' }
+  { id: 'goldfish', icon: '🐟', name: 'The Goldfish', note: 'enemies near it forget what they were doing',      unlock: m => (m.appealsWon || 0) >= 1,     unlockHint: 'win an appeal' },
+  { id: 'dog',      icon: '🐕', name: 'Therapy Dog',  note: 'certified. vested. extremely good.',               unlock: m => !!(m.rival && (m.rival.duelW || 0) >= 1), unlockHint: 'win one gym duel vs your rival' }
 ];
 
 /* ============ THE INTERCOM (Dr. Walrus is watching. commenting, even.) ============ */
@@ -936,6 +944,7 @@ DATA.CODEX_CHART = {
     premium: "Cannot be harmed until it has billed you. One touch, one copay, and suddenly it's mortal like the rest of us.",
     placebo: "Looks devastating. Glows like a champion. Dies to literally anything. The confetti is real, though.",
     rival: "Checked in the same day as you. Files identical, minute-for-minute. One of you is thriving, and they have opinions about which. Fights like your mirror with a grudge.",
+    recordsguard: "Junior auditors on stack patrol. Paid hourly to sweep a flashlight. Genuinely startled every time it finds someone.",
     nightnurse: "Only works nights. Glides. Doesn't run — has never needed to. Occasionally turns the lights off 'for morale' and closes the distance in the dark.",
     larper: "Read one (1) article. Now an expert. Sincerity: guarded.",
     ad: "Ask your doctor if being a walking commercial is right for you.",
@@ -960,6 +969,7 @@ DATA.CODEX_CHART = {
     orderly: "Not angry. Not fast. Just always, always closer than he was."
   },
   bosses: {
+    merger: "Two managements stitched into one org chart. Fights entirely with acquired attacks — nothing about it is original, including the smile. The stock ticks down as you object.",
     gatekeeper: "Guards the diagnosis you already have. You don't LOOK sick enough.",
     adjuster: "Reviews your suffering for billing errors. Finds them.",
     larperking: "Wears every diagnosis at once. Owns the group chat.",
@@ -1193,6 +1203,17 @@ DATA.HATS = [
   { id: 'ticket',   name: "Ticket Stub",      ach: 'protocolFive', hint: "complete 5 Protocols" },
   { id: 'paperhat', name: "Folded Paper Hat", ach: 'stairMaster',  hint: "three clean stairwell descents" }
 ];
+
+/* ============ THE WARD CALENDAR (the building runs on a real week) ============ */
+DATA.CALENDAR = {
+  1: { id: 'monday',    icon: '📣', name: 'Motivational Monday', desc: 'the posters are working — +0.3 damage, whether you like it or not' },
+  2: { id: 'tuesday',   icon: '🍮', name: 'Pudding Tuesday',     desc: 'the Day Rooms serve pudding — water coolers heal +1 extra' },
+  3: { id: 'wednesday', icon: '📄', name: 'Paperwork Wednesday', desc: 'start with +2 claim forms; cleared rooms shed extra forms' },
+  4: { id: 'thursday',  icon: '💰', name: 'Payday Thursday',     desc: 'the building is briefly liquid — rooms tip better' },
+  5: { id: 'friday',    icon: '🎩', name: 'CASUAL FRIDAY',       desc: 'everything is wearing a hat. everything.' },
+  6: { id: 'saturday',  icon: '📺', name: 'Rerun Saturday',      desc: 'the good shows are on — +1 luck, the whole building relaxes' },
+  0: { id: 'sunday',    icon: '🕊', name: 'Quiet Sunday',        desc: 'short-staffed on purpose — fewer patients per room' }
+};
 
 /* ============ WWRD — WARD RADIO (the jukebox; DJ Walrus between tracks) ============ */
 DATA.RADIO_TRACKS = [

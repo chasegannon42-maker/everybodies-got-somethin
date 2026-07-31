@@ -90,6 +90,43 @@ class Pet {
         for (const e of sorted) { if (dazed >= cap) break; e._dazeT = 1.3; G.texts.push(new FloatText(e.x, e.y - 20, '…who?', '#8fd0e0')); dazed++; }
         if (dazed) { this.actT = (this.evo ? 5 : 8) * (G.volunteer ? 0.7 : 1); SFX.play('voice'); }
       }
+    } else if (this.type === 'dog') {   // THERAPY DOG: certified. vested. extremely good.
+      // stays at your hip; tail wag speed is a mood indicator
+      const a = U.ang(this.x, this.y, p.x + 26, p.y + 12);
+      const d = U.dist(this.x, this.y, p.x + 26, p.y + 12);
+      if (d > 22) { this.x += Math.cos(a) * Math.min(d * 2.8, 250) * dt; this.y += Math.sin(a) * Math.min(d * 2.8, 250) * dt; }
+      // CALM AURA (SIT command): the room slows down around a professional
+      if (this._calmT > 0) {
+        this._calmT -= dt;
+        for (const e of G.enemies) {
+          if (e.fake || e.dying) continue;
+          if (U.dist(this.x, this.y, e.x, e.y) < 115) e._chill = Math.max(e._chill || 0, 2);
+        }
+      }
+      // COMFORT: stand still beside the dog and it does its actual job
+      const still = !p.moving && U.dist(this.x, this.y, p.x, p.y) < 64;
+      this._comfortT = still ? (this._comfortT || 0) + dt : 0;
+      if (this._comfortT > (this.evo ? 1.6 : 2.5) && p.hp < p.maxhp) {
+        this._comfortT = 0;
+        p.heal(1);
+        G.texts.push(new FloatText(this.x, this.y - 20, '🐕 lean on me +♥', '#e8c05a'));
+        SFX.play('heal');
+      }
+      // BARK: something got too close to their person
+      if (this.actT <= 0) {
+        const threat = G.enemies.some(e => !e.fake && !e.dying && e.spawnT <= 0 && !e.charmed && U.dist(e.x, e.y, p.x, p.y) < 95);
+        if (threat) {
+          this.actT = (this.evo ? 5 : 7) * (G.volunteer ? 0.7 : 1);
+          this._barkT = 0.3;
+          for (const e of G.enemies) {
+            if (e.fake || e.dying || e.charmed) continue;
+            if (U.dist(this.x, this.y, e.x, e.y) < 145) { e._dazeT = Math.max(e._dazeT || 0, this.evo ? 1.1 : 0.85); }
+          }
+          G.texts.push(new FloatText(this.x, this.y - 22, this.evo ? 'BOOF.' : 'woof.', '#e8c05a'));
+          SFX.play('swat');
+        }
+      }
+      if (this._barkT > 0) this._barkT -= dt;
     }
     this.x = U.clamp(this.x, RX + 10, RX + RW - 10);
     this.y = U.clamp(this.y, RY + 10, RY + RH - 10);
@@ -1818,6 +1855,7 @@ function spawnEnemiesForRoom(room, depth, G) {
   if (G.chronic) count = Math.round(count * 1.2);
   if (wp) count += (wp.countAdd || 0);
   if (G.nightShift) count += 1;   // night shift: short-staffed, overcrowded
+  if (G.hasCal && G.hasCal('sunday')) count = Math.max(3, count - 1);   // quiet sunday: short-staffed on purpose
   count = U.clamp(count + U.randi(-1, 1), 3, G.chronic ? 18 : 16);
   const champChance = G.protocol === 'allelites' ? 1 : U.clamp(dif.champChance + (mods.champAdd || 0) + ((G.intensity || 0) >= 5 ? 0.15 : 0), 0, 0.75);   // Grand Rounds: everyone's a champion
   const spots = [];

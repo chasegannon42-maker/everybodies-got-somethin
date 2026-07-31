@@ -95,6 +95,19 @@ keyboard and mouse.
 - **📋 Patient Chart** — a codex of every patient, boss, med, and pill you've met; completing a
   tab pays out a permanent perk. **📊 Run History** keeps your real win-rate receipts, and a
   **speedrun timer with splits** is one Settings toggle away.
+- **🗄 The Records Room** — a stealth heist: three patrols sweep flashlight cones through the
+  filing stacks. Slip the aisles unseen and steal your ORIGINAL intake file (page one says
+  "trouble sleeping" — that was the whole complaint), or get FLAGGED and fight the records
+  department. Ghosting it pays extra.
+- **📅 The Ward Calendar** — the building runs on your real week: Motivational Monday,
+  Pudding Tuesday, Paperwork Wednesday, Payday Thursday, Rerun Saturday, Quiet Sunday — and
+  **CASUAL FRIDAY**, when every enemy in the building (bosses included) wears a tiny hat.
+- **🐕 The Therapy Dog** — a 5th Emotional Support Animal (earn it by winning a gym duel):
+  red vest, wagging tail, barks charging enemies into a daze, heals you when you stand still
+  beside it, and answers SIT/STAY with a room-calming aura. Evolves into THE FULL GOLDEN.
+- **📈 THE MERGER** — a new deep-ward boss (30+): two managements stitched into one org chart,
+  fighting entirely with attacks acquired from the rest of the rotation, its health bar a
+  falling stock ticker. Nothing about it is original, including the smile.
 - **🚶 The Stairwell** — the elevator's "take the stairs" button is now a real dodge-only descent:
   rolling med carts, falling buckets, fluttering paperwork, loose change to grab on the way down.
   A clean descent pays a heart, 5¢, and ◆2 (and three of them fold you a paper hat).

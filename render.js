@@ -336,6 +336,21 @@ const Render = {
     ctx.strokeStyle = '#a8926a'; ctx.lineWidth = 2; this.rr(ctx, CW - 148, 56, 120, 34, 6); ctx.stroke();
     ctx.fillStyle = '#7a6a4a'; ctx.font = 'bold 14px Impact,"Arial Black",sans-serif'; ctx.textAlign = 'center';
     ctx.fillText('PLEASE WAIT', CW - 88, 78);
+    // the ward calendar: today is a real day, unfortunately
+    const CALh = (typeof DATA !== 'undefined' && DATA.CALENDAR) ? DATA.CALENDAR[new Date().getDay()] : null;
+    if (CALh) {
+      ctx.save(); ctx.translate(CW - 208, 72); ctx.rotate(-0.02);
+      ctx.fillStyle = '#f4eee0'; this.rr(ctx, -46, -18, 92, 36, 4); ctx.fill();
+      ctx.strokeStyle = '#a8926a'; ctx.lineWidth = 1.5; this.rr(ctx, -46, -18, 92, 36, 4); ctx.stroke();
+      ctx.fillStyle = '#c05050'; this.rr(ctx, -46, -18, 92, 10, 4); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 7px "Arial Black",sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('TODAY IS', 0, -10.5);
+      ctx.fillStyle = '#5a4a3a'; ctx.font = 'bold 8.5px "Arial Black",sans-serif';
+      ctx.fillText(CALh.icon + ' ' + CALh.name.toUpperCase().slice(0, 20), 0, 4);
+      ctx.font = '6.5px "Trebuchet MS",sans-serif'; ctx.fillStyle = '#8a7a68';
+      ctx.fillText(CALh.id === 'friday' ? 'hats are mandatory-ish' : 'plan accordingly', 0, 13);
+      ctx.restore();
+    }
     // potted plants flanking reception
     for (const px of [352, 608]) {
       ctx.fillStyle = '#a06a48'; ctx.beginPath(); ctx.moveTo(px - 13, WALL - 2); ctx.lineTo(px + 13, WALL - 2); ctx.lineTo(px + 9, WALL - 26); ctx.lineTo(px - 9, WALL - 26); ctx.closePath(); ctx.fill();
@@ -1485,6 +1500,48 @@ const Render = {
       ctx.fillStyle = lg; ctx.beginPath(); ctx.arc(cx, cy - 40, 260, 0, TAU); ctx.fill();
     }
 
+    // THE RECORDS ROOM: patrols with flashlight cones (until it goes loud)
+    if (G.room && G.room.type === 'records' && G.room._heist && !G.room._heist.alertedFight && !G.room._heist.stolen) {
+      for (const g of G.room._heist.guards) {
+        // the cone
+        const alert = Math.min(1, (g.alert || 0) / 0.5);
+        ctx.save();
+        ctx.translate(g.x, g.y); ctx.rotate(g.ang);
+        const cg = ctx.createLinearGradient(0, 0, 200, 0);
+        cg.addColorStop(0, 'rgba(' + (alert > 0.4 ? '232,120,90' : '232,220,140') + ',' + (0.16 + alert * 0.12) + ')');
+        cg.addColorStop(1, 'rgba(232,220,140,0)');
+        ctx.fillStyle = cg;
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, 200, -0.5, 0.5); ctx.closePath(); ctx.fill();
+        ctx.restore();
+        // the patrol
+        this.shadow(g.x, g.y + 14, 12, 4.5, 0.22);
+        ctx.save(); ctx.translate(g.x, g.y);
+        ctx.fillStyle = '#b0a890'; ctx.beginPath(); ctx.ellipse(0, 0, 12, 14, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#8a845a'; this.rr(ctx, -10, -9, 20, 4, 2); ctx.fill();
+        ctx.fillStyle = '#2c2333'; ctx.beginPath(); ctx.arc(-4, -2, 1.6, 0, TAU); ctx.arc(4, -2, 1.6, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#f4eee0'; this.rr(ctx, 7, -1, 8, 11, 1.5); ctx.fill();   // clipboard
+        ctx.restore();
+        if (alert > 0.15) {   // the "!?" building over their head
+          ctx.fillStyle = 'rgba(232,120,90,' + (0.5 + alert * 0.5) + ')';
+          ctx.font = this.font(13 + alert * 4, true); ctx.textAlign = 'center';
+          ctx.fillText(alert > 0.7 ? '!!' : '?', g.x, g.y - 24);
+        }
+      }
+      // the file glows under one desk lamp
+      const fp = G.peds.find(pd => pd.kind === 'origfile' && !pd.taken);
+      if (fp) {
+        const lg2 = ctx.createRadialGradient(fp.x, fp.y - 8, 4, fp.x, fp.y - 8, 60);
+        lg2.addColorStop(0, 'rgba(232,220,160,0.35)'); lg2.addColorStop(1, 'rgba(232,220,160,0)');
+        ctx.fillStyle = lg2; ctx.beginPath(); ctx.arc(fp.x, fp.y - 8, 60, 0, TAU); ctx.fill();
+      }
+    }
+    // CASUAL FRIDAY reaches management too
+    if (G.calDay === 5 && G.boss && !G.boss.dead) {
+      ctx.save(); ctx.translate(G.boss.x, G.boss.y - (G.boss.r || 30) - 26); ctx.rotate(-0.05);
+      ctx.fillStyle = '#3a3040'; ctx.beginPath(); ctx.ellipse(0, 2, 13, 3.4, 0, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.arc(0, -1, 8.5, Math.PI, 0); ctx.fill();
+      ctx.restore();
+    }
     // trapdoor
     if (G.trapdoor) {
       const td = G.trapdoor;
@@ -2330,6 +2387,36 @@ const Render = {
         ctx.beginPath(); ctx.moveTo(-2.2, 0); ctx.lineTo(-4.2, -1.4); ctx.lineTo(-4.2, 1.4); ctx.closePath(); ctx.fill();
         ctx.restore();
       }
+    } else if (pet.type === 'dog') {   // THERAPY DOG: certified. vested. extremely good.
+      const sc = pet.evo ? 1.25 : 1;
+      this.shadow(0, 11 * sc, 10 * sc, 3.5, 0.2);
+      ctx.save(); ctx.scale(sc, sc); ctx.translate(0, bob * 0.6);
+      const coat = pet.evo ? '#e0b86a' : '#d0a85a';
+      // wagging tail — speed doubles when their person is close
+      const near = G.player && U.dist(pet.x, pet.y, G.player.x, G.player.y) < 70;
+      const wag = Math.sin(pet.t * (near ? 16 : 7)) * 0.7;
+      ctx.strokeStyle = coat; ctx.lineWidth = 3; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(-8, -1); ctx.quadraticCurveTo(-13, -4 + wag * 3, -15, -8 + wag * 5); ctx.stroke(); ctx.lineCap = 'butt';
+      ctx.fillStyle = coat; ctx.beginPath(); ctx.ellipse(0, 1, 9, 6.5, 0, 0, TAU); ctx.fill();   // body
+      // THERAPY vest
+      ctx.fillStyle = '#c05050'; ctx.beginPath(); ctx.ellipse(0, 1, 6.5, 5, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.fillRect(-1.2, -2.4, 2.4, 6.4); ctx.fillRect(-3.2, -0.4, 6.4, 2.4);   // the cross
+      ctx.fillStyle = coat; ctx.beginPath(); ctx.arc(7, -5, 5.4, 0, TAU); ctx.fill();   // head
+      ctx.fillStyle = this.shade(coat, -0.18);   // floppy ears
+      ctx.beginPath(); ctx.ellipse(4, -8, 2.2, 4, -0.5, 0, TAU); ctx.ellipse(10, -7.5, 2.2, 4, 0.5, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#2c2333'; ctx.beginPath(); ctx.arc(6, -6, 1, 0, TAU); ctx.arc(9.4, -6, 1, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.arc(8, -3.4, 1.4, 0, TAU); ctx.fill();   // nose
+      ctx.fillStyle = '#e07a8a'; ctx.beginPath(); ctx.ellipse(8.6, -1.4, 1.2, 2, 0.3, 0, TAU); ctx.fill();   // tongue (on duty)
+      if (pet._barkT > 0) { ctx.strokeStyle = 'rgba(232,192,90,0.8)'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(10, -5, 7, -0.6, 0.6); ctx.arc(10, -5, 11, -0.5, 0.5); ctx.stroke(); }
+      if (pet._calmT > 0) {   // SIT: the visible calm
+        ctx.strokeStyle = 'rgba(232,200,120,' + (0.3 + Math.sin(pet.t * 4) * 0.15) + ')'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(0, 0, 115 / sc, 0, TAU); ctx.stroke();
+      }
+      if (pet.evo) {   // THE FULL GOLDEN sparkles, professionally
+        ctx.fillStyle = 'rgba(255,244,200,' + (0.5 + Math.sin(pet.t * 5) * 0.3) + ')';
+        ctx.font = '7px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('✦', -6, -9);
+      }
+      ctx.restore();
     }
     ctx.restore();
   },
@@ -3106,6 +3193,18 @@ const Render = {
         ctx.moveTo(e.r * 0.8, -e.r * 0.75); ctx.lineTo(e.r * 0.8 + 5, -e.r * 0.75 + 8); ctx.lineTo(e.r * 0.8 - 5, -e.r * 0.75 + 8); ctx.closePath(); ctx.fill();
         break;
       }
+      case 'recordsguard': { // stack patrol: clipboard, flashlight, hourly wage
+        this.orb(ctx, 0, 2, e.r, body, flash);
+        ctx.fillStyle = '#8a845a'; this.rr(ctx, -e.r + 2, -e.r * 0.6, (e.r - 2) * 2, 4, 2); ctx.fill();   // visor band
+        ctx.fillStyle = '#2c2333';
+        ctx.beginPath(); ctx.ellipse(-4.5, -1, 2.4, 2.8, 0, 0, TAU); ctx.ellipse(4.5, -1, 2.4, 2.8, 0, 0, TAU); ctx.fill();   // startled eyes
+        ctx.fillStyle = '#2c2333'; ctx.beginPath(); ctx.ellipse(0, 6, 2.2, 2.8, 0, 0, TAU); ctx.fill();   // permanently gasping
+        ctx.fillStyle = '#f4eee0'; this.rr(ctx, e.r - 5, -2, 9, 12, 1.5); ctx.fill();   // the clipboard
+        ctx.strokeStyle = '#8a7a5a'; ctx.lineWidth = 1; ctx.strokeRect(e.r - 3, 1, 5, 2);
+        ctx.fillStyle = '#3a3844'; this.rr(ctx, -e.r - 4, 0, 7, 10, 2); ctx.fill();   // the flashlight
+        ctx.fillStyle = 'rgba(232,220,140,0.8)'; ctx.beginPath(); ctx.arc(-e.r - 1, -1, 2.6, 0, TAU); ctx.fill();
+        break;
+      }
       case 'auditor': { // an adding machine that learned to walk
         // heavy grey chassis
         const ag = ctx.createLinearGradient(0, -e.r, 0, e.r);
@@ -3271,6 +3370,31 @@ const Render = {
         ctx.beginPath(); ctx.arc(e.x, e.y, e.r + 7 + Math.sin(G.t * 4) * 2, 0, TAU); ctx.stroke();
       }
     }
+    // CASUAL FRIDAY: everything is wearing a hat. everything.
+    if (G.calDay === 5 && !e.dying && e.spawnT <= 0 && !e.fake) {
+      const hstyle = (e.id || '').split('').reduce((a, c) => a + c.charCodeAt(0), 0) % 5;
+      ctx.save(); ctx.translate(e.x, e.y - e.r - 2); ctx.rotate(-0.06);
+      if (hstyle === 0) {        // party cone
+        ctx.fillStyle = '#b86bff'; ctx.beginPath(); ctx.moveTo(-6, 2); ctx.lineTo(0, -11); ctx.lineTo(6, 2); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#e8c84c'; ctx.beginPath(); ctx.arc(0, -11, 2, 0, TAU); ctx.fill();
+      } else if (hstyle === 1) { // bowler
+        ctx.fillStyle = '#3a3040'; ctx.beginPath(); ctx.ellipse(0, 1, 9, 2.6, 0, 0, TAU); ctx.fill();
+        ctx.beginPath(); ctx.arc(0, -1, 6, Math.PI, 0); ctx.fill();
+      } else if (hstyle === 2) { // propeller beanie
+        ctx.fillStyle = '#e05a6a'; ctx.beginPath(); ctx.arc(0, 0, 6, Math.PI, 0); ctx.fill();
+        ctx.strokeStyle = '#8a8e98'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(0, -6); ctx.lineTo(0, -9); ctx.stroke();
+        ctx.fillStyle = '#8fd0e0'; ctx.save(); ctx.translate(0, -9); ctx.rotate(G.t * 9);
+        ctx.fillRect(-6, -1, 12, 2); ctx.restore();
+      } else if (hstyle === 3) { // top hat, tiny
+        ctx.fillStyle = '#2c2836'; ctx.fillRect(-4.5, -10, 9, 9);
+        ctx.beginPath(); ctx.ellipse(0, -1, 8, 2.2, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#e05a5a'; ctx.fillRect(-4.5, -4, 9, 2);
+      } else {                   // bucket hat (off duty energy)
+        ctx.fillStyle = '#9db85a'; ctx.beginPath(); ctx.moveTo(-8, 2); ctx.lineTo(-5, -6); ctx.lineTo(5, -6); ctx.lineTo(8, 2); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = '#7a9542'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-8, 2); ctx.lineTo(8, 2); ctx.stroke();
+      }
+      ctx.restore();
+    }
     // the deep roster wears its gimmicks openly
     if (!e.dying && e.spawnT <= 0) {
       if (e.id === 'placebo') {   // a champion's aura it absolutely has not earned
@@ -3334,6 +3458,37 @@ const Render = {
     const flash = b.hitFlash > 0;
 
     switch (b.id) {
+      case 'merger': { // two managements stitched into one org chart
+        const r = b.r || 34;
+        // the split suit: left gray, right navy, one seam
+        ctx.fillStyle = '#8a8e98'; ctx.beginPath(); ctx.ellipse(0, 4, r, r * 1.12, 0, Math.PI / 2, Math.PI * 1.5); ctx.fill();
+        ctx.fillStyle = '#3a4a6a'; ctx.beginPath(); ctx.ellipse(0, 4, r, r * 1.12, 0, -Math.PI / 2, Math.PI / 2); ctx.fill();
+        ctx.strokeStyle = '#e8dcc0'; ctx.lineWidth = 2; ctx.setLineDash([4, 3]);   // the stitching
+        ctx.beginPath(); ctx.moveTo(0, -r * 1.05); ctx.lineTo(0, r * 1.1); ctx.stroke(); ctx.setLineDash([]);
+        // two half-smiles that don't quite line up
+        ctx.fillStyle = '#e8d9c2'; ctx.beginPath(); ctx.arc(0, -r * 0.45, r * 0.52, 0, TAU); ctx.fill();
+        ctx.strokeStyle = '#2c2333'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(-r * 0.16, -r * 0.4, r * 0.2, 0.2, Math.PI * 0.75); ctx.stroke();
+        ctx.beginPath(); ctx.arc(r * 0.16, -r * 0.34, r * 0.2, Math.PI * 0.3, Math.PI - 0.2); ctx.stroke();
+        ctx.fillStyle = '#2c2333';
+        ctx.beginPath(); ctx.ellipse(-r * 0.22, -r * 0.55, 2.6, 3.2, 0, 0, TAU); ctx.ellipse(r * 0.22, -r * 0.52, 2.6, 3.2, 0, 0, TAU); ctx.fill();
+        // stock-arrow tie
+        ctx.strokeStyle = '#8fd08a'; ctx.lineWidth = 3.5; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(-r * 0.3, r * 0.15); ctx.lineTo(-r * 0.1, r * 0.45); ctx.lineTo(r * 0.12, r * 0.1); ctx.lineTo(r * 0.32, r * 0.55); ctx.stroke();
+        ctx.fillStyle = '#8fd08a'; ctx.beginPath(); ctx.moveTo(r * 0.32, r * 0.55); ctx.lineTo(r * 0.34, r * 0.38); ctx.lineTo(r * 0.18, r * 0.48); ctx.closePath(); ctx.fill();
+        ctx.lineCap = 'butt';
+        // two name tags, same name
+        for (const sx of [-1, 1]) {
+          ctx.fillStyle = '#f4eee0'; this.rr(ctx, sx * r * 0.62 - 13, -r * 0.05, 26, 12, 2); ctx.fill();
+          ctx.fillStyle = '#a03030'; ctx.font = 'bold 5px "Arial Black",sans-serif'; ctx.textAlign = 'center';
+          ctx.fillText('HELLO I\'M', sx * r * 0.62, -r * 0.05 + 5);
+          ctx.fillStyle = '#2c2333'; ctx.font = 'bold 5.5px "Arial Black",sans-serif';
+          ctx.fillText('THE SAME', sx * r * 0.62, -r * 0.05 + 10.5);
+        }
+        // briefcase hands
+        ctx.fillStyle = '#6a4a2a'; this.rr(ctx, -r - 12, r * 0.5, 16, 12, 2); ctx.fill(); this.rr(ctx, r - 4, r * 0.5, 16, 12, 2); ctx.fill();
+        break;
+      }
       case 'gatekeeper': { // hospital-door bouncer with a velvet rope
         const open = b.vulnerable;
         // velvet stanchion in front
@@ -4468,7 +4623,8 @@ const Render = {
       ctx.fillStyle = '#f0e8d8';
       ctx.font = this.font(joint ? 10 : 12, true);
       ctx.textAlign = 'center';
-      ctx.fillText(joint ? String(b.name).slice(0, 24) : b.name, x + w / 2, y - 12);
+      const mLabel = b.id === 'merger' ? ('THE MERGER · MRGR ' + (b.hp / b.maxhp * 100).toFixed(1) + ' ▼') : b.name;   // the stock falls as you object
+      ctx.fillText(joint ? String(mLabel).slice(0, 24) : mLabel, x + w / 2, y - 12);
       if (joint) {
         const b2 = G.boss2;
         const x2 = CW / 2 + 8;

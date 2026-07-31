@@ -191,6 +191,53 @@ class Boss {
       if (this.hp <= 0) { this.die(G); return; }
     }
     switch (this.id) {
+      /* ---------- THE MERGER (ward 30+): nothing original, including the smile ---------- */
+      case 'merger': {
+        if (this._mgT == null) { this._mgT = 2.5; this._mgPhase = null; this._mgSide = 0; }
+        // drifts along the top like a slow org chart
+        this.x += (CW / 2 + this._mgSide + Math.sin(this.t * 0.8) * 46 - this.x) * Math.min(1, dt * 2.2);
+        this.y += (RY + 118 + Math.sin(this.t * 1.3) * 20 - this.y) * Math.min(1, dt * 2.2);
+        this._mgT -= dt;
+        if (this._mgT <= 0) {   // the next acquired portfolio comes online
+          this._mgT = P2 ? 5.0 : 6.2;
+          const pool = ['gatekeeper', 'larperking', 'adjuster', 'influencer'].filter(id => id !== this._mgPhase);
+          this._mgPhase = pool[Math.floor(Math.random() * pool.length)];
+          this._mgSide = [-170, 0, 170][Math.floor(Math.random() * 3)];
+          this._mgAtkT = 0.7;
+          G.texts.push(new FloatText(this.x, this.y - this.r - 16, '📈 ACQUIRED: ' + ((DATA.BOSSES[this._mgPhase] || {}).name || this._mgPhase), '#8fd08a'));
+          for (let i = 0; i < 8; i++) G.parts.push(new Particle(this.x + U.rand(-20, 20), this.y + U.rand(-20, 20), U.rand(-80, 80), U.rand(-80, 80), 0.4, '#8fd08a', 3));
+          SFX.play('deal');
+        }
+        this._mgAtkT = (this._mgAtkT || 1) - dt;
+        if (this._mgAtkT <= 0 && this._mgPhase) {
+          if (this._mgPhase === 'gatekeeper') {         // the rope, licensed
+            this._mgAtkT = P2 ? 2.0 : 2.6;
+            const gap = this.aimP(G);
+            this.ring(P2 ? 16 : 13, 175, '#b8b0d0', 0, gap, 0.55);
+            if (P2) this.ring(13, 175, '#d0c8e8', 0.12, gap + Math.PI, 0.55);
+            SFX.play('pop');
+          } else if (this._mgPhase === 'larperking') {  // the article, syndicated
+            this._mgAtkT = P2 ? 1.2 : 1.6;
+            const a = this.aimP(G);
+            for (const off of [-0.26, -0.13, 0, 0.13, 0.26]) this.bullet(a + off, 225, '#c8b878', { r: 7 });
+            if (Math.random() < 0.3) G.texts.push(new FloatText(this.x, this.y - this.r - 12, '“per the acquisition memo—”', '#c8b878'));
+          } else if (this._mgPhase === 'adjuster') {    // the audit, outsourced
+            this._mgAtkT = P2 ? 2.4 : 3.0;
+            for (let i = 0; i < (P2 ? 3 : 2); i++) {
+              const sx2 = U.clamp(p.x + U.rand(-120, 120), RX + 30, RX + RW - 30);
+              const sy2 = U.clamp(p.y + U.rand(-120, 120), RY + 30, RY + RH - 30);
+              G.stamps.push({ x: sx2, y: sy2, t: 1.0, r: 44, done: false });
+            }
+            if (P2) for (let i = 0; i < 7; i++) { const bx = RX + 60 + (i / 6) * (RW - 120); const b = new EBullet(bx, RY + 16, 0, 150, this.dmg, '#e8dcc0'); b.r = 7; b._src = this.id; G.eBullets.push(b); }
+            SFX.play('stamp');
+          } else if (this._mgPhase === 'influencer') {  // the ring light, rebranded
+            this._mgAtkT = P2 ? 2.2 : 2.8;
+            this.ring(P2 ? 10 : 8, 150, '#ff9ec0', U.rand(0, TAU));
+            for (let i = 0; i < (P2 ? 4 : 2); i++) { const bl = this.bullet(this.aimP(G) + U.rand(-0.5, 0.5), 145, '#ff7a9e', { life: 3.2 }); bl.home = 0.8; }
+          }
+        }
+        break;
+      }
       /* ---------- THE GATEKEEPER ---------- */
       case 'gatekeeper': {
         this.x = CW / 2 + Math.sin(this.t * 0.7) * 180;
