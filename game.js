@@ -871,6 +871,33 @@ const G = {
 
   /* ---- THE SCENARIO JUMPER: every special encounter, pre-armed ---- */
   TESTER_SCENARIOS: [
+    { icon: '🛗', name: 'THE ELEVATOR', sub: 'car in the shaft, all three stops', run(G) {
+      G.ensureSandboxAt(4);
+      G._elevFloor = true; G._elevRode = false;
+      G.player.coins = 20;
+      G.room.cleared = true;
+      G.room.trapdoor = G.trapdoor = { x: CW / 2, y: RY + RH / 2 - 60 };
+      G.toast('The car is waiting. Walk into the doors. Try the mezzanine — the cooler works.', '#c8a24a');
+    } },
+    { icon: '🪑', name: 'GROUP SESSION', sub: 'the circle, the open chair, three rounds', run(G) {
+      G.ensureSandboxAt(4);
+      const r = G.floorRooms.find(x => x.type === 'normal' && x !== G.room); r.type = 'group'; r.spawned = false;
+      G.enterRoom(r, null);
+    } },
+    { icon: '📱', name: 'PATIENT PORTAL', sub: 'two logins, four apps, one dispute', run(G) {
+      G.ensureSandboxAt(5);
+      G.player.coins = 12;
+      G._portalUses = 2; G._portalOpen = false; G._portalDisputed = false; G._portalRefilled = false;
+      G.showPortal();
+    } },
+    { icon: '🩸', name: 'NEMESIS', sub: 'a named grudge walks in (forced)', run(G) {
+      G.ensureSandboxAt(6);
+      Meta.data.nemRec = { id: 'scroller', name: U.choice(DATA.NEMESIS_NAMES), title: U.choice(DATA.NEMESIS_TITLES), kills: 2, ward: 5 };
+      G.nemesisId = 'scroller'; G.nemRec = Meta.data.nemRec; G._nemesisSpawned = false;
+      const r = G.floorRooms.find(x => x.type === 'normal' && x !== G.room); r.spawned = false; r.cleared = false;
+      G.enterRoom(r, null);
+      G.toast('The ledger is open: ' + DATA.nemesisDisplay(G.nemRec) + ' spawns with this room.', '#e05a5a');
+    } },
     { icon: '📣', name: 'WELLNESS SEMINAR', sub: 'mandatory attendance, ward 11 tuning', run(G) {
       G.startBossLab({ boss: 'seminar', depth: 11, affix: '', shift2: false, joint: '' });
     } },
@@ -3217,7 +3244,7 @@ const G = {
      The complete in-fiction manual: every mechanic, symptom, ward, and
      service. Mostly generated from DATA so new content lists itself;
      the prose sections get a line whenever a feature ships. */
-  HB_REV: 43,
+  HB_REV: 44,
   showHandbook(returnTo) {
     this.state = 'handbook';
     if (!this._hbTab) this._hbTab = 'basics';
@@ -3253,6 +3280,7 @@ const G = {
       building: () => H('THE DESCENT')
         + N(`Escalation tiers, by depth: ${DATA.TIERS.map(t => `<b>${t.name}</b> (${t.d}+)`).join(' · ')}.`)
         + R('🚪', 'Descending', 'beat the ward boss, take the trapdoor. Some descents offer a CHOICE of ward:')
+        + R('🛗', 'THE ELEVATOR', 'some shafts have a car in them today (ward 2+): ride to the next ward free, pay 4¢ for THE MEZZANINE (a between-floors shelf and a working cooler), or 10¢ for EXPRESS past an entire ward. Mid-ride, sometimes, the doors open. Someone gets on. Nobody talks.')
         + Object.values(DATA.WARD_PATHS).map(w => R('', w.name, w.desc)).join('')
         + H('ROOMS')
         + R('🛏', 'Normal / Padded wards', 'symptoms spawn, doors lock, manage everyone, doors open')
@@ -3307,6 +3335,8 @@ const G = {
         + R('', DATA.ENEMIES.decimal.name, EN.decimal, 'billing fallout')
         + H('CHAMPIONS (elite cases, ward 6+)')
         + DATA.ELITES.map(e => R('👑', e.name, `${Math.round(e.hp * 100)}% health${e.dmg > 1 ? ', hits double' : ''}${e.spd > 1 ? ', faster' : e.spd < 1 ? ', slower' : ''}${e.note ? ' — ' + e.note : ''} — drops better loot`, e.d ? 'ward ' + e.d + '+' : '')).join('')
+        + H('THE NEMESIS LEDGER')
+        + N('Whatever kills you gets a NAME (“GREGORY, Who Waited”) and comes back next run wearing a champion\'s aura, hunting you specifically. Repeat offenders earn ranks — THE RECURRING, CHRONIC, THE DOCUMENTED, TENURED — and carry bigger bounties (◆ and ¢ scale with the grudge). Settle it and the title passes to you. The ledger then closes; a new grudge requires a new death, which the building considers a renewable resource.')
         + N('Hallucinations: some diagnoses see patients who aren\'t there. Fakes pop in one hit and can\'t hurt you. Foam Earplugs make them shimmer.'),
 
       staff: () => H('WARD MANAGEMENT (bosses)')
@@ -3395,6 +3425,8 @@ const G = {
         + R('🤝', 'THE HANDOFF', 'shift change mid-run — your care transfers, terms and conditions apply')
         + R('💊', 'THE MIX-UP', 'the pharmacy made an error. It\'s yours now')
         + R('🎤', 'OPEN MIC NIGHT', 'the Day Room has a stage (a step stool). The symptoms perform. Tip accordingly')
+        + R('🪑', 'GROUP SESSION', 'some wards circle the folding chairs (3+): the symptoms SIT DOWN and share. Take the open chair; VALIDATE, DEFLECT, or OVERSHARE across three rounds. Mostly-validate and someone joins you; mostly-deflect pays in boundaries (+damage); mostly-overshare pays a heart container and costs the room. Attacking the circle is remembered')
+        + R('📱', 'THE PATIENT PORTAL', 'your phone works in here (T, or the pause menu; two logins per ward): RESULTS shows this ward\'s management and unvisited departments, MESSAGES reach your care team (replies arrive one room later, with enclosures), BILLING shows the running statement and takes ONE dispute per admission, REFILLS mail-orders a flat-effect med you already own (6¢, two rooms, crushed but functional)')
         + R('🏆', 'GYM DUELS', 'your RIVAL keeps score across runs and calls you out by name')
         + R('🩻', 'THE MERGER', 'deep wards: the acquisition closed. Management fights with acquired attacks')
         + H('WHO ELSE IS IN THE BUILDING')
@@ -3403,6 +3435,7 @@ const G = {
         + R('🚶', 'Day Room patients', 'The Veteran, The Optimist, The Oversharer, and friends — one boon each')
         + H('REVISION HISTORY')
         + N('This handbook is updated with every patch. If a feature exists, it\'s in here — that\'s the policy. Spot something missing? The Complaint Department is thataway.')
+        + N('rev. 44 — CONTINUITY OF CARE: the champion that got you now gets a NAME and comes back wearing it (see THE NEMESIS LEDGER under SYMPTOMS — repeat offenders earn ranks and bigger bounties), some trapdoors have an ELEVATOR CAR in them today (pick your stop: the next ward, THE MEZZANINE between wards, or EXPRESS past a whole one — sometimes the doors open mid-ride and someone gets on; nobody talks), the PATIENT PORTAL is live on your phone (T key or the pause menu, two logins per ward: results, messages, billing disputes, mail-order refills), and some wards put the folding chairs in a circle: GROUP SESSION (take the open chair; validate, deflect, or overshare; live with it). The circle is sacred. The muzak is load-bearing.')
         + N('rev. 43 — OPEN HOUSE PREP: the front desk was tidied for new patients — a first visit now shows only the doors that matter (the rest of the directory unlocks after checkup #1), the building holds its calendar small-talk until your second visit, the orientation card finally admits the PRN ability and the pause key exist, and there is a COMPLAINT DEPARTMENT (external) at the bottom of the title screen. Complaints are filed as GitHub issues. They are read. Unlike here, they are read.')
         + N('rev. 42 — MANDATORY ENRICHMENT: THE WELLNESS SEMINAR is now presenting on wards 10+ (folding-chair cover, participation zones, an AUDIENCE MOOD meter, enforced attendance, and — at the end of its rope — a timeshare; see STAFF), and four new champion crowns joined the deep rotation: ITEMIZED, RE-ADMITTED, LINGERING, and OUT-OF-NETWORK (see the CHAMPIONS list — kill order matters now). The chairs are not load-bearing. The pitch is.')
         + N('rev. 41 — INTAKE, EXPANDED: the deep wards admitted four new cases (the PREAUTH TWINS and their load-bearing co-signature line, THE BILLING ERROR and its decimals, THE WAIT and its thickened time, THE SECOND NOTICE and its follow-ups — see SYMPTOMS), and two new offices opened in the Clinic: THE SPECIALIST (ward 6+, blinks, refers you mid-fight) and THE CASE MANAGER (ward 7+, shields everyone but herself; management priority: her). The general population thanks management for the company.')
@@ -3889,7 +3922,7 @@ const G = {
     this.walkin = false; this._roofDone = false; this._phoneFloor = false;   // walk-in / roof / payphone, fresh per run
     this.inspection = null; this._inspectionDone = false; this._mixup = null; this._mixupDone = false;   // the tour + the chart mix-up
     this.annexFloor = false; this._alarmSeen = false; this._alarmPulled = false; this._soaked = false; this._ghostRec = {}; this._ghostT = 0;   // annex / alarm / ghost, fresh per run
-    this.dreamFloor = false; this.nightmare = false; this._dreamSeen = false; this._dreamItem = null; this.debt = null; this._collectorSpawned = false; this._pbmFloor = false; this._pbmDead = false; this._subDone = false; this._isoSeen = false; this._mktSeen = false; this._sessionDone = false; this._gooseFloor = false; this._wheelDenied = false; this.semFee = null; this.semChairs = null; this.semZones = null;   // dream / debt / middleman / sub-basement / iso / market / session / goose / timeshare, fresh per run
+    this.dreamFloor = false; this.nightmare = false; this._dreamSeen = false; this._dreamItem = null; this.debt = null; this._collectorSpawned = false; this._pbmFloor = false; this._pbmDead = false; this._subDone = false; this._isoSeen = false; this._mktSeen = false; this._sessionDone = false; this._gooseFloor = false; this._wheelDenied = false; this.semFee = null; this.semChairs = null; this.semZones = null; this._portalReply = null; this._portalPkg = null; this._portalDisputed = false; this._portalRefilled = false; this._portalOpen = false;   // dream / debt / middleman / sub-basement / iso / market / session / goose / timeshare / portal, fresh per run
     // THE COMPLAINT DEPARTMENT: your grievance reports for duty
     this._complaint = (!daily && Meta.data.pendingComplaint) ? String(Meta.data.pendingComplaint).slice(0, 40) : null;
     this._complaintSpawned = false;
@@ -3901,7 +3934,11 @@ const G = {
     // IT REMEMBERS YOU: whatever got you last run is coming back for a look (regular patients only)
     const lastDead = deads[deads.length - 1];
     this.nemesisId = (!daily && lastDead && DATA.ENEMIES[lastDead.cause] && lastDead.cause !== 'auditor' && lastDead.cause !== 'form') ? lastDead.cause : null;
+    // the NEMESIS LEDGER outranks the runlog: if a named grudge is open, IT walks in
+    if (!daily && Meta.data.nemRec && DATA.ENEMIES[Meta.data.nemRec.id]) this.nemesisId = Meta.data.nemRec.id;
+    this.nemRec = (this.nemesisId && Meta.data.nemRec && Meta.data.nemRec.id === this.nemesisId) ? Meta.data.nemRec : null;
     this._nemesisSpawned = false;
+    this._grudgeFiled = null;
     this._runCured = false;
     this._runStart = Date.now();
     this.larperToastShown = false;
@@ -4317,6 +4354,13 @@ const G = {
     const log = Meta.data.runlog || (Meta.data.runlog = []);
     log.push(rec);
     while (log.length > 200) log.shift();
+    // THE NEMESIS LEDGER: the thing that got you gets a NAME (repeat offenders get titles)
+    if (out === 'dead' && DATA.ENEMIES[cause] && cause !== 'auditor' && cause !== 'form') {
+      const nr = Meta.data.nemRec;
+      if (nr && nr.id === cause) { nr.kills++; nr.ward = this.depth; }
+      else Meta.data.nemRec = { id: cause, name: U.choice(DATA.NEMESIS_NAMES), title: U.choice(DATA.NEMESIS_TITLES), kills: 1, ward: this.depth };
+      this._grudgeFiled = DATA.nemesisDisplay(Meta.data.nemRec);
+    }
     const A = Meta.data.runAgg || (Meta.data.runAgg = {});
     const a = A[p.diag] || (A[p.diag] = { runs: 0, dead: 0, quit: 0, cured: 0, walrus: 0, wardSum: 0, bestWard: 0 });
     a.runs++;
@@ -4611,6 +4655,7 @@ const G = {
     this.holdZones = null; this.holdPrompt = null;   // THE HOLD's keypad never follows you
     this.abFlip = false; this.abSweepX = null;       // the A/B TEST's methodology stays in its room
     this.semChairs = null; this.semZones = null; this.semMeter = 0;   // the SEMINAR's chairs get stacked at close
+    this._portalUses = 2; this._portalOpen = false;   // the PORTAL resets its session limit at each ward
     // THE WELLNESS SEMINAR's timeshare: the membership fee bills at each new ward (not on chart-reopen)
     if (this.semFee && this.semFee.left > 0 && !this.dreamFloor && !this.annexFloor && !this.sandbox && !this._resumeTick) {
       const p2 = this.player;
@@ -4656,6 +4701,14 @@ const G = {
       const norm2 = this.floorRooms.filter(r => r.type === 'normal');
       if (norm2.length > 2) U.choice(norm2).type = 'cafeteria';
     }
+    // GROUP SESSION: some wards put the chairs in a circle (ward 3+, 14%)
+    if (this.depth >= 3 && !this.dreamFloor && !this.annexFloor && !this.overtime && !this.bossRush && !this.ward13 && U.chance(0.14)) {
+      const norm3 = this.floorRooms.filter(r => r.type === 'normal');
+      if (norm3.length > 2) U.choice(norm3).type = 'group';
+    }
+    // THE ELEVATOR: some shafts have a car in them today (28%, ward 2+)
+    this._elevFloor = (this.depth >= 2 && !this.dreamFloor && !this.annexFloor && !this.overtime && !this.bossRush && !this.walkin && !this.ascent && U.chance(0.28));
+    this._elevRode = false;
     // THE GOOSE: some wards have one. no further explanation. (10%, ward 2+)
     this._gooseFloor = (this.depth >= 2 && !this.dreamFloor && !this.annexFloor && !this.overtime && !this.bossRush && U.chance(0.10));
     this._gooseSpawned = false;
@@ -4718,6 +4771,22 @@ const G = {
     this.room = room;
     room.discovered = true;
     room.visited = true;
+    // PATIENT PORTAL deliveries: replies and refills arrive N rooms after you hit send
+    if (this._portalReply && --this._portalReply.roomsLeft <= 0) {
+      const M = this._portalReply.msg; this._portalReply = null;
+      this.toast(DATA.PORTAL.replyLeadIn + ' ' + M.reply, '#8fd0e0');
+      const p0 = this.player;
+      if (M.boon === 'heal') p0.heal(2);
+      else if (M.boon === 'coins') { p0.coins += 2; SFX.play('coin'); }
+      else if (M.boon === 'luck') p0.luck += 0.5;
+      SFX.play('bell');
+    }
+    if (this._portalPkg && --this._portalPkg.roomsLeft <= 0) {
+      const itemId = this._portalPkg.itemId; this._portalPkg = null;
+      room.peds.push({ x: U.clamp(this.player.x + 70, RX + 40, RX + RW - 40), y: U.clamp(this.player.y, RY + 40, RY + RH - 40), itemId, kind: 'item', taken: false });
+      this.toast('PORTAL — your mail-order refill has arrived. It was left on the floor. Signature was required; nobody signed.', '#8fd0e0');
+      SFX.play('paper');
+    }
     // achievement tracking: the hazard-room tour
     if (['seclusion', 'ect', 'padded', 'observation'].includes(room.type)) {
       const hs = Meta.data.hazardsSeen || (Meta.data.hazardsSeen = {});
@@ -4736,6 +4805,20 @@ const G = {
     this.tearsAura = false;
     this.hyperfixType = null;
     this.roomFade = 0.22;   // a soft blink crossing the threshold
+    // GROUP SESSION: the circle assembles fresh on every visit (after transients clear, so the chairs stay occupied)
+    if (room.type === 'group' && !room._sessionDone && !room._sessionBroken) {
+      this._sessionSitters = [];
+      const pool = ['doubt', 'redflag', 'scroller', 'notif', 'spiral', 'fog', 'enabler', 'larper', 'deadline', 'comparison'].filter(id => DATA.ENEMIES[id]);
+      const picks = U.shuffle(pool).slice(0, 4);
+      const scx = CW / 2, scy = RY + RH / 2;
+      picks.forEach((id, i) => {
+        const a = -Math.PI / 2 + ((i + 1) / 5) * TAU;   // seat 0 (bottom) is yours
+        const e = new Enemy(id, scx + Math.cos(a) * 118, scy + Math.sin(a) * 118, Math.max(2, this.depth - 1), false, 1);
+        e._inSession = true; e.spawnT = 0; e.noDrop = true;
+        this.enemies.push(e);
+        this._sessionSitters.push(e);
+      });
+    }
     this._roomHits = 0;     // per-room damage tally (Day Room contracts)
     this._roomShieldUsed = false;   // Second Wind resets at every door
     this._roomT0 = this.t;  // room-entry clock (the Intercom bills hourly)
@@ -5009,7 +5092,9 @@ const G = {
         const copayMul = (1 + (this.depth - 1) * 0.07) * (this.protocol === 'deductible' ? 2 : 1) * (this.plan === 'bronze' ? 1.5 : this.plan === 'gold' ? 0.6 : 1) * ((this.intensity || 0) >= 2 ? 1.25 : 1) * (this.hasRule('pricier') ? 1.3 : 1) * (room._scab ? 0.6 : 1);   // copays climb with the ward (scab carts undercut)
         const disc = (p.flags.discount ? 0.5 : (this.wardPath === 'outpatient' ? 0.75 : 1)) * (p.trinket === 'expiredcoupon' ? 0.7 : 1) * (p.trinket === 'laminatedcard' ? 0.85 : 1) * (p._facShopMul || 1);
         const pbmMul = (this._pbmFloor && !this._pbmDead) ? 1.4 : (this._pbmDead ? 0.85 : 1);   // the Middleman skims; his absence is a sale
-        const px = (n) => Math.max(1, Math.ceil(n * disc * copayMul * pbmMul));
+        const elevMul = this._elevCoupon ? 0.9 : 1;   // the vendor's coupon from the elevator (one floor's worth)
+        if (this._elevCoupon) { this._elevCoupon = false; this.toast('The elevator coupon scans. 10% off. The register makes a sound it has never made before.', '#e8c84c'); }
+        const px = (n) => Math.max(1, Math.ceil(n * disc * copayMul * pbmMul * elevMul));
         const yc = RY + RH / 2 + 30, yi = RY + RH / 2 - 80;
         room.stock = [
           { type: 'half', price: px(3), x: RX + 90, y: yc, taken: false },
@@ -5185,6 +5270,12 @@ const G = {
       case 'seclusion': {   // Seclusion Room — a sacrifice altar: bleed for escalating loot
         room.cleared = true;
         room.peds.push({ x: CW / 2, y: RY + RH / 2, kind: 'sacrifice', taken: false, count: 0 });
+        break;
+      }
+      case 'group': {   // GROUP SESSION — the chairs are in a circle and the symptoms sit down
+        room.cleared = true;
+        room.peds.push({ x: CW / 2, y: RY + RH / 2 - 120, kind: 'groupfac', taken: false });
+        room.peds.push({ x: CW / 2, y: RY + RH / 2 + 118, kind: 'groupseat', taken: false });
         break;
       }
       case 'ect': {   // ECT Suite — a prize under a pulsing electrical discharge
@@ -5947,7 +6038,9 @@ const G = {
       if (this.descendT >= 0.55 && !this._descended) {
         this._descended = true;
         this.depth++;
+        if (this._elevExpress) { this.depth++; this._elevExpress = false; this._elevSkipToast = true; }   // EXPRESS: the doors close on a whole ward
         this.newFloor();
+        if (this._elevSkipToast) { this._elevSkipToast = false; this.toast('EXPRESS — one entire ward goes by as a lit number. Whatever was on it keeps whatever it had.', '#8fd0e0'); }
       }
       if (this.descendT >= 1.25) { this.state = 'run'; }
       return;
@@ -5955,6 +6048,7 @@ const G = {
     if (this.state === 'hub') { this.t += dt; this.hubUpdate(dt); return; }
     if (this.state === 'arcade') { this.t += dt; this.arcadeUpdate(dt); return; }
     if (this.state === 'arcade2') { this.t += dt; this.arcade2Update(dt); return; }
+    if (this.state === 'elevride') { this.t += dt; this.elevUpdate(dt); return; }
     if (this.state === 'stairs') { this.t += dt; this.stairsUpdate(dt); return; }
     if (this.state === 'handoff') { this.t += dt; this.handoffUpdate(dt); return; }
     if (this.state === 'appeal') { this.t += dt; this.appealUpdate(dt); return; }
@@ -5994,6 +6088,7 @@ const G = {
       SFX.play('ui');
     }
     if (Input.take('pause')) { this.showPause(); return; }
+    if (Input.take('portal')) { this.showPortal(); return; }
     if (Input.take('mute')) { const mu = SFX.toggleMute(); this.toast(mu ? 'muted' : 'unmuted'); }
 
     // entities (slowmo scales the threats; the player and their tears stay at full speed)
@@ -6371,6 +6466,10 @@ const G = {
         if (this.lockCd <= 0) { this.lockCd = 1.2; this.showEnrollWindow(); return; }
       } else if (ped.kind === 'session') {   // the group session: someone's about to have a breakthrough
         if (this.lockCd <= 0) { this.lockCd = 1.2; this.showSession(ped); return; }
+      } else if (ped.kind === 'groupseat') {   // your chair. the circle waits.
+        if (this.lockCd <= 0 && this.room && !this.room._sessionDone && !this.room._sessionBroken) { this.lockCd = 1.2; this.showGroupSession(); return; }
+      } else if (ped.kind === 'groupfac') {   // the facilitator does not do walk-ups
+        if (this.lockCd <= 0) { this.lockCd = 2.2; this.toast(this.room && this.room._sessionDone ? '“Good session. Same time never — this building doesn\'t do schedules.”' : '“The open chair is yours. Whenever you\'re ready. We have nothing but time and folding chairs.”', '#a8d0a0'); SFX.play('voice'); }
       } else if (ped.kind === 'tube') {   // the mail system predates OSHA
         if (this.lockCd <= 0) { this.lockCd = 1.0; this.showTubes(); return; }
       } else if (ped.kind === 'picket') {   // walk the lap
@@ -6540,6 +6639,7 @@ const G = {
       if (this.floorHits === 0 && !Meta.data.everNoHitFloor) { Meta.data.everNoHitFloor = 1; this.checkUnlocks(); }
       if (this.walkin) { this.showWalkinDone(); return; }   // express discharge: the trapdoor is the exit
       if (this.ascent) { this.wardPath = 'inpatient'; this.doDescend(); }
+      else if (this._elevFloor && !this._elevRode) { this.showElevatorStops(); }   // today the shaft has a CAR in it
       else this.offerComorbidity();
       return;
     }
@@ -6653,6 +6753,246 @@ const G = {
   },
 
   /* ---------- pause / death overlays ---------- */
+  /* ---------- THE ELEVATOR: some shafts have a car in them (stops, riders, muzak) ---------- */
+  showElevatorStops() {
+    this.state = 'elevstops';
+    const p = this.player;
+    this.overlay(`<div class="panel">
+      <h1 class="logo" style="font-size:22px">🛗 THE ELEVATOR</h1>
+      <div class="tagline">The trapdoor has a CAR today. The buttons are worn smooth. The muzak has already started.</div>
+      <div class="cmgrid">
+        <button class="cmcard" id="bElevGo"><div class="cmname">WARD ${this.depth + 1}</div><div class="cmdesc">the next floor down. the standard descent, seated.</div><div class="cmtag">free</div></button>
+        <button class="cmcard" id="bElevMezz"><div class="cmname" style="color:#e8c84c">THE MEZZANINE</div><div class="cmdesc">a between-floors landing: a small shelf, a working cooler. technically not a ward, so technically not billed much.</div><div class="cmtag">4¢ stop fee${p.coins < 4 ? ' — INSUFFICIENT' : ''}</div></button>
+        <button class="cmcard" id="bElevExp"><div class="cmname" style="color:#8fd0e0">EXPRESS — WARD ${this.depth + 2}</div><div class="cmdesc">skip a ward entirely. the doors close on everything it would have charged you.</div><div class="cmtag">10¢${p.coins < 10 ? ' — INSUFFICIENT' : ''}</div></button>
+      </div>
+      <button class="btn minor" id="bElevBack">take the stairs of your own free will (walk away)</button>
+    </div>`);
+    const ride = stop => { SFX.play('ui'); this.hideOverlay(); this.beginElevatorRide(stop); };
+    document.getElementById('bElevGo').onclick = () => ride('normal');
+    document.getElementById('bElevMezz').onclick = () => { if (p.coins < 4) { SFX.play('denied'); this.toast('The stop fee stands. The mezzanine does not negotiate.', '#e05a5a'); return; } p.coins -= 4; ride('mezz'); };
+    document.getElementById('bElevExp').onclick = () => { if (p.coins < 10) { SFX.play('denied'); this.toast('Express is a PREMIUM verticality product.', '#e05a5a'); return; } p.coins -= 10; ride('express'); };
+    document.getElementById('bElevBack').onclick = () => { SFX.play('ui'); this.hideOverlay(); this.state = 'run'; };
+  },
+  beginElevatorRide(stop) {
+    this._elevRode = true;
+    const riders = [
+      { id: 'patient', w: 3 }, { id: 'vendor', w: 2.4 }, { id: 'goose', w: 1.6 }, { id: 'janitor', w: 2 }, { id: 'champion', w: 1.4 }
+    ];
+    let rider = null;
+    if (U.chance(0.34)) { let tot = riders.reduce((a, r) => a + r.w, 0), x = Math.random() * tot; for (const r of riders) { x -= r.w; if (x <= 0) { rider = r.id; break; } } }
+    this.elev = { t: 0, dur: rider ? 4.6 : 2.6, stop, rider, riderDone: false, arrived: false, fromWard: this.depth };
+    this.state = 'elevride';
+    SFX.play('descend');
+  },
+  elevUpdate(dt) {
+    const E = this.elev; if (!E) { this.state = 'run'; return; }
+    E.t += dt;
+    // mid-ride: the doors open. someone gets on.
+    if (E.rider && !E.riderDone && E.t >= 1.6) {
+      E.riderDone = true;
+      const p = this.player;
+      if (E.rider === 'patient') { p.heal(1); this.toast('A patient gets on, nods at your chart. “Couldn\'t sleep either.” They hand you half a heart. Nobody talks after that.', '#8fd08a'); }
+      else if (E.rider === 'vendor') { this._elevCoupon = true; this.toast('A vendor wheels a cart on, rides one floor, wheels it off. A coupon falls off the cart. 10% off the next Gift Shop. Was that allowed?', '#e8c84c'); }
+      else if (E.rider === 'goose') { const take = Math.min(p.coins, 1); p.coins -= take; this.toast(take ? 'THE GOOSE gets on. It takes exactly one coin. It looks at you the entire time. HONK.' : 'THE GOOSE gets on, finds you coinless, and honks at the injustice of it.', '#c8b878'); SFX.play('pop'); }
+      else if (E.rider === 'janitor') { p.heal(2); this.toast('The Janitor gets on with the mop. He looks at you. He nods. The floor of the elevator has never been cleaner. +1♥.', '#8fd0e0'); }
+      else if (E.rider === 'champion') { this.toast('The doors open on a champion. It does not get on. It just looks at you until the doors close. The muzak continues.', '#e05a5a'); SFX.play('sting'); }
+      SFX.play('bell');
+    }
+    if (E.t >= E.dur && !E.arrived) {
+      E.arrived = true;
+      if (E.stop === 'mezz') { this.showMezzanine(); return; }
+      if (E.stop === 'express') { this._elevExpress = true; }
+      this.elev = null;
+      this.offerComorbidity();
+    }
+  },
+  showMezzanine() {
+    this.state = 'mezz';
+    const p = this.player;
+    if (!this._mezzStock) {
+      const pool = DATA.pickPool ? DATA.pickPool('shop', p.items) : [];
+      const picks = U.shuffle(pool.slice()).slice(0, 3);
+      this._mezzStock = picks.map(id => ({ id, price: Math.max(3, Math.round((DATA.ITEMS[id].price || 10) * 0.9)), sold: false }));
+      this._mezzWater = true;
+    }
+    const stock = this._mezzStock;
+    this.overlay(`<div class="panel">
+      <h1 class="logo" style="font-size:22px">THE MEZZANINE</h1>
+      <div class="tagline">A landing between wards. One shelf, one cooler, no billing department. Do not tell the billing department.</div>
+      <div class="cmgrid">
+        ${stock.map((s, i) => s.sold ? `<div class="cmcard" style="opacity:.4"><div class="cmname">SOLD</div></div>` : `<button class="cmcard" data-mz="${i}"><div class="cmname">${DATA.ITEMS[s.id].name}</div><div class="cmdesc">${DATA.ITEMS[s.id].desc || ''}</div><div class="cmtag">${s.price}¢ · mezzanine rate</div></button>`).join('')}
+      </div>
+      ${this._mezzWater ? `<button class="btn minor" id="bMezzWater">the cooler works. drink. (+1♥, free)</button>` : ''}
+      <button class="btn" id="bMezzGo">BACK IN THE CAR — WARD ${this.depth + 1}</button>
+    </div>`);
+    document.querySelectorAll('[data-mz]').forEach(b => b.onclick = () => {
+      const s = stock[+b.dataset.mz];
+      if (p.coins < s.price) { SFX.play('denied'); this.toast('The shelf is patient. Your wallet is not.', '#e05a5a'); return; }
+      p.coins -= s.price; s.sold = true;
+      p.addItem(s.id, this);
+      SFX.play('coin');
+      this.showMezzanine();
+    });
+    const bw = document.getElementById('bMezzWater');
+    if (bw) bw.onclick = () => { this._mezzWater = false; p.heal(2); SFX.play('heal'); this.showMezzanine(); };
+    document.getElementById('bMezzGo').onclick = () => {
+      SFX.play('ui'); this.hideOverlay();
+      this._mezzStock = null;
+      this.elev = null;
+      this.offerComorbidity();
+    };
+  },
+
+  /* ---------- GROUP SESSION: sit in the circle, respond, live with it ---------- */
+  showGroupSession(state) {
+    const S = DATA.SESSION2, p = this.player;
+    if (!state) {
+      const sitters = (this._sessionSitters || []).filter(e => !e.dying);
+      if (sitters.length < 2) { this.toast('Not enough of the circle is left to hold session.', '#a8d0a0'); return; }
+      state = { round: 0, sharers: U.shuffle(sitters).slice(0, 3), tally: { validate: 0, deflect: 0, overshare: 0 } };
+    }
+    this.state = 'group';
+    const st = state;
+    if (st.round >= 3) {   // resolve
+      const t = st.tally;
+      const top = Object.entries(t).sort((a, b) => b[1] - a[1]);
+      const winner = (top[0][1] >= 2) ? top[0][0] : 'mixed';
+      let line = S.outcomes[winner];
+      if (winner === 'validate') {
+        const charmedNow = this.enemies.filter(e => e.charmed && !e.dying).length;
+        const pick = st.sharers.find(e => !e.dying);
+        if (pick && charmedNow < 3) { pick._inSession = false; pick.charmed = true; pick.charmIdleT = 0; pick.hp = pick.maxhp; }
+        else { line = S.outcomes.mixed; Meta.data.insight = (Meta.data.insight || 0) + 6; this._goalInsight += 6; }
+      } else if (winner === 'deflect') { p.dmg += 0.5; }
+      else if (winner === 'overshare') { p.maxhp += 2; p.heal(2); (this._sessionSitters || []).forEach(e => { if (!e.charmed) { e.dying = true; e.deadDone = true; } }); }
+      else { Meta.data.insight = (Meta.data.insight || 0) + 6; this._goalInsight += 6; Meta.save(); }
+      this.room._sessionDone = true;
+      (this._sessionSitters || []).forEach(e => { e._inSession = true; });   // whoever remains stays seated, processing
+      Meta.data.sessionsSat = (Meta.data.sessionsSat || 0) + 1; Meta.save();
+      this.overlay(`<div class="panel">
+        <h1 class="logo" style="font-size:22px">GROUP SESSION</h1>
+        <div class="tagline">${line}</div>
+        <button class="btn" id="bGrpOut">STAND UP</button>
+      </div>`);
+      document.getElementById('bGrpOut').onclick = () => { SFX.play('ui'); this.hideOverlay(); this.state = 'run'; this.checkUnlocks && this.checkUnlocks(); };
+      SFX.play('heal');
+      return;
+    }
+    const sharer = st.sharers[st.round];
+    const share = (sharer && S.shares[sharer.id]) || S.shares.generic;
+    const who = sharer ? DATA.ENEMIES[sharer.id].name : 'Someone';
+    this.overlay(`<div class="panel">
+      <h1 class="logo" style="font-size:22px">GROUP SESSION</h1>
+      <div class="tagline" style="opacity:.7">${st.round === 0 ? U.choice(S.facIntro) : 'round ' + (st.round + 1) + ' of 3'}</div>
+      <div class="summary"><div class="sumrow"><span><b>${who}</b> shares:</span><b></b></div>
+      <div class="tagline" style="text-align:left">${share}</div></div>
+      ${S.responses.map(r => `<button class="btn minor" data-resp="${r.id}">${r.label}</button>`).join('')}
+    </div>`);
+    document.querySelectorAll('[data-resp]').forEach(b => b.onclick = () => {
+      const id = b.dataset.resp;
+      st.tally[id]++;
+      const react = id === 'validate' ? S.reactValidate : id === 'deflect' ? S.reactDeflect : S.reactOvershare;
+      this.toast(U.choice(react), id === 'validate' ? '#8fd08a' : id === 'deflect' ? '#e0a05a' : '#8fd0e0');
+      SFX.play(id === 'validate' ? 'heal' : 'voice');
+      st.round++;
+      this.showGroupSession(st);
+    });
+  },
+  breakSession() {
+    if (!this.room || this.room.type !== 'group' || this.room._sessionBroken) return;
+    this.room._sessionBroken = true;
+    this.room.cleared = false;
+    (this._sessionSitters || []).forEach(e => { e._inSession = false; e._enraged = 4; });
+    this.room.peds = (this.room.peds || []).filter(pd => pd.kind !== 'groupfac' && pd.kind !== 'groupseat');
+    this.toast(DATA.SESSION2.breakLine, '#e05a5a');
+    SFX.play('boss');
+  },
+
+  /* ---------- THE PATIENT PORTAL: the machine, but as an app (2 logins per ward) ---------- */
+  showPortal(tab) {
+    if (this.state !== 'run' && this.state !== 'pause' && this.state !== 'portal') return;
+    const p = this.player;
+    if (!this._portalOpen) {   // opening (not tab-switching) spends a login
+      if ((this._portalUses || 0) <= 0) {
+        this.state = 'portal';
+        this.overlay(`<div class="panel">
+          <h1 class="logo" style="font-size:22px">📱 PATIENT PORTAL</h1>
+          <div class="tagline">${DATA.PORTAL.lockedLine}</div>
+          <button class="btn" id="bPortalOut">LOG OUT (you were never in)</button>
+        </div>`);
+        document.getElementById('bPortalOut').onclick = () => { SFX.play('ui'); this.hideOverlay(); this.state = 'run'; };
+        return;
+      }
+      this._portalUses--;
+      this._portalOpen = true;
+      SFX.play('ui');
+    }
+    this.state = 'portal';
+    this._portalTab = tab || this._portalTab || 'results';
+    const T = this._portalTab;
+    const tabs = [['results', 'RESULTS'], ['messages', 'MESSAGES'], ['billing', 'BILLING'], ['refills', 'REFILLS']];
+    let body = '';
+    if (T === 'results') {
+      const bossKnown = this.bossId && DATA.BOSSES[this.bossId];
+      const rooms = this.floorRooms || [];
+      const counts = {};
+      rooms.forEach(r => { if (!r.visited && !['normal', 'start', 'boss', 'padded'].includes(r.type)) counts[r.type] = (counts[r.type] || 0) + 1; });
+      const nice = { item: 'Specialist office', shop: 'Gift Shop', gym: 'Gym', dayroom: 'Day Room', records: 'Records Room', breakroom: 'Breakroom', event: 'Ward event', clinic: 'Clinic', stairs: 'Stairwell', cafeteria: 'Cafeteria', secret: '[REDACTED]' };
+      body = `<div class="tagline">${DATA.PORTAL.resultsReady}</div>
+        <div class="summary">
+          <div class="sumrow"><span>Ward management on duty</span><b>${bossKnown ? DATA.BOSSES[this.bossId].name : 'PENDING'}</b></div>
+          ${Object.keys(counts).length ? Object.entries(counts).map(([k, n]) => `<div class="sumrow"><span>Unvisited: ${nice[k] || k}</span><b>×${n}</b></div>`).join('') : `<div class="sumrow"><span>${DATA.PORTAL.resultsPending}</span><b></b></div>`}
+        </div>`;
+    } else if (T === 'messages') {
+      body = this._portalReply
+        ? `<div class="tagline">Message sent. The care team responds in its own time (one room, usually).</div>`
+        : `<div class="tagline">Message your care team. Replies arrive one room later.</div>
+           ${DATA.PORTAL.messages.map((m, i) => `<button class="btn minor" data-pmsg="${i}">${m.label}</button>`).join('')}`;
+    } else if (T === 'billing') {
+      body = `${this.billHtml()}
+        ${this._portalDisputed ? `<div class="tagline">A dispute is on file. The file is closed.</div>` : `<button class="btn minor" id="bPortalDispute">DISPUTE A CHARGE (once per admission)</button>`}`;
+    } else {
+      const REFILL_OK = ['ssri', 'lithium', 'antipsy', 'melatonin', 'oils', 'bluelight', 'blanket', 'weightedblanket', 'dosage', 'delivery', 'extended', 'twice', 'offlabel', 'outofoffice'];
+      const owned = (p.items || []).filter(id => REFILL_OK.includes(id) && DATA.ITEMS[id]);
+      body = this._portalRefilled
+        ? `<div class="tagline">Mail-order limit reached: one (1) refill per admission. The system regrets.</div>`
+        : owned.length
+          ? `<div class="tagline">${DATA.PORTAL.refillBlurb}</div>
+             ${owned.slice(0, 5).map(id => `<button class="btn minor" data-prefill="${id}">${DATA.ITEMS[id].name} — 6¢</button>`).join('')}`
+          : `<div class="tagline">No mail-order-eligible prescriptions on file. The flat-effect ones only. Pharmacy noticed last time.</div>`;
+    }
+    this.overlay(`<div class="panel">
+      <h1 class="logo" style="font-size:22px">📱 PATIENT PORTAL</h1>
+      <div class="tagline" style="opacity:.7">${U.choice(DATA.PORTAL.loginLines)} · ${Math.max(0, this._portalUses)} login${this._portalUses === 1 ? '' : 's'} remaining this ward</div>
+      <div class="btnrow">${tabs.map(([id, nm]) => `<button class="btn minor codextab${T === id ? ' active' : ''}" data-ptab="${id}">${nm}</button>`).join('')}</div>
+      ${body}
+      <button class="btn" id="bPortalClose">LOG OUT</button>
+    </div>`);
+    document.querySelectorAll('[data-ptab]').forEach(b => b.onclick = () => { SFX.play('ui'); this.showPortal(b.dataset.ptab); });
+    document.getElementById('bPortalClose').onclick = () => { SFX.play('ui'); this._portalOpen = false; this.hideOverlay(); this.state = 'run'; };
+    document.querySelectorAll('[data-pmsg]').forEach(b => b.onclick = () => {
+      const m = DATA.PORTAL.messages[+b.dataset.pmsg];
+      this._portalReply = { roomsLeft: 1, msg: m };
+      SFX.play('paper');
+      this.showPortal('messages');
+    });
+    const bd = document.getElementById('bPortalDispute');
+    if (bd) bd.onclick = () => {
+      this._portalDisputed = true;
+      if (U.chance(0.25)) { p.coins += 5; this.toast(DATA.PORTAL.disputeWin, '#8fd08a'); SFX.play('fanfare'); }
+      else { this.toast(DATA.PORTAL.disputeLose, '#e05a5a'); SFX.play('denied'); }
+      this.showPortal('billing');
+    };
+    document.querySelectorAll('[data-prefill]').forEach(b => b.onclick = () => {
+      if (p.coins < 6) { this.toast('Insufficient copays. The cart remembers.', '#e05a5a'); SFX.play('denied'); return; }
+      p.coins -= 6;
+      this._portalRefilled = true;
+      this._portalPkg = { roomsLeft: 2, itemId: b.dataset.prefill };
+      SFX.play('coin');
+      this.showPortal('refills');
+    });
+  },
+
   showPause() {
     this.state = 'pause';
     SFX.play('ui');
@@ -6676,10 +7016,13 @@ const G = {
           <button class="btn minor" id="bSettings2">⚙ SETTINGS</button>
           <button class="btn minor" id="bPauseHb">📘 HANDBOOK</button>
         </div>
+        <button class="btn minor" id="bPausePortal">📱 PATIENT PORTAL <span style="font-size:10px;opacity:.7">(T) · ${Math.max(0, this._portalUses || 0)} login${(this._portalUses || 0) === 1 ? '' : 's'} left this ward</span></button>
         <button class="btn minor" id="bQuit">${this.dailyKind ? 'QUIT TO TITLE' : (this.sandbox ? 'CLOCK OUT (sandbox)' : '💾 SAVE & QUIT')}</button>
       </div>`);
     document.getElementById('bResume').onclick = () => { SFX.play('ui'); this.hideOverlay(); this.state = 'run'; };
     document.getElementById('bPauseHb').onclick = () => { SFX.play('paper'); this.showHandbook(() => this.showPause()); };
+    const bpp = document.getElementById('bPausePortal');
+    if (bpp) bpp.onclick = () => { SFX.play('ui'); this.showPortal(); };
     const bbd = document.getElementById('bBackDesign');
     if (bbd) bbd.onclick = () => { SFX.play('ui'); this.showDesigner(); };
     const btt = document.getElementById('bTesterTools');
@@ -7518,6 +7861,7 @@ const G = {
         <div style="text-align:center;margin-top:6px">
           <canvas id="recapCv" width="300" height="190" style="border-radius:8px;max-width:100%"></canvas>
           <div class="tagline" style="margin-top:2px">the incident, reconstructed — cause: <b style="color:#e05a5a">${this._causeName(this.player._lastSrc || 'unknown')}</b></div>
+          ${this._grudgeFiled ? `<div class="tagline" style="margin-top:2px;color:#e05a5a">a grudge has been filed: <b>${this._grudgeFiled}</b> — it will find you next run. bounty scales with repeat offenses.</div>` : ''}
         </div>` : ''}
         ${dkind === 'daily'
           ? `<button class="btn" id="bRetryDaily">🗓️ RETRY TODAY'S DAILY</button>`

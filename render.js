@@ -85,6 +85,8 @@ const Render = {
       this.drawHub(G);
     } else if (G.state === 'arcade2') {
       this.drawArcade2(G);
+    } else if (G.state === 'elevride') {
+      this.drawElevator(G);
     } else if (G.state === 'arcade') {
       this.drawArcade(G);
     } else if (G.state === 'stairs') {
@@ -1114,6 +1116,80 @@ const Render = {
   },
 
   /* ============ CABINET TWO — CLAIM DENIED! ============ */
+  drawElevator(G) {
+    const ctx = this.ctx;
+    const E = G.elev || { t: 0, dur: 2.6, fromWard: G.depth };
+    // interior: institutional beige walls, wood-look rail, carpet with a pattern nobody chose
+    const wg = ctx.createLinearGradient(0, 0, 0, CH);
+    wg.addColorStop(0, '#3a3230'); wg.addColorStop(0.5, '#4a423c'); wg.addColorStop(1, '#2c2624');
+    ctx.fillStyle = wg; ctx.fillRect(0, 0, CW, CH);
+    ctx.fillStyle = '#5a5048'; ctx.fillRect(0, CH * 0.72, CW, CH * 0.28);   // carpet
+    ctx.fillStyle = 'rgba(0,0,0,0.15)';
+    for (let i = 0; i < 14; i++) { const dx = (i * 97) % CW; ctx.beginPath(); ctx.arc(dx, CH * 0.72 + ((i * 53) % (CH * 0.24)) + 12, 8, 0, TAU); ctx.fill(); }
+    ctx.strokeStyle = '#8a6a4a'; ctx.lineWidth = 8;   // the rail
+    ctx.beginPath(); ctx.moveTo(40, CH * 0.55); ctx.lineTo(CW - 40, CH * 0.55); ctx.stroke();
+    // the doors (open mid-ride for a rider)
+    const doorsOpen = E.rider && E.t >= 1.2 && E.t <= 3.4;
+    const doorGap = doorsOpen ? Math.min(1, (E.t - 1.2) / 0.5) * (E.t > 2.9 ? Math.max(0, (3.4 - E.t) / 0.5) : 1) : 0;
+    const dw = CW * 0.26, dx0 = CW / 2 - dw, dy0 = CH * 0.16, dh = CH * 0.52;
+    ctx.fillStyle = '#1a1418'; ctx.fillRect(dx0, dy0, dw * 2, dh);   // the dark behind the doors
+    if (doorsOpen && doorGap > 0.1 && E.rider) {   // the rider, in silhouette+detail
+      ctx.save(); ctx.translate(CW / 2, dy0 + dh * 0.62);
+      const R = E.rider;
+      if (R === 'goose') {
+        ctx.fillStyle = '#e8e4da';
+        ctx.beginPath(); ctx.ellipse(0, 10, 26, 18, 0, 0, TAU); ctx.fill();
+        ctx.beginPath(); ctx.arc(18, -16, 11, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#e0a53a'; ctx.beginPath(); ctx.moveTo(27, -16); ctx.lineTo(40, -12); ctx.lineTo(27, -8); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#2c2333'; ctx.beginPath(); ctx.arc(20, -18, 2.5, 0, TAU); ctx.fill();
+      } else if (R === 'janitor') {
+        this.orb(ctx, 0, 0, 24, '#8fb0c8', false);
+        ctx.strokeStyle = '#8a6a4a'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(30, 26); ctx.lineTo(38, -34); ctx.stroke();
+        ctx.fillStyle = '#d8d0c0'; ctx.beginPath(); ctx.arc(39, -38, 8, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#2c2333'; ctx.beginPath(); ctx.arc(-6, -4, 2.5, 0, TAU); ctx.arc(6, -4, 2.5, 0, TAU); ctx.fill();
+      } else if (R === 'vendor') {
+        this.orb(ctx, 0, -6, 22, '#c8b070', false);
+        ctx.fillStyle = '#7a6a4a'; this.rr(ctx, -38, 8, 76, 22, 4); ctx.fill();   // the cart
+        ctx.fillStyle = '#e8dcc0'; this.rr(ctx, -34, -2, 20, 10, 2); ctx.fill(); this.rr(ctx, -8, -2, 20, 10, 2); ctx.fill(); this.rr(ctx, 18, -2, 16, 10, 2); ctx.fill();
+        ctx.fillStyle = '#2c2333'; ctx.beginPath(); ctx.arc(-5, -10, 2.4, 0, TAU); ctx.arc(5, -10, 2.4, 0, TAU); ctx.fill();
+      } else if (R === 'champion') {
+        ctx.save();
+        ctx.strokeStyle = '#e8c84c'; ctx.lineWidth = 3; ctx.shadowColor = '#e8c84c'; ctx.shadowBlur = 16;
+        this.orb(ctx, 0, 0, 30, '#5a4a5a', false);
+        ctx.beginPath(); ctx.arc(0, 0, 38 + Math.sin(G.t * 4) * 2, 0, TAU); ctx.stroke();
+        ctx.restore();
+        ctx.fillStyle = '#e8c84c'; ctx.beginPath(); ctx.arc(-8, -6, 3, 0, TAU); ctx.arc(8, -6, 3, 0, TAU); ctx.fill();
+      } else {   // patient
+        this.orb(ctx, 0, 0, 22, '#c8bfae', false);
+        ctx.fillStyle = '#2c2333'; ctx.beginPath(); ctx.arc(-6, -4, 2.4, 0, TAU); ctx.arc(6, -4, 2.4, 0, TAU); ctx.fill();
+        ctx.strokeStyle = 'rgba(44,35,51,0.5)'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.arc(-6, -1, 3.6, 0.2, Math.PI - 0.2); ctx.arc(6, -1, 3.6, 0.2, Math.PI - 0.2); ctx.stroke();
+        ctx.strokeStyle = '#2c2333'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(-4, 7); ctx.lineTo(4, 7); ctx.stroke();
+      }
+      ctx.restore();
+    }
+    // the door slabs
+    ctx.fillStyle = '#8a8494';
+    ctx.fillRect(dx0, dy0, dw * (1 - doorGap), dh);
+    ctx.fillRect(CW / 2 + dw * doorGap, dy0, dw * (1 - doorGap), dh);
+    ctx.strokeStyle = '#1c1824'; ctx.lineWidth = 3; ctx.strokeRect(dx0, dy0, dw * 2, dh);
+    // floor indicator: the needle sweeps, the number ticks
+    const prog = Math.min(1, E.t / E.dur);
+    const shownWard = E.fromWard + (prog > 0.85 ? 1 : 0);
+    ctx.fillStyle = '#1a1418'; this.rr(ctx, CW / 2 - 70, dy0 - 54, 140, 40, 6); ctx.fill();
+    ctx.strokeStyle = '#c8a24a'; ctx.lineWidth = 2; this.rr(ctx, CW / 2 - 70, dy0 - 54, 140, 40, 6); ctx.stroke();
+    ctx.fillStyle = '#e8c84c'; ctx.font = this.font(20, true); ctx.textAlign = 'center';
+    ctx.fillText('WARD ' + shownWard + (prog < 0.85 ? ' ↓' : ''), CW / 2, dy0 - 26);
+    // muzak notes drift by (the muzak is load-bearing)
+    for (let i = 0; i < 4; i++) {
+      const nt = (G.t * 0.4 + i * 0.7) % 2.4;
+      ctx.fillStyle = 'rgba(200,184,216,' + Math.max(0, 0.5 - nt * 0.22) + ')';
+      ctx.font = this.font(13 + i * 2, true);
+      ctx.fillText(i % 2 ? '♪' : '♫', CW * 0.2 + i * CW * 0.2 + Math.sin(G.t + i) * 12, CH * 0.3 - nt * 40);
+    }
+    ctx.fillStyle = 'rgba(240,232,216,0.55)'; ctx.font = this.font(11); ctx.textAlign = 'center';
+    ctx.fillText(E.rider && E.t >= 1.2 && E.t <= 3.4 ? 'the doors are open. nobody talks.' : 'the muzak continues.', CW / 2, CH - 26);
+  },
+
   drawArcade2(G) {
     const ctx = this.ctx, A = G.arcade2;
     if (!A) return;
@@ -1953,16 +2029,40 @@ const Render = {
       ctx.beginPath(); ctx.arc(0, -1, 8.5, Math.PI, 0); ctx.fill();
       ctx.restore();
     }
-    // trapdoor
+    // trapdoor (or, some days, the ELEVATOR)
     if (G.trapdoor) {
       const td = G.trapdoor;
-      ctx.fillStyle = '#141018';
-      ctx.beginPath(); ctx.ellipse(td.x, td.y, 30, 22, 0, 0, TAU); ctx.fill();
-      ctx.strokeStyle = '#3a3242'; ctx.lineWidth = 4;
-      ctx.beginPath(); ctx.ellipse(td.x, td.y, 30, 22, 0, 0, TAU); ctx.stroke();
-      ctx.fillStyle = '#5a4e66';
-      ctx.font = this.font(11); ctx.textAlign = 'center';
-      ctx.fillText('deeper', td.x, td.y - 32);
+      if (G._elevFloor && !G._elevRode) {
+        // the car is here: brushed doors, a lit call button, a floor needle
+        ctx.save(); ctx.translate(td.x, td.y - 8);
+        ctx.fillStyle = '#3a3644'; this.rr(ctx, -34, -44, 68, 78, 5); ctx.fill();
+        ctx.strokeStyle = '#1c1824'; ctx.lineWidth = 3; this.rr(ctx, -34, -44, 68, 78, 5); ctx.stroke();
+        const gap = 1.5 + Math.sin(G.t * 1.4) * 1.2;   // the doors breathe. do not think about it.
+        ctx.fillStyle = '#8a8494';
+        this.rr(ctx, -30, -40, 29 - gap, 70, 3); ctx.fill();
+        this.rr(ctx, 1 + gap, -40, 29 - gap, 70, 3); ctx.fill();
+        ctx.strokeStyle = 'rgba(20,16,24,0.6)'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(0, -40); ctx.lineTo(0, 30); ctx.stroke();
+        // the needle above the doors, mid-swing
+        ctx.strokeStyle = '#c8a24a'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(0, -48, 12, Math.PI + 0.4, TAU - 0.4); ctx.stroke();
+        const na = Math.PI * 1.5 + Math.sin(G.t * 0.8) * 0.5;
+        ctx.beginPath(); ctx.moveTo(0, -48); ctx.lineTo(Math.cos(na) * 10, -48 + Math.sin(na) * 10); ctx.stroke();
+        // call button, lit
+        ctx.fillStyle = (Math.sin(G.t * 3) > 0) ? '#e8c84c' : '#8a7a3a';
+        ctx.beginPath(); ctx.arc(40, -4, 4, 0, TAU); ctx.fill();
+        ctx.restore();
+        ctx.fillStyle = '#c8a24a'; ctx.font = this.font(11); ctx.textAlign = 'center';
+        ctx.fillText('the elevator is HERE today', td.x, td.y - 62);
+      } else {
+        ctx.fillStyle = '#141018';
+        ctx.beginPath(); ctx.ellipse(td.x, td.y, 30, 22, 0, 0, TAU); ctx.fill();
+        ctx.strokeStyle = '#3a3242'; ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.ellipse(td.x, td.y, 30, 22, 0, 0, TAU); ctx.stroke();
+        ctx.fillStyle = '#5a4e66';
+        ctx.font = this.font(11); ctx.textAlign = 'center';
+        ctx.fillText('deeper', td.x, td.y - 32);
+      }
     }
 
     // pedestals
@@ -2462,6 +2562,43 @@ const Render = {
         ctx.fillStyle = '#c8b8d8'; ctx.font = this.font(10, true); ctx.textAlign = 'center';
         ctx.fillText('GROUP SESSION', ped.x, ped.y - 30);
         if (U.dist(G.player.x, G.player.y, ped.x, ped.y) < 84) { ctx.fillStyle = '#e8c84c'; ctx.font = this.font(10, true); ctx.fillText('walk up · someone has a breakthrough', ped.x, ped.y + 38); }
+        continue;
+      }
+      if (ped.kind === 'groupfac') {   // the facilitator: cardigan, clipboard, infinite patience
+        // the circle itself: chairs at the five seats (sitters render themselves; empties get furniture)
+        const cx0 = CW / 2, cy0 = RY + RH / 2;
+        for (let i = 0; i < 5; i++) {
+          const a = -Math.PI / 2 + ((i + 1) / 5) * TAU;
+          const chx = cx0 + Math.cos(a) * 118, chy = cy0 + Math.sin(a) * 118 + 16;
+          ctx.save(); ctx.translate(chx, chy);
+          ctx.strokeStyle = 'rgba(154,140,116,0.75)'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+          ctx.beginPath(); ctx.moveTo(-8, 10); ctx.lineTo(-5, 1); ctx.moveTo(8, 10); ctx.lineTo(5, 1); ctx.stroke(); ctx.lineCap = 'butt';
+          ctx.fillStyle = 'rgba(200,184,152,0.55)'; this.rr(ctx, -10, -3, 20, 5, 2); ctx.fill();
+          ctx.restore();
+        }
+        this.shadow(ped.x, ped.y + 16, 18, 6, 0.2);
+        ctx.save(); ctx.translate(ped.x, ped.y);
+        this.orb(ctx, 0, 2, 16, '#c8b8a0', false);
+        ctx.strokeStyle = '#8a6a5a'; ctx.lineWidth = 3;   // the cardigan
+        ctx.beginPath(); ctx.moveTo(-9, 6); ctx.lineTo(0, 12); ctx.lineTo(9, 6); ctx.stroke();
+        ctx.fillStyle = '#2c2333'; ctx.beginPath(); ctx.arc(-4.5, -3, 1.8, 0, TAU); ctx.arc(4.5, -3, 1.8, 0, TAU); ctx.fill();
+        ctx.strokeStyle = '#2c2333'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(0, 2, 4.5, 0.3, Math.PI - 0.3); ctx.stroke();   // the professional warm smile
+        ctx.fillStyle = '#f4eee0'; this.rr(ctx, 12, -4, 8, 12, 1.5); ctx.fill();   // clipboard
+        ctx.restore();
+        ctx.fillStyle = '#a8d0a0'; ctx.font = this.font(10, true); ctx.textAlign = 'center';
+        ctx.fillText('GROUP SESSION', ped.x, ped.y - 30);
+        continue;
+      }
+      if (ped.kind === 'groupseat') {   // the open chair. it is, structurally, an invitation
+        if (G.room && (G.room._sessionDone || G.room._sessionBroken)) continue;
+        this.shadow(ped.x, ped.y + 12, 14, 5, 0.2);
+        ctx.save(); ctx.translate(ped.x, ped.y + Math.sin(G.t * 2) * 2);
+        ctx.strokeStyle = '#9a8c74'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(-9, 12); ctx.lineTo(-6, 1); ctx.moveTo(9, 12); ctx.lineTo(6, 1); ctx.stroke();
+        ctx.fillStyle = '#c8b898'; this.rr(ctx, -11, -3, 22, 6, 2); ctx.fill(); this.rr(ctx, -10, -20, 20, 5, 2); ctx.fill();
+        ctx.strokeStyle = '#9a8c74'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(-8, -15); ctx.lineTo(-8, -3); ctx.moveTo(8, -15); ctx.lineTo(8, -3); ctx.stroke(); ctx.lineCap = 'butt';
+        ctx.restore();
+        if (U.dist(G.player.x, G.player.y, ped.x, ped.y) < 84) { ctx.fillStyle = '#e8c84c'; ctx.font = this.font(10, true); ctx.textAlign = 'center'; ctx.fillText('take the open chair · sit with it', ped.x, ped.y + 34); }
         continue;
       }
       if (ped.kind === 'tube') {   // the 1962 mail system, still humming
@@ -4395,7 +4532,8 @@ const Render = {
         ctx.beginPath(); ctx.arc(e.x, e.y, e.r + 8 + Math.sin(G.t * 5) * 2, 0, TAU); ctx.stroke();
         ctx.restore();
         ctx.fillStyle = '#e05a5a'; ctx.font = this.font(9, true); ctx.textAlign = 'center';
-        ctx.fillText('REMEMBERS YOU', e.x, e.y - e.r - 16);
+        ctx.fillText(e._nemName ? e._nemName : 'REMEMBERS YOU', e.x, e.y - e.r - 16);
+        if (e._nemKills > 1) { ctx.fillStyle = 'rgba(224,90,90,0.7)'; ctx.font = this.font(8); ctx.fillText('grudge ×' + e._nemKills + ' · bounty posted', e.x, e.y - e.r - 27); }
       }
       if (e._complaint) {   // your grievance, embodied
         ctx.save();
