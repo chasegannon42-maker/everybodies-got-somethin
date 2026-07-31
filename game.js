@@ -66,10 +66,16 @@ const G = {
     }
   },
   toast(txt, clr) {
-    this.toasts.push({ txt: Icons.txt(txt), t: 0, dur: 2.8, clr });
+    const clean = Icons.txt(txt);
+    // long lines stay up long enough to actually read (~18 chars/sec + lead-in)
+    this.toasts.push({ txt: clean, t: 0, dur: U.clamp(1.6 + clean.length * 0.055, 2.8, 7.5), clr });
     if (this.toasts.length > 3) this.toasts.shift();
   },
-  setBanner(text, sub, dur) { this.banner = { text: Icons.txt(text), sub: sub ? Icons.txt(sub) : sub, t: 0, dur: dur || 2.2 }; },
+  setBanner(text, sub, dur) {
+    const tx = Icons.txt(text), sb = sub ? Icons.txt(sub) : sub;
+    const need = 1.4 + ((tx.length + (sb ? sb.length : 0)) * 0.045);   // headlines earn their airtime
+    this.banner = { text: tx, sub: sb, t: 0, dur: Math.min(7, Math.max(dur || 2.2, need)) };
+  },
   checkUnlocks() {
     if (this.sandbox) return;   // sandbox shifts earn nothing but experience
     const fresh = DATA.checkAchievements(Meta.data);
@@ -3165,7 +3171,7 @@ const G = {
      The complete in-fiction manual: every mechanic, symptom, ward, and
      service. Mostly generated from DATA so new content lists itself;
      the prose sections get a line whenever a feature ships. */
-  HB_REV: 39,
+  HB_REV: 40,
   showHandbook(returnTo) {
     this.state = 'handbook';
     if (!this._hbTab) this._hbTab = 'basics';
@@ -3352,6 +3358,7 @@ const G = {
         + N('rev. 30 — new on the ward: THE HOLD (management, ward 7+, bring patience and footwork) · THE CLINICAL TRIAL (see TREATMENT) · THE SCANNER (see TREATMENT) · and a thirteenth patient file for whoever finished THE HANDOFF. The mop is in the closet where he left it.')
         + N('rev. 31 — the building learned finance and the calendar: THE FINANCING DESK and THE MIDDLEMAN (see TREATMENT) · THE DREAM WARD (see THE BUILDING) · AWARENESS MONTHS (see THE BUILDING). Also: Group Therapy recruitment now caps at three and no longer works on management, security, paperwork, or anyone mid-performance. The group apologizes to the charge nurse.')
         + N('rev. 32 — the Waiting Room was renovated (doors need an actual step, the nearest thing answers, the room remembers where you were standing) and Dr. Walrus attended a communication workshop. He speaks in full sentences now. He is very proud of this.')
+        + N('rev. 40 — the announcements slowed down: toasts, banners, and visiting well-wishers now stay up long enough to actually be READ (long lines earn long airtime). Cutscenes were already patient — they wait for you. They always waited for you.')
         + N('rev. 39 — THE FEEL PASS: the frame where it counts now holds its breath (hitstop on kills, elites, and every hit you take), impacts ring outward, taking damage reddens the edges for a beat, cleared rooms exhale a soft two-note chime, elites close like a case file, and the deep wards can no longer roll MORE bodies and TOUGHER bodies on the same floor. The Clinical Trial\'s damage arm was also converted to a flat dose. The building feels better. Clinically.')
         + N('rev. 38 — THE GREAT REBALANCE: the Drug Rep visits less and brings one sample (it was a flood), REFILLS now stock only the flat-effect meds (no doubling the multiplicative ones — pharmacy noticed), Dopamine Detox and a few friends were re-titrated, fire rate has a hard floor (the trigger finger has a contract), and the deep wards push back harder — spongier patients, heavier managers, more champions past 20. Also the building turned the contact sounds DOWN; blocked shots no longer machine-gun the womp.')
         + N('rev. 37 — THE CAFETERIA opened a tray line (one tray per patient; the jello is always there), THE DEDUCTIBLE joined management on ward 8+ (your hits get billed until the meter is met — then it is mortal), the commissary got a WHEEL OF APPEALS (spin to overturn interest, side effects, or ward conditions), and the pharmacy shelves grew: six new prescriptions including the Waiver Pen (nothing you sign flies straight), two new personal effects, and one pill that is simply The Good One.')
@@ -4039,7 +4046,7 @@ const G = {
       if (v.cd <= 0 && v.sayT <= 0 && U.dist(p.x, p.y, v.x, v.y) < 64) {
         v._li = ((v._li || 0) + 1) % v.lines.length;
         v.say = v.lines[v._li];
-        v.sayT = 3.4; v.cd = 5.5;
+        v.sayT = U.clamp(2 + v.say.length * 0.06, 3.4, 6.5); v.cd = v.sayT + 2.2;
       }
     }
   },
