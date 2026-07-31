@@ -2744,7 +2744,7 @@ const G = {
      The complete in-fiction manual: every mechanic, symptom, ward, and
      service. Mostly generated from DATA so new content lists itself;
      the prose sections get a line whenever a feature ships. */
-  HB_REV: 31,
+  HB_REV: 32,
   showHandbook(returnTo) {
     this.state = 'handbook';
     if (!this._hbTab) this._hbTab = 'basics';
@@ -2928,6 +2928,7 @@ const G = {
         + N('rev. 29 — the crayons were confiscated: every pictograph in the building replaced with proper inked signage, hand-drawn by the same tired hand as everything else here.')
         + N('rev. 30 — new on the ward: THE HOLD (management, ward 7+, bring patience and footwork) · THE CLINICAL TRIAL (see TREATMENT) · THE SCANNER (see TREATMENT) · and a thirteenth patient file for whoever finished THE HANDOFF. The mop is in the closet where he left it.')
         + N('rev. 31 — the building learned finance and the calendar: THE FINANCING DESK and THE MIDDLEMAN (see TREATMENT) · THE DREAM WARD (see THE BUILDING) · AWARENESS MONTHS (see THE BUILDING). Also: Group Therapy recruitment now caps at three and no longer works on management, security, paperwork, or anyone mid-performance. The group apologizes to the charge nurse.')
+        + N('rev. 32 — the Waiting Room was renovated (doors need an actual step, the nearest thing answers, the room remembers where you were standing) and Dr. Walrus attended a communication workshop. He speaks in full sentences now. He is very proud of this.')
     };
 
     const tabs = [
@@ -3437,7 +3438,8 @@ const G = {
     const seasonalOpen = Object.keys(Meta.data.calDays || {}).length >= 4;
     const unlocked = order.filter(id => !(id === 'fine' && !fineOpen) && !(id === 'undiag' && !nineDone) && !(id === 'burnout' && !burnoutOpen) && !(id === 'seasonal' && !seasonalOpen) && !(id === 'janitor' && !Meta.data.handoffDone));
     const hp = new Player(Meta.data.lastDiag && DATA.DIAG[Meta.data.lastDiag] ? Meta.data.lastDiag : 'adhd');
-    hp.x = CW / 2; hp.y = 470;
+    hp.x = this._hubPos ? U.clamp(this._hubPos.x, 46, CW - 46) : CW / 2;   // the room remembers where you were standing
+    hp.y = this._hubPos ? U.clamp(this._hubPos.y, 78, CH - 40) : 470;
     const seats = unlocked.map((id, i) => {
       const pl = new Player(id);
       pl.x = 0; pl.y = 0; pl.aimAng = -Math.PI / 2; pl.noHat = true;   // the hat is yours, not theirs
@@ -3457,11 +3459,11 @@ const G = {
         { x: 600, y: 96, r: 46, door: false, label: '🏆 UNLOCKS',    hint: 'the corkboard', act: () => this.showUnlocks(() => this.showHub()) },
         { x: 140, y: 560, r: 48, door: false, label: '⚙ SETTINGS',   hint: 'the janitor closet', act: () => this.showSettings(() => this.showHub()) },
         { x: 820, y: 560, r: 48, door: false, label: '📋 PATIENT CHART', hint: 'the codex', act: () => this.showCodex(() => this.showHub()) },
-        { x: 330, y: 565, r: 46, door: false, label: '🫙 WELLNESS FUND', hint: 'balance: ' + (Meta.data.fund || 0) + '¢', act: () => this.showFacility(() => this.showHub()) },
-        { x: 480, y: 565, r: 44, door: false, label: '📋 COMPLAINTS', hint: Meta.data.pendingComplaint ? 'one pending' : 'file a grievance', act: () => this.showComplaints(() => this.showHub()) },
+        { x: 285, y: 565, r: 46, door: false, label: '🫙 WELLNESS FUND', hint: 'balance: ' + (Meta.data.fund || 0) + '¢', act: () => this.showFacility(() => this.showHub()) },
+        { x: 405, y: 565, r: 44, door: false, label: '📋 COMPLAINTS', hint: Meta.data.pendingComplaint ? 'one pending' : 'file a grievance', act: () => this.showComplaints(() => this.showHub()) },
         { x: 660, y: 330, r: 46, door: false, label: '📔 PATIENT DIARY', hint: (Meta.data.diary || []).length ? (Meta.data.diary.length + ' entries · it kept writing') : 'it writes itself. about you.', act: () => this.showJournal(() => this.showHub()) },
         { x: 170, y: 218, r: 46, door: false, label: '🎁 GIFT SHOP', hint: 'fund: ' + (Meta.data.fund || 0) + '¢ · gifts deliver at check-in', act: () => this.showGiftShop(() => this.showHub()) },
-        { x: 745, y: 552, r: 42, door: false, label: '🕹 BREAKROOM', hint: (Meta.data.arcade && Meta.data.arcade.best ? 'PILL CATCHER · best ' + Meta.data.arcade.best : 'PILL CATCHER · 2¢ a play'), act: () => this.showArcade() },
+        { x: 645, y: 552, r: 42, door: false, label: '🕹 BREAKROOM', hint: (Meta.data.arcade && Meta.data.arcade.best ? 'PILL CATCHER · best ' + Meta.data.arcade.best : 'PILL CATCHER · 2¢ a play'), act: () => this.showArcade() },
         { x: 596, y: 208, r: 34, door: false, label: '📻 WWRD', hint: Object.keys(Meta.data.tracksHeard || {}).length + '/9 tracks · ward radio', act: () => this.showRadio(() => this.showHub()) },
         { x: 480, y: 628, r: 40, door: this.exitReady(), label: this.exitReady() ? '🚪 THE FRONT DOOR' : '🔒 FRONT DOOR', hint: this.exitReady() ? 'it\'s open. it\'s actually open.' : 'locked since intake', act: () => this.tryExit() }
       ]
@@ -3481,10 +3483,14 @@ const G = {
       });
       if (Meta.data.internGrad) {
         const wknd = [0, 6].includes(new Date().getDay());
-        vis.push({ kind: 'grad', x: 604, y: 128, sayT: 0, lines: wknd ? ["Weekends I run the desk. By CHOICE.", "The doctor sleeps in. I don't tell anyone."] : ["Reception's easy. Nobody bites. Mostly.", "I tell the new ones about you.", "Three floors. I still count them."] });
+        vis.push({ kind: 'grad', x: 700, y: 196, sayT: 0, lines: wknd ? ["Weekends I run the desk. By CHOICE.", "The doctor sleeps in. I don't tell anyone."] : ["Reception's easy. Nobody bites. Mostly.", "I tell the new ones about you.", "Three floors. I still count them."] });
       }
       if (vis.length) this.hub.visitors = vis;
     }
+    // returning from an overlay while standing on a station: it stays quiet until you step off
+    const HB = this.hub;
+    HB.lock = HB.stations.find(s => U.dist(hp.x, hp.y, s.x, s.y) < s.r) || null;
+    HB.grace = 0.35;
   },
   /* ---------- Facility Improvements (spend the Wellness Fund on the room itself) ---------- */
   showFacility(returnTo) {
@@ -3563,19 +3569,26 @@ const G = {
     if (p.moving) p.aimAng = Math.atan2(mv.y, mv.x);
     p.x = U.clamp(p.x + mv.x * 250 * dt, 46, CW - 46);
     p.y = U.clamp(p.y + mv.y * 250 * dt, 78, CH - 40);
-    if (Input.take('pause')) { document.body.classList.remove('inrun'); this.showTitle(); return; }
-    const go = (fn, snd) => { document.body.classList.remove('inrun'); SFX.play(snd || 'door'); fn(); };
+    if (Input.take('pause')) { this._hubPos = { x: p.x, y: p.y }; document.body.classList.remove('inrun'); this.showTitle(); return; }
+    const go = (fn, snd) => { this._hubPos = { x: p.x, y: p.y }; document.body.classList.remove('inrun'); SFX.play(snd || 'door'); fn(); };
     const touch = Input.usingTouch;
-    // stations — on touch, standing still inside one for a beat opens it
+    H.grace = Math.max(0, (H.grace || 0) - dt);
+    // the station you re-entered on top of stays quiet until you actually step off it
+    if (H.lock && U.dist(p.x, p.y, H.lock.x, H.lock.y) > H.lock.r + 6) H.lock = null;
+    // stations — NEAREST wins (the room is furnished; zones brush against each other)
     const lastPrompt = H.prompt;
     H.prompt = null;
+    let best = null, bd = 1e9;
     for (const s of H.stations) {
-      if (U.dist(p.x, p.y, s.x, s.y) < s.r) {
-        H.prompt = s;
-        H.dwell = (lastPrompt === s && !p.moving) ? (H.dwell || 0) + dt : 0;
-        if (s.door || Input.take('confirm') || Input.take('ability') || (touch && H.dwell > 0.55)) { go(s.act); return; }
-        break;
-      }
+      const d = U.dist(p.x, p.y, s.x, s.y);
+      if (d < s.r && d < bd) { bd = d; best = s; }
+    }
+    if (best) {
+      H.prompt = best;
+      H.dwell = (lastPrompt === best && !p.moving) ? (H.dwell || 0) + dt : 0;
+      const held = H.lock === best || H.grace > 0;
+      const ontoMat = best.door && bd < best.r * 0.62;   // doors need a real step in, not a brush past
+      if (!held && (ontoMat || Input.take('confirm') || Input.take('ability') || (touch && H.dwell > 0.55))) { go(best.act); return; }
     }
     // seated patients: walk up + confirm (or hold still, on touch) to open their chart
     if (!H.prompt) for (const seat of H.seats) {

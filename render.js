@@ -923,18 +923,23 @@ const Render = {
       const label = H.prompt.label + (H.prompt.hint ? ' — ' + H.prompt.hint : '');
       ctx.font = this.font(14, true); ctx.textAlign = 'center';
       const tw = ctx.measureText(label).width + 34;
-      ctx.fillStyle = 'rgba(24,19,28,0.88)'; this.rr(ctx, CW / 2 - tw / 2, CH - 60, tw, 32, 9); ctx.fill();
-      ctx.strokeStyle = 'rgba(232,200,76,0.7)'; ctx.lineWidth = 2; this.rr(ctx, CW / 2 - tw / 2, CH - 60, tw, 32, 9); ctx.stroke();
-      ctx.fillStyle = '#f0e8d8'; ctx.fillText(label, CW / 2, CH - 38);
+      const low = H.p.y > CH - 170;   // standing in the bottom third: the bar gets out of your way
+      const by = low ? 84 : CH - 60;
+      ctx.fillStyle = 'rgba(24,19,28,0.88)'; this.rr(ctx, CW / 2 - tw / 2, by, tw, 32, 9); ctx.fill();
+      ctx.strokeStyle = 'rgba(232,200,76,0.7)'; ctx.lineWidth = 2; this.rr(ctx, CW / 2 - tw / 2, by, tw, 32, 9); ctx.stroke();
+      ctx.fillStyle = '#f0e8d8'; ctx.fillText(label, CW / 2, by + 22);
       if (!H.prompt.door) {
         if (touch) {   // dwell progress ring
           const frac = U.clamp((H.dwell || 0) / 0.55, 0, 1);
           ctx.strokeStyle = 'rgba(232,200,76,0.9)'; ctx.lineWidth = 3.5;
-          ctx.beginPath(); ctx.arc(CW / 2 + tw / 2 + 18, CH - 44, 10, -Math.PI / 2, -Math.PI / 2 + TAU * frac); ctx.stroke();
+          ctx.beginPath(); ctx.arc(CW / 2 + tw / 2 + 18, by + 16, 10, -Math.PI / 2, -Math.PI / 2 + TAU * frac); ctx.stroke();
         } else {
           ctx.fillStyle = 'rgba(232,200,76,0.9)'; ctx.font = this.font(11, true);
-          ctx.fillText('SPACE / ENTER', CW / 2, CH - 12);
+          ctx.fillText('SPACE / ENTER', CW / 2, low ? by + 46 : CH - 12);
         }
+      } else {
+        ctx.fillStyle = 'rgba(232,200,76,0.75)'; ctx.font = this.font(11, true);
+        ctx.fillText('step in', CW / 2, low ? by + 46 : CH - 12);
       }
     } else {
       ctx.fillStyle = 'rgba(58,48,56,0.6)'; ctx.font = this.font(12, true); ctx.textAlign = 'center';

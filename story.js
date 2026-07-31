@@ -677,7 +677,7 @@ const Story = {
 const STORY = {
   prologue: [
     { art: 'intakeRoom', stamp: 'INTAKE', lines: ['It started with something small.', 'Trouble sleeping. A little tired. The', 'ordinary weather of being a person.'] },
-    { art: 'walrusLoom', stamp: 'CONSULT', lines: ['The doctor will see you now.', 'He sees everyone. That is the problem.', 'Five questions. He did not wait for', 'the answers.'] },
+    { art: 'walrusLoom', stamp: 'CONSULT', lines: ['The doctor will see you now.', 'He sees everyone. That\'s the problem.', 'Five questions. He didn\'t wait for', 'the answers.'] },
     { art: 'labelStamp', stamp: 'DX', lines: (G) => ['He found something.', 'He always finds something.', '', 'Everybody\'s got somethin — and now,', 'officially, so did you.'] },
     { art: 'floorOpens', stamp: 'ADMIT', lines: ['The paperwork went through.', 'The floor opened.', 'Down you go, into the wards.'] }
   ],
@@ -687,14 +687,14 @@ const STORY = {
   ward10: [
     { art: 'pillMountain', stamp: 'WARD 10', lines: (G) => {
         const D = (typeof DATA !== 'undefined' && G.player && DATA.DIAG[G.player.diag]) ? DATA.DIAG[G.player.diag].name : 'the condition';
-        return ['Ward 10. The prescriptions add up.', 'A pill for the ' + D.toLowerCase() + '.', 'A pill for the pills. You have stopped', 'reading the labels.'];
+        return ['Ward 10. The prescriptions add up.', 'A pill for the ' + D.toLowerCase() + '.', 'A pill for the pills. You\'ve stopped', 'reading the labels.'];
       } }
   ],
   ward15: [
     { art: 'copayRegister', stamp: 'WARD 15', lines: ['Ward 15. Every step has a copay.', 'They take a little piece of you at the', 'counter and call it your share.', 'You paid. You always pay.'] }
   ],
   ward20: [
-    { art: 'mirrorWard', stamp: 'WARD 20', lines: ['Ward 20. You have been in here so long', 'you answer to the chart.', 'You look for your face and find a', 'stack of forms wearing it.', 'But there is still someone under the paper.'] }
+    { art: 'mirrorWard', stamp: 'WARD 20', lines: ['Ward 20. You\'ve been in here so long', 'you answer to the chart.', 'You look for your face and find a', 'stack of forms wearing it.', 'But there\'s still someone under the paper.'] }
   ],
   ward50pre: [
     { art: 'foundersTower', stamp: 'WARD 50', lines: ['Ward 50. The top of the ladder.', 'A tower built of copays and slogans,', 'and at the very top, the man who', 'turned every feeling into a product line.'] }
@@ -702,11 +702,11 @@ const STORY = {
   cure: [
     { art: 'cureCapsule', stamp: 'WARD 25', lines: ['They said there was a cure at the', 'bottom of all this.', 'Twenty-five wards. You reached it.', 'It glowed like it meant something.'] },
     { art: 'cureEmpty', stamp: 'OPENED', lines: ['You opened it.', 'There was nothing inside.', 'There was never anything inside.', 'Just a small mirror, and your own', 'tired face looking back.'] },
-    { art: 'daylight', stamp: 'DISCH?', lines: ['There is no cure. There never was.', 'There is just you, still here, still', 'standing after all of it.', 'That is not nothing. That is the', 'whole entire thing.'] }
+    { art: 'daylight', stamp: 'DISCH?', lines: ['There\'s no cure. There never was.', 'There\'s just you, still here, still', 'standing after all of it.', 'That\'s not nothing. That\'s the', 'whole entire thing.'] }
   ],
   founder: [
     { art: 'towerFalls', stamp: 'DELISTED', lines: ['You toppled him.', 'For one shining moment the ticker is', 'red and the tower is coming down.'] },
-    { art: 'kindness', stamp: 'NOTE', lines: ['The machine is not gone. It never', 'really goes. But you did that — you,', 'with your tears and your bad sleep.', '', 'Everybody\'s got somethin. Be kind.', 'Including to yourself.'] }
+    { art: 'kindness', stamp: 'NOTE', lines: ['The machine isn\'t gone. It never', 'really goes. But you did that — you,', 'with your tears and your bad sleep.', '', 'Everybody\'s got somethin. Be kind.', 'Including to yourself.'] }
   ],
   ward100pre: [
     { art: 'systemTower', stamp: 'WARD 100', lines: ['Ward 100. Below the founders, below', 'the cures, below everything — the', 'building itself has been waiting.', 'Every denial, every refill, every feed.', 'All of it, at once. The last argument.'] }
@@ -718,7 +718,7 @@ const STORY = {
     { art: 'daylight', stamp: 'AMA', lines: ['You signed the form. You fought the', 'whole ward to the door. And then —', 'weather. Traffic. A bird, doing fine', 'without a diagnosis.', '', 'Nobody chased you past the parking lot.'] }
   ],
   epilogue: [
-    { art: 'daylight', stamp: 'LATER', lines: ['Recovery, it turns out, is not a', 'capsule or a discharge form.', 'It is Tuesdays. It is water and sleep', 'and answering one (1) text.', 'Some days the ward. Some days the sun.'] },
+    { art: 'daylight', stamp: 'LATER', lines: ['Recovery, it turns out, isn\'t a', 'capsule or a discharge form.', 'It\'s Tuesdays. It\'s water and sleep', 'and answering one (1) text.', 'Some days the ward. Some days the sun.'] },
     { art: 'kindness', stamp: 'ONGOING', lines: ['You still have the chart. You keep it', 'in a drawer now, not in your chest.', '', 'Everybody\'s got somethin.', 'You have several. You are, somehow,', 'still entirely yourself.'] }
   ]
 };

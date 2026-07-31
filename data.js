@@ -18,28 +18,28 @@ DATA.QUESTIONS = [
   {
     q: "How many browser tabs are open right now?",
     a: [
-      { t: "Four. A reasonable four.", w: { fine: 2 }, quip: "Nobody has four. Denial, possibly." },
+      { t: "Four. A reasonable four.", w: { fine: 2 }, quip: "Nobody has four. I'll put down denial for now." },
       { t: "Ninety. They're all important.", w: { adhd: 3 }, quip: "Important to WHOM." },
-      { t: "One. I finish things.", w: { ocd: 2 }, quip: "'Finish.' Underlined. Circled. Hm." },
+      { t: "One. I finish things.", w: { ocd: 2 }, quip: "Interesting. I'm circling the word 'finish.'" },
       { t: "I don't know and it's stressing me out.", w: { anxiety: 2 }, quip: "The tabs know. The tabs always know." }
     ]
   },
   {
     q: "A stranger says 'how are you?' What happens?",
     a: [
-      { t: "'Good!' (a lie, delivered instantly)", w: { depression: 2, fine: 1 }, quip: "The speed. Impressive. Concerning." },
+      { t: "'Good!' (a lie, delivered instantly)", w: { depression: 2, fine: 1 }, quip: "That was impressively fast. Concerningly fast." },
       { t: "I tell them. Everything. For nine minutes.", w: { bipolar: 2, adhd: 1 }, quip: "And how did the stranger take it." },
-      { t: "I rehearse the answer for the rest of the day.", w: { anxiety: 2, ocd: 1 }, quip: "Rehearsal. For a two-word play." },
-      { t: "Was that a stranger? Are we sure?", w: { schizo: 2, ptsd: 1 }, quip: "…I'll check the cameras. Kidding. (Am I.)" }
+      { t: "I rehearse the answer for the rest of the day.", w: { anxiety: 2, ocd: 1 }, quip: "A full rehearsal for a two-word play." },
+      { t: "Was that a stranger? Are we sure?", w: { schizo: 2, ptsd: 1 }, quip: "…I'll check the cameras. That's a joke. Mostly." }
     ]
   },
   {
     q: "What's your relationship with your alarm clock?",
     a: [
       { t: "Nine alarms. All named. All ignored.", w: { depression: 2, adhd: 1 }, quip: "Named after WHAT is my question." },
-      { t: "I wake before it. To beat it.", w: { anxiety: 2, ocd: 1 }, quip: "You cannot defeat a clock. And yet." },
+      { t: "I wake before it. To beat it.", w: { anxiety: 2, ocd: 1 }, quip: "You can't beat a clock. And yet here you are." },
       { t: "Alarm? I was already up. Since Tuesday.", w: { insomnia: 3 }, quip: "Which Tuesday. Don't answer." },
-      { t: "Healthy. Normal. One alarm.", w: { fine: 2 }, quip: "One alarm. Sure. And I'm a cardiologist." }
+      { t: "One alarm. A normal, healthy amount.", w: { fine: 2 }, quip: "One alarm. Sure. And I'm a cardiologist." }
     ]
   },
   {
@@ -54,9 +54,9 @@ DATA.QUESTIONS = [
   {
     q: "Describe your energy levels this week.",
     a: [
-      { t: "Monday: god. Tuesday–Sunday: gravel.", w: { bipolar: 3 }, quip: "The Monday god thing. Tell me more. Actually don't." },
+      { t: "Monday I'm a god. The rest of the week, gravel.", w: { bipolar: 3 }, quip: "Tell me more about the Monday god thing. Actually, don't." },
       { t: "A flat, dependable low.", w: { depression: 2 }, quip: "'Dependable.' You're making it sound like a truck." },
-      { t: "Fully charged. Always. What's a 'rest'?", w: { adhd: 2, insomnia: 1 }, quip: "A rest is a thing batteries do. You'd hate it." },
+      { t: "Fully charged at all times. What's a 'rest'?", w: { adhd: 2, insomnia: 1 }, quip: "A rest is a thing batteries do. You'd hate it." },
       { t: "Fine. Normal. Why is everyone asking?", w: { fine: 2 }, quip: "One person asked. Me. Just now." }
     ]
   },
@@ -64,7 +64,7 @@ DATA.QUESTIONS = [
     q: "Someone rearranges your desk. You:",
     a: [
       { t: "Notice within seconds. Fix it. Say nothing. Forever.", w: { ocd: 3 }, quip: "The 'forever' is doing a lot of work." },
-      { t: "Wouldn't notice. It was already chaos.", w: { adhd: 2 }, quip: "A system, you'd call it. Everyone does." },
+      { t: "Wouldn't notice. It was already chaos.", w: { adhd: 2 }, quip: "You'd call it a system. Everyone does." },
       { t: "Assume it means something. What does it mean?", w: { schizo: 2, anxiety: 1 }, quip: "It means someone touched your desk. Probably." },
       { t: "People shouldn't touch my things.", w: { ptsd: 2 }, quip: "Agreed, for the record." }
     ]
@@ -73,7 +73,7 @@ DATA.QUESTIONS = [
     q: "Pick a beverage.",
     a: [
       { t: "Coffee. Then coffee. Then a treat: coffee.", w: { insomnia: 2, adhd: 1 }, quip: "The treat one is the problem." },
-      { t: "Water. Eight glasses. Logged.", w: { ocd: 2, fine: 1 }, quip: "LOGGED. Fascinating. Alarming." },
+      { t: "Water. Eight glasses. Logged.", w: { ocd: 2, fine: 1 }, quip: "'Logged.' I'm both impressed and alarmed." },
       { t: "Whatever's closest. Time is fake.", w: { depression: 2 }, quip: "Time is, in fact, billing in six-minute increments." },
       { t: "Something with electrolytes, in case.", w: { anxiety: 2 }, quip: "In case of WHAT is always my favorite part." }
     ]
@@ -82,17 +82,17 @@ DATA.QUESTIONS = [
     q: "Your phone battery is at 4%. How do you feel?",
     a: [
       { t: "Free.", w: { depression: 2, fine: 1 }, quip: "That's the most honest thing anyone's said in here." },
-      { t: "This is an emergency. A real one.", w: { anxiety: 3 }, quip: "It is 4% of an emergency, mathematically." },
+      { t: "This is an emergency. A real one.", w: { anxiety: 3 }, quip: "Mathematically, it's 4% of an emergency." },
       { t: "It's been at 4% for three days. Thrilling.", w: { adhd: 2, bipolar: 1 }, quip: "Living on the edge of a lightning bolt icon." },
-      { t: "I have a charger on my person at all times.", w: { ocd: 2 }, quip: "'On my person.' Like a marshal. Okay." }
+      { t: "I have a charger on my person at all times.", w: { ocd: 2 }, quip: "'On my person.' You sound like a marshal." }
     ]
   },
   {
     q: "Do you ever lose focus?",
     a: [
-      { t: "Sometimes, if it's boring", w: { adhd: 2 }, quip: "'Boring.' Interesting. Writing that in pen." },
-      { t: "Never. I focus on everything, at once, always.", w: { anxiety: 2, adhd: 1 }, quip: "That is not the flex you think it is." },
-      { t: "Sorry — what was the question?", w: { adhd: 3 }, quip: "Classic. Textbook. I own one textbook." },
+      { t: "Sometimes, if it's boring", w: { adhd: 2 }, quip: "Interesting. I'm writing 'boring' down in pen." },
+      { t: "Never. I focus on everything, at once, always.", w: { anxiety: 2, adhd: 1 }, quip: "That's not the flex you think it is." },
+      { t: "Sorry — what was the question?", w: { adhd: 3 }, quip: "Textbook case. I own exactly one textbook." },
       { t: "No.", w: { fine: 2 }, quip: "Denial. Noted." }
     ]
   },
@@ -100,7 +100,7 @@ DATA.QUESTIONS = [
     q: "How's your energy lately?",
     a: [
       { t: "Up and down. Mostly at random.", w: { bipolar: 3 }, quip: "Random, or on a SCHEDULE you can't see? Exactly." },
-      { t: "Down. Just... down.", w: { depression: 2 }, quip: "Mm. Gravity of the soul. Very billable." },
+      { t: "Down. Just... down.", w: { depression: 2 }, quip: "Mm. Gravity of the soul. I can bill for that." },
       { t: "UP!! Right now?? VERY UP!!", w: { bipolar: 2, adhd: 1 }, quip: "Please stop vibrating my diplomas." },
       { t: "Normal amounts of energy?", w: { fine: 2 }, quip: "'Normal.' Sure. We'll circle back." }
     ]
@@ -110,7 +110,7 @@ DATA.QUESTIONS = [
     a: [
       { t: "Sundays, around 7 p.m., like clockwork", w: { depression: 2, anxiety: 1 }, quip: "The Sunday Scaries are a load-bearing symptom." },
       { t: "Only when sad things happen", w: { fine: 2 }, quip: "Sadness with a CAUSE? Suspiciously healthy." },
-      { t: "Define 'feel'", w: { depression: 3 }, quip: "Oh, that's the good stuff. Chart-wise." },
+      { t: "Define 'feel'", w: { depression: 3 }, quip: "Oh, that's the good stuff. For the chart, I mean." },
       { t: "I contain multitudes", w: { bipolar: 2 }, quip: "Multitudes are billed separately." }
     ]
   },
@@ -118,16 +118,16 @@ DATA.QUESTIONS = [
     q: "Do you worry about things?",
     a: [
       { t: "Only things that could conceivably happen", w: { anxiety: 3 }, quip: "So... everything. Wonderful." },
-      { t: "I keep a spreadsheet of my worries", w: { anxiety: 3, ocd: 1 }, quip: "Organized dread. I respect it clinically." },
+      { t: "I keep a spreadsheet of my worries", w: { anxiety: 3, ocd: 1 }, quip: "Organized dread. I respect that, clinically." },
       { t: "Should I be worried? Is this about the worrying?", w: { anxiety: 2 }, quip: "Shh. Shhhh. Yes." },
-      { t: "Not really", w: { fine: 2 }, quip: "Fascinating. And troubling. Mostly billable." }
+      { t: "Not really", w: { fine: 2 }, quip: "Fascinating. Troubling, too. But mostly billable." }
     ]
   },
   {
     q: "Do you ever hear a little voice in your head?",
     a: [
       { t: "Yes — it's called thinking?", w: { fine: 1, schizo: 1 }, quip: "That's what a voice WOULD say." },
-      { t: "It narrates me in the third person", w: { schizo: 2 }, quip: "Is it flattering? Never mind. Symptom." },
+      { t: "It narrates me in the third person", w: { schizo: 2 }, quip: "Is it flattering? Never mind — it's a symptom." },
       { t: "It has opinions about my choices", w: { schizo: 2, depression: 1 }, quip: "A critic! In THIS economy." },
       { t: "Which one?", w: { schizo: 3 }, quip: "...I'm going to need a bigger pad." }
     ]
@@ -135,7 +135,7 @@ DATA.QUESTIONS = [
   {
     q: "How often do you check your phone?",
     a: [
-      { t: "Define 'a lot'", w: { adhd: 2, anxiety: 1 }, quip: "The defensiveness is diagnostic." },
+      { t: "Define 'often'", w: { adhd: 2, anxiety: 1 }, quip: "The defensiveness is diagnostic." },
       { t: "*checks phone*", w: { adhd: 3 }, quip: "Incredible. Mid-question. A privilege to witness." },
       { t: "Only about 400 times a day", w: { anxiety: 2, adhd: 1 }, quip: "Four hundred. A nice round symptom." },
       { t: "I left it at home to be present", w: { anxiety: 2 }, quip: "Performative wellness. Also a symptom." }
@@ -155,14 +155,14 @@ DATA.QUESTIONS = [
     a: [
       { t: "4 hours, victoriously", w: { bipolar: 2, adhd: 1, insomnia: 1 }, quip: "Victory sleep. The manic classic." },
       { t: "12 hours, somehow still tired", w: { depression: 2 }, quip: "Sleep debt with interest. Very modern." },
-      { t: "With one eye open", w: { anxiety: 2, schizo: 1, ptsd: 1 }, quip: "Vigilance! The eyelids of the anxious." },
-      { t: "At night, like a person", w: { fine: 2 }, quip: "'Like a person.' Rehearsed. Noted." }
+      { t: "With one eye open", w: { anxiety: 2, schizo: 1, ptsd: 1 }, quip: "Vigilance. Bad for the eyes, great for the chart." },
+      { t: "At night, like a person", w: { fine: 2 }, quip: "'Like a person.' That sounded rehearsed. Noted." }
     ]
   },
   {
     q: "Describe your desk.",
     a: [
-      { t: "Organized chaos. I know where everything is.", w: { adhd: 2 }, quip: "You do not, and that's okay. Clinically." },
+      { t: "Organized chaos. I know where everything is.", w: { adhd: 2 }, quip: "You don't, and that's okay. Clinically." },
       { t: "Sterile. Labeled. Alphabetized.", w: { ocd: 3, anxiety: 1 }, quip: "The label maker is a cry for help I can bill." },
       { t: "What desk?", w: { depression: 1, adhd: 1 }, quip: "The floor is a desk with commitment issues." },
       { t: "I reorganize it at 3 a.m. sometimes", w: { bipolar: 2 }, quip: "Ah, the 3 a.m. Feng Shui Event. Say no more." }
@@ -172,9 +172,9 @@ DATA.QUESTIONS = [
     q: "Before you can leave the house, you...",
     a: [
       { t: "Check the stove. Then check it again. Then again.", w: { ocd: 3 }, quip: "Third time's the charm. So is the fourth." },
-      { t: "Need everything symmetrical or I can't go", w: { ocd: 3 }, quip: "The universe should match. Agreed — but it's a symptom." },
+      { t: "Need everything symmetrical or I can't go", w: { ocd: 3 }, quip: "You're right, it SHOULD all match. Still a symptom." },
       { t: "Just leave? Like a normal person?", w: { fine: 2 }, quip: "Suspiciously breezy. Noted." },
-      { t: "Leave, panic, come back, re-panic", w: { anxiety: 2, ocd: 1 }, quip: "The round trip of the worried." }
+      { t: "Leave, panic, come back, re-panic", w: { anxiety: 2, ocd: 1 }, quip: "Ah yes, the round trip. I know it well." }
     ]
   },
   {
@@ -182,25 +182,25 @@ DATA.QUESTIONS = [
     a: [
       { t: "Hit the floor before I've decided to", w: { ptsd: 3 }, quip: "The body keeps the score — and the receipts." },
       { t: "Am instantly, fully awake. For hours.", w: { ptsd: 2, anxiety: 1 }, quip: "Hypervigilance: unpaid overtime for the nervous system." },
-      { t: "Am briefly somewhere in 2009", w: { ptsd: 3 }, quip: "Dissociation. A frequent flyer here." },
+      { t: "Am briefly somewhere in 2009", w: { ptsd: 3 }, quip: "Dissociation. We get a lot of frequent flyers." },
       { t: "Say 'jumpy today, huh' and move on", w: { fine: 2 }, quip: "'Jumpy.' We'll be monitoring that." }
     ]
   },
   {
     q: "It's 3 a.m. You are...",
     a: [
-      { t: "Awake, doing math on how much sleep I can still get", w: { insomnia: 3 }, quip: "'If I fall asleep RIGHT now…' The insomniac's rosary." },
+      { t: "Awake, doing math on how much sleep I can still get", w: { insomnia: 3 }, quip: "'If I fall asleep RIGHT now…' I hear that one a lot." },
       { t: "Just now drifting off. Alarm's in 90 minutes.", w: { insomnia: 3 }, quip: "We'll bill that as a nap." },
-      { t: "Asleep. Obviously. It's 3 a.m.", w: { fine: 2 }, quip: "Must be nice. Suspicious. Noted." },
+      { t: "Asleep. Obviously. It's 3 a.m.", w: { fine: 2 }, quip: "Must be nice. Suspiciously nice, actually." },
       { t: "Wide awake — but that's when the ideas come!", w: { insomnia: 2, bipolar: 1 }, quip: "The muse and the mania share a shift." }
     ]
   },
   {
     q: "Rate your mood right now, 1 to 10.",
     a: [
-      { t: "7. No wait — 6.5. Is that bad?", w: { anxiety: 2 }, quip: "The decimal is doing a lot of work here." },
-      { t: "It fluctuates as we speak", w: { bipolar: 2 }, quip: "A live mood. Exciting. Dangerous. Billable." },
-      { t: "3", w: { depression: 2 }, quip: "A 3 that answered promptly. Brave." },
+      { t: "7. No wait — 6.5. Is that bad?", w: { anxiety: 2 }, quip: "You're the first patient to answer in decimals." },
+      { t: "It fluctuates as we speak", w: { bipolar: 2 }, quip: "A live mood. Exciting, dangerous, and billable." },
+      { t: "3", w: { depression: 2 }, quip: "You answered promptly, though. Brave." },
       { t: "10!!!! Why do you ask!!", w: { bipolar: 2, anxiety: 1 }, quip: "Four exclamation points. I'm calling it." }
     ]
   }
@@ -916,7 +916,7 @@ DATA.PETS = [
 
 /* ============ THE INTERCOM (Dr. Walrus is watching. commenting, even.) ============ */
 DATA.INTERCOM = {
-  lowhp:   ["Code... something, in your hallway. He's fine. Probably.", "Would the patient please stop bleeding on the new floors.", "A gentle reminder that dying is billed as a procedure."],
+  lowhp:   ["Code... something, in your hallway. They're fine. Probably.", "Would the patient please stop bleeding on the new floors.", "A gentle reminder that dying is billed as a procedure."],
   hoard:   ["A reminder: the gift shop accepts exact change. And donations. Mostly donations.", "Someone on this floor is hoarding copays. The Fund sees you.", "That's a lot of change. The vending machine misses you."],
   nopills: ["We've noticed you haven't taken your medication. The medication has noticed too.", "The pill in your pocket has feelings, you know.", "Pharmacy asks: is it something we said?"],
   streak:  ["Whoever keeps dodging everything: the staff finds it unsettling.", "Three clean rooms. HR has opened a file on your file.", "Please allow at least one symptom to touch you. For morale."],
