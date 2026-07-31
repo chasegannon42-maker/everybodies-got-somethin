@@ -355,6 +355,9 @@ DATA.ITEMS = {
   coffee13:  { name: "The Thirteenth Coffee", quote: "It stopped working at the ninth. You kept going.", desc: "+5% speed. The Battery drains a little slower. Your hands are FINE.", pools: [], apply(p) { p.spd *= 1.05; p._battSaver = true; } },
   sampler:   { name: "Trial Sample Pack", quote: "The first one's free. So are the rest, legally speaking.", desc: "A free pill, and all pills this run come pre-identified.", pools: ["special", "shop"], apply(p, G) { p.flags.pillsKnown = true; if (p.pill == null) p.pill = U.randi(0, 9); } },
   sideeffects: { name: "Side Effects May Include", quote: "*reads fast* +2 damage and— everything else.", desc: "+2 damage. Every new floor: one random minor side effect. Worth it?", pools: ["special", "oon"], apply(p) { p.dmg += 2; p.flags.sideEffects = true; } },
+  secondwind: { name: "Second Wind", quote: "Filed under: not done yet.", desc: "+1 heart container. The first hit you take in every room simply doesn't count.", pools: ["special", "boss"], apply(p) { p.maxhp += 2; p.hp += 2; p.flags.roomShield = true; } },
+  overtimeform: { name: "Overtime Authorization", quote: "Approved. Reluctantly. In triplicate.", desc: "Below half health, your tears hit +25% harder. Desperation, notarized.", pools: ["special", "shop"], apply(p) { p.flags.otForm = true; } },
+  grouprates: { name: "Group Rates", quote: "Bulk billing for bulk feelings.", desc: "Your whole Support Group hits +35% harder — current members and future recruits.", pools: ["special", "shop"], apply(p) { p.flags.allyBoost = true; for (const a of p.allies) a.dmgMul = (a.dmgMul || 1) * 1.35; } },
 
   /* --- coping section --- */
   dog:       { name: "Therapy Dog", quote: "He's certified. Self-certified. Like the doctor.", desc: "A good boy who bites your problems.", pools: ["special"], apply(p) { p.familiars.push(new Familiar('dog')); } },
@@ -473,7 +476,11 @@ DATA.ACHIEVEMENTS = [
   { id: 'breakroom',  name: "Employee of the Break", desc: "Beat your rival's posted PILL CATCHER score.",  hint: "The machine in the breakroom. They taped their score to it.", check: m => !!(m.arcade && m.arcade.rivalBeaten) },
   { id: 'twoBirds',   name: "Two Birds",           desc: "Clear a JOINT COMMISSION room (two bosses, one paycheck).", hint: "Past Ward 15, management consolidates.", check: m => (m.jointsCleared || 0) >= 1 },
   { id: 'compound3',  name: "Ask Your Alchemist",  desc: "Have the Compounding Pharmacist fuse 3 meds.",    hint: "A back room behind some pharmacies. Two enter. One leaves.", check: m => (m.compounds || 0) >= 3 },
-  { id: 'sceneReturn', name: "Return To The Scene", desc: "Clear the Incident Site where you last died.",   hint: "They roped it off. Your outline is still there.", check: m => (m.incidentsCleared || 0) >= 1 }
+  { id: 'sceneReturn', name: "Return To The Scene", desc: "Clear the Incident Site where you last died.",   hint: "They roped it off. Your outline is still there.", check: m => (m.incidentsCleared || 0) >= 1 },
+  { id: 'stairMaster', name: "StairMaster",         desc: "Take the stairs down clean, 3 times.",            hint: "Nobody takes the stairs. Take the stairs.",     check: m => (m.stairsClean || 0) >= 3 },
+  { id: 'defyOdds',   name: "Outside The Model",    desc: "Win 3 wagers against the Actuary.",               hint: "The projection is not a diagnosis. Prove it.",  check: m => (m.actuaryWins || 0) >= 3 },
+  { id: 'actCorrect', name: "A Model Patient",      desc: "Die exactly as the Actuary predicted.",           hint: "Right ward. They'll frame the printout.",       check: m => (m.actuaryCorrect || 0) >= 1 },
+  { id: 'audiophile', name: "Heavy Rotation",       desc: "Unlock every track on WWRD Ward Radio.",          hint: "The building has nine songs. Hear them all.",   check: m => Object.keys(m.tracksHeard || {}).length >= 9 }
 ];
 DATA.checkAchievements = function (m) {
   if (!m.unlocks) m.unlocks = {};
@@ -498,7 +505,9 @@ DATA.PILLS = [
   { id: 'placebo', name: "Placebo", msg: "You feel a profound sense of having taken a pill.", bad: false, apply() { } },
   { id: 'euphoria', name: "Euphoria", msg: "NOTHING can hurt you (for 8 seconds).", bad: false, apply(p) { p.iframes = Math.max(p.iframes, 8); } },
   { id: 'sedative', name: "Horse Sedative", msg: "Everything else slows down. You have questions.", bad: false, apply(p, G) { if (G) G.enemySlow = 10; } },
-  { id: 'goodone', name: "The Good One", msg: "Oh, that's the GOOD one.", bad: false, apply(p) { p.dmg += 0.4; p.spd *= 1.05; p.tearDelay *= 0.95; } }
+  { id: 'goodone', name: "The Good One", msg: "Oh, that's the GOOD one.", bad: false, apply(p) { p.dmg += 0.4; p.spd *= 1.05; p.tearDelay *= 0.95; } },
+  { id: 'courage', name: "Chewable Courage", msg: "Grape flavored. Fearless for a while.", bad: false, apply(p) { p.dmg += 0.8; p._courageT = 45; } },
+  { id: 'expiredopt', name: "Expired Optimism", msg: "Heals a heart. Tastes like 2019.", bad: false, apply(p) { p.heal(2); p.luck -= 0.4; SFX.play('heal'); } }
 ];
 
 /* ============ ENEMIES ============ */
@@ -613,7 +622,9 @@ DATA.HOUSE_RULES = [
   { id: 'stocked',       icon: '🏪', name: 'Overstock',            desc: 'an extra unlocked pharmacy on ward 1' },
   { id: 'fastCrowd',     icon: '🏃', name: 'Fire drill (ongoing)', desc: 'everything moves 10% faster' },
   { id: 'luckyDay',      icon: '🍀', name: 'Someone blessed the vents', desc: '+1 luck for everyone' },
-  { id: 'fogOfWar',      icon: '🗺', name: 'Maps recalled',        desc: 'the minimap is down for maintenance' }
+  { id: 'fogOfWar',      icon: '🗺', name: 'Maps recalled',        desc: 'the minimap is down for maintenance' },
+  { id: 'quietHours',    icon: '🤫', name: 'Quiet hours',          desc: 'patients fire 15% slower but pace 8% faster' },
+  { id: 'visitorDay',    icon: '👪', name: 'Visitor day',          desc: 'Day Rooms are crowded — two extra patients with boons' }
 ];
 
 /* ============ THE CREDITS (everyone gets thanked. nobody gets paid.) ============ */
@@ -1179,7 +1190,28 @@ DATA.HATS = [
   { id: 'gradcap',  name: "Graduation Cap",   ach: 'therapyGrad',  hint: "master a therapy branch" },
   { id: 'hardhat',  name: "Hard Hat",         ach: 'crisisPro',    hint: "survive 3 CODE GRAYs" },
   { id: 'visor',    name: "Auditor's Visor",  ach: 'auditClean',   hint: "put down THE AUDITOR" },
-  { id: 'ticket',   name: "Ticket Stub",      ach: 'protocolFive', hint: "complete 5 Protocols" }
+  { id: 'ticket',   name: "Ticket Stub",      ach: 'protocolFive', hint: "complete 5 Protocols" },
+  { id: 'paperhat', name: "Folded Paper Hat", ach: 'stairMaster',  hint: "three clean stairwell descents" }
+];
+
+/* ============ WWRD — WARD RADIO (the jukebox; DJ Walrus between tracks) ============ */
+DATA.RADIO_TRACKS = [
+  { mode: 'menu',      name: 'Intake (Lobby Mix)',        sub: 'the hold music that holds you' },
+  { mode: 'dayroom',   name: 'Decaf Sunrise',             sub: 'the one calm corner, in C major' },
+  { mode: 'run',       name: 'Fluorescent Shuffle',       sub: 'the wards, walking tempo' },
+  { mode: 'boss',      name: 'Management Is Coming',      sub: 'you will feel this in your copay' },
+  { mode: 'superboss', name: 'The C-Suite',               sub: 'dread, orchestrated quarterly' },
+  { mode: 'cutscene',  name: 'Chart Notes (Ballad)',      sub: 'for reading your own file to' },
+  { mode: 'ward13',    name: 'The Thirteenth (Candlelit)', sub: 'sixty beats per minute. a bell.' },
+  { mode: 'basement',  name: 'Forty Years (Tape Warble)', sub: 'the janitor\'s side A' },
+  { mode: 'overtime',  name: 'Time And A Half',           sub: '160bpm. the floor never closes.' }
+];
+DATA.RADIO_DJ = [
+  "You're listening to WWRD — all ward, all day. The weather in here is fluorescent.",
+  "That was for the patient in bay 6, from the patient in bay 6.",
+  "WWRD, where the hits keep coming and so does the billing.",
+  "Requests go in the complaint box. The complaint box goes in the incinerator. The music plays on.",
+  "Up next: the sound of the building settling. Just kidding. Or are we. WWRD."
 ];
 
 /* ============ PERSONAL EFFECTS (trinkets) ============
@@ -1198,6 +1230,8 @@ DATA.TRINKETS = [
   { id: 'thermometer', name: "Glass Thermometer",  icon: '🌡', desc: "You can just… tell. Enemy health bars are visible." },
   { id: 'earplugs',    name: "Foam Earplugs",      icon: '🔇', desc: "The noise sorts itself out. Hallucinations shimmer — you can tell what's real." },
   { id: 'batteredwatch', name: "Battered Watch",   icon: '⌚', desc: "It runs slow, and so does everything else — slow-motion moments last twice as long." },
+  { id: 'laminatedcard', name: "Laminated Card",   icon: '💳', desc: "An insurance card so pristine they just… believe it. Shop meds −15%, and the Copay Collector can't touch your change." },
+  { id: 'spareglasses', name: "Spare Readers",     icon: '👓', desc: "From the lost & found. +15% range, and picked-up pills identify themselves 40% of the time." },
   { id: 'masterkey',   name: "The Master Key",     icon: '🗝', desc: "The Janitor had a copy all along. Locked treatment rooms open free. Only found on the Thirteenth Ward." }
 ];
 

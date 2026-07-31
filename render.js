@@ -83,6 +83,8 @@ const Render = {
       this.drawHub(G);
     } else if (G.state === 'arcade') {
       this.drawArcade(G);
+    } else if (G.state === 'stairs') {
+      this.drawStairs(G);
     } else if (G.state === 'appeal') {
       this.drawAppeal(G);
     } else if (G.state === 'credits') {
@@ -513,6 +515,25 @@ const Render = {
         ctx.fillStyle = '#f0ead8'; this.rr(ctx, s.x - 15, s.y - 14, 30, 11, 2); ctx.fill();   // taped label
         ctx.fillStyle = '#7a5a3a'; ctx.font = this.font(7, true); ctx.textAlign = 'center'; ctx.fillText('WELLNESS', s.x, s.y - 6);
         ctx.fillStyle = '#f4eee0'; ctx.font = this.font(12); ctx.fillText('🫙', s.x, s.y + 46);
+      } else if (s.label.includes('WWRD')) {   // the radio on the reception counter
+        this.shadow(s.x, s.y + 18, 22, 6, 0.2);
+        ctx.fillStyle = '#8a5a3a'; this.rr(ctx, s.x - 24, s.y - 12, 48, 26, 5); ctx.fill();   // wood-grain body
+        ctx.strokeStyle = '#5a3a24'; ctx.lineWidth = 2; this.rr(ctx, s.x - 24, s.y - 12, 48, 26, 5); ctx.stroke();
+        ctx.fillStyle = '#2c2833'; this.rr(ctx, s.x - 18, s.y - 7, 22, 16, 2); ctx.fill();    // speaker grille
+        ctx.strokeStyle = 'rgba(200,190,220,0.35)'; ctx.lineWidth = 1;
+        for (let gx = -15; gx <= 1; gx += 4) { ctx.beginPath(); ctx.moveTo(s.x + gx, s.y - 5); ctx.lineTo(s.x + gx, s.y + 7); ctx.stroke(); }
+        ctx.fillStyle = '#e8c84c'; ctx.beginPath(); ctx.arc(s.x + 13, s.y - 1, 4, 0, TAU); ctx.fill();   // tuning dial
+        ctx.strokeStyle = '#8a6a2a'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(s.x + 13, s.y - 1); ctx.lineTo(s.x + 13 + Math.cos(G.t) * 3, s.y - 1 + Math.sin(G.t) * 3); ctx.stroke();
+        ctx.strokeStyle = '#8a8e98'; ctx.lineWidth = 2; ctx.lineCap = 'round';   // antenna
+        ctx.beginPath(); ctx.moveTo(s.x + 20, s.y - 12); ctx.lineTo(s.x + 30, s.y - 30); ctx.stroke(); ctx.lineCap = 'butt';
+        if (Meta.data.hubTrack) {   // custom track on: the radio dances
+          for (let eq = 0; eq < 4; eq++) {
+            const hh = 4 + Math.abs(Math.sin(G.t * (4 + eq * 1.4) + eq)) * 9;
+            ctx.fillStyle = ['#8fd05a', '#e8c84c', '#e05a6a', '#8fd0e0'][eq];
+            ctx.fillRect(s.x - 30 - eq * 5, s.y + 8 - hh, 3.4, hh);
+          }
+        }
+        ctx.fillStyle = '#f4eee0'; ctx.font = this.font(10); ctx.textAlign = 'center'; ctx.fillText('📻', s.x, s.y + 30);
       } else if (s.label.includes('BREAKROOM')) {   // the cabinet: PILL CATCHER, 2¢, no refunds
         this.shadow(s.x, s.y + 40, 26, 8, 0.22);
         ctx.fillStyle = '#7a3a8a'; this.rr(ctx, s.x - 24, s.y - 46, 48, 86, 6); ctx.fill();   // cabinet body
@@ -815,6 +836,91 @@ const Render = {
       ctx.fillStyle = 'rgba(58,48,56,0.6)'; ctx.font = this.font(12, true); ctx.textAlign = 'center';
       ctx.fillText(touch ? 'THE WAITING ROOM · walk into a door · stand still at anything else to open it' : 'THE WAITING ROOM · walk into a door, or walk up + SPACE · ESC for the menu', CW / 2, CH - 14);
     }
+  },
+
+  /* ============ THE STAIRWELL (dodge-only descent between floors) ============ */
+  drawStairs(G) {
+    const ctx = this.ctx, S = G.stairs;
+    if (!S) return;
+    // concrete stairwell
+    ctx.fillStyle = '#2a2830'; ctx.fillRect(0, 0, CW, CH);
+    const cg = ctx.createLinearGradient(0, 0, 0, CH);
+    cg.addColorStop(0, '#3a3844'); cg.addColorStop(1, '#242230');
+    ctx.fillStyle = cg; ctx.fillRect(RX - 30, 60, RW + 60, CH - 100);
+    // scrolling steps (the descent, implied)
+    const scroll = (S.t * 90) % 46;
+    ctx.strokeStyle = 'rgba(180,175,190,0.16)'; ctx.lineWidth = 3;
+    for (let y = 60 - scroll; y < CH - 40; y += 46) {
+      ctx.beginPath(); ctx.moveTo(RX - 20, y); ctx.lineTo(RX + RW + 20, y); ctx.stroke();
+      ctx.strokeStyle = 'rgba(120,115,135,0.10)';
+      ctx.beginPath(); ctx.moveTo(RX - 20, y + 14); ctx.lineTo(RX + RW + 20, y + 14); ctx.stroke();
+      ctx.strokeStyle = 'rgba(180,175,190,0.16)';
+    }
+    // zigzag handrails
+    ctx.strokeStyle = '#8a8496'; ctx.lineWidth = 6; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(RX - 14, 80); ctx.lineTo(RX - 14, CH - 80); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(RX + RW + 14, 80); ctx.lineTo(RX + RW + 14, CH - 80); ctx.stroke();
+    ctx.lineCap = 'butt';
+    // EXIT sign glow at the bottom
+    const eg = ctx.createRadialGradient(CW / 2, CH - 46, 6, CW / 2, CH - 46, 130);
+    eg.addColorStop(0, 'rgba(90,220,120,0.25)'); eg.addColorStop(1, 'rgba(90,220,120,0)');
+    ctx.fillStyle = eg; ctx.beginPath(); ctx.arc(CW / 2, CH - 46, 130, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#1a3a24'; this.rr(ctx, CW / 2 - 44, CH - 58, 88, 24, 4); ctx.fill();
+    ctx.fillStyle = '#5ee07a'; ctx.font = 'bold 14px Impact,"Arial Black",sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('EXIT B' + (G.depth + 1), CW / 2, CH - 41);
+    // hazards
+    for (const h of S.hazards) {
+      ctx.save(); ctx.translate(h.x, h.y);
+      if (h.kind === 'cart') {
+        ctx.rotate(Math.sin(h.rot) * 0.12);
+        ctx.fillStyle = '#c8ccd4'; this.rr(ctx, -18, -13, 36, 22, 3); ctx.fill();
+        ctx.strokeStyle = '#8a8e98'; ctx.lineWidth = 2; this.rr(ctx, -18, -13, 36, 22, 3); ctx.stroke();
+        ctx.fillStyle = '#e05a5a'; this.rr(ctx, -14, -9, 10, 6, 1.5); ctx.fill();   // little med tray
+        ctx.fillStyle = '#8fd0e0'; this.rr(ctx, 2, -9, 10, 6, 1.5); ctx.fill();
+        ctx.fillStyle = '#3a3844';
+        ctx.beginPath(); ctx.arc(-11, 11, 5, 0, TAU); ctx.arc(11, 11, 5, 0, TAU); ctx.fill();
+      } else if (h.kind === 'bucket') {
+        ctx.rotate(h.rot * 0.4);
+        ctx.fillStyle = '#e8dc50'; ctx.beginPath(); ctx.moveTo(-11, -10); ctx.lineTo(11, -10); ctx.lineTo(8, 12); ctx.lineTo(-8, 12); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#4a90b8'; ctx.beginPath(); ctx.ellipse(0, -10, 10, 3.5, 0, 0, TAU); ctx.fill();   // the water. the famous water.
+        ctx.strokeStyle = '#b8ac30'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-11, -10); ctx.lineTo(11, -10); ctx.stroke();
+      } else {   // paperwork, fluttering
+        ctx.rotate(Math.sin(h.rot * 2) * 0.6);
+        ctx.fillStyle = '#f4eee0'; this.rr(ctx, -8, -10, 16, 20, 1.5); ctx.fill();
+        ctx.strokeStyle = 'rgba(120,110,90,0.5)'; ctx.lineWidth = 1;
+        for (let l = -6; l <= 6; l += 4) { ctx.beginPath(); ctx.moveTo(-5, l); ctx.lineTo(5, l); ctx.stroke(); }
+      }
+      ctx.restore();
+    }
+    // loose change
+    for (const c of S.coins) {
+      ctx.fillStyle = '#e8c84c'; ctx.beginPath(); ctx.arc(c.x, c.y, 7, 0, TAU); ctx.fill();
+      ctx.strokeStyle = '#a8842a'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(c.x, c.y, 7, 0, TAU); ctx.stroke();
+    }
+    // you, taking the stairs (bobbing with the descent)
+    const py = CH - 130, bob = Math.abs(Math.sin(S.t * 8)) * 4;
+    const flash = S.iframes > 0 && Math.sin(G.t * 30) > 0;
+    this.shadow(S.px, py + 18, 14, 5, 0.3);
+    if (!flash) {
+      const pl = G.player;
+      ctx.save(); ctx.translate(S.px, py - bob);
+      const D = DATA.DIAG[pl.diag] || { color: '#8fb0d8' };
+      ctx.fillStyle = D.color; ctx.beginPath(); ctx.ellipse(0, 0, 11, 13, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#e8c9a6'; ctx.beginPath(); ctx.arc(0, -14, 8, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#2c2333'; ctx.beginPath(); ctx.arc(-3, -15, 1.3, 0, TAU); ctx.arc(3, -15, 1.3, 0, TAU); ctx.fill();
+      ctx.strokeStyle = D.color; ctx.lineWidth = 3; ctx.lineCap = 'round';   // hand on the rail (safety third)
+      ctx.beginPath(); ctx.moveTo(8, -2); ctx.lineTo(15, 4 + Math.sin(S.t * 8) * 3); ctx.stroke(); ctx.lineCap = 'butt';
+      ctx.restore();
+    }
+    // HUD strip
+    ctx.fillStyle = 'rgba(10,8,14,0.72)'; this.rr(ctx, CW / 2 - 190, 14, 380, 34, 9); ctx.fill();
+    ctx.font = this.font(13, true); ctx.textAlign = 'center';
+    ctx.fillStyle = S.hit === 0 ? '#8fd05a' : '#e0a05a';
+    ctx.fillText('🚶 THE STAIRWELL · ' + Math.max(0, Math.ceil(S.dur - S.t)) + 's · ' + (S.hit === 0 ? 'CLEAN so far' : S.hit + ' bruise' + (S.hit > 1 ? 's' : '')) + (S.got ? ' · +' + S.got + '¢' : ''), CW / 2, 36);
+    // progress rail on the right
+    const frac = U.clamp(S.t / S.dur, 0, 1);
+    ctx.fillStyle = 'rgba(138,132,150,0.4)'; this.rr(ctx, CW - 26, 80, 8, CH - 180, 4); ctx.fill();
+    ctx.fillStyle = '#5ee07a'; ctx.beginPath(); ctx.arc(CW - 22, 80 + (CH - 184) * frac, 7, 0, TAU); ctx.fill();
   },
 
   /* ============ THE BREAKROOM CABINET — PILL CATCHER ============ */
@@ -1722,6 +1828,31 @@ const Render = {
         ctx.fillText('FREE SAMPLES', ped.x, ped.y - 34);
         continue;
       }
+      if (ped.kind === 'actuary') {   // gray suit, briefcase, your odds at one decimal place
+        const ab = Math.sin(G.t * 1.4 + 1) * 1.2;
+        this.shadow(ped.x, ped.y + 16, 14, 5, 0.24);
+        ctx.save(); ctx.translate(ped.x, ped.y + ab);
+        ctx.fillStyle = '#7a7e88'; this.rr(ctx, -10, -8, 20, 24, 5); ctx.fill();   // the gray suit
+        ctx.fillStyle = '#d8c2a2'; ctx.beginPath(); ctx.arc(0, -15, 7.5, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#5a5e68'; ctx.beginPath(); ctx.arc(0, -18.5, 7.5, Math.PI, 0); ctx.fill();
+        ctx.fillStyle = '#2c2333'; ctx.beginPath(); ctx.arc(-2.6, -15, 1.2, 0, TAU); ctx.arc(2.6, -15, 1.2, 0, TAU); ctx.fill();
+        ctx.strokeStyle = '#2c2333'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-2, -10.5); ctx.lineTo(2, -10.5); ctx.stroke();   // a mouth that has seen the numbers
+        // pie-chart tie
+        ctx.fillStyle = '#e8e0d0'; ctx.beginPath(); ctx.arc(0, 0, 4.5, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#e05a5a'; ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, 4.5, -Math.PI / 2, Math.PI * 0.65); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#6a4a2a'; this.rr(ctx, 8, 2, 14, 11, 2); ctx.fill();      // the briefcase
+        ctx.fillStyle = '#c8a24a'; ctx.fillRect(13, 6, 4, 3);
+        ctx.fillStyle = '#c8ccd4'; this.rr(ctx, -20, 0, 9, 13, 1.5); ctx.fill();   // the calculator, always in hand
+        ctx.fillStyle = '#3a5a8a'; ctx.fillRect(-19, 2, 7, 3);
+        ctx.restore();
+        ctx.fillStyle = '#8fa8c8'; ctx.font = this.font(10, true); ctx.textAlign = 'center';
+        ctx.fillText('📉 THE ACTUARY', ped.x, ped.y - 34);
+        if (U.dist(G.player.x, G.player.y, ped.x, ped.y) < 90) {
+          ctx.fillStyle = '#e8c84c'; ctx.font = this.font(10, true);
+          ctx.fillText('“I have your numbers.”', ped.x, ped.y + 34);
+        }
+        continue;
+      }
       if (ped.kind === 'compound') {   // the back-room pharmacist: mortar, pestle, plausible deniability
         const cb = Math.sin(G.t * 1.6 + 2) * 1.5;
         this.shadow(ped.x, ped.y + 16, 15, 5, 0.24);
@@ -2462,6 +2593,13 @@ const Render = {
         ctx.fillStyle = '#e8c84c'; ctx.beginPath(); ctx.arc(0, -12, 2.2, 0, TAU); ctx.fill();
         ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1.2;
         ctx.beginPath(); ctx.moveTo(-4, -3); ctx.lineTo(4, -5); ctx.stroke();
+      } else if (hat === 'paperhat') {   // folded from an incident report, probably
+        ctx.fillStyle = '#f4eee0';
+        ctx.beginPath(); ctx.moveTo(-9, 1); ctx.lineTo(-5, -8); ctx.lineTo(0, -3); ctx.lineTo(5, -8); ctx.lineTo(9, 1); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = 'rgba(120,110,90,0.6)'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(-9, 1); ctx.lineTo(9, 1); ctx.moveTo(-5, -8); ctx.lineTo(0, -3); ctx.lineTo(5, -8); ctx.stroke();
+        ctx.strokeStyle = 'rgba(120,110,90,0.35)';
+        ctx.beginPath(); ctx.moveTo(-6, -1); ctx.lineTo(6, -1); ctx.stroke();
       }
       ctx.restore();
     }

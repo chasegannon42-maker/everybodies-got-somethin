@@ -95,6 +95,15 @@ keyboard and mouse.
 - **📋 Patient Chart** — a codex of every patient, boss, med, and pill you've met; completing a
   tab pays out a permanent perk. **📊 Run History** keeps your real win-rate receipts, and a
   **speedrun timer with splits** is one Settings toggle away.
+- **🚶 The Stairwell** — the elevator's "take the stairs" button is now a real dodge-only descent:
+  rolling med carts, falling buckets, fluttering paperwork, loose change to grab on the way down.
+  A clean descent pays a heart, 5¢, and ◆2 (and three of them fold you a paper hat).
+- **📉 The Actuary** — a visitor with a briefcase computes your death from your actual run
+  history: "Ward 6. A Larper. 74.3% confidence." Wager 5¢ against the model — outlive it for
+  15¢ + ◆3, or die on schedule and the death screen stamps **ACTUARIALLY CORRECT**.
+- **📻 WWRD Ward Radio** — a jukebox on the reception counter: all nine of the building's songs
+  unlock as you hear them out in the wards, DJ Walrus handles the segues, and whatever you pick
+  becomes the Waiting Room's music.
 - **🕹 The Breakroom Cabinet** — a real playable arcade machine in the hub: **PILL CATCHER**,
   45 seconds of catching scripts in a kidney dish while dodging RECALLS. 2¢ a play from the Fund,
   persistent high score, Insight milestones — and your rival's score is taped to the screen.

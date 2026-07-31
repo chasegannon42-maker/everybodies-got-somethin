@@ -439,6 +439,7 @@ class Player {
     if (this.diag === 'ptsd' && !this.variant && this.lastHitT > 4) d *= 1.25;   // On Edge: calm and sharp until you're hit
     if (this.diag === 'insomnia' && this.wired) d *= 1.4;   // WIRED: sleep-deprived and dangerous
     if (this.diag === 'burnout') d *= this.battery > 75 ? 1.3 : this.battery < 25 ? 0.55 : 1;   // OVERDRIVE or fumes
+    if (this.flags.otForm && this.hp <= this.maxhp / 2) d *= 1.25;   // Overtime Authorization: desperation, notarized
     if (G && G.rapidMods) d *= G.rapidMods.dmg;   // Rapid Cycling
     return d;
   }
@@ -457,6 +458,7 @@ class Player {
   update(dt, G) {
     this.iframes -= dt; this.hurtFlash -= dt; this.itemHold -= dt;
     this.tempSlow -= dt; this.tearTimer -= dt;
+    if (this._courageT > 0) { this._courageT -= dt; if (this._courageT <= 0) { this.dmg = Math.max(0.5, this.dmg - 0.8); if (G.toast) G.toast('The courage wears off. The grape lingers.', '#b8a0c8'); } }
     if (this.abilCd > 0) this.abilCd -= dt * (this.trinket === 'fidgetcube' ? 1.25 : 1);   // the cube keeps your hands busy
     // Burnout: THE BATTERY — moving drains, stillness restores
     if (this.diag === 'burnout') {
@@ -641,7 +643,7 @@ class Player {
       for (const sh of shots) {
         const svx = Math.cos(sh.a) * this.shotSpd * spdMul + mv.x * this.effSpd() * mvBoost;
         const svy = Math.sin(sh.a) * this.shotSpd * spdMul + mv.y * this.effSpd() * mvBoost;
-        const tear = new Tear(this.x + Math.cos(sh.a) * 12, this.y + Math.sin(sh.a) * 12 - 6, svx, svy, this.effDmg() * sh.s, this.range, big);
+        const tear = new Tear(this.x + Math.cos(sh.a) * 12, this.y + Math.sin(sh.a) * 12 - 6, svx, svy, this.effDmg() * sh.s, this.range * (this.trinket === 'spareglasses' ? 1.15 : 1), big);
         if (this.flags.homingTears) tear.home = 2.2;   // rumination: the tears can't let go
         if (this.flags.spiralTears) tear._spiral = 2.7;         // Spiral Thoughts
         if (this.flags.pierceTears) tear._pierce = 3 + (this._pierceAdd || 0);           // Radical Honesty (+ Open Book)
@@ -696,6 +698,7 @@ class Player {
     this.allies.push(ally);
     if (this.allies.length >= 3 && !Meta.data.everFullGroup) { Meta.data.everFullGroup = 1; Meta.save(); if (G && G.checkUnlocks) G.checkUnlocks(); }   // Group Session
     if (G && G.goalEvent) G.goalEvent('ally');
+    if (this.flags.allyBoost) ally.dmgMul = (ally.dmgMul || 1) * 1.35;   // Group Rates covers new members too
     if (G) { G.toast('🤝 ' + ally.name + ' joined the group!', ally.tint); SFX.play('item'); if (G.bingoEvent) G.bingoEvent('ally'); }
     return true;
   }
@@ -703,6 +706,14 @@ class Player {
   hurt(n, G, src) {
     if (this.iframes > 0 || this.dead) return;
     if (G && G.god) { this.iframes = 0.2; return; }   // tester god mode: the paperwork bounces off
+    // Second Wind: the first hit each room simply doesn't count
+    if (this.flags.roomShield && G && !G._roomShieldUsed && src !== 'timeslot') {
+      G._roomShieldUsed = true;
+      this.iframes = 1.2;
+      G.texts.push(new FloatText(this.x, this.y - 26, 'didn\'t count ✓', '#8fd0e0'));
+      SFX.play('whoosh');
+      return;
+    }
     // Grandma's Rosary: once per floor, a killing blow leaves you standing
     if (this.trinket === 'rosary' && !this._rosaryUsed && this.hp - n <= 0 && src !== 'timeslot') {
       this._rosaryUsed = true;
@@ -1224,8 +1235,9 @@ class Enemy {
           const a = U.ang(this.x, this.y, p.x, p.y);
           this.x += Math.cos(a) * S * dt; this.y += Math.sin(a) * S * dt;
           if (U.dist(this.x, this.y, p.x, p.y) < this.r + p.r + 2) {
-            const take = Math.min(p.coins, 2);
+            const take = p.trinket === 'laminatedcard' ? 0 : Math.min(p.coins, 2);   // the card is TOO laminated to argue with
             if (take > 0) { p.coins -= take; this.stolen += take; G.texts.push(new FloatText(p.x, p.y - 24, '-' + take + '¢ collected!', '#e8c84c')); SFX.play('coin'); }
+            else if (p.trinket === 'laminatedcard') { G.texts.push(new FloatText(this.x, this.y - 22, '“…that\'s laminated.”', '#8fd0e0')); }
             else { G.texts.push(new FloatText(this.x, this.y - 22, 'nothing to collect', '#e8c84c')); }
             this.state = 1; this.stateT = 2.6;
           }
@@ -1712,7 +1724,9 @@ class Pickup {
         case 'full': if (p.hp >= p.maxhp) return; p.heal(2); SFX.play('heal'); break;
         case 'pill':
           if (p.pill != null) return;
-          p.pill = this.colorIdx; SFX.play('pickup'); break;
+          p.pill = this.colorIdx;
+          if (p.trinket === 'spareglasses' && Math.random() < 0.4 && G.pillKnown) { G.pillKnown.add(this.colorIdx); G.texts.push(new FloatText(this.x, this.y - 20, '*squints* …identified', '#8fd0e0')); }
+          SFX.play('pickup'); break;
         case 'key': p.keys++; SFX.play('pickup'); break;
         case 'bomb': p.bombs++; SFX.play('pickup'); break;
         case 'document': {   // MISFILED: a page of the building's true history
@@ -1841,6 +1855,7 @@ function spawnEnemiesForRoom(room, depth, G) {
     const e = new Enemy(id, s.x + U.rand(-8, 8), s.y + U.rand(-8, 8), depth, false, hpMult, elite);
     if (G.shadowWard) { e.hp *= 1.3; e.maxhp *= 1.3; e._shadow = true; }   // shadow patients: darker, tougher, better tippers
     if (G.nightShift) { e.spd *= 0.92; e.hp *= 0.95; e.maxhp *= 0.95; }    // sleepy, but there are more of them
+    if (G.hasRule && G.hasRule('quietHours')) { e.shotCd = (e.shotCd || 0) * 1.18; e.spd *= 1.08; }   // house rules: quiet hours
     if (mods.spdMul) e.spd *= mods.spdMul;
     if (G.hasRule && G.hasRule('fastCrowd')) e.spd *= 1.1;   // house rules: fire drill (ongoing)
     if (G.sideEffect === 'restless') e.spd *= 1.15;   // ward side-effect: Restlessness

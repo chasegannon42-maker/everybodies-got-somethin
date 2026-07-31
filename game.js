@@ -1007,6 +1007,129 @@ const G = {
     document.getElementById('bBingoBack').onclick = () => { SFX.play('ui'); (returnTo || (() => this.showTitle()))(); };
   },
 
+  /* ---------- WWRD — WARD RADIO (the jukebox; DJ Walrus between tracks) ---------- */
+  showRadio(returnTo) {
+    this.state = 'radio';
+    const heard = Meta.data.tracksHeard || {};
+    const current = Meta.data.hubTrack;
+    const rows = DATA.RADIO_TRACKS.map(t => {
+      const ok = !!heard[t.mode];
+      const on = current === t.mode;
+      if (!ok) return `<div class="ach locked"><div class="achicon">🔇</div><div class="achbody"><div class="achname">???</div><div class="achdesc">not yet heard — keep descending</div></div></div>`;
+      return `<div class="ach got" data-track="${t.mode}" style="cursor:pointer${on ? ';outline:2px solid #e8c84c' : ''}">
+        <div class="achicon">${on ? '🔊' : '💿'}</div>
+        <div class="achbody"><div class="achname">${t.name}${on ? ' · NOW PLAYING' : ''}</div><div class="achdesc">${t.sub}</div></div>
+      </div>`;
+    }).join('');
+    const got = DATA.RADIO_TRACKS.filter(t => heard[t.mode]).length;
+    this.overlay(`
+      <div class="panel wide">
+        <h1 class="logo" style="font-size:26px">📻 WWRD — WARD RADIO</h1>
+        <div class="tagline">${got}/9 tracks in rotation · pick what the Waiting Room hums</div>
+        <div class="achlist">${rows}</div>
+        <button class="btn minor" id="bRadioDefault">🔁 BUILDING DEFAULT (Decaf Sunrise)</button>
+        <button class="btn" id="bRadioBack">BACK</button>
+        <div class="smallprint">every track you hear out in the wards joins the jukebox. DJ Walrus thanks you for listening. He has to.</div>
+      </div>`);
+    document.querySelectorAll('[data-track]').forEach(b => b.onclick = () => {
+      const mode = b.dataset.track;
+      Meta.data.hubTrack = mode;
+      Meta.save();
+      SFX.init();
+      SFX.setMusic(mode);
+      this.toast('📻 ' + U.choice(DATA.RADIO_DJ), '#c8b8d8');
+      SFX.play('voice');
+      this.checkUnlocks();
+      this.showRadio(returnTo);
+    });
+    document.getElementById('bRadioDefault').onclick = () => { SFX.play('ui'); Meta.data.hubTrack = null; Meta.save(); SFX.setMusic('dayroom'); this.showRadio(returnTo); };
+    document.getElementById('bRadioBack').onclick = () => { SFX.play('ui'); (returnTo || (() => this.showTitle()))(); };
+  },
+
+  /* ============================================================
+     THE STAIRWELL (nobody takes the stairs. you take the stairs.)
+     A dodge-only descent between floors: carts, buckets, paperwork.
+     Clean = heal + coins + ◆. Hits hurt (but the stairs never kill).
+     ============================================================ */
+  startStairs() {
+    this.stairs = {
+      t: 0, dur: 22, px: CW / 2, hazards: [], coins: [], hit: 0, got: 0,
+      spawnT: 0.8, coinT: 1.6, iframes: 0, done: false
+    };
+    this.state = 'stairs';
+    this.setBanner('🚶 THE STAIRWELL', 'B' + this.depth + ' → B' + (this.depth + 1) + ' · nobody takes the stairs', 2.4);
+    SFX.play('door');
+    SFX.setMusic('basement');
+  },
+  stairsUpdate(dt) {
+    const S = this.stairs;
+    if (!S) { this.doDescend(); return; }
+    const p = this.player;
+    S.t += dt;
+    S.iframes = Math.max(0, S.iframes - dt);
+    const mv = Input.getMove();
+    S.px = U.clamp(S.px + mv.x * 330 * dt, RX + 44, RX + RW - 44);
+    const ramp = 1 + S.t * 0.045;
+    // hazards from above: carts roll with drift, buckets fall straight, paper flutters
+    S.spawnT -= dt * ramp;
+    if (S.spawnT <= 0 && S.t < S.dur - 1.2) {
+      S.spawnT = U.rand(0.5, 0.8);
+      const kind = U.chance(0.4) ? 'cart' : U.chance(0.55) ? 'bucket' : 'paper';
+      S.hazards.push({
+        kind, x: U.rand(RX + 50, RX + RW - 50), y: 96,
+        vy: (kind === 'paper' ? U.rand(95, 130) : kind === 'cart' ? U.rand(170, 215) : U.rand(210, 250)) * ramp,
+        vx: kind === 'cart' ? U.rand(-70, 70) : kind === 'paper' ? U.rand(-40, 40) : 0,
+        rot: U.rand(0, TAU), vr: U.rand(-3, 3), r: kind === 'cart' ? 20 : kind === 'bucket' ? 14 : 10
+      });
+    }
+    // loose change on the landings
+    S.coinT -= dt;
+    if (S.coinT <= 0 && S.t < S.dur - 2) {
+      S.coinT = U.rand(1.4, 2.4);
+      S.coins.push({ x: U.rand(RX + 60, RX + RW - 60), y: 96, vy: 150 });
+    }
+    const py = CH - 130;
+    for (const h of S.hazards) {
+      h.y += h.vy * dt; h.x += (h.vx || 0) * dt; h.rot += h.vr * dt;
+      if (h.x < RX + 30 || h.x > RX + RW - 30) h.vx = -(h.vx || 0);
+      if (!h.dead && S.iframes <= 0 && Math.abs(h.y - py) < h.r + 12 && Math.abs(h.x - S.px) < h.r + 12) {
+        h.dead = true;
+        S.hit++;
+        S.iframes = 1.0;
+        this.shake = Math.max(this.shake, 8);
+        SFX.play('hurt');
+        if (p.hp > 1) { p.hp = Math.max(1, p.hp - 1); this.toast('🛒 clipped on the landing — ½♥', '#e08a8a'); }
+        else if (p.coins > 0) { const c = Math.min(2, p.coins); p.coins -= c; this.toast('you protect your head; your wallet takes it (−' + c + '¢)', '#e0a05a'); }
+        else this.toast('you bounce. professionally.', '#e0a05a');
+      }
+      if (h.y > CH - 40) h.dead = true;
+    }
+    S.hazards = S.hazards.filter(h => !h.dead);
+    for (const c of S.coins) {
+      c.y += c.vy * dt;
+      if (!c.dead && Math.abs(c.y - py) < 22 && Math.abs(c.x - S.px) < 26) { c.dead = true; S.got++; p.coins++; SFX.play('coin'); }
+      if (c.y > CH - 40) c.dead = true;
+    }
+    S.coins = S.coins.filter(c => !c.dead);
+    if (S.t >= S.dur && !S.done) {
+      S.done = true;
+      const clean = S.hit === 0;
+      if (clean) {
+        p.heal(2); p.coins += 5;
+        Meta.data.insight = (Meta.data.insight || 0) + 2;
+        if (!this.sandbox && !this.practice) { Meta.data.stairsClean = (Meta.data.stairsClean || 0) + 1; Meta.save(); this.checkUnlocks(); }
+        this.toast('🚶 CLEAN DESCENT — +♥, +5¢, +◆2. Nobody saw. That\'s the point.', '#8fd08a');
+        this.diaryNote('Took the stairs down clean. The elevator plays music for a reason: shame.');
+        SFX.play('fanfare');
+      } else {
+        this.toast('🚶 Made it down. ' + S.hit + ' bruise' + (S.hit > 1 ? 's' : '') + '. The handrail saw everything.', '#c8b0a0');
+        this.diaryNote('Took the stairs. Got clipped ' + S.hit + ' time' + (S.hit > 1 ? 's' : '') + ' by rolling office equipment. The elevator exists for a reason.');
+      }
+      this.stairs = null;
+      this.doDescend();
+    }
+  },
+
   /* ============================================================
      THE BREAKROOM CABINET — "PILL CATCHER" (2¢ from the Fund,
      45 seconds, 3 recalls and you're out. rival keeps score.)
@@ -1207,6 +1330,59 @@ const G = {
       RC.exitVx = Math.cos(ea) * 240; RC.exitVy = 0;
     }
   },
+  /* ---------- THE ACTUARY (your mortality, projected to one decimal place) ---------- */
+  showActuary(ped) {
+    const p = this.player;
+    // the projection is built from your actual history
+    const deads = (Meta.data.runlog || []).filter(r => r.out === 'dead');
+    const avgW = deads.length ? deads.slice(-6).reduce((a, r) => a + r.ward, 0) / Math.min(6, deads.length) : this.depth + 2;
+    const ward = Math.max(this.depth + 1, Math.min(this.depth + 5, Math.round(avgW + U.rand(-0.6, 1.2))));
+    const C = Meta.data.causeAgg || {};
+    const causes = Object.keys(C).filter(c => DATA.ENEMIES[c]).sort((a, b) => C[b] - C[a]);
+    const cause = causes.length ? (U.chance(0.7) ? causes[0] : U.choice(causes)) : DATA.pickEnemy(ward, null);
+    const causeName = (DATA.ENEMIES[cause] || { name: 'something billable' }).name;
+    const conf = (62 + Math.random() * 33).toFixed(1);
+    this.state = 'actuary';
+    SFX.play('paper');
+    this.overlay(`
+      <div class="panel">
+        <h1 class="logo" style="font-size:24px">📉 THE ACTUARY</h1>
+        <div class="tagline">“I don't make the odds. I just laminate them.”</div>
+        <div class="docpaper" style="transform:rotate(0.3deg)">
+          <div class="docstamp" style="color:#3a5a8a;border-color:#3a5a8a">PROJECTION</div>
+          <div class="doctitle">Mortality Forecast — ${DATA.DIAG[p.diag] ? DATA.DIAG[p.diag].name : p.diag}</div>
+          <div class="docsub">prepared from ${deads.length || 'insufficient'} prior incident${deads.length === 1 ? '' : 's'} · not medical advice · worse</div>
+          <div class="docbody">
+            <div style="margin:6px 0">Projected terminal ward: <b>WARD ${ward}</b></div>
+            <div style="margin:6px 0">Probable cause: <b>${causeName}</b></div>
+            <div style="margin:6px 0">Confidence: <b>${conf}%</b> <i style="opacity:.6">(the decimal is load-bearing)</i></div>
+          </div>
+        </div>
+        <div class="cmgrid">
+          <button class="cmcard" id="bActBet"><div class="cmname" style="color:#8fd0e0">🎲 WAGER 5¢ — outlive the projection</div><div class="cmdesc">Clear Ward ${ward} alive and collect 15¢ + ◆3.</div><div class="cmtag">the model hates losing</div></button>
+          <button class="cmcard" id="bActNo"><div class="cmname">decline politely</div><div class="cmdesc">Some numbers you don't need to know.</div><div class="cmtag">the printout goes in your file anyway</div></button>
+        </div>
+      </div>`);
+    document.getElementById('bActBet').onclick = () => {
+      if (p.coins < 5) { SFX.play('denied'); this.toast('📉 “Five cents. The odds are free; the wager is not.”', '#e08a8a'); return; }
+      p.coins -= 5;
+      ped.taken = true;
+      this._actuaryDone = true;
+      this.actuaryBet = { ward, cause, causeName, paid: false };
+      this.hideOverlay(); this.state = 'run';
+      this.toast('📉 Wager filed: survive Ward ' + ward + '. The Actuary is already drafting your obituary. In pencil.', '#8fd0e0');
+      this.diaryNote('An actuary predicted my death: ward ' + ward + ', ' + causeName + ', ' + conf + '% confidence. I bet 5¢ against the math.');
+      SFX.play('stamp');
+    };
+    document.getElementById('bActNo').onclick = () => {
+      ped.taken = true;
+      this._actuaryDone = true;
+      this.hideOverlay(); this.state = 'run';
+      this.toast('📉 “Noted. For the record: Ward ' + ward + '. No hard feelings when.”', '#c8b0a0');
+      SFX.play('ui');
+    };
+  },
+
   /* ---------- THE COMPOUNDING PHARMACIST (two meds enter. one leaves.) ---------- */
   showCompound(ped) {
     const p = this.player;
@@ -1997,6 +2173,7 @@ const G = {
     this._billMul = 1; this._preApproved = 0; this._routeMod = null; this.practice = false;
     this.intern = null; this._internOffered = false; this._union = null;
     this.race = null; this._races = 0; this._raceLostThisRun = false; this._icNight = false;   // THE RIVAL + night shift, fresh per run
+    this.actuaryBet = null; this._actuaryDone = false; this.nightShift = false; this.stairs = null;   // the Actuary's book opens fresh
     // THE COMPLAINT DEPARTMENT: your grievance reports for duty
     this._complaint = (!daily && Meta.data.pendingComplaint) ? String(Meta.data.pendingComplaint).slice(0, 40) : null;
     this._complaintSpawned = false;
@@ -2026,7 +2203,7 @@ const G = {
     this.state = 'hub';
     this.hideOverlay();
     document.body.classList.add('inrun');   // phones need the move stick in here
-    SFX.setMusic('dayroom');
+    SFX.setMusic((Meta.data.hubTrack && (Meta.data.tracksHeard || {})[Meta.data.hubTrack]) ? Meta.data.hubTrack : 'dayroom');   // WWRD picks the room's music
     const order = ['adhd', 'bipolar', 'depression', 'anxiety', 'schizo', 'ocd', 'ptsd', 'insomnia', 'fine', 'undiag', 'burnout'];
     const fineOpen = Meta.data.fineSeen || Meta.data.walrusKills > 0;
     const nineDone = order.slice(0, 9).filter(d => (Meta.data.diagsPlayed || {})[d]).length >= 9;
@@ -2058,6 +2235,7 @@ const G = {
         { x: 660, y: 330, r: 46, door: false, label: '📔 PATIENT DIARY', hint: (Meta.data.diary || []).length ? (Meta.data.diary.length + ' entries · it kept writing') : 'it writes itself. about you.', act: () => this.showJournal(() => this.showHub()) },
         { x: 170, y: 218, r: 46, door: false, label: '🎁 GIFT SHOP', hint: 'fund: ' + (Meta.data.fund || 0) + '¢ · gifts deliver at check-in', act: () => this.showGiftShop(() => this.showHub()) },
         { x: 745, y: 552, r: 42, door: false, label: '🕹 BREAKROOM', hint: (Meta.data.arcade && Meta.data.arcade.best ? 'PILL CATCHER · best ' + Meta.data.arcade.best : 'PILL CATCHER · 2¢ a play'), act: () => this.showArcade() },
+        { x: 596, y: 208, r: 34, door: false, label: '📻 WWRD', hint: Object.keys(Meta.data.tracksHeard || {}).length + '/9 tracks · ward radio', act: () => this.showRadio(() => this.showHub()) },
         { x: 480, y: 628, r: 40, door: this.exitReady(), label: this.exitReady() ? '🚪 THE FRONT DOOR' : '🔒 FRONT DOOR', hint: this.exitReady() ? 'it\'s open. it\'s actually open.' : 'locked since intake', act: () => this.tryExit() }
       ]
     };
@@ -2559,6 +2737,19 @@ const G = {
     // bingo depth squares
     if (this.depth === 5) this.bingoEvent('depth5');
     if (this.depth === 8) this.bingoEvent('depth8');
+    // THE ACTUARY loses the bet: you outlived the projection
+    if (this.actuaryBet && !this.actuaryBet.paid && this.depth > this.actuaryBet.ward) {
+      this.actuaryBet.paid = true;
+      const p2 = this.player;
+      p2.coins += 15;
+      Meta.data.insight = (Meta.data.insight || 0) + 3;
+      if (!this.sandbox && !this.practice) { Meta.data.actuaryWins = (Meta.data.actuaryWins || 0) + 1; Meta.save(); this.checkUnlocks(); }
+      this.setBanner('📉 OUTSIDE THE MODEL', 'the projection said Ward ' + this.actuaryBet.ward + '. the projection can cope.', 3.0);
+      this.toast('📉 Wager paid: +15¢, +◆3. Somewhere, a spreadsheet weeps.', '#8fd08a');
+      this.diaryNote('Outlived the actuarial projection. The model has filed a complaint about me.');
+      SFX.play('fanfare');
+      this.actuaryBet = null;
+    }
     if (this.shadowWard) {   // the shadow swallows whatever wing this was
       this.wingPal = { floor: '#2e2440', line: '#241c34', wall: '#3c2c52', trim: '#161020' };
       this.floorDark = Math.max(this.floorDark, 0.35);
@@ -2664,6 +2855,7 @@ const G = {
     this.hyperfixType = null;
     this.roomFade = 0.22;   // a soft blink crossing the threshold
     this._roomHits = 0;     // per-room damage tally (Day Room contracts)
+    this._roomShieldUsed = false;   // Second Wind resets at every door
     this._roomT0 = this.t;  // room-entry clock (the Intercom bills hourly)
     this._recap = [];       // fresh reel for the incident reconstruction
     this._unionTried = false; this._union = null;   // one organizing drive per room
@@ -2850,7 +3042,7 @@ const G = {
       case 'shop': {
         room.cleared = true;
         const copayMul = (1 + (this.depth - 1) * 0.07) * (this.protocol === 'deductible' ? 2 : 1) * (this.plan === 'bronze' ? 1.5 : this.plan === 'gold' ? 0.6 : 1) * ((this.intensity || 0) >= 2 ? 1.25 : 1) * (this.hasRule('pricier') ? 1.3 : 1);   // copays climb with the ward (it's the healthcare system, baby)
-        const disc = (p.flags.discount ? 0.5 : (this.wardPath === 'outpatient' ? 0.75 : 1)) * (p.trinket === 'expiredcoupon' ? 0.7 : 1) * (p._facShopMul || 1);
+        const disc = (p.flags.discount ? 0.5 : (this.wardPath === 'outpatient' ? 0.75 : 1)) * (p.trinket === 'expiredcoupon' ? 0.7 : 1) * (p.trinket === 'laminatedcard' ? 0.85 : 1) * (p._facShopMul || 1);
         const px = (n) => Math.max(1, Math.ceil(n * disc * copayMul));
         const yc = RY + RH / 2 + 30, yi = RY + RH / 2 - 80;
         room.stock = [
@@ -2910,8 +3102,13 @@ const G = {
         room.cleared = true;
         room.peds.push({ x: RX + 90, y: RY + RH / 2, kind: 'cooler', taken: false });
         if (U.chance(0.3)) room.pickups.push(new Pickup('trinket', CW / 2 - 120, RY + RH / 2 + 70));   // lost property
-        const npcs = U.shuffle(DATA.DAYROOM.map((_, i) => i)).slice(0, 3);
-        npcs.forEach((ni, k) => room.peds.push({ x: CW / 2 - 20 + k * 150, y: RY + RH / 2 + (k % 2 ? 40 : -20), kind: 'npc', npcId: ni, taken: false }));
+        const nDay = this.hasRule('visitorDay') ? 5 : 3;   // house rules: visitor day — the room is crowded
+        const npcs = U.shuffle(DATA.DAYROOM.map((_, i) => i)).slice(0, nDay);
+        npcs.forEach((ni, k) => room.peds.push({ x: CW / 2 - 90 + (k % 3) * 150, y: RY + RH / 2 + (k > 2 ? 96 : (k % 2 ? 40 : -20)), kind: 'npc', npcId: ni, taken: false }));
+        // THE ACTUARY: sometimes among the visitors, with a briefcase and your file
+        if (!this._actuaryDone && !this.actuaryBet && this.depth >= 2 && U.chance(0.35)) {
+          room.peds.push({ x: CW / 2 - 170, y: RY + RH / 2 + 96, kind: 'actuary', taken: false });
+        }
         // and one patient looking for a group to join (The Support Group)
         const allyPool = DATA.ALLIES.filter(a => !a.locked || (a.id === 'intern' && Meta.data.internGrad));
         room.peds.push({ x: RX + RW - 96, y: RY + RH / 2 - 30, kind: 'recruit', allyId: U.choice(allyPool).id, taken: false });
@@ -3545,7 +3742,7 @@ const G = {
         <h1 class="logo" style="font-size:26px">🛗 THE ELEVATOR</h1>
         <div class="tagline">B${this.depth + 1} — three routes down. each bundles a comorbidity; the forecast is posted. the elevator music is not optional.</div>
         <div class="cmgrid">${cards}</div>
-        <button class="btn minor" id="bComorbidSkip">take the stairs (no ward bonus, no comorbidity, standard floor)</button>
+        <button class="btn minor" id="bComorbidSkip">🚶 take the stairs — a dodge gauntlet; clean descent pays (no comorbidity, standard floor)</button>
       </div>`);
     document.querySelectorAll('.wardcard').forEach(b => b.onclick = () => {
       const it = picks[+b.dataset.i];
@@ -3559,7 +3756,7 @@ const G = {
       this.hideOverlay();
       this.doDescend();
     });
-    document.getElementById('bComorbidSkip').onclick = () => { SFX.play('ui'); this.wardPath = 'day'; this._routeMod = null; this.hideOverlay(); this.doDescend(); };
+    document.getElementById('bComorbidSkip').onclick = () => { SFX.play('ui'); this.wardPath = 'day'; this._routeMod = null; this.hideOverlay(); this.startStairs(); };
   },
 
   /* ---------- mini-event choice room ---------- */
@@ -3604,6 +3801,7 @@ const G = {
     }
     if (this.state === 'hub') { this.t += dt; this.hubUpdate(dt); return; }
     if (this.state === 'arcade') { this.t += dt; this.arcadeUpdate(dt); return; }
+    if (this.state === 'stairs') { this.t += dt; this.stairsUpdate(dt); return; }
     if (this.state === 'appeal') { this.t += dt; this.appealUpdate(dt); return; }
     if (this.state === 'credits') { this.t += dt; this.creditsUpdate(dt); return; }
     if (this.state === 'exit') { this.t += dt; this.exitUpdate(dt); return; }
@@ -3929,6 +4127,8 @@ const G = {
         this.diaryNote('Someone with a brand-new badge asked to follow me. I said the wrong thing: "sure."');
         this.toast('🪪 THE INTERN is shadowing you. Keep them alive for 3 floors. They panic. A lot.', '#e8c05a');
         SFX.play('voice');
+      } else if (ped.kind === 'actuary') {   // the briefcase. the calculator. your odds.
+        if (this.lockCd <= 0) { this.lockCd = 2.0; this.showActuary(ped); return; }
       } else if (ped.kind === 'compound') {   // the back room. the mortar. the smell of progress.
         if (this.lockCd <= 0) { this.lockCd = 2.0; this.showCompound(ped); return; }
       } else if (ped.kind === 'rivalduel') {   // they've been stretching. audibly.
@@ -4643,13 +4843,23 @@ const G = {
         <div class="nutitle">🏆 NEW UNLOCK${this.runUnlocks.length > 1 ? 'S' : ''}!</div>
         ${this.runUnlocks.map(a => `<div class="nurow"><b>${a.name}</b><span>${a.desc}</span></div>`).join('')}
       </div>` : '';
+    // THE ACTUARY called it (right ward — and sometimes the exact cause)
+    const actHit = this.actuaryBet && !this.actuaryBet.paid && this.depth === this.actuaryBet.ward;
+    const actExact = actHit && this.player && this.player._lastSrc === this.actuaryBet.cause;
+    if (actHit && !this.sandbox && !this.practice) {
+      Meta.data.actuaryCorrect = (Meta.data.actuaryCorrect || 0) + 1;
+      Meta.save();
+      this.checkUnlocks();
+    }
     this.overlay(`
       <div class="panel wide">
         <div class="rx" style="border-color:#8a3030">
           <div class="stamp">DISCHARGED</div>
+          ${actHit ? `<div class="stamp" style="right:auto;left:14px;color:#3a5a8a;border-color:#3a5a8a;transform:rotate(-7deg)">ACTUARIALLY CORRECT</div>` : ''}
           ${ribbon ? `<div class="sub" style="color:#e0a05a;font-weight:bold">${ribbon}</div>` : ''}
           <h2 style="color:${D.color}">${D.name}</h2>
           <div class="sub">Reached ${DATA.floorName(this.depth)} · Ward ${this.depth} · ${DATA.tierName(this.depth)}${newBest ? ' &nbsp;⭐ NEW BEST' : (prevBest ? ' (best: ward ' + prevBest + ')' : '')}</div>
+          ${actHit ? `<div class="sub" style="color:#3a5a8a">📉 exactly as projected — ward ${this.actuaryBet.ward}${actExact ? ', and yes: the ' + this.actuaryBet.causeName : ''}. the printout will be framed.</div>` : ''}
         </div>
         <div class="summary">
           ${this.overtime ? row('<span style="color:#e8c84c">⏰ OVERTIME — wave reached</span>', '<span style="color:#e8c84c">' + this.overtime.wave + (this.overtime.wave >= (Meta.data.overtimeBest || 0) ? ' ⭐' : '') + '</span>') : ''}
@@ -5257,7 +5467,7 @@ const G = {
     if (G.state === 'cutscene' && typeof Story !== 'undefined' && Story.active) {
       try { Story.update(dt); Story.draw(); } catch (e) { Story.active = false; if (G.showTitle) G.showTitle(); }
     } else {
-      if (G.state === 'run' || G.state === 'descend' || G.state === 'hub' || G.state === 'appeal' || G.state === 'credits' || G.state === 'exit' || G.state === 'arcade') G.update(dt);
+      if (G.state === 'run' || G.state === 'descend' || G.state === 'hub' || G.state === 'appeal' || G.state === 'credits' || G.state === 'exit' || G.state === 'arcade' || G.state === 'stairs') G.update(dt);
       Render.draw(G);
     }
     if (G.state === 'bestiary' && G._bestiary) {
