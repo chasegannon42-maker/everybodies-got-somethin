@@ -45,6 +45,14 @@ class Pet {
       if (this._lungeT <= 0) this._bit = null;
       return;   // the lunge overrides normal slither
     }
+    if (this.type === 'ferret') {   // low, fast, orbiting your ankles, casing the room
+      const tx = p.x + Math.cos(this.t * 2.6) * 32, ty = p.y + 16 + Math.sin(this.t * 3.4) * 8;
+      const a = U.ang(this.x, this.y, tx, ty);
+      const d = U.dist(this.x, this.y, tx, ty);
+      if (d > 10) { this.x += Math.cos(a) * Math.min(d * 4, 320) * dt; this.y += Math.sin(a) * Math.min(d * 4, 320) * dt; }
+      this.segs.unshift({ x: this.x, y: this.y });
+      if (this.segs.length > (this.evo ? 10 : 7)) this.segs.pop();
+    }
     if (this.type === 'pigeon') {   // flutters near you; periodically finds change
       // PLAYDATE: if the dog's on shift too, the pigeon rides the dog. obviously.
       const dogMate = (p.pet && p.pet !== this && p.pet.type === 'dog') ? p.pet : (p.pet2 && p.pet2 !== this && p.pet2.type === 'dog') ? p.pet2 : null;
@@ -1742,8 +1750,8 @@ class Enemy {
       }
       if (spread) { for (let i = 0; i < 8; i++) { const a = (i / 8) * TAU; G.parts.push(new Particle(this.x, this.y, Math.cos(a) * 160, Math.sin(a) * 160, 0.4, '#8fd08a', 3)); } SFX.play('pop'); }
     }
-    // THE DREAM: symptoms here were only ever clouds — they rain small mercies
-    if (this._dream && U.chance(0.6)) G.pickups.push(new Pickup('half', this.x, this.y));
+    // THE DREAM: symptoms here were only ever clouds — they rain small mercies (nightmares rain nothing)
+    if (this._dream && !this._nmare && U.chance(0.6)) G.pickups.push(new Pickup('half', this.x, this.y));
     // THE MIDDLEMAN: the prices exhale
     if (this.id === 'middleman' && G.pbmDown) G.pbmDown(this);
     // THE COLLECTOR: you can kill the man. the DEBT sends another man.
@@ -1889,6 +1897,11 @@ class Pickup {
   }
   update(dt, G) {
     this.t += dt;
+    if (this._ferret) {   // the ferret is bringing this to you, at ferret speed
+      const p = G.player;
+      const a = U.ang(this.x, this.y, p.x, p.y);
+      this.x += Math.cos(a) * 300 * dt; this.y += Math.sin(a) * 300 * dt;
+    }
     if (this.settle > 0) {
       this.settle -= dt;
       this.x += this.vx * dt; this.y += this.vy * dt;
@@ -2057,11 +2070,19 @@ function spawnEnemiesForRoom(room, depth, G) {
     const e = new Enemy(id, s.x + U.rand(-8, 8), s.y + U.rand(-8, 8), depth, false, hpMult, elite);
     if (G.shadowWard) { e.hp *= 1.3; e.maxhp *= 1.3; e._shadow = true; }   // shadow patients: darker, tougher, better tippers
     if (G.annexFloor) { e.hp *= 1.25; e.maxhp *= 1.25; e._sheet = true; }  // the condemned wing: dust-sheeted and unhappy about visitors
-    if (G.dreamFloor) {   // THE DREAM: the symptoms are clouds here. they cannot hurt you. they rain mercies.
-      e.dmg = 0; e._dream = true; e.noDrop = false;
-      e.hp = Math.max(3, Math.round(e.hp * 0.5)); e.maxhp = e.hp;
-      e.spd *= 0.7;
+    if (G.dreamFloor) {   // THE DREAM: the symptoms are clouds here. usually they cannot hurt you.
+      e._dream = true; e.noDrop = false;
       e.beh = ['chase', 'bounce', 'orbit'].includes(e.beh) ? e.beh : 'chase';   // nothing shoots in a dream
+      if (G.nightmare) {   // THE NIGHTMARE: the building dreamed back. these clouds bite.
+        e._nmare = true;
+        e.dmg = 1;
+        e.hp = Math.max(4, Math.round(e.hp * 0.8)); e.maxhp = e.hp;
+        e.spd *= 0.95;
+      } else {
+        e.dmg = 0;
+        e.hp = Math.max(3, Math.round(e.hp * 0.5)); e.maxhp = e.hp;
+        e.spd *= 0.7;
+      }
     }
     if (G.nightShift) { e.spd *= 0.92; e.hp *= 0.95; e.maxhp *= 0.95; }    // sleepy, but there are more of them
     if (G.hasRule && G.hasRule('quietHours')) { e.shotCd = (e.shotCd || 0) * 1.18; e.spd *= 1.08; }   // house rules: quiet hours

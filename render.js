@@ -2228,6 +2228,22 @@ const Render = {
         if (U.dist(G.player.x, G.player.y, ped.x, ped.y) < 90) { ctx.fillStyle = '#e8c84c'; ctx.font = this.font(10, true); ctx.fillText('it\'s leaning like it\'s yours', ped.x, ped.y + 42); }
         continue;
       }
+      if (ped.kind === 'subhole') {   // the hole behind the shelves. it has always been there.
+        this.shadow(ped.x, ped.y + 16, 24, 7, 0.3);
+        ctx.save(); ctx.translate(ped.x, ped.y);
+        ctx.fillStyle = '#7a6a52'; this.rr(ctx, -34, -30, 20, 56, 3); ctx.fill();   // the shelf, shoved aside
+        ctx.strokeStyle = '#5a4c38'; ctx.lineWidth = 2; this.rr(ctx, -34, -30, 20, 56, 3); ctx.stroke();
+        for (let s = 0; s < 3; s++) { ctx.beginPath(); ctx.moveTo(-33, -14 + s * 16); ctx.lineTo(-15, -14 + s * 16); ctx.stroke(); }
+        ctx.fillStyle = '#0c0a10'; ctx.beginPath(); ctx.ellipse(8, 4, 22, 15, 0.1, 0, TAU); ctx.fill();   // the hole
+        ctx.strokeStyle = 'rgba(120,105,85,0.7)'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.ellipse(8, 4, 22, 15, 0.1, 0, TAU); ctx.stroke();
+        const breathe = 0.35 + Math.sin(G.t * 1.4) * 0.15;   // the dark is breathing. probably a draft.
+        ctx.fillStyle = 'rgba(60,44,80,' + breathe * 0.4 + ')'; ctx.beginPath(); ctx.ellipse(8, 4, 15, 9, 0.1, 0, TAU); ctx.fill();
+        ctx.restore();
+        ctx.fillStyle = '#9a90a8'; ctx.font = this.font(10, true); ctx.textAlign = 'center';
+        ctx.fillText('THE OTHER BASEMENT', ped.x, ped.y - 40);
+        if (U.dist(G.player.x, G.player.y, ped.x, ped.y) < 84) { ctx.fillStyle = '#e8c84c'; ctx.font = this.font(10, true); ctx.fillText('squeeze through (costs half a heart)', ped.x, ped.y + 36); }
+        continue;
+      }
       if (ped.kind === 'finance') {   // the desk: bolted-on plaque, tray of pens that don't write
         this.shadow(ped.x, ped.y + 22, 26, 7, 0.2);
         ctx.save(); ctx.translate(ped.x, ped.y);
@@ -2866,6 +2882,19 @@ const Render = {
       ctx.fillStyle = '#e8d05a'; ctx.beginPath(); ctx.arc(-1.6, -1.4, 1, 0, TAU); ctx.arc(1.6, -1.4, 1, 0, TAU); ctx.fill();
       ctx.strokeStyle = '#c05050'; ctx.lineWidth = 1.2;   // the tongue, tasting your issues
       if (Math.sin(pet.t * 6) > 0.6) { ctx.beginPath(); ctx.moveTo(0, 3); ctx.lineTo(0, 7); ctx.moveTo(0, 7); ctx.lineTo(-1.5, 9); ctx.moveTo(0, 7); ctx.lineTo(1.5, 9); ctx.stroke(); }
+    } else if (pet.type === 'ferret') {   // a fast opinion about your belongings, in mustelid form
+      for (let i = pet.segs.length - 1; i >= 1; i--) {
+        const s = pet.segs[i], f = 1 - i / Math.max(1, pet.segs.length);
+        ctx.fillStyle = i % 2 ? '#c8b090' : '#b8a080';
+        ctx.beginPath(); ctx.ellipse(s.x - pet.x, s.y - pet.y, 3 + f * 3.4, 2.4 + f * 2.4, 0, 0, TAU); ctx.fill();
+      }
+      ctx.fillStyle = '#d0b898'; ctx.beginPath(); ctx.ellipse(0, 0, 5.4, 4.2, 0, 0, TAU); ctx.fill();   // head
+      ctx.fillStyle = '#6a5842';   // the bandit mask (professional attire)
+      ctx.beginPath(); ctx.ellipse(0, -0.8, 4.6, 1.8, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#2c2333'; ctx.beginPath(); ctx.arc(-2, -0.8, 1, 0, TAU); ctx.arc(2, -0.8, 1, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#d0b898'; ctx.beginPath(); ctx.arc(-3.4, -3.4, 1.7, 0, TAU); ctx.arc(3.4, -3.4, 1.7, 0, TAU); ctx.fill();   // ears
+      ctx.fillStyle = '#e8a0a0'; ctx.beginPath(); ctx.arc(0, 1.8, 1, 0, TAU); ctx.fill();   // nose
+      if (pet.evo) { ctx.fillStyle = '#e8c84c'; ctx.font = 'bold 6px "Arial Black",sans-serif'; ctx.textAlign = 'center'; ctx.fillText('ACQ.', 0, -6.5); }   // the department badge
     } else if (pet.type === 'goldfish') {
       this.shadow(0, 12, 8, 3, 0.18);
       ctx.fillStyle = 'rgba(180,215,230,0.55)'; ctx.beginPath(); ctx.arc(0, 0, 9, 0, TAU); ctx.fill();   // the bowl

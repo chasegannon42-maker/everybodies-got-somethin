@@ -847,6 +847,18 @@ const G = {
 
   /* ---- THE SCENARIO JUMPER: every special encounter, pre-armed ---- */
   TESTER_SCENARIOS: [
+    { icon: '🌑', name: 'THE NIGHTMARE', sub: 'the bed went wrong, pedestal guarded', run(G) {
+      G.ensureSandboxAt(4);
+      const oc = U.chance; U.chance = () => true;   // force the 22% roll
+      try { G.enterDream(); } finally { U.chance = oc; }
+    } },
+    { icon: '🕳', name: 'Sub-basement', sub: 'through the hole, seven residents, stash after', run(G) {
+      G.ensureSandboxAt(4);
+      G._subDone = false;
+      G._basementReturn = { room: G.room, x: G.player.x, y: G.player.y };
+      G.player.hp = Math.max(G.player.hp, 4);
+      G.enterSubBasement();
+    } },
     { icon: '💳', name: 'Deep in debt', sub: '45¢ owed, two floors of interest, he knows', run(G) {
       G.ensureSandboxAt(4);
       G.debt = { principal: 30, owed: 55, floors: 2 };
@@ -2210,6 +2222,8 @@ const G = {
     // the Compounding Pharmacist works out of the basement (of course they do)
     const cbpool = U.shuffle([].concat(DATA.POOLS.special, DATA.POOLS.shop)).filter(id => !p.items.includes(id));
     if (cbpool.length >= 2) this.peds.push({ x: RX + RW - 90, y: RY + RH / 2 + 40, kind: 'compound', a: cbpool[0], b: cbpool[1], price: 5, taken: false });
+    // he warned you there's another basement. the hole is behind the shelves.
+    if (!this._subDone) this.peds.push({ x: RX + 70, y: RY + RH / 2 + 50, kind: 'subhole', taken: false });
     this.pickups.push(new Pickup('full', CW / 2 - 40, RY + RH - 130));
     this.pickups.push(new Pickup('pill', CW / 2 + 40, RY + RH - 130));
     for (let i = 0; i < 3; i++) this.pickups.push(new Pickup('coin', CW / 2 + U.rand(-90, 90), RY + RH / 2 + 60));
@@ -2225,9 +2239,60 @@ const G = {
     this.toast('🧹 “Touch whatever. The walrus doesn\'t know this floor exists.”', '#b8b0a0');
     SFX.setMusic('basement');
   },
+  /* ---------- THE SUB-BASEMENT (he told you there's another basement) ---------- */
+  enterSubBasement() {
+    const p = this.player;
+    this._subDone = true;
+    p.hurt(1, this, 'pipes');   // the squeeze through takes its toll
+    if (p.dead) return;
+    const sr = makeRoom(499, 498, 'normal');
+    sr._subbase = true; sr.visited = true; sr.spawned = true; sr.cleared = false;
+    sr.doors = {}; sr.secretDoors = {};
+    buildLayout(sr, 1);
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) sr.layout[r][c] = 0;
+    this.enterRoom(sr, null);
+    p.x = CW / 2; p.y = RY + RH - 70;
+    this.darkTarget = 0.5;
+    // forty years of steam and standing water
+    for (let i = 0; i < 3; i++) this.zones.push(new Zone(RX + 140 + i * 260, RY + 120 + (i % 2) * 260, 34, 999, 'ember', 'rgba(160,160,170,0.35)'));
+    // the things that live under the things that live in the basement
+    const mix = ['fog', 'intrusive', 'gaslighter', 'spiral', 'scroller'];
+    for (let i = 0; i < 7; i++) {
+      const e = new Enemy(U.choice(mix), U.clamp(CW / 2 + U.rand(-260, 260), RX + 50, RX + RW - 50), U.clamp(RY + 160 + U.rand(-60, 160), RY + 50, RY + RH - 90), Math.max(4, this.depth), false, 1.15);
+      e.spawnT = 0.6 + i * 0.12; e.noDrop = i > 2;
+      this.enemies.push(e);
+    }
+    this.setBanner('THE SUB-BASEMENT', 'there is another basement. you are in it.', 3.2);
+    this.toast('The pipes took half a heart on the way through. The dark down here is older than the dark upstairs.', '#9a90a8');
+    this.diaryNote('Went through the hole behind his shelves. There is another basement. There is probably another one under that.');
+    SFX.setMusic('ward13');
+    SFX.play('sting');
+  },
+  subBaseCleared() {   // the stash reveals itself
+    const p = this.player;
+    this.darkTarget = 0.25;
+    const pool = U.shuffle([].concat(DATA.POOLS.special, DATA.POOLS.boss)).filter(id => !p.items.includes(id));
+    for (let i = 0; i < 3 && pool[i]; i++) {
+      this.peds.push({ x: CW / 2 - 150 + i * 150, y: RY + 130, itemId: pool[i], kind: 'item', taken: false, repGroup: 'stash' });
+    }
+    this.peds.push({ x: RX + RW - 80, y: RY + RH - 80, kind: 'basementexit', taken: false });   // the ladder out, well clear of where you're standing
+    const undoc = (DATA.DOCUMENTS || []).filter(d => !(Meta.data.docs || {})[d.id]);
+    if (undoc.length) {
+      const dp = new Pickup('coin', RX + 90, RY + RH - 100);
+      dp.type = 'document'; dp._docId = U.choice(undoc).id; dp.settle = 0; dp.vx = 0; dp.vy = 0;
+      this.pickups.push(dp);
+    }
+    Meta.data.subStash = (Meta.data.subStash || 0) + 1;
+    Meta.data.insight = (Meta.data.insight || 0) + 4;
+    Meta.save();
+    DATA.checkAchievements(Meta.data); Meta.save(); this.checkUnlocks();
+    this.toast('His stash: three finds on a shelf of hundreds. Take ONE — he counts them. (+4 Insight)', '#e8c05a');
+    SFX.play('fanfare');
+  },
   exitBasement() {
     const R = this._basementReturn;
     if (!R || !R.room) { this.showTitle(); return; }
+    this.darkTarget = 0;   // the sub-basement dark stays down there
     this.enterRoom(R.room, null);
     this.player.x = R.x; this.player.y = R.y;
     this._basementReturn = null;
@@ -2285,12 +2350,20 @@ const G = {
   /* ---------- THE DREAM WARD (the building, but soft) ---------- */
   enterDream() {
     this.dreamFloor = true;
+    this.nightmare = U.chance(0.22);   // sometimes the building dreams back
     this.depth += 1;   // the dream sits where the next ward would be; waking descends past it
     this.newFloor();
-    this.setBanner('THE DREAM WARD', 'nothing here bills you', 3.2);
-    this.toast('The hum is gone. The lights are warm. The symptoms are... clouds?', '#b8a8d8');
-    this.diaryNote('Found a bed after the boss and actually slept. The ward I dreamed had carpet.');
-    SFX.setMusic('dayroom');
+    if (this.nightmare) {
+      this.setBanner('THE NIGHTMARE', 'the building dreamed back', 3.2);
+      this.toast('The carpet is wrong. The clouds have teeth. But look what they\'re guarding.', '#8a6aa8');
+      this.diaryNote('Slept after the boss. The building was waiting in there. I stayed anyway — the shelf glowed.');
+      SFX.setMusic('ward13');
+    } else {
+      this.setBanner('THE DREAM WARD', 'nothing here bills you', 3.2);
+      this.toast('The hum is gone. The lights are warm. The symptoms are... clouds?', '#b8a8d8');
+      this.diaryNote('Found a bed after the boss and actually slept. The ward I dreamed had carpet.');
+      SFX.setMusic('dayroom');
+    }
     SFX.play('whoosh');
   },
 
@@ -2744,7 +2817,7 @@ const G = {
      The complete in-fiction manual: every mechanic, symptom, ward, and
      service. Mostly generated from DATA so new content lists itself;
      the prose sections get a line whenever a feature ships. */
-  HB_REV: 32,
+  HB_REV: 33,
   showHandbook(returnTo) {
     this.state = 'handbook';
     if (!this._hbTab) this._hbTab = 'basics';
@@ -2813,7 +2886,9 @@ const G = {
         + N('It also observes the real calendar at monthly scale — one observance at a time, always slightly self-serving:')
         + DATA.MONTHS.map(m => R('🗓', m.name, m.desc, m.tag)).join('')
         + H('SPECIAL FLOORS, CONTINUED')
-        + R('🛏', 'THE DREAM WARD', 'after a hard boss (ward 3+, once a run, if you\'re hurting): a bed appears beside the trapdoor. Sleep and dream the next ward instead — soft halls, harmless cloud symptoms that rain half-hearts, and ONE dream prescription that\'s absurdly strong and evaporates two wards after you wake. Waking descends you, rested (+2♥)'),
+        + R('🛏', 'THE DREAM WARD', 'after a hard boss (ward 3+, once a run, if you\'re hurting): a bed appears beside the trapdoor. Sleep and dream the next ward instead — soft halls, harmless cloud symptoms that rain half-hearts, and ONE dream prescription that\'s absurdly strong and evaporates two wards after you wake. Waking descends you, rested (+2♥)')
+        + R('🌑', 'THE NIGHTMARE', 'about 1 bed in 5 goes wrong: the building dreams back. The clouds bite, nothing rains mercy — but the prescription at the bottom is PERMANENT (nightmares don\'t evaporate) and waking pays +6 Insight')
+        + R('🕳', 'THE SUB-BASEMENT', 'behind the Janitor\'s shelves: a hole (costs half a heart to squeeze through, once a run). Old dark, standing steam, seven things that live under the basement — clear them and his stash opens: pick ONE of three finds, +4 Insight, and a page nobody filed'),
 
       symptoms: () => H('THE GENERAL POPULATION')
         + N('Listed with the ward they first appear on. Deeper wards lean harder on the late roster.')
@@ -2929,6 +3004,7 @@ const G = {
         + N('rev. 30 — new on the ward: THE HOLD (management, ward 7+, bring patience and footwork) · THE CLINICAL TRIAL (see TREATMENT) · THE SCANNER (see TREATMENT) · and a thirteenth patient file for whoever finished THE HANDOFF. The mop is in the closet where he left it.')
         + N('rev. 31 — the building learned finance and the calendar: THE FINANCING DESK and THE MIDDLEMAN (see TREATMENT) · THE DREAM WARD (see THE BUILDING) · AWARENESS MONTHS (see THE BUILDING). Also: Group Therapy recruitment now caps at three and no longer works on management, security, paperwork, or anyone mid-performance. The group apologizes to the charge nurse.')
         + N('rev. 32 — the Waiting Room was renovated (doors need an actual step, the nearest thing answers, the room remembers where you were standing) and Dr. Walrus attended a communication workshop. He speaks in full sentences now. He is very proud of this.')
+        + N('rev. 33 — the bed is now a gamble (THE NIGHTMARE), the desk announces VISITING HOURS (see WARD LIFE events — pick your visitor), a sixth Emotional Support Animal has been acquiring things (see YOUR CARE), and there is another basement (THE SUB-BASEMENT, see THE BUILDING). The Janitor knew. The Janitor always knew.')
     };
 
     const tabs = [
@@ -3400,7 +3476,7 @@ const G = {
     this.walkin = false; this._roofDone = false; this._phoneFloor = false;   // walk-in / roof / payphone, fresh per run
     this.inspection = null; this._inspectionDone = false; this._mixup = null; this._mixupDone = false;   // the tour + the chart mix-up
     this.annexFloor = false; this._alarmSeen = false; this._alarmPulled = false; this._soaked = false; this._ghostRec = {}; this._ghostT = 0;   // annex / alarm / ghost, fresh per run
-    this.dreamFloor = false; this._dreamSeen = false; this._dreamItem = null; this.debt = null; this._collectorSpawned = false; this._pbmFloor = false; this._pbmDead = false;   // dream / debt / middleman, fresh per run
+    this.dreamFloor = false; this.nightmare = false; this._dreamSeen = false; this._dreamItem = null; this.debt = null; this._collectorSpawned = false; this._pbmFloor = false; this._pbmDead = false; this._subDone = false;   // dream / debt / middleman / sub-basement, fresh per run
     // THE COMPLAINT DEPARTMENT: your grievance reports for duty
     this._complaint = (!daily && Meta.data.pendingComplaint) ? String(Meta.data.pendingComplaint).slice(0, 40) : null;
     this._complaintSpawned = false;
@@ -3982,10 +4058,12 @@ const G = {
     const wingDef = this.wing ? DATA.WINGS.find(w => w.id === this.wing) : null;
     this.wingPal = wingDef ? wingDef.pal : null;
     if (wingDef && wingDef.dark) this.floorDark = Math.max(this.floorDark, wingDef.dark);
-    if (this.dreamFloor) {   // THE DREAM: carpet, somehow. warmth, somehow.
+    if (this.dreamFloor) {   // THE DREAM: carpet, somehow. warmth, somehow. (unless it dreamed back)
       this.wing = null;
-      this.wingPal = { floor: '#8a7ab2', line: '#7a6aa0', wall: '#b09ac8', trim: '#4a3c66' };
-      this.floorDark = 0;
+      this.wingPal = this.nightmare
+        ? { floor: '#2c2438', line: '#241e30', wall: '#3c2c50', trim: '#100c18' }
+        : { floor: '#8a7ab2', line: '#7a6aa0', wall: '#b09ac8', trim: '#4a3c66' };
+      this.floorDark = this.nightmare ? 0.32 : 0;
       this.complications = []; this.floorMods = {}; this.sideEffect = null; this.crisis = null;
     }
     if (this.protocol === 'nightshift') this.floorDark = Math.max(this.floorDark, 0.55);   // the lights never come on
@@ -4325,6 +4403,18 @@ const G = {
     if (room.type === 'secret' && !room.greeted) { room.greeted = true; this.toast(DATA.TOASTS.secret); }
     if (room.type === 'oon' && !room.greeted) { room.greeted = true; this.toast(DATA.TOASTS.oon, '#e08a8a'); }
     if (room.type === 'gym' && !room.greeted) { room.greeted = true; this.toast('🥊 The gym. Someone chalked a name on the board. It\'s yours, misspelled.', '#d08a4a'); }
+    // THE FERRET: shoplifting, but make it healthcare (once per shop)
+    if (room.type === 'shop' && !room._ferretHit && (p.pet && p.pet.type === 'ferret' || p.pet2 && p.pet2.type === 'ferret') && U.chance(0.25)) {
+      room._ferretHit = true;
+      const s = U.choice((room.stock || []).filter(x => !x.taken && ['half', 'pill', 'bomb', 'key', 'coin'].includes(x.type)));
+      if (s) {
+        s.taken = true;
+        const pk = new Pickup(s.type, p.x + 30, p.y + 20); pk._ferret = true;
+        this.pickups.push(pk);
+        this.toast('The ferret has ACQUIRED a ' + s.type + ' from the shelf. The pharmacist saw nothing. The ferret made sure.', '#c8a878');
+        SFX.play('coin');
+      }
+    }
     // THE COLLECTOR: while you owe, he finds you — once per floor, in the first live room
     if (this.debt && !this._collectorSpawned && !room.cleared && (room.type === 'normal' || room.type === 'padded') && !this.dreamFloor && this.enemies.length > 0) {
       this._collectorSpawned = true;
@@ -4662,6 +4752,7 @@ const G = {
     this.doorsOpen = true;
     this.stats.rooms++;
     this.goalEvent('room');
+    if (room._subbase && !room._stashed) { room._stashed = true; this.subBaseCleared(); }   // the stash reveals itself
     if ((this._roomHits || 0) === 0) this.contractEvent('cleanroom');   // Look Untouchable
     if (room.type === 'clinic') this.contractEvent('miniboss');        // Office Politics
     this._cleanStreak = (this._roomHits || 0) === 0 ? (this._cleanStreak || 0) + 1 : 0;
@@ -4690,6 +4781,12 @@ const G = {
       this.pickups.push(new Pickup('coin', CW / 2 + U.rand(-50, 50), RY + RH / 2 + U.rand(-30, 30)));
       if (U.chance(0.3)) this.texts.push(new FloatText(CW / 2, RY + RH / 2 - 24, 'night differential +1¢', '#8a90c8'));
     }
+    // THE FERRET: whatever's left on the floor is coming home with you
+    for (const pet of [p.pet, p.pet2]) {
+      if (!pet || pet.type !== 'ferret') continue;
+      const loose = this.pickups.filter(pk => !pk.dead && !pk._ferret && pk.type !== 'document');
+      U.shuffle(loose).slice(0, pet.evo ? 2 : 1).forEach(pk => { pk._ferret = true; });
+    }
     // pet XP: 40 rooms together changes an animal
     if (p.pet2) { const xp2 = Meta.data.petXp || (Meta.data.petXp = {}); xp2[p.pet2.type] = (xp2[p.pet2.type] || 0) + 1; }
     if (p.pet) {
@@ -4697,7 +4794,7 @@ const G = {
       xp[p.pet.type] = (xp[p.pet.type] || 0) + 1;
       if (xp[p.pet.type] === 40) {
         p.pet.evo = true;
-        const names = { pigeon: 'THE CARRIER PIGEON', cat: 'SENIOR OFFICE CAT', snake: 'THE EXTENDED METAPHOR', goldfish: 'TWO GOLDFISH (they remember each other)', dog: 'THE FULL GOLDEN' };
+        const names = { pigeon: 'THE CARRIER PIGEON', cat: 'SENIOR OFFICE CAT', snake: 'THE EXTENDED METAPHOR', goldfish: 'TWO GOLDFISH (they remember each other)', dog: 'THE FULL GOLDEN', ferret: 'THE ACQUISITIONS DEPARTMENT' };
         this.toast('✨ Your companion evolved: ' + (names[p.pet.type] || p.pet.type) + '!', '#e8c84c');
         this.diaryNote('The ' + p.pet.type + ' evolved. It was already perfect. Now it is MORE.');
         SFX.play('evolve');
@@ -5685,6 +5782,11 @@ const G = {
         if (this.lockCd <= 0) { this.lockCd = 2.0; this.showHandoffOffer(ped); return; }
       } else if (ped.kind === 'payphone') {   // it takes exact change and one feeling at a time
         if (this.lockCd <= 0) { this.lockCd = 2.0; this.showPayphone(ped); return; }
+      } else if (ped.kind === 'subhole') {   // the hole behind the shelves
+        if (p.hp <= 2) { if (this.lockCd <= 0) { this.lockCd = 1.5; this.toast('The pipes will take half a heart on the way through. You don\'t have it to spare.', '#9a90a8'); SFX.play('error'); } continue; }
+        ped.taken = true;
+        this.enterSubBasement();
+        return;
       } else if (ped.kind === 'finance') {   // 0% APR* (*today)
         if (this.lockCd <= 0) { this.lockCd = 1.2; this.showFinance(); return; }
       } else if (ped.kind === 'dreambed') {   // a bed. a real one. made.
@@ -5695,18 +5797,32 @@ const G = {
         ped.taken = true;
         p.addItem(ped.itemId, this);
         this.stats.items++;
-        this._dreamItem = { id: ped.itemId, evapDepth: this.depth + 3 };
+        if (this.nightmare) {   // what you carry out of a nightmare is YOURS
+          Meta.data.nightmareRx = (Meta.data.nightmareRx || 0) + 1;
+          this.toast('THE NIGHTMARE PRESCRIPTION: ' + ((DATA.ITEMS[ped.itemId] || {}).name || '?') + '. Nightmares don\'t evaporate. This one is yours.', '#b89ad8');
+          this.diaryNote('Took the thing the nightmare was guarding. It came up with me. It always will.');
+        } else {
+          this._dreamItem = { id: ped.itemId, evapDepth: this.depth + 3 };
+          this.toast('THE DREAM PRESCRIPTION: ' + ((DATA.ITEMS[ped.itemId] || {}).name || '?') + '. It will not survive waking. Take it anyway.', '#b8a8d8');
+          this.diaryNote('Took the dream prescription. It fit perfectly, the way only borrowed things do.');
+        }
         Meta.data.dreamRx = (Meta.data.dreamRx || 0) + 1; Meta.save();
         DATA.checkAchievements(Meta.data); Meta.save(); this.checkUnlocks();
-        this.toast('THE DREAM PRESCRIPTION: ' + ((DATA.ITEMS[ped.itemId] || {}).name || '?') + '. It will not survive waking. Take it anyway.', '#b8a8d8');
-        this.diaryNote('Took the dream prescription. It fit perfectly, the way only borrowed things do.');
         SFX.play('evolve');
       } else if (ped.kind === 'wakehatch') {  // up through the pillow
         ped.taken = true;
-        this.dreamFloor = false;
-        p.heal(4);
-        this.toast('You wake on the next ward — actually rested. The building finds this suspicious.', '#b8a8d8');
-        this.diaryNote('Slept. Dreamed of a softer building. Woke up a ward lower with the rest still in my hands.');
+        const wasNightmare = this.nightmare;
+        this.dreamFloor = false; this.nightmare = false;
+        if (wasNightmare) {
+          p.heal(2);
+          Meta.data.insight = (Meta.data.insight || 0) + 6; Meta.save();
+          this.toast('You wake with your heart pounding and +6 Insight. Some sleep is just unpaid work.', '#b89ad8');
+          this.diaryNote('Woke from the nightmare a ward down, still holding everything. The bed apologized. Sort of.');
+        } else {
+          p.heal(4);
+          this.toast('You wake on the next ward — actually rested. The building finds this suspicious.', '#b8a8d8');
+          this.diaryNote('Slept. Dreamed of a softer building. Woke up a ward lower with the rest still in my hands.');
+        }
         SFX.play('heal');
         this.doDescend();
         return;
@@ -5791,6 +5907,7 @@ const G = {
         p.addItem(ped.itemId, this);
         this.stats.items++;
         if (ped.exclusive) for (const o of this.peds) if (o !== ped) o.taken = true;
+        if (ped.repGroup) for (const o of this.peds) if (o !== ped && o.repGroup === ped.repGroup) o.taken = true;   // pick ONE — he counts them
       }
     }
 
@@ -6298,6 +6415,11 @@ const G = {
       pet._calmT = pet.evo ? 4 : 3;
       this.toast('🐕 SIT. STAY. The room takes a breath it didn\'t know it needed.', '#e8c05a');
       SFX.play('heal');
+    } else if (pet.type === 'ferret') {  // ACQUIRE: everything on the floor is now yours, per the ferret
+      let n = 0;
+      for (const pk of this.pickups) if (!pk.dead && pk.type !== 'document') { pk._ferret = true; n++; }
+      this.toast(n ? 'ACQUIRE. The ferret considers it all technically abandoned.' : 'The ferret finds nothing. It files a complaint.', '#c8a878');
+      SFX.play('whoosh');
     }
   },
 

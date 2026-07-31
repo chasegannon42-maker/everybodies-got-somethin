@@ -489,6 +489,8 @@ DATA.ACHIEVEMENTS = [
   { id: 'debtFree',   name: "In Good Standing",     desc: "Repay a Financing Desk plan in full.",           hint: "Borrow. Descend. Watch what follows. Pay it off anyway.", check: m => (m.debtsPaid || 0) >= 1 },
   { id: 'lucid',      name: "Lucid",                desc: "Take the DREAM PRESCRIPTION.",                   hint: "After a hard boss, sometimes: a bed. A real one.", check: m => (m.dreamRx || 0) >= 1 },
   { id: 'cutOut',     name: "Cut Out The Middleman", desc: "Pop the Pharmacy Benefits Manager.",            hint: "When prices spike 40% for no reason, the reason is in one of the rooms.", check: m => (m.pbmKills || 0) >= 1 },
+  { id: 'wokeUp',     name: "Slept On It",          desc: "Wake from THE NIGHTMARE holding its prescription.", hint: "Sometimes the bed goes wrong. Go down anyway.", check: m => (m.nightmareRx || 0) >= 1 },
+  { id: 'subStash',   name: "Another Basement",     desc: "Reach the Janitor's stash below the basement.",  hint: "He told you there's another basement. The hole is behind the shelves.", check: m => (m.subStash || 0) >= 1 },
   { id: 'sugarPill',  name: "It Was Sugar",        desc: "Complete a Clinical Trial that turns out to be the placebo.", hint: "Enroll with the Drug Rep. Believe hard.", check: m => (m.placeboDone || 0) >= 1 },
   { id: 'reRead',     name: "Second Read",         desc: "Let THE SCANNER re-interpret a prescription.",    hint: "A rare imaging suite. It sees something different every time.", check: m => (m.scans || 0) >= 1 },
   { id: 'mopShift',   name: "Second Career",       desc: "Reach Ward 5 as The Janitor.",                    hint: "Finish THE HANDOFF first. Then work the shift you accepted.", check: m => !!m.mopShift },
@@ -911,7 +913,8 @@ DATA.PETS = [
   { id: 'cat',      icon: '🐈', name: 'Office Cat',   note: 'swats bullets off the table. you are the table',   unlock: m => (m.contractsDone || 0) >= 3,  unlockHint: 'complete 3 Day Room contracts' },
   { id: 'snake',    icon: '🐍', name: 'The Metaphor', note: 'it bites your problems. it IS your problems',      unlock: m => (m.amaDone || 0) >= 1,        unlockHint: 'leave Against Medical Advice once' },
   { id: 'goldfish', icon: '🐟', name: 'The Goldfish', note: 'enemies near it forget what they were doing',      unlock: m => (m.appealsWon || 0) >= 1,     unlockHint: 'win an appeal' },
-  { id: 'dog',      icon: '🐕', name: 'Therapy Dog',  note: 'certified. vested. extremely good.',               unlock: m => !!(m.rival && (m.rival.duelW || 0) >= 1), unlockHint: 'win one gym duel vs your rival' }
+  { id: 'dog',      icon: '🐕', name: 'Therapy Dog',  note: 'certified. vested. extremely good.',               unlock: m => !!(m.rival && (m.rival.duelW || 0) >= 1), unlockHint: 'win one gym duel vs your rival' },
+  { id: 'ferret',   icon: '🐾', name: 'The Ferret',   note: 'steals for you. legally gray, morally correct',    unlock: m => (m.pbmKills || 0) >= 3,       unlockHint: 'pop THE MIDDLEMAN three times' }
 ];
 
 /* ============ THE INTERCOM (Dr. Walrus is watching. commenting, even.) ============ */
@@ -1207,6 +1210,15 @@ DATA.TALENTS = [
 
 /* ============ MINI-EVENTS (non-combat choice rooms) ============ */
 DATA.EVENTS = [
+  {
+    name: "Visiting Hours", prompt: "The front desk says you have visitors. Plural. You get to pick who comes back.",
+    choices: [
+      { label: "Your family — and you tell them the truth", note: "+1 heart · they carry a worry out with them", apply(p) { p.maxhp += 2; p.hp += 2; } },
+      { label: "Your family — and you say you're fine", note: "+0.8 damage, −1 luck · something to prove now", apply(p) { p.dmg += 0.8; p.luck -= 1; } },
+      { label: "Your sponsor, with the chip", note: "full heal · a steadier hand after hits", apply(p) { p.heal(99); p.iframeTime += 0.12; } },
+      { label: "An old friend smuggling snacks", note: "+6 copays, a pill, and half a heart", apply(p) { p.coins += 6; if (p.pill == null) p.pill = U.randi(0, 9); p.heal(1); } }
+    ]
+  },
   {
     name: "Support Group", prompt: "A circle of folding chairs. They actually want to listen.",
     choices: [

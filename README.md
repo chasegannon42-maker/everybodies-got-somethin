@@ -225,6 +225,21 @@ keyboard and mouse.
 - **🗓 Awareness Months** — the building observes the real calendar at monthly scale: twelve
   observances (Heart Health February, Self-Care September, Awareness Awareness October…), each
   with a small, always slightly self-serving modifier.
+- **🌑 THE NIGHTMARE** — about one dream bed in five goes wrong: the building dreams back. The
+  clouds bite and nothing rains mercy — but the prescription at the bottom is PERMANENT
+  (nightmares don't evaporate), and waking pays Insight. The bed is a gamble now.
+- **🛋 VISITING HOURS** — a new event: the front desk says you have visitors, plural, and you
+  pick who comes back. Tell your family the truth (+1 heart, they carry a worry out with them),
+  tell them you're fine (+damage, with strings), take your sponsor's chip, or accept contraband
+  snacks from an old friend.
+- **🐾 THE FERRET** — a sixth Emotional Support Animal, unlocked by popping THE MIDDLEMAN three
+  times: fetches a leftover pickup every room, occasionally shoplifts the pharmacy shelf, and its
+  ACQUIRE command declares everything on the floor technically abandoned. Evolves into THE
+  ACQUISITIONS DEPARTMENT.
+- **🕳 THE SUB-BASEMENT** — the Janitor told you there's another basement. The hole behind his
+  shelves costs half a heart to squeeze through and opens onto old dark, standing steam, and
+  seven things that live under the basement — clear them and his stash opens: pick ONE of three
+  finds. He counts them.
 - **🔧 STAFF ONLY** — a full Game Tester hub on the title screen, behind a secret code, organized
   into five tabs. **PLAY**: sandbox any patient at any ward with loadout presets (kitted, glass
   cannon, tank, or hand-picked meds) — the save is snapshot-frozen throughout. **BOSS LAB**:
