@@ -622,55 +622,185 @@ const G = {
     document.getElementById('tgIn').onkeydown = (e) => { if (e.key === 'Enter') tryCode(); };
     document.getElementById('bTgBack').onclick = () => { SFX.play('ui'); this.showTitle(); };
   },
+  /* ============================================================
+     GAME TESTER 2.0 — a tabbed staff hub:
+     PLAY (sandbox + loadouts) · BOSS LAB · TRIGGERS (scenario
+     jumper) · DESIGNER (+ room library) · TOOLS (time, inspector)
+     ============================================================ */
   showTester(returnTo) {
     this.endSandbox();   // stepping into the office ends any imaginary shift
     this.state = 'tester';
-    const ct = on => on ? '✅' : '⬜';
-    this.overlay(`
-      <div class="panel">
-        <h1 class="logo" style="font-size:26px">🔧 GAME TESTER</h1>
-        <div class="tagline">internal tools · nothing in here touches your real save unless it says so</div>
-        <button class="btn" id="bTSandbox">🏖 SANDBOX RUN — any patient, any ward, nothing counts</button>
-        <button class="btn" id="bTDesign">🏗 ROOM DESIGNER — build a room, fill it, playtest it</button>
-        <button class="btn minor" id="bTGod">${ct(!!this.god)} GOD MODE (this session)</button>
-        <button class="btn minor" id="bTDebug">${ct(!!this.debug)} DEBUG KEYS (this session) — N floor · B boss · K clear · H heal · G goods</button>
-        <button class="btn minor" id="bTFps">${ct(!!Meta.data.fpsHud)} FPS + ENTITY OVERLAY (saved)</button>
-        <button class="btn minor" id="bTLock">🔒 RESET TESTER ACCESS (forget the code)</button>
-        <div class="smallprint">during any run, PAUSE gains a 🔧 TESTER TOOLS drawer: heals, currency, item grants, enemy spawns, floor skips.</div>
-        <button class="btn" id="bTesterBack">BACK</button>
-      </div>`);
-    document.getElementById('bTSandbox').onclick = () => { SFX.play('ui'); this.showSandbox(returnTo); };
-    document.getElementById('bTDesign').onclick = () => { SFX.play('ui'); this.showDesigner(); };
-    document.getElementById('bTGod').onclick = (e) => { SFX.play('ui'); this.god = !this.god; e.target.textContent = (this.god ? '✅' : '⬜') + ' GOD MODE (this session)'; };
-    document.getElementById('bTDebug').onclick = (e) => { SFX.play('ui'); this.debug = !this.debug; e.target.textContent = (this.debug ? '✅' : '⬜') + ' DEBUG KEYS (this session) — N floor · B boss · K clear · H heal · G goods'; };
-    document.getElementById('bTFps').onclick = (e) => { SFX.play('ui'); Meta.data.fpsHud = Meta.data.fpsHud ? 0 : 1; Meta.save(); e.target.textContent = (Meta.data.fpsHud ? '✅' : '⬜') + ' FPS + ENTITY OVERLAY (saved)'; };
-    document.getElementById('bTLock').onclick = () => { SFX.play('stamp'); Meta.data.tester = 0; Meta.save(); this.toast('🔒 Badge surrendered. The code still works, if you still know it.', '#b8b0a0'); this.showTitle(); };
-    document.getElementById('bTesterBack').onclick = () => { SFX.play('ui'); (returnTo || (() => this.showTitle()))(); };
-  },
-  showSandbox(returnTo) {
-    this.state = 'tester';
-    this._sbWard = this._sbWard || 1;
-    const order = ['adhd', 'bipolar', 'depression', 'anxiety', 'schizo', 'ocd', 'ptsd', 'insomnia', 'fine', 'undiag', 'burnout', 'seasonal'];
-    const chips = order.map(id => `<button class="btn minor" data-sb="${id}" style="font-size:11px;padding:6px 8px;${this._sbDiag === id ? 'outline:2px solid #e8c84c' : ''}">${DATA.DIAG[id] ? DATA.DIAG[id].name : id}</button>`).join('');
+    this._testerReturn = returnTo || (() => this.showTitle());
+    if (!this._testerTab) this._testerTab = 'play';
+    const tabs = [['play', '🏖 PLAY'], ['boss', '🥊 BOSS LAB'], ['trig', '⚡ TRIGGERS'], ['design', '🏗 DESIGNER'], ['tools', '🔧 TOOLS']];
+    const tabBtns = tabs.map(([k, l]) => `<button class="btn minor codextab${k === this._testerTab ? ' active' : ''}" data-tt="${k}" style="${k === this._testerTab ? 'outline:2px solid #e8c84c' : ''}">${l}</button>`).join('');
+    const body = this._testerTab === 'play' ? this._tabPlay()
+      : this._testerTab === 'boss' ? this._tabBossLab()
+      : this._testerTab === 'trig' ? this._tabTriggers()
+      : this._testerTab === 'design' ? this._tabDesign()
+      : this._tabTools();
     this.overlay(`
       <div class="panel wide">
-        <h1 class="logo" style="font-size:26px">🏖 SANDBOX RUN</h1>
-        <div class="tagline">pick a patient and a ward. play normally. the save never hears about it.</div>
-        <div class="btnrow" style="flex-wrap:wrap">${chips}</div>
-        <div class="setrow" style="justify-content:center;gap:10px;margin-top:8px">
-          <button class="btn minor" id="bSbDn" style="min-width:44px">−</button>
-          <span id="sbWardLbl" style="font-weight:bold;min-width:160px;text-align:center">START AT WARD ${this._sbWard}</span>
-          <button class="btn minor" id="bSbUp" style="min-width:44px">+</button>
-        </div>
-        <button class="btn" id="bSbGo">▶ CHECK IN (off the record)</button>
-        <button class="btn minor" id="bSbBack">BACK</button>
+        <h1 class="logo" style="font-size:24px">🔧 GAME TESTER</h1>
+        <div class="tagline">staff hub · sandbox shifts never touch the real save</div>
+        <div class="codextabs">${tabBtns}</div>
+        ${body}
+        <button class="btn" id="bTesterBack">BACK</button>
       </div>`);
-    document.querySelectorAll('[data-sb]').forEach(b => b.onclick = () => { SFX.play('ui'); this._sbDiag = b.dataset.sb; this.showSandbox(returnTo); });
-    const upd = () => { document.getElementById('sbWardLbl').textContent = 'START AT WARD ' + this._sbWard; };
-    document.getElementById('bSbUp').onclick = () => { SFX.play('ui'); this._sbWard = Math.min(30, this._sbWard + 1); upd(); };
-    document.getElementById('bSbDn').onclick = () => { SFX.play('ui'); this._sbWard = Math.max(1, this._sbWard - 1); upd(); };
-    document.getElementById('bSbGo').onclick = () => { SFX.play('stamp'); this.beginSandbox(this._sbDiag || 'adhd', this._sbWard || 1); };
-    document.getElementById('bSbBack').onclick = () => { SFX.play('ui'); this.showTester(returnTo); };
+    document.querySelectorAll('[data-tt]').forEach(b => b.onclick = () => { SFX.play('ui'); this._testerTab = b.dataset.tt; this.showTester(this._testerReturn); });
+    this._wireTesterTab();
+    document.getElementById('bTesterBack').onclick = () => { SFX.play('ui'); this._testerReturn(); };
+  },
+
+  /* ---- PLAY tab: sandbox + loadout presets ---- */
+  _tabPlay() {
+    this._sbWard = this._sbWard || 1;
+    const L = this._sbLoadout || (this._sbLoadout = { preset: 'standard', items: [] });
+    const order = ['adhd', 'bipolar', 'depression', 'anxiety', 'schizo', 'ocd', 'ptsd', 'insomnia', 'fine', 'undiag', 'burnout', 'seasonal'];
+    const chips = order.map(id => `<button class="btn minor" data-sb="${id}" style="font-size:11px;padding:5px 7px;${(this._sbDiag || 'adhd') === id ? 'outline:2px solid #e8c84c' : ''}">${DATA.DIAG[id] ? DATA.DIAG[id].name : id}</button>`).join('');
+    const presets = [['standard', 'STANDARD', 'as checked in'], ['kitted', 'KITTED', '+3 meds, +2 hearts, +20¢'], ['glass', 'GLASS CANNON', 'dmg ×3, two hearts'], ['tank', 'TANK', '+4 hearts, dmg ×0.8'], ['custom', 'CUSTOM', 'hand-pick meds below']];
+    const pBtns = presets.map(([id, name, sub]) => `<button class="btn minor" data-lp="${id}" style="font-size:11px;${L.preset === id ? 'outline:2px solid #e8c84c' : ''}" title="${sub}">${name}</button>`).join('');
+    const itemOpts = Object.keys(DATA.ITEMS).sort((a, b) => DATA.ITEMS[a].name.localeCompare(DATA.ITEMS[b].name)).map(id => `<option value="${id}">${DATA.ITEMS[id].name}</option>`).join('');
+    const customRow = L.preset === 'custom' ? `
+      <div class="setrow"><label>℞ add:</label><select id="sbItemSel" class="seedfield">${itemOpts}</select><button class="btn minor" id="bSbAddItem">ADD</button></div>
+      <div class="stats-line">${L.items.length ? L.items.map((id, i) => `<button class="btn minor" data-li="${i}" style="font-size:10px;padding:3px 7px">✖ ${(DATA.ITEMS[id] || {}).name || id}</button>`).join(' ') : 'no meds picked — add up to 8'}</div>` : '';
+    return `
+      <div class="tagline" style="margin-top:2px">pick a patient, a ward, a loadout — nothing counts, everything is possible</div>
+      <div class="btnrow" style="flex-wrap:wrap">${chips}</div>
+      <div class="setrow" style="justify-content:center;gap:10px">
+        <button class="btn minor" id="bSbDn" style="min-width:40px">−</button>
+        <span id="sbWardLbl" style="font-weight:bold;min-width:150px;text-align:center">START AT WARD ${this._sbWard}</span>
+        <button class="btn minor" id="bSbUp" style="min-width:40px">+</button>
+      </div>
+      <div class="btnrow" style="flex-wrap:wrap">${pBtns}</div>
+      ${customRow}
+      <button class="btn" id="bSbGo">▶ CHECK IN (off the record)</button>`;
+  },
+
+  /* ---- BOSS LAB tab: any boss, any conditions ---- */
+  _tabBossLab() {
+    const B = this._labCfg || (this._labCfg = { boss: 'gatekeeper', depth: 5, affix: '', shift2: false, joint: '' });
+    const bossIds = ['gatekeeper', 'larperking', 'adjuster', 'priorauth', 'stigma', 'dsm', 'algorithm', 'influencer', 'peerreview', 'withdrawal', 'burnout', 'merger', 'walrus', 'thecure', 'founder', 'thesystem', 'theboard'];
+    const bossOpts = bossIds.map(id => `<option value="${id}" ${B.boss === id ? 'selected' : ''}>${(DATA.BOSSES[id] || { name: id }).name}</option>`).join('');
+    const affixOpts = ['', ...DATA.BOSS_AFFIXES.map(a => a.id)].map(id => `<option value="${id}" ${B.affix === id ? 'selected' : ''}>${id ? id.toUpperCase() : '— no affix —'}</option>`).join('');
+    const jointPool = ['', 'gatekeeper', 'larperking', 'adjuster', 'priorauth', 'stigma', 'dsm', 'algorithm', 'influencer', 'withdrawal', 'burnout', 'peerreview'];
+    const jointOpts = jointPool.map(id => `<option value="${id}" ${B.joint === id ? 'selected' : ''}>${id ? '+ ' + (DATA.BOSSES[id] || { name: id }).name : '— solo —'}</option>`).join('');
+    const s2ok = ['gatekeeper', 'larperking', 'adjuster'].includes(B.boss);
+    return `
+      <div class="tagline" style="margin-top:2px">rehearse any manager under any conditions — sandbox rules, nothing records</div>
+      <div class="setrow"><label>☠ boss:</label><select id="labBoss" class="seedfield">${bossOpts}</select></div>
+      <div class="setrow" style="justify-content:center;gap:10px">
+        <button class="btn minor" id="bLabDn" style="min-width:40px">−</button>
+        <span id="labDepthLbl" style="font-weight:bold;min-width:150px;text-align:center">AT DEPTH ${B.depth}</span>
+        <button class="btn minor" id="bLabUp" style="min-width:40px">+</button>
+      </div>
+      <div class="setrow"><label>👑 affix:</label><select id="labAffix" class="seedfield">${affixOpts}</select></div>
+      <div class="setrow"><label>🏥 joint:</label><select id="labJoint" class="seedfield">${jointOpts}</select></div>
+      <button class="btn minor" id="bLabS2" ${s2ok ? '' : 'disabled style="opacity:.5"'}>${B.shift2 && s2ok ? '✅' : '⬜'} SECOND SHIFT (the early three only)</button>
+      <button class="btn" id="bLabGo">🥊 START THE FIGHT</button>`;
+  },
+
+  /* ---- TRIGGERS tab: the scenario jumper ---- */
+  _tabTriggers() {
+    const rows = this.TESTER_SCENARIOS.map((s, i) => `<button class="btn minor" data-sc="${i}" style="font-size:11px;padding:6px 9px;text-align:left">${s.icon} <b>${s.name}</b> — <i style="opacity:.75">${s.sub}</i></button>`).join('');
+    return `
+      <div class="tagline" style="margin-top:2px">one click drops you into the encounter, pre-armed — no RNG required (sandbox)</div>
+      <div class="btnrow" style="flex-wrap:wrap;gap:5px">${rows}</div>`;
+  },
+
+  /* ---- DESIGNER tab: launch + room library ---- */
+  _tabDesign() {
+    let lib = [];
+    try { lib = JSON.parse(localStorage.getItem('egs_roomlib') || '[]'); } catch (e) { }
+    const rows = lib.length ? lib.map((r, i) => `
+      <div class="ach got" style="padding:4px 8px">
+        <div class="achicon">🏗</div>
+        <div class="achbody"><div class="achname">${r.name}</div></div>
+        <button class="btn minor" data-libload="${i}" style="font-size:10px;padding:4px 8px">LOAD</button>
+        <button class="btn minor" data-libdel="${i}" style="font-size:10px;padding:4px 8px">🗑</button>
+      </div>`).join('') : '<div class="stats-line" style="opacity:.7">no saved rooms yet — build one and SAVE AS from the designer</div>';
+    return `
+      <div class="tagline" style="margin-top:2px">the drafting table, plus your saved-room library (stored on this device, outside the save)</div>
+      <button class="btn" id="bTDesign">🏗 OPEN THE ROOM DESIGNER</button>
+      <div class="achlist">${rows}</div>`;
+  },
+
+  /* ---- TOOLS tab: cheats, time, inspector ---- */
+  _tabTools() {
+    const ct = on => on ? '✅' : '⬜';
+    return `
+      <div class="tagline" style="margin-top:2px">session switches — time and inspection work mid-run too (PAUSE → 🔧 TESTER TOOLS)</div>
+      <button class="btn minor" id="bTGod">${ct(!!this.god)} GOD MODE (session)</button>
+      <button class="btn minor" id="bTDebug">${ct(!!this.debug)} DEBUG KEYS (session) — N floor · B boss · K clear · H heal · G goods</button>
+      <button class="btn minor" id="bTFps">${ct(!!Meta.data.fpsHud)} FPS + ENTITY OVERLAY (saved)</button>
+      <button class="btn minor" id="bTHitbox">${ct(!!this.hitboxes)} HITBOX OVERLAY (session)</button>
+      <button class="btn minor" id="bTInspect">${ct(!!this.inspect)} TAP-TO-INSPECT entities (session)</button>
+      <div class="setrow" style="justify-content:center;gap:8px">
+        <label>⏱ time:</label>
+        ${[0.25, 0.5, 1, 2, 4].map(v => `<button class="btn minor" data-ts="${v}" style="min-width:44px;${(this.timeScale || 1) === v ? 'outline:2px solid #e8c84c' : ''}">${v}×</button>`).join('')}
+      </div>
+      <div class="smallprint">in-run keys (tester): <span class="kbd">,</span> slower · <span class="kbd">.</span> faster · <span class="kbd">/</span> pause+step one frame</div>
+      <button class="btn minor" id="bTLock">🔒 RESET TESTER ACCESS (forget the code)</button>`;
+  },
+
+  _wireTesterTab() {
+    const R = this._testerReturn;
+    // PLAY
+    document.querySelectorAll('[data-sb]').forEach(b => b.onclick = () => { SFX.play('ui'); this._sbDiag = b.dataset.sb; this.showTester(R); });
+    const upd = () => { const el = document.getElementById('sbWardLbl'); if (el) el.textContent = 'START AT WARD ' + this._sbWard; };
+    const bup = document.getElementById('bSbUp'); if (bup) bup.onclick = () => { SFX.play('ui'); this._sbWard = Math.min(40, this._sbWard + 1); upd(); };
+    const bdn = document.getElementById('bSbDn'); if (bdn) bdn.onclick = () => { SFX.play('ui'); this._sbWard = Math.max(1, this._sbWard - 1); upd(); };
+    document.querySelectorAll('[data-lp]').forEach(b => b.onclick = () => { SFX.play('ui'); this._sbLoadout.preset = b.dataset.lp; this.showTester(R); });
+    const bai = document.getElementById('bSbAddItem');
+    if (bai) bai.onclick = () => {
+      const id = document.getElementById('sbItemSel').value;
+      if (DATA.ITEMS[id] && this._sbLoadout.items.length < 8) { this._sbLoadout.items.push(id); SFX.play('ui'); this.showTester(R); }
+    };
+    document.querySelectorAll('[data-li]').forEach(b => b.onclick = () => { SFX.play('ui'); this._sbLoadout.items.splice(+b.dataset.li, 1); this.showTester(R); });
+    const bgo = document.getElementById('bSbGo'); if (bgo) bgo.onclick = () => { SFX.play('stamp'); this.beginSandbox(this._sbDiag || 'adhd', this._sbWard || 1); };
+    // BOSS LAB
+    const lb = document.getElementById('labBoss');
+    if (lb) {
+      const B = this._labCfg;
+      lb.onchange = () => { B.boss = lb.value; this.showTester(R); };
+      document.getElementById('labAffix').onchange = (e) => { B.affix = e.target.value; };
+      document.getElementById('labJoint').onchange = (e) => { B.joint = e.target.value; };
+      const updL = () => { document.getElementById('labDepthLbl').textContent = 'AT DEPTH ' + B.depth; };
+      document.getElementById('bLabUp').onclick = () => { SFX.play('ui'); B.depth = Math.min(40, B.depth + 1); updL(); };
+      document.getElementById('bLabDn').onclick = () => { SFX.play('ui'); B.depth = Math.max(1, B.depth - 1); updL(); };
+      const bs2 = document.getElementById('bLabS2');
+      if (bs2) bs2.onclick = () => { B.shift2 = !B.shift2; SFX.play('ui'); this.showTester(R); };
+      document.getElementById('bLabGo').onclick = () => { SFX.play('boss'); this.startBossLab(Object.assign({}, B)); };
+    }
+    // TRIGGERS
+    document.querySelectorAll('[data-sc]').forEach(b => b.onclick = () => { SFX.play('stamp'); this.runScenario(+b.dataset.sc); });
+    // DESIGNER
+    const btd = document.getElementById('bTDesign'); if (btd) btd.onclick = () => { SFX.play('ui'); this.showDesigner(); };
+    document.querySelectorAll('[data-libload]').forEach(b => b.onclick = () => {
+      try {
+        const lib = JSON.parse(localStorage.getItem('egs_roomlib') || '[]');
+        const r = lib[+b.dataset.libload];
+        if (r && this.parseDesignCode(r.code)) { SFX.play('fanfare'); this.showDesigner(); }
+      } catch (e) { }
+    });
+    document.querySelectorAll('[data-libdel]').forEach(b => b.onclick = () => {
+      try {
+        const lib = JSON.parse(localStorage.getItem('egs_roomlib') || '[]');
+        lib.splice(+b.dataset.libdel, 1);
+        localStorage.setItem('egs_roomlib', JSON.stringify(lib));
+        SFX.play('paper');
+        this.showTester(R);
+      } catch (e) { }
+    });
+    // TOOLS
+    const wire = (id, fn) => { const el = document.getElementById(id); if (el) el.onclick = fn; };
+    wire('bTGod', () => { SFX.play('ui'); this.god = !this.god; this.showTester(R); });
+    wire('bTDebug', () => { SFX.play('ui'); this.debug = !this.debug; this.showTester(R); });
+    wire('bTFps', () => { SFX.play('ui'); Meta.data.fpsHud = Meta.data.fpsHud ? 0 : 1; Meta.save(); this.showTester(R); });
+    wire('bTHitbox', () => { SFX.play('ui'); this.hitboxes = !this.hitboxes; this.showTester(R); });
+    wire('bTInspect', () => { SFX.play('ui'); this.inspect = !this.inspect; this.showTester(R); });
+    document.querySelectorAll('[data-ts]').forEach(b => b.onclick = () => { SFX.play('ui'); this.timeScale = parseFloat(b.dataset.ts); this.showTester(R); });
+    wire('bTLock', () => { SFX.play('stamp'); Meta.data.tester = 0; Meta.save(); this.toast('🔒 Badge surrendered. The code still works, if you still know it.', '#b8b0a0'); this.showTitle(); });
   },
   beginSandbox(diagId, depth, opts) {
     opts = opts || {};
@@ -681,11 +811,222 @@ const G = {
     this._startChronic = false; this._startBossRush = false; this._startPrognosis = null; this._startProtocol = null;
     this.beginRun(diagId);
     this._runLogged = true;   // nothing about this run is ever recorded
+    // loadout presets (PLAY tab)
+    const L = this._sbLoadout;
+    if (L && !opts.noLoadout) {
+      const p = this.player;
+      if (L.preset === 'kitted') {
+        const pool = U.shuffle(DATA.POOLS.special.slice());
+        for (let i = 0; i < 3 && pool[i]; i++) p.addItem(pool[i], this, true);
+        p.maxhp += 4; p.hp = p.maxhp; p.coins += 20;
+      } else if (L.preset === 'glass') { p.dmg *= 3; p.maxhp = 2; p.hp = 2; }
+      else if (L.preset === 'tank') { p.maxhp += 8; p.hp = p.maxhp; p.dmg *= 0.8; }
+      else if (L.preset === 'custom') { for (const id of (L.items || [])) if (DATA.ITEMS[id]) p.addItem(id, this, true); p.hp = p.maxhp; }
+      if (L.preset !== 'standard') this.toast('🎒 Loadout: ' + L.preset.toUpperCase() + (L.preset === 'custom' ? ' (' + (L.items || []).length + ' meds)' : ''), '#8fd0e0');
+    }
     if (depth > 1) { this.depth = depth; this.newFloor(); }
     if (!opts.silent) {
       this.setBanner('🏖 SANDBOX', 'nothing counts. everything is possible.', 2.6);
       this.toast('🏖 Sandbox shift: saves, unlocks and stats stay untouched. Quit to title to clock out.', '#8fd0e0');
     }
+  },
+  // scenarios need a live sandbox at a given depth
+  ensureSandboxAt(depth) {
+    const diag = this._sbDiag || ((Meta.data.lastDiag && DATA.DIAG[Meta.data.lastDiag]) ? Meta.data.lastDiag : 'adhd');
+    this.beginSandbox(diag, depth, { silent: true });
+  },
+
+  /* ---- THE SCENARIO JUMPER: every special encounter, pre-armed ---- */
+  TESTER_SCENARIOS: [
+    { icon: '🏁', name: 'Rival race', sub: 'an item room with the race already armed', run(G) {
+      G.ensureSandboxAt(3);
+      const r = G.floorRooms.find(x => x.type === 'normal' && x !== G.room); r.type = 'item'; r.lockOpen = true; r.spawned = false;
+      G.enterRoom(r, null);
+      const ped = G.peds.find(pd => pd.kind === 'item' && !pd.taken);
+      if (ped && !G.race) {
+        const R = G.ensureRival(), p = G.player;
+        const d0 = U.dist(p.x, p.y, ped.x, ped.y), a0 = U.ang(p.x, p.y, ped.x, ped.y);
+        G.race = { x: U.clamp(ped.x + Math.cos(a0) * d0, RX + 30, RX + RW - 30), y: U.clamp(ped.y + Math.sin(a0) * d0, RY + 30, RY + RH - 30), ped, done: false, spd: Math.max(172, (p.spd || 200) * 0.96), t: 0 };
+        G.setBanner('🏁 ' + R.name + ' WANTS IT', 'scenario: beat them to the pedestal', 2.2);
+      }
+    } },
+    { icon: '🥊', name: 'Rival duel', sub: 'the gym, gloves on', run(G) {
+      G.ensureSandboxAt(4);
+      const r = G.floorRooms.find(x => x.type === 'normal' && x !== G.room); r.type = 'gym'; r.spawned = false;
+      G.enterRoom(r, null);
+    } },
+    { icon: '✊', name: 'Union drive', sub: 'six patients, one rep, live', run(G) {
+      G.ensureSandboxAt(4);
+      const p = G.player;
+      for (let i = 0; i < 6; i++) { const e = new Enemy(DATA.pickEnemy(4, null), U.clamp(p.x + U.rand(-220, 220), RX + 40, RX + RW - 40), U.clamp(p.y + U.rand(-150, 150), RY + 40, RY + RH - 40), 4, false, 1); e.spawnT = 0; G.enemies.push(e); }
+      G.room.cleared = false; G.room.spawned = true;
+      G.unionize();
+    } },
+    { icon: '🕴', name: 'THE INSPECTION', sub: 'the tour, 60s, hold your fire', run(G) {
+      G.ensureSandboxAt(5);
+      G.inspection = { pending: true }; G._inspectionDone = true;
+      const r = G.floorRooms.find(x => x.type === 'normal' && !x.cleared && x !== G.room);
+      G.enterRoom(r, null);
+    } },
+    { icon: '📋', name: 'THE MIX-UP', sub: 'someone else\'s chart, right now', run(G) {
+      G.ensureSandboxAt(3);
+      const p = G.player;
+      const pool = ['adhd', 'bipolar', 'depression', 'anxiety', 'schizo', 'ocd', 'ptsd', 'insomnia'].filter(d => d !== p.diag);
+      const nd = U.choice(pool);
+      G._mixup = { orig: p.baseDiag, depth: G.depth };
+      p.rediagnose(nd);
+      G.setBanner('📋 THE MIX-UP', 'scenario: you are now ' + DATA.DIAG[nd].name, 2.8);
+    } },
+    { icon: '🚧', name: 'Incident site', sub: 'your outline, a sleeping guard, evidence', run(G) {
+      Meta.data.incident = { depth: 3, diag: 'adhd', cause: 'larper', item: 'bluelight' };
+      G.ensureSandboxAt(3);
+      const r = G.floorRooms.find(x => x.type === 'normal' && x !== G.room); r.type = 'incident'; r.spawned = false;
+      G.enterRoom(r, null);
+    } },
+    { icon: '🗄', name: 'Records heist', sub: 'three patrols, one original file', run(G) {
+      G.ensureSandboxAt(5);
+      const r = G.floorRooms.find(x => x.type === 'normal' && x !== G.room); r.type = 'records'; r.spawned = false;
+      G.enterRoom(r, null);
+    } },
+    { icon: '🚪', name: 'THE ANNEX', sub: 'the condemned wing, from the top', run(G) {
+      G.ensureSandboxAt(4);
+      G.enterAnnex();
+    } },
+    { icon: '🏥', name: 'Joint Commission', sub: 'two managers, one paycheck', run(G) {
+      G.startBossLab({ boss: 'peerreview', depth: 16, affix: '', shift2: false, joint: 'adjuster' });
+    } },
+    { icon: '🌙', name: 'Second Shift boss', sub: 'the gatekeeper, sixteen hours in', run(G) {
+      G.startBossLab({ boss: 'gatekeeper', depth: 12, affix: '', shift2: true, joint: '' });
+    } },
+    { icon: '📈', name: 'THE MERGER', sub: 'the acquisition, ward 31', run(G) {
+      G.startBossLab({ boss: 'merger', depth: 31, affix: '', shift2: false, joint: '' });
+    } },
+    { icon: '💉', name: 'Night Nurse clinic', sub: 'lights out. it\'s policy.', run(G) {
+      G.ensureSandboxAt(4);
+      G.nightShift = true;
+      const r = G.floorRooms.find(x => x.type === 'normal' && x !== G.room); r.type = 'clinic'; r.spawned = false;
+      G.enterRoom(r, null);
+    } },
+    { icon: '🕯', name: 'Ward 13', sub: 'the curated floor, candles lit', run(G) {
+      G.ensureSandboxAt(13);
+    } },
+    { icon: '🌑', name: 'Shadow ward', sub: 'mirrored halls, shadow patients', run(G) {
+      const diag = G._sbDiag || 'adhd';
+      G.beginSandbox(diag, 1, { silent: true });
+      G.depth = 7; G._forceShadow = true; G.newFloor();
+    } },
+    { icon: '🚶', name: 'The Stairwell', sub: 'the dodge gauntlet, mid-descent', run(G) {
+      G.ensureSandboxAt(3);
+      G.startStairs();
+    } },
+    { icon: '🌤', name: 'The Roof', sub: 'tomatoes, the nest, the view', run(G) {
+      G.ensureSandboxAt(6);
+      G.enterRoof();
+    } },
+    { icon: '🧯', name: 'Fire alarm', sub: 'the box, the sign, the handle', run(G) {
+      G.ensureSandboxAt(3);
+      G.peds.push({ x: G.player.x + 60, y: G.player.y, kind: 'firealarm', taken: false });
+    } },
+    { icon: '📞', name: 'Payphone', sub: '1¢ a call, all four lines', run(G) {
+      G.ensureSandboxAt(3);
+      G.player.coins = Math.max(G.player.coins, 5);
+      G.peds.push({ x: G.player.x + 60, y: G.player.y, kind: 'payphone', taken: false });
+    } },
+    { icon: '📉', name: 'The Actuary', sub: 'your odds, one decimal', run(G) {
+      G.ensureSandboxAt(3);
+      G.player.coins = Math.max(G.player.coins, 10);
+      G.peds.push({ x: G.player.x + 60, y: G.player.y, kind: 'actuary', taken: false });
+    } },
+    { icon: '🎤', name: 'Open mic', sub: 'someone\'s on the step stool', run(G) {
+      G.ensureSandboxAt(3);
+      G.peds.push({ x: G.player.x + 60, y: G.player.y, kind: 'openmic', performer: U.choice(['larper', 'scroller', 'doubt', 'deadline', 'ad', 'gaslighter']), taken: false });
+    } },
+    { icon: '🧹', name: 'Janitor + basement', sub: 'the cart, then the stairs down', run(G) {
+      G.ensureSandboxAt(3);
+      const p = G.player;
+      p.coins = Math.max(p.coins, 30);
+      const pool = U.shuffle([].concat(DATA.POOLS.special, DATA.POOLS.shop)).filter(id => !p.items.includes(id));
+      G.peds.push({ x: p.x + 60, y: p.y, kind: 'janitor', itemId: pool[0] || DATA.POOLS.special[0], price: 6, taken: false, _greeted: false });
+      G.peds.push({ x: p.x + 130, y: p.y + 30, kind: 'basementdoor', taken: false });
+    } },
+    { icon: '💊', name: 'Drug Rep', sub: 'the samples are FREE', run(G) {
+      G.ensureSandboxAt(3);
+      const p = G.player;
+      G.peds.push({ x: p.x + 60, y: p.y - 40, kind: 'drugrep', taken: false });
+      const pool = U.shuffle(DATA.POOLS.special.slice());
+      [0, 1, 2].forEach(i => G.peds.push({ x: p.x - 40 + i * 90, y: p.y + 70, kind: 'sample', itemId: pool[i], fx: U.choice(DATA.SAMPLE_FX).id, repGroup: 1, taken: false }));
+    } },
+    { icon: '🔔', name: 'THE AUDITOR', sub: 'it has your file already', run(G) {
+      G.ensureSandboxAt(6);
+      const a = new Enemy('auditor', RX + 70, RY + 70, 6, false, 1);
+      a.spawnT = 0.8;
+      G.enemies.push(a);
+      G.auditorHp = a.hp; G.auditorDown = false;
+      G.room.cleared = false; G.room.spawned = true;
+      G.setBanner('🔔 THE AUDITOR', 'scenario: it follows through doors', 2.4);
+    } },
+    { icon: '🚪', name: 'AMA door', sub: 'ward 8 day room, the exit sign', run(G) {
+      G.ensureSandboxAt(8);
+      const r = G.floorRooms.find(x => x.type === 'normal' && x !== G.room); r.type = 'dayroom'; r.spawned = false;
+      G.enterRoom(r, null);
+    } },
+    { icon: '🎩', name: 'Casual Friday', sub: 'hats on everything, right now', run(G) {
+      G.ensureSandboxAt(3);
+      G.calDay = 5;
+      const p = G.player;
+      for (let i = 0; i < 5; i++) { const e = new Enemy(DATA.pickEnemy(3, null), U.clamp(p.x + U.rand(-200, 200), RX + 40, RX + RW - 40), U.clamp(p.y + U.rand(-140, 140), RY + 40, RY + RH - 40), 3, false, 1); e.spawnT = 0; G.enemies.push(e); }
+      G.room.cleared = false; G.room.spawned = true;
+      G.toast('🎩 Scenario: it is now, locally and legally, Casual Friday.', '#c8b878');
+    } }
+  ],
+  runScenario(i) {
+    const s = this.TESTER_SCENARIOS[i];
+    if (!s) return;
+    this.endSandbox();
+    try { s.run(this); } catch (e) { this.toast('scenario error: ' + e.message, '#e08a8a'); return; }
+    if (this.state === 'tester') this.state = 'run';
+    this.hideOverlay();
+    document.body.classList.add('inrun');
+    this.toast('⚡ SCENARIO: ' + s.name + ' — sandbox rules, nothing records.', '#8fd0e0');
+  },
+
+  /* ---- THE BOSS LAB: any manager, any conditions ---- */
+  startBossLab(cfg) {
+    this.endSandbox();
+    const diag = this._sbDiag || ((Meta.data.lastDiag && DATA.DIAG[Meta.data.lastDiag]) ? Meta.data.lastDiag : 'adhd');
+    this.beginSandbox(diag, Math.max(1, cfg.depth || 5), { silent: true });
+    this.bossId = cfg.boss;
+    const br = this.floorRooms.find(r => r.type === 'boss');
+    if (br) { br.bossPending = true; br.cleared = false; this.enterRoom(br, null); }
+    // rebuild the boss to the lab spec (discard whatever the room rolled)
+    try {
+      this.boss = new Boss(cfg.boss, this.depth, this);
+      this.boss2 = null; this._wasJoint = false;
+      if (cfg.affix && DATA.BOSS_AFFIXES.some(a => a.id === cfg.affix)) {
+        const A = DATA.BOSS_AFFIXES.find(a => a.id === cfg.affix);
+        this.boss.affix = cfg.affix; this.boss.affixTint = A.tint;
+        if (cfg.affix === 'swift') this.boss.aggr = (this.boss.aggr || 1) * 1.25;
+        this.boss.name = A.name + ' ' + this.boss.name;
+        this.boss.sub = A.note;
+      }
+      if (cfg.shift2 && ['gatekeeper', 'larperking', 'adjuster'].includes(cfg.boss)) {
+        this.boss._shift2 = true;
+        this.boss.hp *= 1.3; this.boss.maxhp *= 1.3;
+      }
+      if (cfg.joint && DATA.BOSSES[cfg.joint] && cfg.joint !== cfg.boss && !cfg.affix) {
+        this.boss2 = new Boss(cfg.joint, this.depth, this);
+        this.boss._joint = true; this.boss2._joint = true; this._wasJoint = true;
+        this.boss.hp *= 0.82; this.boss.maxhp *= 0.82;
+        this.boss2.hp *= 0.82; this.boss2.maxhp *= 0.82;
+        this.boss.x = CW / 2 - 120; this.boss2.x = CW / 2 + 120;
+        this.boss2.introT = 0; this.boss2._wakeT = 3.6;
+      }
+    } catch (e) { }
+    this.hideOverlay();
+    this.state = 'run';
+    document.body.classList.add('inrun');
+    SFX.setMusic(['founder', 'thesystem', 'thecure'].includes(cfg.boss) ? 'superboss' : 'boss');
+    this.setBanner('🥊 BOSS LAB', (DATA.BOSSES[cfg.boss] || {}).name + (cfg.joint ? ' + ' + (DATA.BOSSES[cfg.joint] || {}).name : '') + ' · depth ' + this.depth, 2.8);
   },
   endSandbox() {
     if (!this.sandbox && !this._metaSnap) return;
@@ -705,7 +1046,43 @@ const G = {
   _blankDesign() {
     const layout = [];
     for (let r = 0; r < ROWS; r++) { layout[r] = []; for (let c = 0; c < COLS; c++) layout[r][c] = 0; }
-    return { ward: 3, layout, ents: [], picks: [], boss: null, start: { c: 6, r: 5 } };
+    return { ward: 3, layout, ents: [], picks: [], boss: null, bossPos: null, start: { c: 6, r: 5 }, cond: { night: false, heat: 0, wing: '' } };
+  },
+  _dgTemplate(name) {
+    const D = this._design;
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) D.layout[r][c] = 0;
+    if (name === 'arena') {   // pillars at the quarters
+      for (const [c, r] of [[3, 2], [3, 4], [9, 2], [9, 4], [6, 3]]) D.layout[r][c] = 1;
+    } else if (name === 'corridors') {   // two long shelves, three lanes
+      for (let r = 1; r <= 5; r++) { D.layout[r][4] = 1; D.layout[r][8] = 1; }
+    } else if (name === 'bosspit') {   // open center, blocked corners
+      for (const [c, r] of [[1, 1], [2, 1], [1, 2], [11, 1], [10, 1], [11, 2], [1, 5], [2, 5], [1, 4], [11, 5], [10, 5], [11, 4]]) D.layout[r][c] = 1;
+    } else if (name === 'cross') {   // a paperwork cross
+      for (let c = 2; c <= 10; c++) D.layout[3][c] = 2;
+      for (let r = 1; r <= 5; r++) D.layout[r][6] = 2;
+      D.layout[3][6] = 0;
+    }
+    D.layout[D.start.r][D.start.c] = 0;
+  },
+  _dgPushUndo() {
+    const st = this._dgUndo || (this._dgUndo = []);
+    st.push(JSON.stringify(this._design));
+    if (st.length > 30) st.shift();
+  },
+  _dgFlood(c, r) {
+    const D = this._design;
+    const from = D.layout[r][c];
+    const to = from === 0 ? 1 : 0;   // toggle-flood: empty regions become wall, solid regions become floor
+    const q = [[c, r]], seen = new Set();
+    while (q.length) {
+      const [cc, rr] = q.pop();
+      const k = cc + ',' + rr;
+      if (cc < 0 || rr < 0 || cc >= COLS || rr >= ROWS || seen.has(k) || D.layout[rr][cc] !== from) continue;
+      seen.add(k);
+      D.layout[rr][cc] = to;
+      q.push([cc + 1, rr], [cc - 1, rr], [cc, rr + 1], [cc, rr - 1]);
+    }
+    D.layout[D.start.r][D.start.c] = 0;
   },
   showDesigner() {
     this.state = 'design';
@@ -715,7 +1092,7 @@ const G = {
     const enemyOpts = Object.keys(DATA.ENEMIES).filter(id => id !== 'form').map(id => `<option value="${id}" ${this._dgEnemy === id ? 'selected' : ''}>${DATA.ENEMIES[id].name}</option>`).join('');
     const pickOpts = [['coin', '🪙 coin'], ['nickel', '💰 nickel'], ['half', '❤️ half heart'], ['full', '💗 full heart'], ['pill', '💊 pill'], ['key', '🔑 key'], ['bomb', '📄 claim form'], ['trinket', '🧷 trinket'], ['item', '💊 ITEM PEDESTAL']].map(([v, l]) => `<option value="${v}" ${this._dgPick === v ? 'selected' : ''}>${l}</option>`).join('');
     const bossOpts = ['', 'gatekeeper', 'larperking', 'adjuster', 'priorauth', 'stigma', 'dsm', 'algorithm', 'influencer', 'peerreview', 'withdrawal', 'burnout', 'walrus', 'thecure', 'founder', 'thesystem', 'theboard'].map(id => `<option value="${id}" ${D.boss === id ? 'selected' : ''}>${id ? (DATA.BOSSES[id] || { name: id }).name : '— no boss —'}</option>`).join('');
-    const tools = [['wall', '🧱 wall'], ['paper', '📄 paperwork'], ['spikes', '⚠ hazard'], ['floor', '⬜ floor'], ['start', '🎯 start'], ['enemy', '🧟 enemy'], ['pick', '🎁 pickup'], ['erase', '✖ erase']];
+    const tools = [['wall', '🧱 wall'], ['paper', '📄 paperwork'], ['spikes', '⚠ hazard'], ['floor', '⬜ floor'], ['start', '🎯 start'], ['enemy', '🧟 enemy'], ['pick', '🎁 pickup'], ['boss', '☠ boss spot'], ['fill', '🪣 fill'], ['erase', '✖ erase']];
     const toolBtns = tools.map(([id, l]) => `<button class="btn minor dgt" data-t="${id}" style="font-size:11px;padding:6px 9px;${this._dgTool === id ? 'outline:2px solid #e8c84c' : ''}">${l}</button>`).join('');
     let grid = '';
     for (let r = 0; r < ROWS; r++) {
@@ -739,11 +1116,22 @@ const G = {
           <span id="dgWardLbl" style="font-weight:bold;min-width:150px;text-align:center">SIMULATED WARD ${D.ward}</span>
           <button class="btn minor" id="bDgWup" style="min-width:40px">+</button>
         </div>
+        <div class="btnrow" style="flex-wrap:wrap;gap:5px">
+          ${['empty', 'arena', 'corridors', 'bosspit', 'cross'].map(t => `<button class="btn minor" data-tmpl="${t}" style="font-size:10px;padding:5px 8px">▦ ${t}</button>`).join('')}
+          <button class="btn minor" id="bDgUndo" style="font-size:10px;padding:5px 8px">↩ undo</button>
+          <button class="btn minor" id="bDgMirror" style="font-size:10px;padding:5px 8px">⇋ mirror</button>
+        </div>
+        <div class="btnrow" style="flex-wrap:wrap;gap:5px">
+          <button class="btn minor" id="bDgNight" style="font-size:10px;padding:5px 8px">${D.cond && D.cond.night ? '✅' : '⬜'} 🌙 night</button>
+          <button class="btn minor" id="bDgHeat" style="font-size:10px;padding:5px 8px">🔥 heat ${D.cond ? D.cond.heat || 0 : 0} (tap to cycle)</button>
+          <select id="dgWing" class="seedfield" style="max-width:150px;font-size:11px">${['', ...(DATA.WINGS || []).map(w => w.id)].map(w => `<option value="${w}" ${D.cond && D.cond.wing === w ? 'selected' : ''}>${w ? '🏥 ' + w : '— standard wing —'}</option>`).join('')}</select>
+        </div>
         <div class="btnrow" style="flex-wrap:wrap">
           <button class="btn" id="bDgPlay">▶ PLAYTEST</button>
           <button class="btn minor" id="bDgExport">📤 COPY CODE</button>
           <button class="btn minor" id="bDgClear">🧹 CLEAR</button>
         </div>
+        <div class="setrow"><label>💾 save as:</label><input type="text" id="dgName" class="seedfield" maxlength="20" placeholder="my nightmare hallway" autocomplete="off"><button class="btn minor" id="bDgSave">SAVE</button></div>
         <div class="setrow"><label>📥 room code:</label><input type="text" id="dgIn" class="seedfield" placeholder="EGSROOM..." autocomplete="off"><button class="btn minor" id="bDgImport">LOAD</button></div>
         <button class="btn minor" id="bDesignBack">BACK</button>
       </div>`);
@@ -751,7 +1139,7 @@ const G = {
     document.querySelectorAll('.dgc').forEach(el => this._dgPaintCell(el));
     const bindCell = (el) => {
       const act = () => { this._dgApply(+el.dataset.c, +el.dataset.r); this._dgPaintCell(el); };
-      el.onpointerdown = (e) => { e.preventDefault(); this._dgDrag = true; act(); };
+      el.onpointerdown = (e) => { e.preventDefault(); this._dgPushUndo(); this._dgDrag = true; act(); };
       el.onpointerenter = () => { if (this._dgDrag) act(); };
     };
     document.querySelectorAll('.dgc').forEach(bindCell);
@@ -779,8 +1167,38 @@ const G = {
       if (ok) { SFX.play('fanfare'); this.toast('📥 Blueprint accepted. Someone else\'s problem is now yours.', '#8fd08a'); this.showDesigner(); }
       else { SFX.play('denied'); this.toast('That is not a room. Structurally.', '#e08a8a'); }
     };
-    document.getElementById('bDgClear').onclick = () => { SFX.play('ui'); this._design = this._blankDesign(); this.showDesigner(); };
-    document.getElementById('bDesignBack').onclick = () => { SFX.play('ui'); this.showTester(() => this.showTitle()); };
+    document.getElementById('bDgClear').onclick = () => { SFX.play('ui'); this._dgPushUndo(); this._design = this._blankDesign(); this.showDesigner(); };
+    document.querySelectorAll('[data-tmpl]').forEach(b => b.onclick = () => { SFX.play('ui'); this._dgPushUndo(); this._dgTemplate(b.dataset.tmpl); this.showDesigner(); });
+    document.getElementById('bDgUndo').onclick = () => {
+      const st = this._dgUndo || [];
+      if (st.length) { try { this._design = JSON.parse(st.pop()); } catch (e) { } SFX.play('paper'); this.showDesigner(); }
+      else { SFX.play('denied'); this.toast('nothing to undo. a clean conscience.', '#b8b0a0'); }
+    };
+    document.getElementById('bDgMirror').onclick = () => {
+      SFX.play('ui'); this._dgPushUndo();
+      const L = this._design.layout;
+      for (let r = 0; r < ROWS; r++) for (let c = 0; c < 6; c++) L[r][12 - c] = L[r][c];
+      this._design.layout[this._design.start.r][this._design.start.c] = 0;
+      this.showDesigner();
+    };
+    document.getElementById('bDgNight').onclick = () => { SFX.play('ui'); const C = this._design.cond || (this._design.cond = { night: false, heat: 0, wing: '' }); C.night = !C.night; this.showDesigner(); };
+    document.getElementById('bDgHeat').onclick = () => { SFX.play('ui'); const C = this._design.cond || (this._design.cond = { night: false, heat: 0, wing: '' }); C.heat = (C.heat + 2) % 12; this.showDesigner(); };
+    const dgw = document.getElementById('dgWing');
+    if (dgw) dgw.onchange = () => { const C = this._design.cond || (this._design.cond = { night: false, heat: 0, wing: '' }); C.wing = dgw.value; SFX.play('ui'); };
+    document.getElementById('bDgSave').onclick = () => {
+      const name = String(document.getElementById('dgName').value || '').trim().slice(0, 20);
+      if (!name) { SFX.play('denied'); this.toast('name it first. everything here gets a label.', '#e08a8a'); return; }
+      try {
+        let lib = JSON.parse(localStorage.getItem('egs_roomlib') || '[]');
+        lib = lib.filter(r => r.name !== name);
+        lib.push({ name, code: this.designCode() });
+        while (lib.length > 24) lib.shift();
+        localStorage.setItem('egs_roomlib', JSON.stringify(lib));
+        SFX.play('fanfare');
+        this.toast('💾 “' + name + '” filed in the room library (' + lib.length + '/24).', '#8fd08a');
+      } catch (e) { SFX.play('denied'); }
+    };
+    document.getElementById('bDesignBack').onclick = () => { SFX.play('ui'); this._testerTab = 'design'; this.showTester(() => this.showTitle()); };
   },
   _dgApply(c, r) {
     const D = this._design, t = this._dgTool;
@@ -800,6 +1218,14 @@ const G = {
       if (D.ents.length + D.picks.length >= 24 && !D.picks.some(p => p.c === c && p.r === r)) { this.toast('24 placements max.', '#e0a05a'); return; }
       D.layout[r][c] = 0; clearMarks();
       D.picks.push({ t: this._dgPick || 'coin', c, r });
+    } else if (t === 'boss') {
+      if (!D.boss) { this.toast('pick a boss in the dropdown first — then place their spot.', '#e0a05a'); return; }
+      D.layout[r][c] = 0; clearMarks();
+      D.bossPos = { c, r };
+      document.querySelectorAll('.dgc').forEach(el => this._dgPaintCell(el));
+    } else if (t === 'fill') {
+      this._dgFlood(c, r);
+      document.querySelectorAll('.dgc').forEach(el => this._dgPaintCell(el));
     }
   },
   _dgPaintCell(el) {
@@ -808,6 +1234,7 @@ const G = {
     el.style.background = t === 1 ? '#8a7a66' : t === 2 ? '#efe6cc' : t === 3 ? '#c05050' : '#d8cfc0';
     let mark = '';
     if (D.start && D.start.c === c && D.start.r === r) mark = '🎯';
+    if (D.bossPos && D.bossPos.c === c && D.bossPos.r === r) mark = '☠';
     const en = D.ents.find(e => e.c === c && e.r === r);
     if (en) mark = '🧟';
     const pk = D.picks.find(p => p.c === c && p.r === r);
@@ -817,7 +1244,7 @@ const G = {
   },
   designCode() {
     const D = this._design;
-    const o = { v: 1, w: D.ward, l: D.layout.map(row => row.join('')), e: D.ents.map(e => [e.id, e.c, e.r]), p: D.picks.map(p => [p.t, p.c, p.r]), b: D.boss || '', s: [D.start.c, D.start.r] };
+    const o = { v: 2, w: D.ward, l: D.layout.map(row => row.join('')), e: D.ents.map(e => [e.id, e.c, e.r]), p: D.picks.map(p => [p.t, p.c, p.r]), b: D.boss || '', s: [D.start.c, D.start.r], bp: D.bossPos ? [D.bossPos.c, D.bossPos.r] : null, cn: D.cond || null };
     return 'EGSROOM' + btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/=+$/, '');
   },
   parseDesignCode(str) {
@@ -836,6 +1263,8 @@ const G = {
       for (const p of (o.p || []).slice(0, 24)) if (['coin', 'nickel', 'half', 'full', 'pill', 'key', 'bomb', 'trinket', 'item'].includes(p[0])) D.picks.push({ t: p[0], c: U.clamp(+p[1] | 0, 0, COLS - 1), r: U.clamp(+p[2] | 0, 0, ROWS - 1) });
       D.boss = (o.b && DATA.BOSSES[o.b]) ? o.b : null;
       if (Array.isArray(o.s)) D.start = { c: U.clamp(+o.s[0] | 0, 0, COLS - 1), r: U.clamp(+o.s[1] | 0, 0, ROWS - 1) };
+      if (Array.isArray(o.bp)) D.bossPos = { c: U.clamp(+o.bp[0] | 0, 0, COLS - 1), r: U.clamp(+o.bp[1] | 0, 0, ROWS - 1) };
+      if (o.cn && typeof o.cn === 'object') D.cond = { night: !!o.cn.night, heat: U.clamp(parseInt(o.cn.heat, 10) || 0, 0, 10), wing: (DATA.WINGS || []).some(w => w.id === o.cn.wing) ? o.cn.wing : '' };
       D.layout[D.start.r][D.start.c] = 0;
       this._design = D;
       return true;
@@ -863,9 +1292,20 @@ const G = {
     this.enterRoom(room, null);
     const sp = tileToPx(D.start.c, D.start.r);
     this.player.x = sp.x; this.player.y = sp.y;
+    // playtest conditions: wing palette, night, heat
+    const CN = D.cond || {};
+    if (CN.wing && DATA.WINGS) {
+      const wd = DATA.WINGS.find(w => w.id === CN.wing);
+      if (wd) { this.wingPal = wd.pal; room._bg = null; }
+    }
+    if (CN.night) { this.nightShift = true; this.floorDark = Math.max(this.floorDark || 0, 0.26); }
+    if (CN.heat >= 4) { this.player.maxhp = Math.max(2, this.player.maxhp - 2); this.player.hp = Math.min(this.player.hp, this.player.maxhp); }
+    this.intensity = CN.heat || 0;
+    const condMult = (1 + (CN.heat || 0) * 0.05) * (CN.night ? 0.95 : 1);
     for (const en of D.ents) {
       const px = tileToPx(en.c, en.r);
-      const e = new Enemy(en.id, px.x, px.y, this.depth, false, 1);
+      const e = new Enemy(en.id, px.x, px.y, this.depth, false, condMult);
+      if (CN.night) e.spd *= 0.92;
       e.spawnT = 0.9;
       this.enemies.push(e);
     }
@@ -882,7 +1322,10 @@ const G = {
     }
     if (D.boss) {
       this.bossId = D.boss;
-      try { this.boss = new Boss(D.boss, this.depth, this); } catch (e) { }
+      try {
+        this.boss = new Boss(D.boss, this.depth, this);
+        if (D.bossPos) { const bp = tileToPx(D.bossPos.c, D.bossPos.r); this.boss.x = bp.x; this.boss.y = bp.y; }
+      } catch (e) { }
     }
     this.setBanner('🏗 PLAYTEST', 'PAUSE to return to the designer · deaths respawn', 2.8);
   },
@@ -906,6 +1349,12 @@ const G = {
           <button class="btn minor" id="ttGod">${ct(!!this.god)} GOD</button>
           <button class="btn minor" id="ttDebug">${ct(!!this.debug)} DEBUG KEYS</button>
           <button class="btn minor" id="ttFps">${ct(!!Meta.data.fpsHud)} FPS HUD</button>
+          <button class="btn minor" id="ttHit">${ct(!!this.hitboxes)} HITBOXES</button>
+          <button class="btn minor" id="ttIns">${ct(!!this.inspect)} INSPECT</button>
+        </div>
+        <div class="setrow" style="justify-content:center;gap:6px">
+          <label>⏱</label>
+          ${[0.25, 0.5, 1, 2, 4].map(v => `<button class="btn minor" data-tts="${v}" style="min-width:40px;font-size:11px;${(this.timeScale || 1) === v ? 'outline:2px solid #e8c84c' : ''}">${v}×</button>`).join('')}
         </div>
         <div class="setrow"><label>℞ grant:</label><select id="ttItem" class="seedfield">${itemOpts}</select><button class="btn minor" id="ttGive">GIVE</button></div>
         <div class="setrow"><label>🧟 spawn:</label><select id="ttEnemy" class="seedfield">${enemyOpts}</select><button class="btn minor" id="ttSpawn">SPAWN</button></div>
@@ -918,6 +1367,9 @@ const G = {
     document.getElementById('ttGod').onclick = (e) => { SFX.play('ui'); this.god = !this.god; e.target.textContent = (this.god ? '✅' : '⬜') + ' GOD'; };
     document.getElementById('ttDebug').onclick = (e) => { SFX.play('ui'); this.debug = !this.debug; e.target.textContent = (this.debug ? '✅' : '⬜') + ' DEBUG KEYS'; };
     document.getElementById('ttFps').onclick = (e) => { SFX.play('ui'); Meta.data.fpsHud = Meta.data.fpsHud ? 0 : 1; Meta.save(); e.target.textContent = (Meta.data.fpsHud ? '✅' : '⬜') + ' FPS HUD'; };
+    document.getElementById('ttHit').onclick = (e) => { SFX.play('ui'); this.hitboxes = !this.hitboxes; e.target.textContent = (this.hitboxes ? '✅' : '⬜') + ' HITBOXES'; };
+    document.getElementById('ttIns').onclick = (e) => { SFX.play('ui'); this.inspect = !this.inspect; e.target.textContent = (this.inspect ? '✅' : '⬜') + ' INSPECT'; };
+    document.querySelectorAll('[data-tts]').forEach(b => b.onclick = () => { SFX.play('ui'); this.timeScale = parseFloat(b.dataset.tts); this.timePaused = false; this.hideOverlay(); this.state = 'run'; this.toast('⏱ ' + this.timeScale + '×', '#8fd0e0'); });
     document.getElementById('ttGive').onclick = () => { const id = document.getElementById('ttItem').value; if (DATA.ITEMS[id]) { p.addItem(id, this); this.stats.items++; SFX.play('item'); this.toast('℞ granted: ' + DATA.ITEMS[id].name, '#8fd08a'); } };
     document.getElementById('ttSpawn').onclick = () => {
       const id = document.getElementById('ttEnemy').value;
@@ -6132,6 +6584,28 @@ const G = {
   Haptics.init();
   Input.init(canvas);
 
+  // GAME TESTER: tap-to-inspect — click near any entity to pin a live stat card on it
+  canvas.addEventListener('pointerdown', (ev) => {
+    if (!G.inspect || !Meta.data.tester || G.state !== 'run') return;
+    const rect = canvas.getBoundingClientRect();
+    const mx = (ev.clientX - rect.left) * (CW / rect.width);
+    const my = (ev.clientY - rect.top) * (CH / rect.height);
+    let best = null, bd = 46;
+    const consider = (ent, kind, label) => {
+      if (!ent) return;
+      const d = U.dist(mx, my, ent.x, ent.y);
+      if (d < bd) { bd = d; best = { ent, kind, label }; }
+    };
+    for (const e of (G.enemies || [])) if (!e.dying) consider(e, 'enemy', (DATA.ENEMIES[e.id] || {}).name || e.id);
+    if (G.boss && !G.boss.dead) consider(G.boss, 'boss', G.boss.name);
+    if (G.boss2 && !G.boss2.dead) consider(G.boss2, 'boss', G.boss2.name);
+    for (const pd of (G.peds || [])) if (!pd.taken) consider(pd, 'ped', pd.kind);
+    consider(G.player, 'player', 'YOU');
+    if (G.player && G.player.pet) consider(G.player.pet, 'pet', G.player.pet.type);
+    if (G.player && G.player.pet2) consider(G.player.pet2, 'pet', G.player.pet2.type);
+    G._inspected = best;   // null clears the pin
+  });
+
   // treat coarse-pointer devices (phones/tablets) as touch from the start so the
   // portrait deck / landscape overlay lay out correctly before the first tap
   if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) document.body.classList.add('touch');
@@ -6211,7 +6685,29 @@ const G = {
     if (G.state === 'cutscene' && typeof Story !== 'undefined' && Story.active) {
       try { Story.update(dt); Story.draw(); } catch (e) { Story.active = false; if (G.showTitle) G.showTitle(); }
     } else {
-      if (G.state === 'run' || G.state === 'descend' || G.state === 'hub' || G.state === 'appeal' || G.state === 'credits' || G.state === 'exit' || G.state === 'arcade' || G.state === 'stairs' || G.state === 'handoff') G.update(dt);
+      if (G.state === 'run' || G.state === 'descend' || G.state === 'hub' || G.state === 'appeal' || G.state === 'credits' || G.state === 'exit' || G.state === 'arcade' || G.state === 'stairs' || G.state === 'handoff') {
+        // GAME TESTER time controls: ',' slower · '.' faster · '/' pause + frame-step
+        const tester = Meta.data.tester;
+        if (tester) {
+          if (Input.keys['Comma'] && !G._tkComma) { G.timePaused = false; G.timeScale = [0.25, 0.5, 1, 2, 4][Math.max(0, [0.25, 0.5, 1, 2, 4].indexOf(G.timeScale || 1) - 1)]; G.toast('⏱ ' + G.timeScale + '×', '#8fd0e0'); }
+          G._tkComma = !!Input.keys['Comma'];
+          if (Input.keys['Period'] && !G._tkPeriod) { G.timePaused = false; G.timeScale = [0.25, 0.5, 1, 2, 4][Math.min(4, [0.25, 0.5, 1, 2, 4].indexOf(G.timeScale || 1) + 1)]; G.toast('⏱ ' + G.timeScale + '×', '#8fd0e0'); }
+          G._tkPeriod = !!Input.keys['Period'];
+          if (Input.keys['Slash'] && !G._tkSlash) { if (!G.timePaused) { G.timePaused = true; G.toast('⏸ paused — / steps a frame · , . resume', '#8fd0e0'); } else G.stepOnce = true; }
+          G._tkSlash = !!Input.keys['Slash'];
+        }
+        const sc = (tester && G.timeScale) ? G.timeScale : 1;
+        if (tester && G.timePaused && G.state === 'run') {
+          if (Input.take('pause')) { G.timePaused = false; G.showPause(); }
+          else if (G.stepOnce) { G.stepOnce = false; G.update(dt); }
+        } else if (sc >= 1) {
+          const n = Math.round(sc);
+          for (let k = 0; k < n; k++) G.update(dt);
+        } else {
+          G._tsAcc = (G._tsAcc || 0) + sc;
+          if (G._tsAcc >= 1) { G._tsAcc -= 1; G.update(dt); }
+        }
+      }
       Render.draw(G);
     }
     if (G.state === 'bestiary' && G._bestiary) {

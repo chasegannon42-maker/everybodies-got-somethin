@@ -21,6 +21,8 @@ const Render = {
       if (G.shake > 0.3 && !(Meta.data.a11y && Meta.data.a11y.reduceMotion)) ctx.translate(U.rand(-G.shake, G.shake) * 0.5, U.rand(-G.shake, G.shake) * 0.5);
       this.drawRoom(G);
       this.drawEntities(G);
+      if (G.hitboxes && Meta.data.tester) this.drawHitboxes(G);
+      if (G._inspected && G.inspect && Meta.data.tester) this.drawInspector(G);
       if (G.dark > 0.02) this.drawDarkness(G);
       // hurt flash: a red breath at the edges of the screen
       if (G.player && G.player.hurtFlash > 0) {
@@ -100,6 +102,14 @@ const Render = {
     if (G.banner) this.drawBanner(G);
     if (G.toasts.length) this.drawToasts(G);
     if (G.state === 'descend') this.drawDescend(G);
+    // GAME TESTER: time-dial badge when time isn't normal
+    if (typeof Meta !== 'undefined' && Meta.data.tester && ((G.timeScale && G.timeScale !== 1) || G.timePaused)) {
+      const tl = G.timePaused ? '⏸ PAUSED (/ steps)' : '⏱ ' + G.timeScale + '×';
+      ctx.font = 'bold 12px monospace'; ctx.textAlign = 'left';
+      const tw2 = ctx.measureText(tl).width + 12;
+      ctx.fillStyle = 'rgba(10,8,14,0.78)'; ctx.fillRect(4, 46, tw2, 20);
+      ctx.fillStyle = '#8fd0e0'; ctx.fillText(tl, 10, 60);
+    }
     // GAME TESTER: the fps + entity readout (Meta.data.fpsHud)
     if (typeof Meta !== 'undefined' && Meta.data.fpsHud) {
       const fps = Math.round(G._fps || 0);
@@ -1016,6 +1026,70 @@ const Render = {
     const frac = U.clamp(S.t / S.dur, 0, 1);
     ctx.fillStyle = 'rgba(138,132,150,0.4)'; this.rr(ctx, CW - 26, 80, 8, CH - 180, 4); ctx.fill();
     ctx.fillStyle = '#5ee07a'; ctx.beginPath(); ctx.arc(CW - 22, 80 + (CH - 184) * frac, 7, 0, TAU); ctx.fill();
+  },
+
+  /* ============ GAME TESTER: hitboxes + tap-to-inspect ============ */
+  drawHitboxes(G) {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.lineWidth = 1.4;
+    const circ = (x, y, r, clr) => { ctx.strokeStyle = clr; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.stroke(); };
+    for (const e of G.enemies) if (!e.dying) circ(e.x, e.y, e.r, 'rgba(224,90,90,0.8)');
+    if (G.boss && !G.boss.dead) circ(G.boss.x, G.boss.y, G.boss.r || 30, 'rgba(224,90,90,0.9)');
+    if (G.boss2 && !G.boss2.dead) circ(G.boss2.x, G.boss2.y, G.boss2.r || 30, 'rgba(224,90,90,0.9)');
+    circ(G.player.x, G.player.y, G.player.r, 'rgba(143,208,90,0.9)');
+    for (const b of G.eBullets) if (!b.dead) circ(b.x, b.y, b.r, 'rgba(232,200,76,0.7)');
+    for (const t of G.tears) if (!t.dead) circ(t.x, t.y, t.r, 'rgba(120,180,240,0.7)');
+    for (const pd of G.peds) if (!pd.taken) circ(pd.x, pd.y, 26 + G.player.r, 'rgba(184,107,255,0.5)');
+    ctx.restore();
+  },
+  drawInspector(G) {
+    const I = G._inspected;
+    if (!I || !I.ent) return;
+    const ctx = this.ctx, e = I.ent;
+    if ((I.kind === 'enemy' && e.dying) || (I.kind === 'boss' && e.dead) || (I.kind === 'ped' && e.taken)) { G._inspected = null; return; }
+    const lines = [I.label];
+    if (I.kind === 'enemy' || I.kind === 'boss') {
+      lines.push('hp ' + (e.hp != null ? e.hp.toFixed(1) : '?') + ' / ' + (e.maxhp != null ? e.maxhp.toFixed(1) : '?'));
+      lines.push('dmg ' + (e.dmg != null ? (+e.dmg).toFixed(1) : '?') + ' · spd ' + (e.spd != null ? Math.round(e.spd) : '?'));
+      if (e.beh) lines.push('beh: ' + e.beh);
+      if (e.elite) lines.push('elite: ' + e.elite);
+      const flags = [];
+      if (e._perform) flags.push('performing');
+      if (e._asleep) flags.push('asleep');
+      if (e._union) flags.push(e._unionRep ? 'UNION REP' : 'union');
+      if (e._sheet) flags.push('sheeted');
+      if (e._shadow) flags.push('shadow');
+      if (e._chill > 0) flags.push('chill×' + e._chill);
+      if (e._burn > 0) flags.push('burning');
+      if (e._dazeT > 0) flags.push('dazed');
+      if (e._shift2) flags.push('SECOND SHIFT');
+      if (e.affix) flags.push(e.affix);
+      if (flags.length) lines.push(flags.join(' · '));
+    } else if (I.kind === 'player') {
+      lines.push('hp ' + e.hp + '/' + e.maxhp + ' · dmg ' + e.effDmg().toFixed(2));
+      lines.push('spd ' + Math.round(e.effSpd()) + ' · delay ' + e.effTearDelay().toFixed(2) + 's');
+      lines.push('luck ' + (+e.luck).toFixed(1) + ' · ' + e.items.length + ' meds');
+    } else if (I.kind === 'ped') {
+      lines.push('kind: ' + e.kind + (e.itemId ? ' · ' + e.itemId : '') + (e.price ? ' · ' + e.price + '¢' : ''));
+    } else if (I.kind === 'pet') {
+      lines.push((e.evo ? '★ evolved · ' : '') + 'cmd cd ' + Math.max(0, e.cmdCd || 0).toFixed(1) + 's');
+    }
+    ctx.save();
+    ctx.font = 'bold 10px monospace';
+    const w = Math.max(...lines.map(l => ctx.measureText(l).width)) + 14;
+    const h = lines.length * 13 + 10;
+    const bx = U.clamp(e.x + 24, RX, RX + RW - w), by = U.clamp(e.y - h - 10, 46, CH - h - 8);
+    ctx.fillStyle = 'rgba(8,10,14,0.88)'; this.rr(ctx, bx, by, w, h, 5); ctx.fill();
+    ctx.strokeStyle = 'rgba(143,208,224,0.8)'; ctx.lineWidth = 1.5; this.rr(ctx, bx, by, w, h, 5); ctx.stroke();
+    ctx.strokeStyle = 'rgba(143,208,224,0.5)';
+    ctx.beginPath(); ctx.moveTo(bx, by + h / 2); ctx.lineTo(e.x, e.y); ctx.stroke();
+    lines.forEach((l, i) => {
+      ctx.fillStyle = i === 0 ? '#8fd0e0' : '#e8e4da';
+      ctx.textAlign = 'left';
+      ctx.fillText(l, bx + 7, by + 14 + i * 13);
+    });
+    ctx.restore();
   },
 
   /* ============ THE BREAKROOM CABINET — PILL CATCHER ============ */

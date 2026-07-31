@@ -191,10 +191,16 @@ keyboard and mouse.
   janitor finally sits down.
 - **💾 Your save keeps itself** — automatically, on-device, mirrored twice. Back it up or move it
   between devices with a save code from **Settings → SAVE DATA**.
-- **🔧 STAFF ONLY** — a Game Tester door on the title screen, behind a secret code. Inside: a
-  sandbox mode (any patient, any ward, nothing recorded — the save is snapshot-frozen), a full
-  **Room Designer** (paint tiles, place any enemy or boss, playtest live, share rooms as
-  `EGSROOM` codes), god mode, debug keys, an FPS overlay, and a cheat drawer on the pause menu.
+- **🔧 STAFF ONLY** — a full Game Tester hub on the title screen, behind a secret code, organized
+  into five tabs. **PLAY**: sandbox any patient at any ward with loadout presets (kitted, glass
+  cannon, tank, or hand-picked meds) — the save is snapshot-frozen throughout. **BOSS LAB**:
+  rehearse any boss at any depth with any champion affix, SECOND SHIFT, or a Joint-Commission
+  partner. **TRIGGERS**: a 25-scenario jumper that drops you straight into any special encounter
+  (rival races, the INSPECTION, heists, the Annex, Casual Friday…) pre-armed, no RNG. **DESIGNER**:
+  the room editor with templates, undo, mirror, flood-fill, boss placement, playtest conditions
+  (night/heat/wing), a named room library, and `EGSROOM` share codes. **TOOLS**: god mode, debug
+  keys, FPS overlay, hitbox overlay, tap-to-inspect live entity stats, and a time dial
+  (0.25×–4× plus true pause with frame-stepping).
 
 ## The story
 
