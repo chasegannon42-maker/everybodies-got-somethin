@@ -328,6 +328,7 @@ const G = {
     document.body.classList.remove('inrun');
     const m = Meta.data;
     this._startChronic = false; this._startBossRush = false; this._startPrognosis = null;
+    const fresh = (m.runs || 0) === 0;   // first visit: the front desk, not the whole directory
     const chronicOn = !!m.chronicUnlocked, bossRushOn = this.codexTabComplete('bosses');
     const ngRow = (chronicOn || bossRushOn) ? `<div class="btnrow">${chronicOn ? '<button class="btn minor" id="bChronic">🩸 CHRONIC MODE</button>' : ''}${bossRushOn ? '<button class="btn minor" id="bBossRush">☠ BOSS RUSH</button>' : ''}</div>` : '';
     const statsLine = m.runs > 0
@@ -343,7 +344,7 @@ const G = {
         </div>
         ${(() => { const S = this.loadCheckpoint(); if (!S || !DATA.DIAG[S.diag]) return ''; const nm = S.variant && DATA.DIAG2 && DATA.DIAG2[S.diag] ? DATA.DIAG2[S.diag].name : DATA.DIAG[S.diag].name; return `<button class="btn" id="bContinue" style="border-color:#8fd0e0">📂 CONTINUE — ${nm} · WARD ${S.depth}</button>`; })()}
         <button class="btn" id="bStart">🩺 START CHECKUP</button>
-        <div class="btnrow">
+        ${fresh ? `<div class="secdiv" style="opacity:.6">the rest of the building unlocks after your first visit</div>` : `<div class="btnrow">
           <button class="btn" id="bDaily">🗓️ DAILY WARD</button>
           <button class="btn minor" id="bHub">🚪 WAITING ROOM</button>
         </div>
@@ -352,7 +353,7 @@ const G = {
         <div class="btnrow">
           <button class="btn minor" id="bPrognosis">🎲 PROGNOSIS</button>
           <button class="btn minor" id="bProtocols">🧪 PROTOCOLS</button>
-          ${(Meta.data.runs || 0) >= 1 ? '<button class="btn minor" id="bOvertime">⏰ OVERTIME</button>' : ''}
+          <button class="btn minor" id="bOvertime">⏰ OVERTIME</button>
           <button class="btn minor" id="bWalkin">🚑 WALK-IN</button>
         </div>
         ${ngRow}
@@ -366,7 +367,7 @@ const G = {
           <button class="btn minor" id="bBestiaryT">☠ BESTIARY</button>
           <button class="btn minor" id="bUnlocksT">🏆 UNLOCKS</button>
         </div>
-        ${statsLine}
+        ${statsLine}`}
         <div class="secdiv">FRONT DESK</div>
         <div class="btnrow">
           <button class="btn minor" id="bHow">HOW TO PLAY</button>
@@ -374,7 +375,8 @@ const G = {
         </div>
         <button class="btn pamphlet" id="bHandbook">📘 THE PATIENT HANDBOOK <span style="font-size:11px;font-style:italic;opacity:.75">— take one, it's free</span></button>
         <button class="btn minor" id="bOrient" style="font-size:12px">📼 ORIENTATION (1987)${Meta.data.orientationDone ? ' · ✓ fully oriented' : ' · runtime: unknown. nobody has finished it.'}</button>
-        <button class="btn minor" id="bTester" style="opacity:.55;font-size:10px;padding:5px 10px;margin-top:4px">🔧 ${m.tester ? 'GAME TESTER' : 'STAFF ONLY'}</button>
+        ${fresh ? '' : `<button class="btn minor" id="bTester" style="opacity:.55;font-size:10px;padding:5px 10px;margin-top:4px">🔧 ${m.tester ? 'GAME TESTER' : 'STAFF ONLY'}</button>`}
+        <button class="btn minor" id="bComplaint" style="opacity:.7;font-size:10px;padding:5px 10px;margin-top:4px">📮 FILE A COMPLAINT <span style="font-style:italic;opacity:.75">(bugs, grievances — form EGS-11)</span></button>
         <div class="smallprint">A satire about a system that hands out labels like candy — not about the people living with them. Be kind, including to yourself. ♥</div>
       </div>`);
     document.getElementById('overlay').classList.add('lightbg');   // let the atmospheric backdrop show on the title
@@ -385,14 +387,15 @@ const G = {
     const bh = document.getElementById('bHub'); if (bh) bh.onclick = () => { SFX.init(); SFX.play('ui'); this.showHub(); };
     const bot2 = document.getElementById('bOvertime'); if (bot2) bot2.onclick = () => { SFX.init(); SFX.play('ui'); this.showOvertime(); };
     const bwi = document.getElementById('bWalkin'); if (bwi) bwi.onclick = () => { SFX.init(); SFX.play('ui'); this.showWalkin(); };
-    document.getElementById('bDaily').onclick = () => { SFX.init(); SFX.play('ui'); this.showDaily(); };
-    document.getElementById('bFiles').onclick = () => { SFX.init(); SFX.play('ui'); this.showFiles(); };
-    document.getElementById('bPrognosis').onclick = () => { SFX.init(); SFX.play('ui'); this.showPrognosis(); };
-    document.getElementById('bProtocols').onclick = () => { SFX.init(); SFX.play('ui'); this.showProtocols(); };
-    document.getElementById('bTreatment').onclick = () => { SFX.init(); SFX.play('ui'); this.showTreatmentPlan(() => this.showTitle()); };
-    document.getElementById('bChart').onclick = () => { SFX.init(); SFX.play('ui'); this.showCodex(() => this.showTitle()); };
-    document.getElementById('bStoryT').onclick = () => { SFX.init(); SFX.play('ui'); this.showStoryGallery(); };
-    document.getElementById('bBestiaryT').onclick = () => { SFX.init(); SFX.play('ui'); this.showBestiary(() => this.showTitle()); };
+    const onT = (id, fn) => { const el = document.getElementById(id); if (el) el.onclick = fn; };   // fresh saves hide most of the directory
+    onT('bDaily', () => { SFX.init(); SFX.play('ui'); this.showDaily(); });
+    onT('bFiles', () => { SFX.init(); SFX.play('ui'); this.showFiles(); });
+    onT('bPrognosis', () => { SFX.init(); SFX.play('ui'); this.showPrognosis(); });
+    onT('bProtocols', () => { SFX.init(); SFX.play('ui'); this.showProtocols(); });
+    onT('bTreatment', () => { SFX.init(); SFX.play('ui'); this.showTreatmentPlan(() => this.showTitle()); });
+    onT('bChart', () => { SFX.init(); SFX.play('ui'); this.showCodex(() => this.showTitle()); });
+    onT('bStoryT', () => { SFX.init(); SFX.play('ui'); this.showStoryGallery(); });
+    onT('bBestiaryT', () => { SFX.init(); SFX.play('ui'); this.showBestiary(() => this.showTitle()); });
     const bc = document.getElementById('bChronic'); if (bc) bc.onclick = () => { SFX.init(); SFX.play('ui'); this._startChronic = true; this.startQuiz(); };
     const bbr = document.getElementById('bBossRush'); if (bbr) bbr.onclick = () => { SFX.init(); SFX.play('ui'); this._startBossRush = true; this.startQuiz(); };
     document.getElementById('bHow').onclick = () => { SFX.init(); SFX.play('ui'); this.showHow(); };
@@ -409,9 +412,10 @@ const G = {
         this.showTitle();
       });
     };
-    document.getElementById('bUnlocksT').onclick = () => { SFX.init(); SFX.play('ui'); this.showUnlocks(() => this.showTitle()); };
+    onT('bUnlocksT', () => { SFX.init(); SFX.play('ui'); this.showUnlocks(() => this.showTitle()); });
     document.getElementById('bSettings').onclick = () => { SFX.init(); SFX.play('ui'); this.showSettings(() => this.showTitle()); };
     const brh = document.getElementById('bRunHist'); if (brh) brh.onclick = () => { SFX.init(); SFX.play('ui'); this.showStats(() => this.showTitle()); };
+    onT('bComplaint', () => { SFX.play('paper'); try { window.open('https://github.com/chasegannon42-maker/everybodies-got-somethin/issues/new', '_blank', 'noopener'); } catch (e) { } });
     const bts = document.getElementById('bTester');
     if (bts) bts.onclick = () => { SFX.init(); SFX.play('ui'); Meta.data.tester ? this.showTester(() => this.showTitle()) : this.showTesterGate(); };
   },
@@ -3120,7 +3124,9 @@ const G = {
           <b>Goal:</b> clear each room, beat the ward's boss, take the trapdoor down — forever.<br><br>
           <b>Move:</b> ${touch ? 'left thumb' : '<span class="kbd">W</span><span class="kbd">A</span><span class="kbd">S</span><span class="kbd">D</span>'}<br>
           <b>Shoot:</b> ${touch ? 'right thumb' : 'arrow keys or the mouse'}<br>
-          <b>Pill / Claim:</b> ${touch ? 'the 💊 and 📄 buttons' : '<span class="kbd">Q</span> and <span class="kbd">E</span>'}<br><br>
+          <b>Pill / Claim:</b> ${touch ? 'the 💊 and 📄 buttons' : '<span class="kbd">Q</span> and <span class="kbd">E</span>'}<br>
+          <b>Your PRN ability:</b> ${touch ? 'the PRN button' : '<span class="kbd">SPACE</span>'} — every diagnosis gets one<br>
+          <b>Menu / pause:</b> ${touch ? 'the ❚❚ button' : '<span class="kbd">ESC</span>'}<br><br>
           Dr. Walrus gives a quick quiz, then a diagnosis — each one plays differently. Doors open once a room is clear. Copays (¢) buy refills; Referrals (🔑) open the Specialist.<br><br>
           <i>It's a satire about over-diagnosis — be kind to yourself out there. ♥</i>
         </div>
@@ -3185,8 +3191,9 @@ const G = {
           <span class="kbd">W</span><span class="kbd">A</span><span class="kbd">S</span><span class="kbd">D</span> move ·
           <span class="kbd">←→↑↓</span> or <span class="kbd">mouse</span> shoot tears<br>
           <span class="kbd">Q</span> swallow pill · <span class="kbd">E</span> place Claim Form (it explodes) ·
-          <span class="kbd">P</span> pause · <span class="kbd">M</span> mute<br><br>
-          <b>Mobile:</b> left thumb moves, right thumb shoots. Buttons for pills & claims.<br><br>
+          <span class="kbd">SPACE</span> your PRN ability ·
+          <span class="kbd">P</span>/<span class="kbd">ESC</span> pause · <span class="kbd">M</span> mute<br><br>
+          <b>Mobile:</b> left thumb moves, right thumb shoots. Buttons for pills, claims, and your PRN ability.<br><br>
           <b>Gamepad:</b> sticks move & shoot · <span class="kbd">A</span> ability · <span class="kbd">X</span> pill · <span class="kbd">B</span> claim ·
           <span class="kbd">SELECT</span> drops <b>Patient Two</b> in (couch co-op — they pick their own chart) · <span class="kbd">START</span> pause<br><br>
           <b>The rest:</b> clear rooms, take your meds (or don't), find the Specialist
@@ -3210,7 +3217,7 @@ const G = {
      The complete in-fiction manual: every mechanic, symptom, ward, and
      service. Mostly generated from DATA so new content lists itself;
      the prose sections get a line whenever a feature ships. */
-  HB_REV: 42,
+  HB_REV: 43,
   showHandbook(returnTo) {
     this.state = 'handbook';
     if (!this._hbTab) this._hbTab = 'basics';
@@ -3396,6 +3403,7 @@ const G = {
         + R('🚶', 'Day Room patients', 'The Veteran, The Optimist, The Oversharer, and friends — one boon each')
         + H('REVISION HISTORY')
         + N('This handbook is updated with every patch. If a feature exists, it\'s in here — that\'s the policy. Spot something missing? The Complaint Department is thataway.')
+        + N('rev. 43 — OPEN HOUSE PREP: the front desk was tidied for new patients — a first visit now shows only the doors that matter (the rest of the directory unlocks after checkup #1), the building holds its calendar small-talk until your second visit, the orientation card finally admits the PRN ability and the pause key exist, and there is a COMPLAINT DEPARTMENT (external) at the bottom of the title screen. Complaints are filed as GitHub issues. They are read. Unlike here, they are read.')
         + N('rev. 42 — MANDATORY ENRICHMENT: THE WELLNESS SEMINAR is now presenting on wards 10+ (folding-chair cover, participation zones, an AUDIENCE MOOD meter, enforced attendance, and — at the end of its rope — a timeshare; see STAFF), and four new champion crowns joined the deep rotation: ITEMIZED, RE-ADMITTED, LINGERING, and OUT-OF-NETWORK (see the CHAMPIONS list — kill order matters now). The chairs are not load-bearing. The pitch is.')
         + N('rev. 41 — INTAKE, EXPANDED: the deep wards admitted four new cases (the PREAUTH TWINS and their load-bearing co-signature line, THE BILLING ERROR and its decimals, THE WAIT and its thickened time, THE SECOND NOTICE and its follow-ups — see SYMPTOMS), and two new offices opened in the Clinic: THE SPECIALIST (ward 6+, blinks, refers you mid-fight) and THE CASE MANAGER (ward 7+, shields everyone but herself; management priority: her). The general population thanks management for the company.')
         + N('rev. 29 — the crayons were confiscated: every pictograph in the building replaced with proper inked signage, hand-drawn by the same tired hand as everything else here.')
@@ -3745,7 +3753,7 @@ const G = {
     this._month = DATA.MONTHS[new Date().getMonth()] || null;
     if (this._month) {
       try { this._month.apply(this.player); } catch (e) { }
-      if (!this.sandbox && !this._resuming) this.toast('Observed this month: ' + this._month.name + ' — ' + this._month.desc + '.', '#c8b8d8');
+      if (!this.sandbox && !this._resuming && Meta.data.runs > 1) this.toast('Observed this month: ' + this._month.name + ' — ' + this._month.desc + '.', '#c8b8d8');   // first visit: the building holds its small talk
     }
     // emotional support animal (equipped in Settings; must still be earned)
     if (Meta.data.pet) {
@@ -3815,7 +3823,7 @@ const G = {
       if (this.hasCal('monday')) this.player.dmg += 0.3;
       if (this.hasCal('wednesday')) this.player.bombs += 2;
       if (this.hasCal('saturday')) this.player.luck += 1;
-      this.toast('📅 ' + CAL.icon + ' ' + CAL.name + ' — ' + CAL.desc, '#c8b878');
+      if (Meta.data.runs > 1) this.toast('📅 ' + CAL.icon + ' ' + CAL.name + ' — ' + CAL.desc, '#c8b878');   // day one: no small talk
       if (!this.sandbox) {
         const cd = Meta.data.calDays || (Meta.data.calDays = {});
         if (!cd[this.calDay]) { cd[this.calDay] = 1; Meta.save(); this.checkUnlocks(); }

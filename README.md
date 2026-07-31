@@ -344,4 +344,8 @@ No emoji, either: every icon in the UI is a hand-drawn monochrome SVG or canvas 
 game's own icon set (`icons.js`), which also quietly translates any pictograph that tries to reach
 a menu or the canvas. The crayons were confiscated in rev. 29.
 
+## Complaints
+
+Found a bug? Something unfair, broken, or merely upsetting? **[File a complaint](https://github.com/chasegannon42-maker/everybodies-got-somethin/issues/new)** — form EGS-11, no copay. There is also a FILE A COMPLAINT button at the bottom of the title screen. Complaints are read. Unlike in the game, they are read.
+
 Made with Claude Code.
