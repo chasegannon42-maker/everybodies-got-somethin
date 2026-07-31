@@ -1807,6 +1807,15 @@ class Enemy {
     const p2 = G.player;
     if (!this.fake && !this._perform && this.dmg > 0 && p2.iframes <= 0 && U.dist(this.x, this.y, p2.x, p2.y) < this.r + p2.r - 4) {
       p2.hurt(this.dmg, G, this.id);
+      // Champion Pack II riders on the hit that just landed
+      if (this.elite === 'itemized') {   // the hit comes with a line item
+        const take = Math.min(p2.coins, 2);
+        if (take > 0) { p2.coins -= take; G.texts.push(new FloatText(p2.x, p2.y - 26, '-' + take + '¢ itemized', '#e8c84c')); SFX.play('coin'); }
+      }
+      if (this.elite === 'lingering') {   // the hit stays with you
+        p2.tempSlow = Math.max(p2.tempSlow || 0, 2.2);
+        G.texts.push(new FloatText(p2.x, p2.y - 26, 'it lingers', '#a8b0c0'));
+      }
     }
   }
 
@@ -1831,6 +1840,14 @@ class Enemy {
     if (this.beh === 'premium' && !this._premOpen && !this.fake && d < 9999) {
       if (!quiet && Math.random() < 0.3) { G.texts.push(new FloatText(this.x, this.y - 20, 'PREMIUM — not yet billed', '#e0b83a')); SFX.play('lock'); }
       return;
+    }
+    // OUT-OF-NETWORK champion: barely billable while any in-network patient stands
+    if (this.elite === 'outofnetwork' && !this.fake && d < 9999) {
+      const covered = G.enemies.some(e => e !== this && !e.dying && !e.fake && !e.charmed && !e._form);
+      if (covered) {
+        d *= 0.1;
+        if (!quiet && Math.random() < 0.25) { G.texts.push(new FloatText(this.x, this.y - 20, 'OUT OF NETWORK', '#e07ab8')); SFX.play('lock'); }
+      }
     }
     if (this.fake) {
       this.dying = true; this.deadDone = true;
@@ -1890,6 +1907,17 @@ class Enemy {
   }
 
   die(G) {
+    // RE-ADMITTED champion: gets back up once, at half, angrier
+    if (this.elite === 'readmitted' && !this._readmit && !this.fake) {
+      this._readmit = true;
+      this.hp = this.maxhp * 0.5;
+      this.spawnT = 1.0;   // a downed beat while the paperwork clears
+      this.spd *= 1.18;
+      G.texts.push(new FloatText(this.x, this.y - 22, 're-admitted.', '#7ec8a8'));
+      for (let i = 0; i < 8; i++) G.parts.push(new Particle(this.x, this.y, U.rand(-90, 90), U.rand(-90, 90), 0.4, '#7ec8a8', 3));
+      SFX.play('paper');
+      return;
+    }
     this.dying = true; this.deadDone = true;
     (G.rings || (G.rings = [])).push({ x: this.x, y: this.y, t: 0, max: this.elite ? 40 : 26, clr: this.elite ? '#e8c84c' : 'rgba(240,232,216,0.8)' });
     G.hitstop = Math.max(G.hitstop || 0, this.elite ? 0.055 : 0.028);
@@ -2234,7 +2262,7 @@ function spawnEnemiesForRoom(room, depth, G) {
   if (G.nemesisId && !G._nemesisSpawned && !G.dreamFloor && room.type === 'normal' && spots.length > count) {
     G._nemesisSpawned = true;
     const s = U.shuffle(spots).find(sp => !chosen.includes(sp)) || spots[0];
-    const ne = new Enemy(G.nemesisId, s.x, s.y, depth, false, hpMult * 2.2, U.choice(DATA.ELITES).id);
+    const ne = new Enemy(G.nemesisId, s.x, s.y, depth, false, hpMult * 2.2, DATA.pickElite(depth));
     ne._nemesis = true; ne.spawnT = 0.8;
     G.enemies.push(ne);
     G.toast('🩸 It remembers you.', '#e05a5a');
@@ -2244,7 +2272,7 @@ function spawnEnemiesForRoom(room, depth, G) {
   if (G._complaint && !G._complaintSpawned && !G.dreamFloor && room.type === 'normal' && spots.length > count) {
     G._complaintSpawned = true;
     const s = U.shuffle(spots).find(sp => !chosen.includes(sp)) || spots[0];
-    const ce = new Enemy(DATA.pickEnemy(depth, G.wing), s.x, s.y, depth, false, hpMult * 1.8, U.choice(DATA.ELITES).id);
+    const ce = new Enemy(DATA.pickEnemy(depth, G.wing), s.x, s.y, depth, false, hpMult * 1.8, DATA.pickElite(depth));
     ce._complaint = G._complaint; ce.spawnT = 0.8;
     G.enemies.push(ce);
     G.toast('📋 Your complaint has been processed. It\'s over there.', '#e0a05a');
@@ -2252,7 +2280,7 @@ function spawnEnemiesForRoom(room, depth, G) {
   }
   for (const s of chosen) {
     const id = DATA.pickEnemy(depth, G.wing);
-    const elite = (id !== 'redflag' && U.chance(champChance)) ? U.choice(DATA.ELITES).id : null;
+    const elite = (id !== 'redflag' && U.chance(champChance)) ? DATA.pickElite(depth) : null;
     const e = new Enemy(id, s.x + U.rand(-8, 8), s.y + U.rand(-8, 8), depth, false, hpMult, elite);
     if (G.shadowWard) { e.hp *= 1.3; e.maxhp *= 1.3; e._shadow = true; }   // shadow patients: darker, tougher, better tippers
     if (G.annexFloor) { e.hp *= 1.25; e.maxhp *= 1.25; e._sheet = true; }  // the condemned wing: dust-sheeted and unhappy about visitors

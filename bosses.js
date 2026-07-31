@@ -710,6 +710,113 @@ class Boss {
         }
         break;
       }
+      /* ---------- THE WELLNESS SEMINAR — attendance is mandatory ---------- */
+      case 'seminar': {
+        if (!this._semInit) {
+          this._semInit = true;
+          G.semChairs = [];
+          for (const ry2 of [RY + RH / 2 + 40, RY + RH / 2 + 118]) for (const ox of [-165, -55, 55, 165])
+            G.semChairs.push({ x: CW / 2 + ox, y: ry2, hp: 3, dead: false });
+          G.semZones = null; G.semMeter = 0.5;
+          this._semMode = 'attack'; this._semT = 5.5; this._bpT = 1.6; this._spirT = 3.0;
+          this._cycles = 0; this._farT = 0; this._dragT = 0; this._mild = 1;
+          G.toast('“SO glad you could make it. Chairs are going FAST.”', '#e0a95a');
+        }
+        // pacing the front of the room, presenter energy
+        this.x += Math.cos(this.t * 0.9) * 42 * dt;
+        this.y = RY + 122 + Math.sin(this.t * 1.4) * 10;
+        this.clampPos();
+        // folding chairs absorb the pitch (enemy fire dies on cover; chairs fold after 3)
+        for (const ch of G.semChairs) {
+          if (ch.dead) continue;
+          for (const b of G.eBullets) {
+            if (b.dead || b.fake) continue;
+            if (U.dist(b.x, b.y, ch.x, ch.y) < 24) {
+              b.dead = true; ch.hp--;
+              for (let i = 0; i < 3; i++) G.parts.push(new Particle(ch.x, ch.y - 6, U.rand(-60, 60), U.rand(-70, -10), 0.3, '#b8a890', 2.5));
+              if (ch.hp <= 0) { ch.dead = true; SFX.play('pop'); for (let i = 0; i < 7; i++) G.parts.push(new Particle(ch.x, ch.y, U.rand(-110, 110), U.rand(-110, 20), 0.45, '#a89880', 3)); }
+            }
+          }
+        }
+        // mandatory attendance: kite too long and you are RETRIEVED
+        if (this._dragT > 0) {
+          this._dragT -= dt;
+          const da = U.ang(p.x, p.y, this.x, this.y);
+          p.x += Math.cos(da) * 135 * dt; p.y += Math.sin(da) * 135 * dt;
+        } else if (this._semMode === 'attack' && U.dist(this.x, this.y, p.x, p.y) > 300) {
+          this._farT += dt;
+          if (this._farT > 2.5) {
+            this._farT = 0; this._dragT = 0.8;
+            G.toast('“Don\'t be shy — we\'re all FRIENDS here.”', '#e0a95a');
+            SFX.play('whoosh');
+          }
+        } else this._farT = Math.max(0, this._farT - dt * 2);
+        this._semT -= dt;
+        if (this._semMode === 'attack') {
+          // bullet points: aimed three-shot bursts of small squares
+          this._bpT -= dt;
+          if (this._bpT <= 0) {
+            this._bpT = (P2 ? 1.05 : 1.4) * this._mild;
+            const a = this.aimP(G);
+            for (const off of [-0.16, 0, 0.16]) this.bullet(a + off, 235, '#e8dcc0', { r: 8 });
+          }
+          // the synergy spiral (it loops. the slide loops.)
+          this._spirT -= dt;
+          if (this._spirT <= 0) {
+            this._spirT = (P2 ? 2.1 : 2.8) * this._mild;
+            this.spiralA += 0.9;
+            const arms = P2 ? 3 : 2;
+            for (let i = 0; i < arms; i++) this.bullet(this.spiralA + i * TAU / arms, 122, '#c8a0e0', { life: 6 });
+          }
+          if (this._semT <= 0) {   // the pitch begins
+            this._semMode = 'pitch'; this._semT = P2 ? 3.2 : 4.2;
+            const zn = P2 ? 1 : 2, zr = P2 ? 52 : 64;
+            G.semZones = [];
+            for (let i = 0; i < zn; i++) G.semZones.push({
+              x: U.rand(RX + 90, RX + RW - 90), y: U.rand(RY + RH / 2 - 30, RY + RH - 80), r: zr
+            });
+            G.toast(U.choice(['“KEY TAKEAWAY — can I get some ENERGY in the zones?”', '“This next slide changed my life. ZONES, people.”', '“Turn to your neighbor. Now turn to a ZONE.”']), '#e8c84c');
+            SFX.play('voice');
+          }
+        } else {   // PITCH: the room is listening. the meter is watching.
+          const inZone = G.semZones && G.semZones.some(z => U.dist(p.x, p.y, z.x, z.y) < z.r);
+          G.semMeter = U.clamp(G.semMeter + (inZone ? 0.30 : -0.22) * dt, 0, 1);
+          if (this._semT <= 0) {   // pitch resolves
+            const passed = G.semMeter >= 0.5;
+            G.semZones = null;
+            this._semMode = 'attack'; this._semT = P2 ? 4.6 : 5.5; this._cycles++;
+            if (passed) {
+              this._mild = 1.15;
+              G.pickups.push(new Pickup('coin', this.x + U.rand(-24, 24), this.y + 36));
+              if (!P2) G.pickups.push(new Pickup('coin', this.x + U.rand(-24, 24), this.y + 44));
+              G.toast('“GREAT energy. Networking bonus, everyone.”', '#8fd08a');
+              SFX.play('coin');
+            } else {
+              this._mild = 1;
+              G.semMeter = 0.5;
+              G.toast('“…tough room. TOUGH. ROOM.”', '#e05a5a');
+              SFX.play('error');
+              this.ring(P2 ? 30 : 24, 155, '#e0a95a', U.rand(0, TAU), this.aimP(G), 0.65);
+              const a = this.aimP(G);
+              for (let i = -2; i <= 2; i++) this.bullet(a + i * 0.13, 250, '#e05a5a');
+            }
+            // chair restack (not once the LIMITED TIME OFFER starts)
+            if (!P2 && this._cycles % 2 === 0) {
+              let re = 0;
+              for (const ch of G.semChairs) if (ch.dead && re < 2) { ch.dead = false; ch.hp = 3; re++; for (let i = 0; i < 5; i++) G.parts.push(new Particle(ch.x, ch.y, U.rand(-70, 70), U.rand(-80, 0), 0.35, '#b8a890', 2.5)); }
+              if (re) { G.toast('“Let\'s reset the space. SOMEONE broke a chair.”', '#b8a890'); SFX.play('paper'); }
+            }
+          }
+        }
+        // phase 2 opener: the same pitch, louder
+        if (P2 && !this._lto) {
+          this._lto = true;
+          G.toast('“LIMITED. TIME. OFFER. The chairs are gone because YOU hesitated.”', '#e05a5a');
+          SFX.play('boss');
+          this.summon(G, 'larper', 2);   // plants in the audience
+        }
+        break;
+      }
       /* ---------- THE INFLUENCER ---------- */
       /* ---------- THE PEER REVIEW — your chart, weaponized ---------- */
       case 'peerreview': {

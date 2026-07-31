@@ -281,6 +281,16 @@ keyboard and mouse.
 - **🎡 WHEEL OF APPEALS** — a commissary machine: 6¢ a spin to appeal one active negative — debt
   interest, a sample side effect, a ward condition. Lands on OVERTURNED or DENIED (the wheel
   sulks until the next ward). A bureaucratic slot machine.
+- **📣 THE WELLNESS SEMINAR** — a boss (Ward 10+): mandatory attendance. The arena fills
+  with folding chairs (cover — they block its fire for three hits, then fold), it pitches from
+  a flip chart while an AUDIENCE MOOD meter watches, participation zones demand your literal
+  presence, kiting gets you retrieved ("we're all FRIENDS here"), and at the end of its rope it
+  offers a timeshare: the fight ends now, but a membership fee bills for three wards. Read the
+  terms.
+- **👑 Champion Pack II** — four new elite crowns for the deep wards: ITEMIZED (every hit
+  it lands also bills 2¢), RE-ADMITTED (gets back up once, at half, angrier), LINGERING (its
+  hits slow you for seconds), and OUT-OF-NETWORK (barely billable while any other patient
+  stands — kill order matters now).
 - **👥 The Deep Roster** — four new patients for the deep wards (10+): the PREAUTH TWINS
   (two bodies, one shared chart, and a co-signature line between them you should not walk
   through), THE BILLING ERROR (itemizes on death — into decimals, then rounding errors),
@@ -294,7 +304,7 @@ keyboard and mouse.
   into five tabs. **PLAY**: sandbox any patient at any ward with loadout presets (kitted, glass
   cannon, tank, or hand-picked meds) — the save is snapshot-frozen throughout. **BOSS LAB**:
   rehearse any boss at any depth with any champion affix, SECOND SHIFT, or a Joint-Commission
-  partner. **TRIGGERS**: a 39-scenario jumper that drops you straight into any special encounter
+  partner. **TRIGGERS**: a 41-scenario jumper that drops you straight into any special encounter
   (rival races, the INSPECTION, heists, the Annex, Casual Friday…) pre-armed, no RNG. **DESIGNER**:
   the room editor with templates, undo, mirror, flood-fill, boss placement, playtest conditions
   (night/heat/wing), a named room library, and `EGSROOM` share codes. **TOOLS**: god mode, debug

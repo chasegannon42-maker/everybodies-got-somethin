@@ -502,6 +502,7 @@ DATA.ACHIEVEMENTS = [
   { id: 'goodFaith',  name: "Bargained in Good Faith", desc: "Settle a union action with severance.",       hint: "When they unionize, you don't HAVE to fight.", check: m => (m.unionsSettled || 0) >= 1 },
   { id: 'volunteer',  name: "Back On Purpose",     desc: "Clear a floor wearing the Volunteer Badge.",      hint: "Your file is closed. Theirs aren't.",       check: m => !!m.everVolunteer },
   { id: 'holdHung',   name: "Thank You For Holding", desc: "Hang up on THE HOLD.",                          hint: "Ward 7+. Press the number it asks for. Then press harder.", check: m => (m.holdKills || 0) >= 1 },
+  { id: 'satThrough', name: "Stayed For The Whole Thing", desc: "End THE WELLNESS SEMINAR, by any means.",  hint: "Ward 10+. The chairs are cover. The clapping is mandatory. The exit is through it.", check: m => (m.seminarKills || 0) >= 1 },
   { id: 'debtFree',   name: "In Good Standing",     desc: "Repay a Financing Desk plan in full.",           hint: "Borrow. Descend. Watch what follows. Pay it off anyway.", check: m => (m.debtsPaid || 0) >= 1 },
   { id: 'lucid',      name: "Lucid",                desc: "Take the DREAM PRESCRIPTION.",                   hint: "After a hard boss, sometimes: a bed. A real one.", check: m => (m.dreamRx || 0) >= 1 },
   { id: 'cutOut',     name: "Cut Out The Middleman", desc: "Pop the Pharmacy Benefits Manager.",            hint: "When prices spike 40% for no reason, the reason is in one of the rooms.", check: m => (m.pbmKills || 0) >= 1 },
@@ -679,6 +680,7 @@ DATA.BOSSES = {
   thehold:    { name: "THE HOLD", sub: "“Your call is important to us. Estimated wait: 40 minutes.”", hp: 240 },
   deductible: { name: "THE DEDUCTIBLE", sub: "“Your plan covers this fight at 80%. After the deductible.”", hp: 250 },
   abtest:     { name: "THE A/B TEST", sub: "“You are in the control group. You were always in the control group.”", hp: 260 },
+  seminar:    { name: "THE WELLNESS SEMINAR", sub: "“Attendance is mandatory. Enthusiasm is expected.”", hp: 270 },
   walrus:     { name: "DR. WALRUS, M.D.*", sub: "*mail-order", hp: 300 }
 };
 DATA.bossFor = function (depth, lastBoss) {
@@ -694,6 +696,7 @@ DATA.bossFor = function (depth, lastBoss) {
   if (depth >= 7) pool.push('thehold');      // deep enough that they stop pretending you'll be seen promptly
   if (depth >= 9) pool.push('abtest');       // by now you've consented to the methodology (implicitly)
   if (depth >= 8) pool.push('deductible');   // the plan year reset mid-descent. of course it did.
+  if (depth >= 10) pool.push('seminar');     // attendance becomes mandatory in the deep wards
   if (depth >= 30) pool.push('merger', 'merger');   // deep wards: the acquisition closed (double weight)
   const filtered = pool.filter(b => b !== lastBoss);
   return U.choice(filtered.length ? filtered : pool);
@@ -870,6 +873,11 @@ DATA.SYNERGIES = [
 
 /* ============ BOSS NEGOTIATION (at the end of the rope, some of them talk) ============ */
 DATA.BOSS_DEALS = {
+  seminar: {
+    offer: "“Okay! Okay. Big feelings in the room. What I'm HEARING is: you're ready for the NEXT TIER. Sign here and we skip straight to the results.”",
+    give: "the fight ends now, reward and all — but a 2¢ membership fee bills for the next 3 wards",
+    apply(p, G) { G.semFee = { left: 3, amt: 2 }; }
+  },
   gatekeeper: {
     offer: "“FINE. Fine! You clearly need this more than the rope does. Take the keys and stop hitting me.”",
     give: "+4 Referrals 🔑, and he limps off",
@@ -1149,6 +1157,7 @@ DATA.CODEX_CHART = {
     deductible: "Every hit you land gets billed against the meter instead of hurting it. Meet the deductible and it becomes suddenly, satisfyingly mortal. The meter resets every plan year. The fight is the plan year.",
     abtest: "Half the room runs the old protocol, half runs the experimental one, and it swaps them the moment you adapt. The results will be published. You will not be cited.",
     thehold: "The phone tree, grown to full height. It announces the menu; you stand on the number or you get the consequences. Its options changed recently. They always have.",
+    seminar: "Mandatory attendance, ward 10 and down. It pitches from a flip chart while the room fills with folding chairs (cover — until they fold). During the pitch, stand in a participation zone and clap or the AUDIENCE MOOD drops, and the room notices. Kite too far and attendance is enforced. At the end of its rope it offers a timeshare. Read the terms.",
     walrus: "Board-certified in Confidence. The doctor will see you now. Forever."
   }
 };
@@ -1543,8 +1552,17 @@ DATA.difficulty = function (depth) {
 DATA.ELITES = [
   { id: 'chief',  name: "Chief Complaint", tint: '#e0b040', hp: 2.4, dmg: 1, spd: 1.05, sz: 1.18 },
   { id: 'acute',  name: "Acute Case",      tint: '#e05a5a', hp: 1.8, dmg: 2, spd: 1.15, sz: 1.1 },
-  { id: 'chronic',name: "Chronic Case",    tint: '#8a6be0', hp: 3.2, dmg: 1, spd: 0.9,  sz: 1.25 }
+  { id: 'chronic',name: "Chronic Case",    tint: '#8a6be0', hp: 3.2, dmg: 1, spd: 0.9,  sz: 1.25 },
+  /* Champion Pack II — the deep-ward crowns (gated by d) */
+  { id: 'itemized',     name: "ITEMIZED",       tint: '#e8c84c', hp: 2.0, dmg: 1, spd: 1.1,  sz: 1.12, d: 8,  note: "every hit it lands also bills 2¢" },
+  { id: 'readmitted',   name: "RE-ADMITTED",    tint: '#7ec8a8', hp: 2.2, dmg: 1, spd: 1.0,  sz: 1.15, d: 8,  note: "gets back up once, at half, angrier" },
+  { id: 'lingering',    name: "LINGERING",      tint: '#a8b0c0', hp: 1.9, dmg: 1, spd: 0.95, sz: 1.12, d: 9,  note: "its hits stay with you — slowed for a while" },
+  { id: 'outofnetwork', name: "OUT-OF-NETWORK", tint: '#e07ab8', hp: 2.6, dmg: 1, spd: 0.95, sz: 1.2,  d: 10, note: "barely billable while any other patient stands — kill order matters" }
 ];
+DATA.pickElite = function (depth) {
+  const P = DATA.ELITES.filter(e => depth >= (e.d || 1));
+  return U.choice(P).id;
+};
 
 /* Randomized ward "Complications" (Isaac-style curses) rolled on deeper floors. */
 DATA.COMPLICATIONS = [
