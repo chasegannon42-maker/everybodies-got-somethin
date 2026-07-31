@@ -1254,6 +1254,8 @@ class Enemy {
     }
     let wetSlow = 1;   // the Janitor's wet floor: everyone respects the sign eventually
     for (const z of G.zones) if (z.kind === 'wet' && U.dist(this.x, this.y, z.x, z.y) < z.r + this.r * 0.5) { wetSlow = 0.6; break; }
+    // THE BREAKTHROUGH (STEADY): an upgraded ally radiates unbothered calm — enemies near them slow down
+    for (const al of p.allies) if (al._aura && al.downT <= 0 && U.dist(this.x, this.y, al.x, al.y) < 130) { wetSlow *= 0.85; break; }
     const slowF = wetSlow * (G.enemySlow > 0 ? 0.55 : 1) * (p.flags.slowField ? 0.88 : 1) * (1 - 0.12 * (this._chill || 0));   // Analysis Paralysis + Cold Compress slow the room
     const S = this.spd * slowF * (this._enraged > 0 ? 1.45 : 1);
 
@@ -1447,6 +1449,32 @@ class Enemy {
           this.y += Math.sin(a + Math.sin(this.t * 4) * 0.3) * S * 0.9 * dt;
           if (this.stateT <= 0) this.state = 0;
         }
+        break;
+      }
+      case 'goose': {   // THE GOOSE: it takes one thing. it honks. it is not sorry.
+        this._honkT = (this._honkT || 0) - dt;
+        if (!this._loot) {   // phase 1: acquire
+          let tgt = null, bd = 1e9;
+          for (const pk of G.pickups) { if (pk.dead || pk.type === 'document') continue; const d = U.dist(this.x, this.y, pk.x, pk.y); if (d < bd) { bd = d; tgt = pk; } }
+          if (tgt) {
+            const a = U.ang(this.x, this.y, tgt.x, tgt.y);
+            this.x += Math.cos(a) * S * dt; this.y += Math.sin(a) * S * dt;
+            if (bd < this.r + 10) {
+              tgt.dead = true; this._loot = { type: tgt.type };
+              G.toast('HONK. The goose has your ' + tgt.type + '. The goose is leaving.', '#c8b878');
+              SFX.play('voice');
+            }
+          } else {   // nothing to steal: menace laps
+            this.wanderA = (this.wanderA || 0) + dt * 0.8;
+            this.x += Math.cos(this.wanderA) * S * 0.6 * dt; this.y += Math.sin(this.wanderA * 1.3) * S * 0.6 * dt;
+          }
+        } else {     // phase 2: flee with the goods, honking on cooldown
+          const a = U.ang(p.x, p.y, this.x, this.y);
+          this.x += Math.cos(a + Math.sin(this.t * 5) * 0.4) * S * dt;
+          this.y += Math.sin(a + Math.sin(this.t * 5) * 0.4) * S * dt;
+          if (this._honkT <= 0 && U.dist(this.x, this.y, p.x, p.y) < 200) { this._honkT = 2.4; G.texts.push(new FloatText(this.x, this.y - 20, 'HONK', '#c8b878')); SFX.play('voice'); }
+        }
+        this.x = U.clamp(this.x, RX + 20, RX + RW - 20); this.y = U.clamp(this.y, RY + 20, RY + RH - 20);
         break;
       }
       case 'pbm': {   // THE MIDDLEMAN: adds 40%, contributes nothing, runs like it knows
@@ -1771,6 +1799,16 @@ class Enemy {
     if (this._dream && !this._nmare && U.chance(0.6)) G.pickups.push(new Pickup('half', this.x, this.y));
     // THE MIDDLEMAN: the prices exhale
     if (this.id === 'middleman' && G.pbmDown) G.pbmDown(this);
+    // THE GOOSE, caught: everything comes back out, plus interest, out of spite
+    if (this.id === 'goose') {
+      if (this._loot) G.pickups.push(new Pickup(this._loot.type, this.x, this.y));
+      G.pickups.push(new Pickup('coin', this.x - 14, this.y + 8));
+      G.pickups.push(new Pickup('coin', this.x + 14, this.y + 8));
+      Meta.data.gooseCaught = (Meta.data.gooseCaught || 0) + 1; Meta.save();
+      if (typeof DATA.checkAchievements === 'function') { DATA.checkAchievements(Meta.data); Meta.save(); }
+      G.toast('The goose is down. Your things return. It is STILL not sorry.', '#c8b878');
+      if (G.checkUnlocks) G.checkUnlocks();
+    }
     // THE COLLECTOR: you can kill the man. the DEBT sends another man.
     if (this._collector) { G.toast('The Collector folds. The debt does not. (' + (G.debt ? G.debt.owed + '¢ outstanding' : 'paid?') + ')', '#8a6a9a'); }
     // THE COMPLAINT DEPARTMENT: feedback, resolved

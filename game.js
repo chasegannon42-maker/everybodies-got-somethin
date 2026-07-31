@@ -2456,6 +2456,149 @@ const G = {
     SFX.play('whoosh');
   },
 
+  /* ---------- THE ISOLATION WING (the door means it) ---------- */
+  showIsolation(ped) {
+    this.state = 'isolation';
+    const p = this.player;
+    const crew = (p.allies.length ? p.allies.length + ' allies' : '') || 'nobody, technically';
+    this.overlay(`
+      <div class="panel">
+        <h1 class="logo" style="font-size:24px">ISOLATION — ENTER ALONE</h1>
+        <div class="tagline">reinforced door · one occupant · the sign is load-bearing</div>
+        <div class="rx">
+          <div class="stamp">SOLO</div>
+          <h2>Your people wait outside</h2>
+          <div class="sub">allies, animals, familiars — all of them (currently: ${p.allies.length + (p.pet ? 1 : 0) + (p.pet2 ? 1 : 0) + p.familiars.length} companions)</div>
+          <div class="mech">Inside: a packed room of <b>champions</b>, just you. Clear it for a reward off the good shelf, <b>+6 Insight</b>, and the specific quiet of having held it alone.</div>
+        </div>
+        <button class="btn danger" id="bIsoGo">ENTER ALONE</button>
+        <button class="btn minor" id="bIsoNo">NOT TODAY</button>
+      </div>`);
+    document.getElementById('bIsoGo').onclick = () => { ped.taken = true; this.hideOverlay(); this.state = 'run'; this.enterIsolation(); };
+    document.getElementById('bIsoNo').onclick = () => { SFX.play('ui'); this.hideOverlay(); this.state = 'run'; };
+  },
+  enterIsolation() {
+    const p = this.player;
+    this._isoReturn = { room: this.room, x: p.x, y: p.y };
+    this._isoStash = { allies: p.allies, pet: p.pet, pet2: p.pet2, familiars: p.familiars };
+    p.allies = []; p.pet = null; p.pet2 = null; p.familiars = [];
+    const ir = makeRoom(499, 497, 'normal');
+    ir._iso = true; ir.visited = true; ir.spawned = true; ir.cleared = false;
+    ir.doors = {}; ir.secretDoors = {};
+    buildLayout(ir, 1);
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) ir.layout[r][c] = 0;
+    this.enterRoom(ir, null);
+    p.x = CW / 2; p.y = RY + RH - 70;
+    for (let i = 0; i < 5; i++) {
+      const e = new Enemy(DATA.pickEnemy(Math.max(4, this.depth), null), U.clamp(CW / 2 + U.rand(-240, 240), RX + 50, RX + RW - 50), U.clamp(RY + 150 + U.rand(-50, 150), RY + 50, RY + RH - 110), this.depth, false, 1.4, U.choice(DATA.ELITES).id);
+      e.spawnT = 0.6 + i * 0.15; e.noDrop = i > 1;
+      this.enemies.push(e);
+    }
+    this.setBanner('THE ISOLATION WING', 'just you. that was the deal.', 3.0);
+    this.diaryNote('Went into Isolation alone, on purpose. The door was honest. So, it turns out, am I.');
+    SFX.play('sting');
+  },
+  isoCleared() {
+    const p = this.player;
+    const pool = DATA.pickPool('boss', p.items);
+    this.peds.push({ x: CW / 2, y: RY + 130, itemId: U.choice(pool.length ? pool : DATA.POOLS.boss), kind: 'item', taken: false });
+    this.peds.push({ x: RX + RW - 80, y: RY + RH - 80, kind: 'isoexit', taken: false });   // far corner — no instant re-exit
+    Meta.data.isolations = (Meta.data.isolations || 0) + 1;
+    Meta.data.insight = (Meta.data.insight || 0) + 6;
+    Meta.save();
+    DATA.checkAchievements(Meta.data); Meta.save(); this.checkUnlocks();
+    this.toast('Held it. Alone. +6 Insight, and take something off the good shelf.', '#8fd08a');
+    SFX.play('fanfare');
+  },
+  exitIsolation() {
+    const p = this.player, S = this._isoStash;
+    if (S) { p.allies = S.allies; p.pet = S.pet; p.pet2 = S.pet2; p.familiars = S.familiars; }
+    this._isoStash = null;
+    const R = this._isoReturn;
+    this._isoReturn = null;
+    if (R && R.room) { this.enterRoom(R.room, null); p.x = R.x; p.y = R.y; }
+    this.toast('The door opens. Everyone pretends they weren\'t worried. The dog wasn\'t pretending.', '#8fd08a');
+  },
+
+  /* ---------- SPECIAL ENROLLMENT (the folding table of destiny) ---------- */
+  showEnrollWindow() {
+    this.state = 'enrollwin';
+    const p = this.player;
+    const cards = DATA.PLANS.map(pl => {
+      const cur = pl.id === this.plan;
+      return `<button class="cmcard" data-plan="${pl.id}" ${cur ? 'disabled style="opacity:.55"' : ''}>
+        <div class="cmname">${pl.icon} ${pl.name} <span class="hbtag">${pl.tag}</span>${cur ? ' · CURRENT' : ''}</div>
+        <div class="cmdesc">${pl.lines.join(' · ')}</div>
+        ${!cur && pl.id === 'gold' ? '<div class="cmtag" style="color:#a05a5a">joining now costs 1 heart container, as is tradition</div>' : ''}
+        ${!cur && pl.id === 'bronze' ? '<div class="cmtag" style="color:#a05a5a">the +15¢ signing bonus is for NEW members only (you are old)</div>' : ''}
+      </button>`;
+    }).join('');
+    this.overlay(`
+      <div class="panel">
+        <h1 class="logo" style="font-size:24px">SPECIAL ENROLLMENT</h1>
+        <div class="tagline">qualifying Life Event: "everything" · switching fee: <b>8¢</b> (you have ${p.coins}¢) · no refunds on hearts previously surrendered</div>
+        <div class="cmgrid">${cards}</div>
+        <button class="btn minor" id="bMktBack">KEEP CURRENT COVERAGE</button>
+      </div>`);
+    document.querySelectorAll('[data-plan]').forEach(b => b.onclick = () => {
+      const id = b.dataset.plan;
+      if (id === this.plan) return;
+      if (p.coins < 8) { SFX.play('error'); this.toast('The fee is 8¢. The table is unmoved by your circumstances.', '#e8c84c'); return; }
+      p.coins -= 8;
+      if (id === 'gold') { p.maxhp = Math.max(2, p.maxhp - 2); p.hp = Math.min(p.hp, p.maxhp); }
+      this.plan = id;
+      Meta.data.planSwitches = (Meta.data.planSwitches || 0) + 1; Meta.save();
+      this.hideOverlay(); this.state = 'run';
+      this.toast('Coverage switched to ' + id.toUpperCase() + ', effective immediately-ish. The card arrives in 7-10 wards.', '#8fd0e0');
+      this.diaryNote('Switched insurance at a folding table mid-run. The form was one field. It was pre-filled.');
+      SFX.play('stamp');
+    });
+    document.getElementById('bMktBack').onclick = () => { SFX.play('ui'); this.hideOverlay(); this.state = 'run'; };
+  },
+
+  /* ---------- THE BREAKTHROUGH (one ally, permanently more themselves) ---------- */
+  showSession(ped) {
+    this.state = 'session';
+    const p = this.player;
+    if (!p.allies.length) { this.hideOverlay(); this.state = 'run'; return; }
+    const rows = p.allies.map((a, i) =>
+      `<button class="cmcard" data-ally="${i}" ${a._breakthrough ? 'disabled style="opacity:.55"' : ''}>
+        <div class="cmname" style="color:${a.tint}">${a.name} <span class="hbtag">${a.diag}</span>${a._breakthrough ? ' · already had theirs' : ''}</div>
+      </button>`).join('');
+    this.overlay(`
+      <div class="panel">
+        <h1 class="logo" style="font-size:24px">THE SESSION</h1>
+        <div class="tagline">folding chairs, decaf, and someone about to say the true thing out loud</div>
+        <div id="sessArea"><div class="hbnote">who has the breakthrough?</div><div class="cmgrid">${rows}</div></div>
+        <button class="btn minor" id="bSessBack">LET THEM SIT WITH IT</button>
+      </div>`);
+    document.querySelectorAll('[data-ally]').forEach(b => b.onclick = () => {
+      const a = p.allies[+b.dataset.ally];
+      if (!a || a._breakthrough) return;
+      document.getElementById('sessArea').innerHTML = Icons.html(`
+        <div class="hbnote">${a.name} takes a breath. Which way does it land?</div>
+        <div class="cmgrid">
+          <button class="cmcard" data-up="harder"><div class="cmname">HARDER</div><div class="cmdesc">"I'm done being polite about it." +35% damage, permanently.</div></button>
+          <button class="cmcard" data-up="tougher"><div class="cmname">TOUGHER</div><div class="cmdesc">"It doesn't knock me down like it used to." +3 max health, healed to full.</div></button>
+          <button class="cmcard" data-up="steady"><div class="cmname">STEADY</div><div class="cmdesc">"I'm not scared of the room anymore." Enemies near them slow down. It's the calm.</div></button>
+        </div>`);
+      document.querySelectorAll('[data-up]').forEach(u => u.onclick = () => {
+        const kind = u.dataset.up;
+        a._breakthrough = kind;
+        if (kind === 'harder') a.dmgMul = (a.dmgMul || 1) * 1.35;
+        else if (kind === 'tougher') { a.maxhp += 3; a.hp = a.maxhp; }
+        else a._aura = true;
+        ped.taken = true;
+        Meta.data.breakthroughs = (Meta.data.breakthroughs || 0) + 1; Meta.save();
+        this.hideOverlay(); this.state = 'run';
+        this.toast(a.name + ' had a BREAKTHROUGH (' + kind.toUpperCase() + '). The group applauds. The chairs squeak supportively.', '#8fd08a');
+        this.diaryNote(a.name + ' said the true thing out loud in group today. They walk different now. ' + kind + '.');
+        SFX.play('fanfare');
+      });
+    });
+    document.getElementById('bSessBack').onclick = () => { SFX.play('ui'); this.hideOverlay(); this.state = 'run'; };
+  },
+
   /* ---------- PNEUMATIC TUBES (fast travel, 1962 edition) ---------- */
   showTubes() {
     this.state = 'tubes';
@@ -2969,7 +3112,7 @@ const G = {
      The complete in-fiction manual: every mechanic, symptom, ward, and
      service. Mostly generated from DATA so new content lists itself;
      the prose sections get a line whenever a feature ships. */
-  HB_REV: 35,
+  HB_REV: 36,
   showHandbook(returnTo) {
     this.state = 'handbook';
     if (!this._hbTab) this._hbTab = 'basics';
@@ -3156,6 +3299,7 @@ const G = {
         + N('rev. 30 — new on the ward: THE HOLD (management, ward 7+, bring patience and footwork) · THE CLINICAL TRIAL (see TREATMENT) · THE SCANNER (see TREATMENT) · and a thirteenth patient file for whoever finished THE HANDOFF. The mop is in the closet where he left it.')
         + N('rev. 31 — the building learned finance and the calendar: THE FINANCING DESK and THE MIDDLEMAN (see TREATMENT) · THE DREAM WARD (see THE BUILDING) · AWARENESS MONTHS (see THE BUILDING). Also: Group Therapy recruitment now caps at three and no longer works on management, security, paperwork, or anyone mid-performance. The group apologizes to the charge nurse.')
         + N('rev. 32 — the Waiting Room was renovated (doors need an actual step, the nearest thing answers, the room remembers where you were standing) and Dr. Walrus attended a communication workshop. He speaks in full sentences now. He is very proud of this.')
+        + N('rev. 36 — THE ISOLATION WING opens for anyone brave enough to read the sign (solo elites, good shelf after), the Day Room hosts SESSIONS where one ally has a permanent BREAKTHROUGH (harder, tougher, or unshakeably steady), a SPECIAL ENROLLMENT table lets you switch insurance mid-run (the form is one field, pre-filled), and there is a GOOSE. Administration is aware. Administration is hiding. Also: the portrait-mode deck now matches the Waiting Room — PRN reads OPEN in the hub and the pill/claim buttons wait outside.')
         + N('rev. 35 — pharmacies now stock REFILLS of what you\'re already on (buy the second course), admissions runs THE OPEN HOUSE mid-combat (clear the room untouched while the family watches and reception pays for the optics), the 1987 ORIENTATION tape surfaced at the front desk (finish it, be the first, keep the luck), and a fourteenth patient file checked in: THE GRADUATE, who throws boomerang charts and still counts the floors.')
         + N('rev. 34 — a second cabinet hums in the breakroom (CLAIM DENIED!), some floors still have the 1962 PNEUMATIC TUBES (step in, get mailed to any visited station), THE A/B TEST is seeing patients on ward 9+ (stand in the better cohort; it will notice), and sometimes THE STRIKE closes every service on a floor — walk the picket lap, or cross it and live with the morale.')
         + N('rev. 33 — the bed is now a gamble (THE NIGHTMARE), the desk announces VISITING HOURS (see WARD LIFE events — pick your visitor), a sixth Emotional Support Animal has been acquiring things (see YOUR CARE), and there is another basement (THE SUB-BASEMENT, see THE BUILDING). The Janitor knew. The Janitor always knew.')
@@ -3630,7 +3774,7 @@ const G = {
     this.walkin = false; this._roofDone = false; this._phoneFloor = false;   // walk-in / roof / payphone, fresh per run
     this.inspection = null; this._inspectionDone = false; this._mixup = null; this._mixupDone = false;   // the tour + the chart mix-up
     this.annexFloor = false; this._alarmSeen = false; this._alarmPulled = false; this._soaked = false; this._ghostRec = {}; this._ghostT = 0;   // annex / alarm / ghost, fresh per run
-    this.dreamFloor = false; this.nightmare = false; this._dreamSeen = false; this._dreamItem = null; this.debt = null; this._collectorSpawned = false; this._pbmFloor = false; this._pbmDead = false; this._subDone = false;   // dream / debt / middleman / sub-basement, fresh per run
+    this.dreamFloor = false; this.nightmare = false; this._dreamSeen = false; this._dreamItem = null; this.debt = null; this._collectorSpawned = false; this._pbmFloor = false; this._pbmDead = false; this._subDone = false; this._isoSeen = false; this._mktSeen = false; this._sessionDone = false; this._gooseFloor = false;   // dream / debt / middleman / sub-basement / iso / market / session / goose, fresh per run
     // THE COMPLAINT DEPARTMENT: your grievance reports for duty
     this._complaint = (!daily && Meta.data.pendingComplaint) ? String(Meta.data.pendingComplaint).slice(0, 40) : null;
     this._complaintSpawned = false;
@@ -3660,6 +3804,8 @@ const G = {
     this.state = 'hub';
     this.hideOverlay();
     document.body.classList.add('inrun');   // phones need the move stick in here
+    document.body.classList.add('inhub');    // portrait deck: hide run-only buttons, relabel PRN as OPEN
+    for (const bid of ['btnAbilD', 'btnAbilL']) { const el = document.getElementById(bid); if (el) { const sp = el.querySelector('span'); if (sp) sp.textContent = 'OPEN'; else if (el.lastChild && el.lastChild.nodeType === 3) el.lastChild.textContent = 'OPEN'; } }
     SFX.setMusic((Meta.data.hubTrack && (Meta.data.tracksHeard || {})[Meta.data.hubTrack]) ? Meta.data.hubTrack : 'dayroom');   // WWRD picks the room's music
     const order = ['adhd', 'bipolar', 'depression', 'anxiety', 'schizo', 'ocd', 'ptsd', 'insomnia', 'fine', 'undiag', 'burnout', 'seasonal', 'janitor', 'graduate'];
     const fineOpen = Meta.data.fineSeen || Meta.data.walrusKills > 0;
@@ -3799,8 +3945,8 @@ const G = {
     if (p.moving) p.aimAng = Math.atan2(mv.y, mv.x);
     p.x = U.clamp(p.x + mv.x * 250 * dt, 46, CW - 46);
     p.y = U.clamp(p.y + mv.y * 250 * dt, 78, CH - 40);
-    if (Input.take('pause')) { this._hubPos = { x: p.x, y: p.y }; document.body.classList.remove('inrun'); this.showTitle(); return; }
-    const go = (fn, snd) => { this._hubPos = { x: p.x, y: p.y }; document.body.classList.remove('inrun'); SFX.play(snd || 'door'); fn(); };
+    if (Input.take('pause')) { this._hubPos = { x: p.x, y: p.y }; document.body.classList.remove('inrun'); document.body.classList.remove('inhub'); this.showTitle(); return; }
+    const go = (fn, snd) => { this._hubPos = { x: p.x, y: p.y }; document.body.classList.remove('inrun'); document.body.classList.remove('inhub'); for (const bid of ['btnAbilD', 'btnAbilL']) { const el = document.getElementById(bid); if (el) { const sp = el.querySelector('span'); if (sp) sp.textContent = 'PRN'; else if (el.lastChild && el.lastChild.nodeType === 3) el.lastChild.textContent = 'PRN'; } } SFX.play(snd || 'door'); fn(); };
     const touch = Input.usingTouch;
     H.grace = Math.max(0, (H.grace || 0) - dt);
     // the station you re-entered on top of stays quiet until you actually step off it
@@ -4373,6 +4519,9 @@ const G = {
       this.toast('Your balance compounded: ' + this.debt.owed + '¢ outstanding. Something has been dispatched.', '#8a6a9a');
     }
     this._resumeTick = false;
+    // THE GOOSE: some wards have one. no further explanation. (10%, ward 2+)
+    this._gooseFloor = (this.depth >= 2 && !this.dreamFloor && !this.annexFloor && !this.overtime && !this.bossRush && U.chance(0.10));
+    this._gooseSpawned = false;
     // THE MIDDLEMAN: some floors have a parasite in the pipes (ward 4+)
     this._pbmFloor = false; this._pbmDead = false;
     if (this.depth >= 4 && !this.dreamFloor && !this.annexFloor && !this.overtime && !this.bossRush && !this.ward13 && !this.walkin && U.chance(0.3)) {
@@ -4573,6 +4722,15 @@ const G = {
     if (room.type === 'secret' && !room.greeted) { room.greeted = true; this.toast(DATA.TOASTS.secret); }
     if (room.type === 'oon' && !room.greeted) { room.greeted = true; this.toast(DATA.TOASTS.oon, '#e08a8a'); }
     if (room.type === 'gym' && !room.greeted) { room.greeted = true; this.toast('🥊 The gym. Someone chalked a name on the board. It\'s yours, misspelled.', '#d08a4a'); }
+    // THE GOOSE: it is on this ward. that is the whole situation.
+    if (this._gooseFloor && !this._gooseSpawned && !room.cleared && (room.type === 'normal' || room.type === 'padded') && this.enemies.length > 0) {
+      this._gooseSpawned = true;
+      const ge = new Enemy('goose', RX + RW - 70, RY + 70, this.depth, false, 1);
+      ge._goose = true; ge.noCharm = true; ge.noDrop = true; ge.spawnT = 0.4;
+      this.enemies.push(ge);
+      this.toast('There is a goose on this ward. Administration is aware. Administration is hiding.', '#c8b878');
+      SFX.play('voice');
+    }
     // PNEUMATIC TUBES: the station hums in the corner
     if (room._tube && !room._tubePed) {
       room._tubePed = true;
@@ -4775,7 +4933,8 @@ const G = {
         room.peds.push({ x: CW / 2, y: RY + RH / 2, kind: 'event', eventId: ev, taken: false });
         break;
       }
-      case 'dayroom': {   // The Day Room — a sanctuary: a water cooler + a few other patients
+      case 'dayroom': {
+        if (p.allies.length && !this._sessionDone && U.chance(0.25)) { this._sessionDone = true; room.peds.push({ x: RX + RW - 120, y: RY + 120, kind: 'session', taken: false }); }   // The Day Room — a sanctuary: a water cooler + a few other patients
         room.cleared = true;
         room.peds.push({ x: RX + 90, y: RY + RH / 2, kind: 'cooler', taken: false });
         if (U.chance(0.3)) room.pickups.push(new Pickup('trinket', CW / 2 - 120, RY + RH / 2 + 70));   // lost property
@@ -4952,6 +5111,7 @@ const G = {
     this.stats.rooms++;
     this.goalEvent('room');
     if (room._subbase && !room._stashed) { room._stashed = true; this.subBaseCleared(); }   // the stash reveals itself
+    if (room._iso && !room._isoDone) { room._isoDone = true; this.isoCleared(); }   // held it alone
     // THE OPEN HOUSE: the tour saw everything
     if (this.tour && this.tour.active) {
       this.tour.active = false;
@@ -4974,6 +5134,18 @@ const G = {
     if (this.shadowWard) for (let i = 0; i < 2; i++) this.pickups.push(new Pickup(U.choice(['coin', 'coin', 'nickel', 'half']), CW / 2 + U.rand(-60, 60), RY + RH / 2 + U.rand(-40, 40)));
     // THE ANNEX pays double too — nobody's swept the valuables in years
     if (this.annexFloor) for (let i = 0; i < 2; i++) this.pickups.push(new Pickup(U.choice(['coin', 'nickel', 'half', 'pill']), CW / 2 + U.rand(-60, 60), RY + RH / 2 + U.rand(-40, 40)));
+    // THE ISOLATION WING: a door that is honest about what it is (8%, ward 3+, once a run)
+    if (!this._isoSeen && this.depth >= 3 && !this.dreamFloor && !this.annexFloor && !this.overtime && (room.type === 'normal' || room.type === 'padded') && U.chance(0.08)) {
+      this._isoSeen = true;
+      this.peds.push({ x: RX + 92, y: RY + RH - 92, kind: 'isodoor', taken: false });
+      this.toast('A reinforced door: ISOLATION — ENTER ALONE. The sign is not being dramatic.', '#9a90a8');
+    }
+    // SPECIAL ENROLLMENT: the Marketplace window opens (8%, ward 2+, once a run)
+    if (!this._mktSeen && this.depth >= 2 && !this.dreamFloor && !this.annexFloor && !this.overtime && (room.type === 'normal' || room.type === 'padded') && U.chance(0.08)) {
+      this._mktSeen = true;
+      this.peds.push({ x: RX + RW - 92, y: RY + RH - 92, kind: 'marketplace', taken: false });
+      this.toast('A folding table appears: SPECIAL ENROLLMENT PERIOD. You qualify via Life Event ("everything").', '#8fd0e0');
+    }
     // THE SCANNER: an imaging suite nobody scheduled, once a run (6%, ward 3+)
     if (!this._scannerSeen && this.depth >= 3 && !this.annexFloor && !this.overtime && (room.type === 'normal' || room.type === 'padded') && p.items.length > 1 && U.chance(0.06)) {
       this._scannerSeen = true;
@@ -5755,13 +5927,13 @@ const G = {
     const aud = this.enemies.find(e => e.id === 'auditor' && !e.dying);
     if (aud) this.auditorHp = aud.hp;   // the file follows you
     // lone-survivor impatience: the last patient in a room eventually comes to YOU
-    const liveNow = this.enemies.filter(e => !e.dying && !e.charmed && e.id !== 'auditor' && e.id !== 'collector' && e.id !== 'middleman' && !e.fake);
+    const liveNow = this.enemies.filter(e => !e.dying && !e.charmed && e.id !== 'auditor' && e.id !== 'collector' && e.id !== 'middleman' && e.id !== 'goose' && !e.fake);
     const noAggro = liveNow.length > 0 && liveNow.every(e => ['mirror', 'mimic', 'shooter', 'larper', 'bounce', 'ticket', 'buffer', 'shieldbot'].includes(e.beh));
     if ((liveNow.length === 1 || noAggro) && this.room && !this.room.cleared) {
       this._loneT = (this._loneT || 0) + dt;
       if (this._loneT > 14) for (const e of liveNow) e._impatient = true;   // even the symptoms get bored
     } else this._loneT = 0;
-    const hostiles = this.enemies.some(e => !e.charmed && e.id !== 'auditor' && e.id !== 'collector' && e.id !== 'middleman');   // the Auditor never blocks the doors — run if you want
+    const hostiles = this.enemies.some(e => !e.charmed && e.id !== 'auditor' && e.id !== 'collector' && e.id !== 'middleman' && e.id !== 'goose');   // the Auditor never blocks the doors — run if you want
     if (!room.cleared && (room.type === 'normal' || room.type === 'padded' || room.type === 'clinic' || room.type === 'gym' || room.type === 'incident' || room.type === 'records') && room.spawned && !hostiles) this.onRoomCleared();
     if (!room.cleared && room.type === 'boss' && this.boss && this.boss.dead && this.enemies.length === 0 && !room.cleared) {
       // onBossDead already ran via boss.die
@@ -6004,6 +6176,16 @@ const G = {
         if (this.lockCd <= 0) { this.lockCd = 2.0; this.showHandoffOffer(ped); return; }
       } else if (ped.kind === 'payphone') {   // it takes exact change and one feeling at a time
         if (this.lockCd <= 0) { this.lockCd = 2.0; this.showPayphone(ped); return; }
+      } else if (ped.kind === 'isodoor') {   // ENTER ALONE
+        if (this.lockCd <= 0) { this.lockCd = 1.2; this.showIsolation(ped); return; }
+      } else if (ped.kind === 'isoexit') {   // back to your people
+        ped.taken = true;
+        this.exitIsolation();
+        return;
+      } else if (ped.kind === 'marketplace') {   // the folding table of destiny
+        if (this.lockCd <= 0) { this.lockCd = 1.2; this.showEnrollWindow(); return; }
+      } else if (ped.kind === 'session') {   // the group session: someone's about to have a breakthrough
+        if (this.lockCd <= 0) { this.lockCd = 1.2; this.showSession(ped); return; }
       } else if (ped.kind === 'tube') {   // the mail system predates OSHA
         if (this.lockCd <= 0) { this.lockCd = 1.0; this.showTubes(); return; }
       } else if (ped.kind === 'picket') {   // walk the lap
@@ -6202,7 +6384,7 @@ const G = {
     // union trigger: a big room, a long fight, an idea spreads
     if (!this._unionTried && this.room && !this.room.cleared && (this.room.type === 'normal' || this.room.type === 'padded') && (this.t - (this._roomT0 || 0)) > 6) {
       this._unionTried = true;
-      const live = this.enemies.filter(e => !e.dying && !e.fake && !e.charmed && e.spawnT <= 0 && e.id !== 'auditor' && e.id !== 'collector' && e.id !== 'middleman').length;
+      const live = this.enemies.filter(e => !e.dying && !e.fake && !e.charmed && e.spawnT <= 0 && e.id !== 'auditor' && e.id !== 'collector' && e.id !== 'middleman' && e.id !== 'goose').length;
       if (live >= 4 && Math.random() < 0.12) this.unionize();
     }
     // THE INSPECTION: the tour, in progress
@@ -6575,7 +6757,7 @@ const G = {
 
   /* ---------- THE UNION (the room organizes; you fight it or you settle) ---------- */
   unionize() {
-    const live = this.enemies.filter(e => !e.dying && !e.fake && !e.charmed && e.spawnT <= 0 && e.id !== 'auditor' && e.id !== 'collector' && e.id !== 'middleman' && !e._form);
+    const live = this.enemies.filter(e => !e.dying && !e.fake && !e.charmed && e.spawnT <= 0 && e.id !== 'auditor' && e.id !== 'collector' && e.id !== 'middleman' && e.id !== 'goose' && !e._form);
     if (live.length < 4) return;
     let rep = live[0];
     for (const e of live) if (e.hp > rep.hp) rep = e;
@@ -6758,7 +6940,7 @@ const G = {
   },
   overtimeUpdate(dt) {
     const OT = this.overtime; if (!OT) return;
-    const live = this.enemies.some(e => !e.dying && e.id !== 'auditor' && e.id !== 'collector' && e.id !== 'middleman') || (this.boss && !this.boss.dead);
+    const live = this.enemies.some(e => !e.dying && e.id !== 'auditor' && e.id !== 'collector' && e.id !== 'middleman' && e.id !== 'goose') || (this.boss && !this.boss.dead);
     if (live) return;
     OT.spawnT -= dt;
     if (OT.spawnT > 0) return;
@@ -6930,7 +7112,7 @@ const G = {
   },
   amaUpdate(dt) {
     const A = this.amaRun; if (!A || A.done) return;
-    const live = this.enemies.some(e => !e.dying && e.id !== 'auditor' && e.id !== 'collector' && e.id !== 'middleman');
+    const live = this.enemies.some(e => !e.dying && e.id !== 'auditor' && e.id !== 'collector' && e.id !== 'middleman' && e.id !== 'goose');
     if (live) return;
     if (A.wave >= A.total) {   // all waves down — the exit opens
       A.done = true;

@@ -260,6 +260,18 @@ keyboard and mouse.
 - **🎓 THE GRADUATE (playable)** — the 14th patient file, unlocked by graduating your Intern:
   scrubs, a laminated badge, boomerang chart-throws that hit going out AND coming back, and a
   panic sprint when hurt. They still count the floors.
+- **🚪 THE ISOLATION WING** — a reinforced door on some floors: ENTER ALONE. Your allies, pets,
+  and familiars wait outside while you solo a room of champions for a boss-shelf reward and
+  Insight. The sign is load-bearing.
+- **🤝 THE BREAKTHROUGH** — Day Rooms sometimes host a group session where one of your recruited
+  allies says the true thing out loud and permanently changes: HARDER (+35% damage), TOUGHER
+  (+3 health), or STEADY (enemies near them slow down — it's the calm).
+- **🪿 THE GOOSE** — occasionally a goose is loose on a ward. Not a symptom. Not billed. It
+  steals exactly one of your pickups and honks. Catch it and everything comes back with interest,
+  out of spite. Untitled Goose Achievement included.
+- **📋 SPECIAL ENROLLMENT** — a folding table appears mid-run: switch insurance plans for 8¢
+  (qualifying Life Event: "everything"). Joining Gold still costs a heart container, as is
+  tradition. No refunds on hearts previously surrendered.
 - **🔧 STAFF ONLY** — a full Game Tester hub on the title screen, behind a secret code, organized
   into five tabs. **PLAY**: sandbox any patient at any ward with loadout presets (kitted, glass
   cannon, tank, or hand-picked meds) — the save is snapshot-frozen throughout. **BOSS LAB**:

@@ -501,6 +501,8 @@ DATA.ACHIEVEMENTS = [
   { id: 'wokeUp',     name: "Slept On It",          desc: "Wake from THE NIGHTMARE holding its prescription.", hint: "Sometimes the bed goes wrong. Go down anyway.", check: m => (m.nightmareRx || 0) >= 1 },
   { id: 'subStash',   name: "Another Basement",     desc: "Reach the Janitor's stash below the basement.",  hint: "He told you there's another basement. The hole is behind the shelves.", check: m => (m.subStash || 0) >= 1 },
   { id: 'onboarded87', name: "Fully Oriented",      desc: "Watch WELCOME TO THE WARD (1987) to the end.",   hint: "The tape is at the front desk. Nobody has ever finished it. Be the first.", check: m => !!m.orientationDone },
+  { id: 'heldAlone',  name: "Held It Alone",         desc: "Clear the Isolation Wing solo.",              hint: "The door says ENTER ALONE. It means it. So can you.", check: m => (m.isolations || 0) >= 1 },
+  { id: 'untitled',   name: "Untitled Goose Achievement", desc: "Catch THE GOOSE.",                     hint: "It has your stuff. It is not sorry.", check: m => (m.gooseCaught || 0) >= 1 },
   { id: 'goodOptics', name: "Excellent Optics",     desc: "Clear a room untouched while the Open House tour watches.", hint: "Admissions brings families through sometimes. Look treated.", check: m => (m.optics || 0) >= 1 },
   { id: 'sugarPill',  name: "It Was Sugar",        desc: "Complete a Clinical Trial that turns out to be the placebo.", hint: "Enroll with the Drug Rep. Believe hard.", check: m => (m.placeboDone || 0) >= 1 },
   { id: 'reRead',     name: "Second Read",         desc: "Let THE SCANNER re-interpret a prescription.",    hint: "A rare imaging suite. It sees something different every time.", check: m => (m.scans || 0) >= 1 },
@@ -594,6 +596,8 @@ DATA.ENEMIES = {
   auditor:  { name: "THE AUDITOR", hp: 135, spd: 58, r: 22, dmg: 1, beh: 'auditor', clr: '#a8a29a', shotCd: 3.4, bulSpd: 195 },
   /* --- the price parasite (one room per PBM floor — hunt him) --- */
   middleman:{ name: "THE MIDDLEMAN", hp: 45, spd: 132, r: 15, dmg: 0, beh: 'pbm', clr: '#b0a468' },
+  /* --- the goose. no further explanation. --- */
+  goose:    { name: "THE GOOSE", hp: 26, spd: 150, r: 13, dmg: 0, beh: 'goose', clr: '#e8e4da' },
   /* --- the debt made flesh (spawns while you owe the Financing Desk) --- */
   collector:{ name: "THE COLLECTOR", hp: 30, spd: 96, r: 16, dmg: 1, beh: 'thief', clr: '#8a6a9a' },
   /* --- your rival (duels only — never in random pools) --- */
@@ -1061,6 +1065,7 @@ DATA.CODEX_CHART = {
     waitingnum: "NOW SERVING #47. You are #112. When the counter hits zero, everyone loses it.",
     auditor: "It found a discrepancy. It follows you room to room until the books balance. The books are you.",
     middleman: "The Pharmacy Benefits Manager. Adds 40% to every price on the floor and cannot explain what he does. Runs when seen. Has vents. Pop him and watch the prices exhale.",
+    goose: "Not a symptom. Not a patient. Not billed. It takes exactly one of your things and it honks. Catching it is an achievement in the technical sense and the clinical one.",
     collector: "The financing plan, personified. He doesn't fight — he FOLLOWS, and every floor you still owe, he comes back bigger. Killing him does nothing. The DEBT is the monster.",
     chargenurse: "Runs the floor. Sees everything. If you're moving, you're a problem — and she solves problems.",
     resident: "Thirty hours into the shift, doing an impression of every boss he's ever seen. Badly.",

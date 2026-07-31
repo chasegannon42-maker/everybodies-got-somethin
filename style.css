@@ -451,6 +451,8 @@ body.touch.inrun #padLand { display: block; }
 .talnode.cap.locked { background: #f3ecdc; }
 /* keep the portrait deck's 4 action buttons compact */
 .deckmid .deckbtn { padding: 8px 6px; }
+/* the Waiting Room has no pills or claims — hide run-only buttons, keep OPEN + pause */
+body.inhub #btnPillD, body.inhub #btnBombD, body.inhub #btnPillL, body.inhub #btnBombL { display: none; }
 
 /* ============ THE PATIENT HANDBOOK (Form EGS-1) ============ */
 .panel.hb { max-width: 920px; width: min(97vw, 920px); }

@@ -2306,6 +2306,47 @@ const Render = {
         if (U.dist(G.player.x, G.player.y, ped.x, ped.y) < 90) { ctx.fillStyle = '#e8c84c'; ctx.font = this.font(10, true); ctx.fillText('it\'s leaning like it\'s yours', ped.x, ped.y + 42); }
         continue;
       }
+      if (ped.kind === 'isodoor' || ped.kind === 'isoexit') {   // the honest door
+        this.shadow(ped.x, ped.y + 26, 20, 6, 0.24);
+        ctx.save(); ctx.translate(ped.x, ped.y);
+        ctx.fillStyle = '#6a6472'; this.rr(ctx, -22, -34, 44, 62, 4); ctx.fill();
+        ctx.strokeStyle = '#3c3844'; ctx.lineWidth = 3; this.rr(ctx, -22, -34, 44, 62, 4); ctx.stroke();
+        ctx.fillStyle = 'rgba(200,208,220,0.4)'; this.rr(ctx, -8, -26, 16, 12, 6); ctx.fill();   // the little window
+        for (const rx2 of [-16, 16]) { ctx.fillStyle = '#8a8492'; ctx.beginPath(); ctx.arc(rx2, 0, 2.5, 0, TAU); ctx.fill(); }   // rivets
+        ctx.fillStyle = '#e8dcc0'; this.rr(ctx, -18, 6, 36, 14, 2); ctx.fill();
+        ctx.fillStyle = '#a03030'; ctx.font = 'bold 6px "Arial Black",sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText(ped.kind === 'isodoor' ? 'ENTER ALONE' : 'REJOIN THEM', 0, 14.5);
+        ctx.restore();
+        if (U.dist(G.player.x, G.player.y, ped.x, ped.y) < 84) { ctx.fillStyle = '#e8c84c'; ctx.font = this.font(10, true); ctx.textAlign = 'center'; ctx.fillText(ped.kind === 'isodoor' ? 'walk up · the sign means it' : 'walk up · everyone is waiting', ped.x, ped.y + 44); }
+        continue;
+      }
+      if (ped.kind === 'marketplace') {   // the folding table of destiny
+        this.shadow(ped.x, ped.y + 20, 26, 7, 0.2);
+        ctx.save(); ctx.translate(ped.x, ped.y);
+        ctx.fillStyle = '#c8c2b4'; this.rr(ctx, -30, -4, 60, 8, 2); ctx.fill();   // the table
+        ctx.strokeStyle = '#8a8478'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(-24, 4); ctx.lineTo(-28, 22); ctx.moveTo(24, 4); ctx.lineTo(28, 22); ctx.stroke();   // folding legs
+        ctx.fillStyle = '#8fd0e0'; this.rr(ctx, -22, -26, 44, 20, 2); ctx.fill();   // the banner
+        ctx.fillStyle = '#1c3a44'; ctx.font = 'bold 6px "Arial Black",sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText('SPECIAL', 0, -18.5); ctx.fillText('ENROLLMENT', 0, -11.5);
+        ctx.fillStyle = '#f4eee0'; this.rr(ctx, -10, -8, 20, 5, 1); ctx.fill();   // the one-field form
+        ctx.restore();
+        if (U.dist(G.player.x, G.player.y, ped.x, ped.y) < 84) { ctx.fillStyle = '#e8c84c'; ctx.font = this.font(10, true); ctx.textAlign = 'center'; ctx.fillText('walk up · switch plans (8¢)', ped.x, ped.y + 40); }
+        continue;
+      }
+      if (ped.kind === 'session') {   // the circle of chairs, one of them about to matter
+        this.shadow(ped.x, ped.y + 18, 26, 7, 0.18);
+        for (let i = 0; i < 5; i++) {
+          const a = (i / 5) * TAU + G.t * 0.15;
+          const cx2 = ped.x + Math.cos(a) * 30, cy2 = ped.y + Math.sin(a) * 18;
+          ctx.fillStyle = '#8a7460'; this.rr(ctx, cx2 - 6, cy2 - 8, 12, 12, 2); ctx.fill();
+          ctx.fillStyle = '#6a5848'; this.rr(ctx, cx2 - 6, cy2 - 14, 12, 5, 2); ctx.fill();
+        }
+        ctx.fillStyle = '#c8b8d8'; ctx.font = this.font(10, true); ctx.textAlign = 'center';
+        ctx.fillText('GROUP SESSION', ped.x, ped.y - 30);
+        if (U.dist(G.player.x, G.player.y, ped.x, ped.y) < 84) { ctx.fillStyle = '#e8c84c'; ctx.font = this.font(10, true); ctx.fillText('walk up · someone has a breakthrough', ped.x, ped.y + 38); }
+        continue;
+      }
       if (ped.kind === 'tube') {   // the 1962 mail system, still humming
         this.shadow(ped.x, ped.y + 26, 16, 5, 0.22);
         ctx.save(); ctx.translate(ped.x, ped.y);
@@ -3833,6 +3874,21 @@ const Render = {
         ctx.strokeStyle = '#8a6a2a'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(0, 4, 7 * bulge, 8.5 * bulge, 0, 0, TAU); ctx.stroke();
         ctx.fillStyle = '#8a6a2a'; ctx.font = this.font(9, true); ctx.textAlign = 'center'; ctx.fillText('¢', 0, 7);
         ctx.restore();
+        break;
+      }
+      case 'goose': { // it is exactly what it looks like
+        ctx.rotate(Math.sin(G.t * 8) * 0.05);
+        ctx.fillStyle = flash ? '#fff' : '#eeeae0';
+        ctx.beginPath(); ctx.ellipse(0, 3, e.r, e.r * 0.75, 0, 0, TAU); ctx.fill();   // body
+        ctx.beginPath(); ctx.ellipse(-e.r * 0.8, -6, 4.5, 7, -0.3, 0, TAU); ctx.fill();   // neck up
+        ctx.beginPath(); ctx.arc(-e.r * 0.95, -13, 4.5, 0, TAU); ctx.fill();   // head
+        ctx.fillStyle = '#e0913a'; ctx.beginPath(); ctx.moveTo(-e.r * 0.95 - 4, -13); ctx.lineTo(-e.r * 0.95 - 12, -11.5); ctx.lineTo(-e.r * 0.95 - 4, -10); ctx.closePath(); ctx.fill();   // the bill
+        ctx.fillStyle = '#2c2333'; ctx.beginPath(); ctx.arc(-e.r * 0.95 - 1, -14.5, 1.1, 0, TAU); ctx.fill();   // the eye. it has plans.
+        ctx.fillStyle = '#d8d2c4'; ctx.beginPath(); ctx.ellipse(2, 1, e.r * 0.55, e.r * 0.4, 0.3, 0, TAU); ctx.fill();   // folded wing
+        ctx.strokeStyle = '#e0913a'; ctx.lineWidth = 2; ctx.lineCap = 'round';   // busy little legs
+        const st = Math.sin(e.t * 14) * 3;
+        ctx.beginPath(); ctx.moveTo(-3, e.r * 0.7); ctx.lineTo(-3 + st, e.r * 0.7 + 6); ctx.moveTo(3, e.r * 0.7); ctx.lineTo(3 - st, e.r * 0.7 + 6); ctx.stroke(); ctx.lineCap = 'butt';
+        if (e._loot) { ctx.fillStyle = '#e8c84c'; ctx.beginPath(); ctx.arc(-e.r * 0.95 - 9, -8, 3, 0, TAU); ctx.fill(); }   // your thing, in the bill's custody
         break;
       }
       case 'middleman': { // the PBM: a suit, a briefcase, a bead of sweat, zero value added

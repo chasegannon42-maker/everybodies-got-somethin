@@ -87,7 +87,7 @@ window.__bot = (function(){
         this._roomT=0;
       }
       let vx=0,vy=0;
-      const live=G.enemies.filter(e=>!e.dying&&!e.charmed&&!e.fake&&e.spawnT<=0&&e.id!=='auditor'&&e.id!=='collector'&&e.id!=='middleman');
+      const live=G.enemies.filter(e=>!e.dying&&!e.charmed&&!e.fake&&e.spawnT<=0&&e.id!=='auditor'&&e.id!=='collector'&&e.id!=='middleman'&&e.id!=='goose');
       const boss=G.boss&&!G.boss.dead?G.boss:null;
       let foe=null;
       if(boss&&(!live.length||U.dist(p.x,p.y,boss.x,boss.y)<300)) foe=boss;
@@ -167,7 +167,7 @@ window.__bot = (function(){
       const ne=healer||this.nearest(live,p);
       if(ne&&(!shootAt||U.dist(p.x,p.y,ne.x,ne.y)<U.dist(p.x,p.y,shootAt.x,shootAt.y)*0.7)) shootAt=ne;
       if(!shootAt&&boss) shootAt=boss;
-      if(!shootAt){ const anyE=this.nearest(G.enemies.filter(e=>!e.dying&&!e.charmed&&e.spawnT<=0&&e.id!=='auditor'&&e.id!=='collector'&&e.id!=='middleman'),p); if(anyE) shootAt=anyE; }
+      if(!shootAt){ const anyE=this.nearest(G.enemies.filter(e=>!e.dying&&!e.charmed&&e.spawnT<=0&&e.id!=='auditor'&&e.id!=='collector'&&e.id!=='middleman'&&e.id!=='goose'),p); if(anyE) shootAt=anyE; }
       if(shootAt&&!p.flags.pacifist){
         if(this.losBlocked(p,shootAt)) this._losT++; else this._losT=0;
         if(this._losT>60){
@@ -205,6 +205,9 @@ window.__bot = (function(){
       if(st==='finance'){ const b=document.getElementById('bFinBack'); if(b){b.click(); this.rep.events.push('loan-declined');} return true; }
       if(st==='tubes'){ const b=document.getElementById('bTubeBack'); if(b){b.click(); this.rep.events.push('tube-declined');} return true; }
       if(st==='scabgate'){ const b=document.getElementById('bScabNo'); if(b){b.click(); this.rep.events.push('line-respected');} return true; }
+      if(st==='isolation'){ const b=document.getElementById('bIsoNo'); if(b){b.click(); this.rep.events.push('iso-declined');} return true; }
+      if(st==='enrollwin'){ const b=document.getElementById('bMktBack'); if(b){b.click(); this.rep.events.push('plan-kept');} return true; }
+      if(st==='session'){ const b=document.getElementById('bSessBack'); if(b){b.click(); this.rep.events.push('session-skipped');} return true; }
       if(st==='cutscene'){ Story.skipScene(); return true; }
       if(st==='event'){ const c=document.querySelector('.cmcard'); if(c){c.click(); this.rep.events.push('event');} else { G.hideOverlay(); G.state='run'; } return true; }
       if(st==='ending'){ const b=document.getElementById('bEndKeep'); if(b){b.click(); this.rep.events.push('ending-keep');} return true; }
@@ -251,7 +254,7 @@ window.__bot = (function(){
           this.rep.maxDepth=Math.max(this.rep.maxDepth,G.depth);
           // silent-idle watchdog: cleared room, nothing to fight, nowhere to go
           if(st==='run'&&this.rep.steps%20===0){
-            const noExit=G.room&&G.room.cleared&&!G.enemies.some(e=>!e.dying&&e.id!=='auditor'&&e.id!=='collector'&&e.id!=='middleman')&&!G.trapdoor
+            const noExit=G.room&&G.room.cleared&&!G.enemies.some(e=>!e.dying&&e.id!=='auditor'&&e.id!=='collector'&&e.id!=='middleman'&&e.id!=='goose')&&!G.trapdoor
               &&!(G.peds||[]).some(d=>!d.taken&&(d.kind==='item'||d.kind==='boss'||d.kind==='npc'||d.kind==='recruit'||d.kind==='cooler'))
               &&!this.doorTarget();
             this._idleT=noExit?(this._idleT||0)+20:0;
