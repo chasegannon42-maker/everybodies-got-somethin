@@ -616,6 +616,7 @@ class Player {
       };
       for (const e of G.enemies) consider(e);
       if (G.boss && !G.boss.dead && G.boss.vulnerable !== false) consider(G.boss);
+      if (G.boss2 && !G.boss2.dead && G.boss2.vulnerable !== false) consider(G.boss2);
       if (best) { const na = U.ang(this.x, this.y, best.x, best.y); aim = { x: Math.cos(na), y: Math.sin(na) }; }
     }
     if (aim) this.aimAng = Math.atan2(aim.y, aim.x);
@@ -863,6 +864,14 @@ class Tear {
       this.splash(G);
       return;
     }
+    // JOINT COMMISSION: the second manager is billable too
+    if (G.boss2 && !G.boss2.dead && G.boss2.vulnerable && !this._hitBoss2 && U.dist(this.x, this.y, G.boss2.x, G.boss2.y) < this.r + G.boss2.r) {
+      G.boss2.hurt(this.dmg, G);
+      if (G.player.flags.burnTears && U.chance(0.25)) { G.boss2._burn = 3; G.boss2._burnDps = Math.max(0.6, G.player.dmg * 0.4); }
+      if (this._pierce > 0) { this._pierce--; this._hitBoss2 = true; return; }
+      this.splash(G);
+      return;
+    }
   }
   splash(G) {
     this.dead = true;
@@ -998,6 +1007,7 @@ class Enemy {
       let tgt = null, bd = 1e9;
       for (const e of G.enemies) { if (e === this || e.charmed || e.dying || e.fake || e.spawnT > 0) continue; const d = U.dist(this.x, this.y, e.x, e.y); if (d < bd) { bd = d; tgt = e; } }
       if (G.boss && !G.boss.dead && G.boss.vulnerable !== false) { const d = U.dist(this.x, this.y, G.boss.x, G.boss.y); if (d < bd) { bd = d; tgt = G.boss; } }
+      if (G.boss2 && !G.boss2.dead && G.boss2.vulnerable !== false) { const d = U.dist(this.x, this.y, G.boss2.x, G.boss2.y); if (d < bd) { bd = d; tgt = G.boss2; } }
       if (tgt) {
         this.charmIdleT = 0;
         const a = U.ang(this.x, this.y, tgt.x, tgt.y);
@@ -1015,6 +1025,17 @@ class Enemy {
     if (this._shieldT > 0) this._shieldT -= dt;   // Wellness Bot aura fades if the bot stops tending you
     if (this._enraged > 0) this._enraged -= dt;   // Now Serving enrage wears off
     if (this._dazeT > 0) { this._dazeT -= dt; return; }   // the Goldfish made it forget what it was doing
+    // INCIDENT SITE guard: dozing at the scene until you get too close
+    if (this._asleep) {
+      if (U.dist(this.x, this.y, p.x, p.y) < 135) {
+        this._asleep = false;
+        if (G.room) G.room.cleared = false;
+        G.setBanner('🚧 THE SCENE IS ACTIVE', 'the guard noticed you noticing', 2.2);
+        G.toast('“Sir. SIR. This is an active incident.”', '#e0a05a');
+        SFX.play('boss');
+      }
+      return;
+    }
     // status effects: chill stacks decay, burn ticks
     if (this._chill > 0) { this._chillT -= dt; if (this._chillT <= 0) { this._chill--; this._chillT = 1.2; } }
     if (this._burn > 0) {
@@ -1435,6 +1456,7 @@ class Enemy {
 
   hurt(d, G, quiet) {
     if (this.dying || this.spawnT > 0.3) return;
+    if (this._asleep) { this._asleep = false; if (G.room) G.room.cleared = false; G.toast('“Oh, we\'re DOING this at a scene.”', '#e0a05a'); SFX.play('boss'); }   // rude awakening
     // THE UNION: an injury to one is routed to the rep (solidarity, structurally)
     if (this._union && !this._unionRep && G._union && G._union.rep && !G._union.rep.dying && d < 9999) {
       G.parts.push(new Particle(this.x, this.y, (G._union.rep.x - this.x) * 2, (G._union.rep.y - this.y) * 2, 0.25, '#e0a05a', 2.5));

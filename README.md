@@ -95,6 +95,17 @@ keyboard and mouse.
 - **📋 Patient Chart** — a codex of every patient, boss, med, and pill you've met; completing a
   tab pays out a permanent perk. **📊 Run History** keeps your real win-rate receipts, and a
   **speedrun timer with splits** is one Settings toggle away.
+- **🕹 The Breakroom Cabinet** — a real playable arcade machine in the hub: **PILL CATCHER**,
+  45 seconds of catching scripts in a kidney dish while dodging RECALLS. 2¢ a play from the Fund,
+  persistent high score, Insight milestones — and your rival's score is taped to the screen.
+- **🏥 Joint Commission** — past Ward 15, some boss rooms hold **two managers at once**
+  ("consolidated care"): one opens while the other reviews your file, kill one and the survivor
+  gets furious, clear both for a double payout.
+- **⚗ The Compounding Pharmacist** — a back room behind some pharmacies (and the basement):
+  two meds enter, one mystery med from the good shelf leaves. FDA status: don't ask.
+- **🚧 The Incident Site** — where you died last run gets roped off at that exact ward: your
+  chalk outline, caution tape, numbered evidence tents, a flickering light, and a champion of
+  whatever killed you dozing on guard over one bagged item from your old build. Reclaim it.
 - **🏁 THE RIVAL** — someone checked in the same day as you, and the building keeps score. They
   burst into item rooms to race you to the pedestal, steal your prescription if they win, gloat
   over the intercom, and book the gym for a proper 1v1 — your mirror, with a grudge. Career

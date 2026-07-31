@@ -1008,6 +1008,152 @@ const G = {
   },
 
   /* ============================================================
+     THE BREAKROOM CABINET — "PILL CATCHER" (2¢ from the Fund,
+     45 seconds, 3 recalls and you're out. rival keeps score.)
+     ============================================================ */
+  _arcadeMeta() {
+    let A = Meta.data.arcade;
+    if (!A) A = Meta.data.arcade = { best: 0, plays: 0, dayKey: null, dayPaid: {}, rivalBeaten: 0 };
+    const key = this.todayKey();
+    if (A.dayKey !== key) { A.dayKey = key; A.dayPaid = {}; A.freeUsed = 0; }
+    return A;
+  },
+  arcadeRivalScore() {
+    const A = this._arcadeMeta();
+    if (A.rivalBeaten) return A.rivalBeaten;   // frozen where you finally beat it
+    return Math.max(120, Math.ceil((A.best || 0) * 1.15 / 5) * 5);
+  },
+  showArcade() {
+    const A = this._arcadeMeta();
+    const R = this.ensureRival();
+    const fund = Meta.data.fund || 0;
+    const free = fund < 2 && !A.freeUsed;
+    this.state = 'arcademenu';
+    SFX.setMusic('menu');
+    this.overlay(`
+      <div class="panel">
+        <h1 class="logo" style="font-size:26px">🕹 PILL CATCHER</h1>
+        <div class="tagline">the breakroom cabinet · catch the scripts · dodge the RECALLS</div>
+        <div class="stats-line">your best: <b>${A.best || 0}</b> · plays: ${A.plays || 0}</div>
+        <div class="stats-line" style="color:#d08a4a">${A.rivalBeaten ? '🏁 ' + R.name + ': ' + A.rivalBeaten + ' <s>(machine "broken," allegedly)</s>' : '🏁 taped to the screen: “' + R.name + ' — ' + this.arcadeRivalScore() + '. beat THAT.”'}</div>
+        <div class="stats-line" style="opacity:.7">score 100 → +◆2 · 250 → +◆5 · new best → +◆3 (daily)</div>
+        <button class="btn" id="bArcGo">▶ INSERT 2¢ ${free ? '(the janitor slips you a token)' : '(from the Fund · balance ' + fund + '¢)'}</button>
+        <button class="btn minor" id="bArcBack">BACK</button>
+        <div class="smallprint">move: WASD / left stick / drag. that's it. that's the machine.</div>
+      </div>`);
+    document.getElementById('bArcGo').onclick = () => {
+      const A2 = this._arcadeMeta();
+      if ((Meta.data.fund || 0) >= 2) { Meta.data.fund -= 2; }
+      else if (!A2.freeUsed) { A2.freeUsed = 1; this.toast('🧹 “On the house. Don\'t tell the jar.”', '#b8b0a0'); }
+      else { SFX.play('denied'); this.toast('The machine wants 2¢. The Fund has ' + (Meta.data.fund || 0) + '¢. The math is unkind.', '#e08a8a'); return; }
+      A2.plays = (A2.plays || 0) + 1;
+      Meta.save();
+      SFX.play('coin');
+      this.startArcade();
+    };
+    document.getElementById('bArcBack').onclick = () => { SFX.play('ui'); this.showHub(); };
+  },
+  startArcade() {
+    this.arcade = {
+      t: 45, score: 0, lives: 3, px: CW / 2, items: [], spawnT: 0.5,
+      speed: 1, catchFx: [], over: false, shake: 0
+    };
+    this.state = 'arcade';
+    this.hideOverlay();
+    document.body.classList.add('inrun');   // phones need the stick
+    SFX.setMusic('overtime');
+    SFX.play('stamp');
+  },
+  arcadeUpdate(dt) {
+    const A = this.arcade;
+    if (!A) { this.showHub(); return; }
+    if (Input.take('pause')) { document.body.classList.remove('inrun'); this.arcade = null; this.showArcade(); return; }
+    if (A.over) return;
+    A.t -= dt;
+    A.speed = 1 + (45 - A.t) * 0.028;
+    A.shake = Math.max(0, A.shake - dt * 30);
+    // paddle
+    const mv = Input.getMove();
+    A.px = U.clamp(A.px + mv.x * 340 * dt, RX + 40, RX + RW - 40);
+    // spawn
+    A.spawnT -= dt * A.speed;
+    if (A.spawnT <= 0) {
+      A.spawnT = U.rand(0.55, 0.85);
+      const roll = Math.random();
+      const kind = roll < 0.42 ? 'pill' : roll < 0.62 ? 'script' : roll < 0.74 ? 'nickel' : roll < 0.93 ? 'recall' : 'walrus';
+      A.items.push({ kind, x: U.rand(RX + 50, RX + RW - 50), y: 120, vy: U.rand(120, 165) * A.speed, rot: U.rand(0, TAU), vr: U.rand(-3, 3), colorIdx: U.randi(0, 9) });
+    }
+    // fall + catch
+    const catchY = CH - 120;
+    for (const it of A.items) {
+      it.y += it.vy * dt;
+      it.rot += it.vr * dt;
+      if (!it.dead && it.y > catchY - 18 && it.y < catchY + 26 && Math.abs(it.x - A.px) < 44) {
+        it.dead = true;
+        if (it.kind === 'recall') {
+          A.lives--; A.shake = 8;
+          A.catchFx.push({ x: it.x, y: catchY, txt: 'RECALL!', clr: '#e05a5a', t: 0.8 });
+          SFX.play('hurt');
+          if (A.lives <= 0) { this.endArcade(); return; }
+        } else {
+          const pts = it.kind === 'walrus' ? 50 : it.kind === 'nickel' ? 25 : it.kind === 'script' ? 15 : 10;
+          A.score += pts;
+          A.catchFx.push({ x: it.x, y: catchY, txt: '+' + pts, clr: it.kind === 'walrus' ? '#e8c84c' : '#8fd08a', t: 0.6 });
+          SFX.play(it.kind === 'walrus' ? 'fanfare' : 'coin');
+        }
+      }
+      if (it.y > CH - 60) it.dead = true;
+    }
+    A.items = A.items.filter(it => !it.dead);
+    for (const fx of A.catchFx) fx.t -= dt;
+    A.catchFx = A.catchFx.filter(fx => fx.t > 0);
+    if (A.t <= 0) this.endArcade();
+  },
+  endArcade() {
+    const A = this.arcade;
+    A.over = true;
+    const M = this._arcadeMeta();
+    const R = this.ensureRival();
+    const rivalScore = this.arcadeRivalScore();
+    const newBest = A.score > (M.best || 0);
+    if (newBest) M.best = A.score;
+    let paid = [];
+    const payTier = (tier, need, amt) => {
+      if (A.score >= need && !M.dayPaid[tier]) { M.dayPaid[tier] = 1; Meta.data.insight = (Meta.data.insight || 0) + amt; paid.push('+◆' + amt); }
+    };
+    payTier('t100', 100, 2);
+    payTier('t250', 250, 5);
+    if (newBest && !M.dayPaid.best) { M.dayPaid.best = 1; Meta.data.insight = (Meta.data.insight || 0) + 3; paid.push('+◆3 (new best)'); }
+    let rivalLine = '';
+    if (!M.rivalBeaten && A.score > rivalScore) {
+      M.rivalBeaten = A.score;
+      rivalLine = '🏁 ' + R.name + '\'s score: DEMOLISHED. They claim the buttons are "sticky."';
+      this.checkUnlocks();
+    }
+    Meta.save();
+    document.body.classList.remove('inrun');
+    this.state = 'arcademenu';
+    SFX.play(newBest ? 'fanfare' : 'stamp');
+    SFX.setMusic('menu');
+    this.overlay(`
+      <div class="panel">
+        <h1 class="logo" style="font-size:26px">🕹 ${A.lives <= 0 ? 'RECALLED' : 'TIME'}</h1>
+        <div class="tagline">final score: <b style="font-size:22px;color:#e8c84c">${A.score}</b>${newBest ? ' · NEW BEST' : ' · best: ' + M.best}</div>
+        ${paid.length ? `<div class="stats-line" style="color:#8fd08a">payout: ${paid.join(' · ')}</div>` : ''}
+        ${rivalLine ? `<div class="stats-line" style="color:#d08a4a">${rivalLine}</div>` : (M.rivalBeaten ? '' : `<div class="stats-line" style="opacity:.7">🏁 ${R.name}'s tape still reads ${rivalScore}</div>`)}
+        <button class="btn" id="bArcAgain">🔁 AGAIN (2¢)</button>
+        <button class="btn minor" id="bArcDone">HANG UP THE TRAY</button>
+      </div>`);
+    this.arcade = null;
+    document.getElementById('bArcAgain').onclick = () => {
+      const A2 = this._arcadeMeta();
+      if ((Meta.data.fund || 0) >= 2) { Meta.data.fund -= 2; A2.plays++; Meta.save(); SFX.play('coin'); this.startArcade(); }
+      else { SFX.play('denied'); this.toast('The Fund is out of change. The machine is unmoved.', '#e08a8a'); }
+    };
+    document.getElementById('bArcDone').onclick = () => { SFX.play('ui'); this.showHub(); };
+  },
+
+  /* ============================================================
      THE RIVAL (same intake day. identical files. one of you is
      "thriving," and they have opinions about which.)
      ============================================================ */
@@ -1061,6 +1207,48 @@ const G = {
       RC.exitVx = Math.cos(ea) * 240; RC.exitVy = 0;
     }
   },
+  /* ---------- THE COMPOUNDING PHARMACIST (two meds enter. one leaves.) ---------- */
+  showCompound(ped) {
+    const p = this.player;
+    const A = DATA.ITEMS[ped.a], B = DATA.ITEMS[ped.b];
+    if (!A || !B) { ped.taken = true; return; }
+    this.state = 'compound';
+    SFX.play('voice');
+    this.overlay(`
+      <div class="panel">
+        <h1 class="logo" style="font-size:24px">⚗ THE COMPOUNDING PHARMACIST</h1>
+        <div class="tagline">${U.choice(DATA.COMPOUND_LINES.greet)}</div>
+        <div class="summary" style="margin-top:8px">
+          <div class="sumrow"><span>🧪 ${A.name}</span><b><i style="opacity:.6">${A.quote || ''}</i></b></div>
+          <div class="sumrow"><span style="text-align:center;width:100%">＋</span><b></b></div>
+          <div class="sumrow"><span>🧪 ${B.name}</span><b><i style="opacity:.6">${B.quote || ''}</i></b></div>
+        </div>
+        <div class="tagline" style="opacity:.75">both are destroyed. what comes out is stronger, and a surprise, and technically a smoothie.</div>
+        <div class="cmgrid">
+          <button class="cmcard" id="bFuseGo"><div class="cmname" style="color:#b86bff">⚗ COMPOUND THEM — ${ped.price}¢</div><div class="cmdesc">One mystery med, from the good shelf.</div><div class="cmtag">FDA status: don't ask</div></button>
+          <button class="cmcard" id="bFuseNo"><div class="cmname">back away slowly</div><div class="cmdesc">The mortar is looking at you.</div><div class="cmtag">it remembers customers</div></button>
+        </div>
+      </div>`);
+    document.getElementById('bFuseGo').onclick = () => {
+      if (p.coins < ped.price) { SFX.play('denied'); this.toast('⚗ ' + DATA.COMPOUND_LINES.broke[0], '#e08a8a'); return; }
+      p.coins -= ped.price;
+      ped.taken = true;
+      const pool = DATA.pickPool('boss', p.items);
+      const outId = U.choice(pool.length ? pool : DATA.pickPool('special', p.items).length ? DATA.pickPool('special', p.items) : DATA.POOLS.special);
+      this.peds.push({ x: ped.x, y: U.clamp(ped.y - 60, RY + 40, RY + RH - 40), itemId: outId, kind: 'item', taken: false, _mystery: true });
+      Meta.data.compounds = (Meta.data.compounds || 0) + 1;
+      Meta.save();
+      this.checkUnlocks();
+      this.diaryNote('Let the back-room pharmacist fuse two meds into one. The smoke was normal, they said. Normal-ish.');
+      this.hideOverlay(); this.state = 'run';
+      this.toast('⚗ ' + U.choice(DATA.COMPOUND_LINES.fuse), '#b86bff');
+      this.shake = Math.max(this.shake, 6);
+      SFX.play('evolve');
+      for (let i = 0; i < 16; i++) this.parts.push(new Particle(ped.x + U.rand(-14, 14), ped.y - 30, U.rand(-60, 60), U.rand(-120, -30), U.rand(0.4, 0.9), U.choice(['#b86bff', '#8fd0e0', '#e8c84c']), 3));
+    };
+    document.getElementById('bFuseNo').onclick = () => { SFX.play('ui'); this.hideOverlay(); this.state = 'run'; };
+  },
+
   showRivalDuel(ped) {
     const R = this.ensureRival();
     this.state = 'rivalduel';
@@ -1217,6 +1405,9 @@ const G = {
     if (ks[1]) this.peds.push({ x: CW / 2 + 130, y: RY + RH / 2 - 20, itemId: ks[1], kind: 'shop', price: 8, taken: false });
     this.peds.push({ x: RX + 80, y: RY + 90, kind: 'diploma', taken: false });
     this.peds.push({ x: CW / 2, y: RY + 80, kind: 'basementexit', taken: false });
+    // the Compounding Pharmacist works out of the basement (of course they do)
+    const cbpool = U.shuffle([].concat(DATA.POOLS.special, DATA.POOLS.shop)).filter(id => !p.items.includes(id));
+    if (cbpool.length >= 2) this.peds.push({ x: RX + RW - 90, y: RY + RH / 2 + 40, kind: 'compound', a: cbpool[0], b: cbpool[1], price: 5, taken: false });
     this.pickups.push(new Pickup('full', CW / 2 - 40, RY + RH - 130));
     this.pickups.push(new Pickup('pill', CW / 2 + 40, RY + RH - 130));
     for (let i = 0; i < 3; i++) this.pickups.push(new Pickup('coin', CW / 2 + U.rand(-90, 90), RY + RH / 2 + 60));
@@ -1866,6 +2057,7 @@ const G = {
         { x: 480, y: 565, r: 44, door: false, label: '📋 COMPLAINTS', hint: Meta.data.pendingComplaint ? 'one pending' : 'file a grievance', act: () => this.showComplaints(() => this.showHub()) },
         { x: 660, y: 330, r: 46, door: false, label: '📔 PATIENT DIARY', hint: (Meta.data.diary || []).length ? (Meta.data.diary.length + ' entries · it kept writing') : 'it writes itself. about you.', act: () => this.showJournal(() => this.showHub()) },
         { x: 170, y: 218, r: 46, door: false, label: '🎁 GIFT SHOP', hint: 'fund: ' + (Meta.data.fund || 0) + '¢ · gifts deliver at check-in', act: () => this.showGiftShop(() => this.showHub()) },
+        { x: 745, y: 552, r: 42, door: false, label: '🕹 BREAKROOM', hint: (Meta.data.arcade && Meta.data.arcade.best ? 'PILL CATCHER · best ' + Meta.data.arcade.best : 'PILL CATCHER · 2¢ a play'), act: () => this.showArcade() },
         { x: 480, y: 628, r: 40, door: this.exitReady(), label: this.exitReady() ? '🚪 THE FRONT DOOR' : '🔒 FRONT DOOR', hint: this.exitReady() ? 'it\'s open. it\'s actually open.' : 'locked since intake', act: () => this.tryExit() }
       ]
     };
@@ -2189,6 +2381,13 @@ const G = {
       const losable = p.items.filter(id => DATA.ITEMS[id] && (DATA.ITEMS[id].pools || []).length);   // starters stay lost forever
       if (losable.length) { Meta.data.lostItem = U.choice(losable); }
     }
+    // THE INCIDENT SITE: where you fell gets roped off — next run, at that depth, it's still there
+    if (out === 'dead' && !this.dailyKind && !this.overtime && !this.practice && !this.sandbox && this.depth >= 2 && !this.ascent) {
+      const cause = p._lastSrc;
+      const guardId = (cause && DATA.ENEMIES[cause] && cause !== 'auditor' && cause !== 'form' && cause !== 'rival') ? cause : DATA.pickEnemy ? 'orderly' : 'orderly';
+      const losable2 = (p.items || []).filter(id => DATA.ITEMS[id] && (DATA.ITEMS[id].pools || []).length && id !== Meta.data.lostItem);
+      Meta.data.incident = { depth: this.depth, diag: p.baseDiag === 'undiag' ? 'undiag' : p.diag, cause: guardId, item: losable2.length ? U.choice(losable2) : null };
+    }
     const mode = this.overtime ? 'overtime' : this.customPlan ? 'custom' : this.protocol ? this.protocol : this.prognosis ? this.prognosis : this.chronic ? 'chronic' : this.bossRush ? 'bossrush' : this.dailyKind === 'daily' ? 'daily' : this.dailyKind === 'quarterly' ? 'quarterly' : this.dailyKind === 'challenge' ? 'challenge' : 'normal';
     if (this.prognosis) { const pb = Meta.data.prognosisBest || (Meta.data.prognosisBest = {}); pb[this.prognosis] = Math.max(pb[this.prognosis] || 0, this.depth); }
     const cured = !!this._runCured || out === 'cured';
@@ -2343,6 +2542,14 @@ const G = {
     }
     this.nightShift = nightNow;
     if (this.nightShift) this.floorDark = Math.max(this.floorDark, 0.26);
+    // THE INCIDENT SITE: your last death, roped off at this very depth
+    if (Meta.data.incident && Meta.data.incident.depth === this.depth && this.seed == null && !this.practice && !this.sandbox && !this.overtime && !this.bossRush && !this.ascent) {
+      const normalsI = this.floorRooms.filter(r => r.type === 'normal');
+      if (normalsI.length > 2) {
+        U.choice(normalsI).type = 'incident';
+        setTimeout(() => { if (this.state === 'run') this.toast('🚧 Somewhere on this ward, a room is roped off. It has your outline in it.', '#e0a05a'); }, 1200);
+      }
+    }
     // THE RIVAL books the gym (depth 3+, likelier if they robbed you at a pedestal)
     this.gymSet = false;
     if (this.seed == null && !this.practice && !this.sandbox && !this.overtime && !this.bossRush && this.depth >= 3 && U.chance(this._raceLostThisRun ? 0.5 : 0.2)) {
@@ -2426,6 +2633,13 @@ const G = {
     this.saveCheckpoint();   // floor-start checkpoint (Continue on the title)
   },
 
+  // JOINT COMMISSION helper: whichever partner is still standing (or null)
+  _jointSurvivor() {
+    if (this.boss2 && !this.boss2.dead) return this.boss2;
+    if (this.boss && !this.boss.dead && this.boss._joint) return this.boss;
+    return null;
+  },
+
   /* ---------- rooms ---------- */
   enterRoom(room, entryDir) {
     this.room = room;
@@ -2466,6 +2680,7 @@ const G = {
       if (room.type === 'normal' && !room.cleared) this.toast(this.player.mania ? '▲ mania rolls in' : '▼ the dip rolls in', this.player.mania ? '#e8c84c' : '#7a88b8');
     }
     this.boss = null;
+    this.boss2 = null;   // JOINT COMMISSION partner (deep-ward consolidations only)
     this.trapdoor = room.trapdoor || null;
     this.pickups = room.pickups;
     this.peds = room.peds;
@@ -2484,6 +2699,15 @@ const G = {
     if (p.pet) { p.pet.x = p.x - 30; p.pet.y = p.y + 14; p.pet.segs = []; }   // the animal keeps up
     if (this.p2) { this.p2.x = U.clamp(p.x + 38, RX + 16, RX + RW - 16); this.p2.y = p.y; }   // Patient Two files in behind you
 
+    // INCIDENT SITE: the guard doesn't leave the scene (respawns if you step out and back in)
+    if (room._incident && !room._resolvedInc && room.spawned && !this.enemies.some(e => e._incGuard)) {
+      const inc = Meta.data.incident || {};
+      const gid = DATA.ENEMIES[inc.cause] ? inc.cause : 'orderly';
+      const guard = new Enemy(gid, CW / 2, RY + RH / 2 - 40, this.depth, false, 2.0, U.choice(DATA.ELITES).id);
+      guard._asleep = true; guard._incGuard = true; guard.spawnT = 0;
+      this.enemies.push(guard);
+      room.cleared = true;
+    }
     // THE AUDITOR follows you through the door
     if (this.auditorHp > 0 && !this.auditorDown) {
       const a = new Enemy('auditor', p.x < CW / 2 ? RX + RW - 70 : RX + 70, p.y < RY + RH / 2 ? RY + RH - 70 : RY + 70, this.depth, false, 1);
@@ -2527,6 +2751,23 @@ const G = {
           this.boss.sub = A.note;
         }
       }
+      // JOINT COMMISSION: past Ward 15, some rooms hold two managers (consolidated care)
+      this._wasJoint = false;
+      const JOINT_POOL = ['gatekeeper', 'larperking', 'adjuster', 'priorauth', 'stigma', 'dsm', 'algorithm', 'influencer', 'withdrawal', 'burnout', 'peerreview'];
+      if (this.depth >= 15 && JOINT_POOL.includes(this.bossId) && !this.practice && !this.overtime && !this.bossRush && this.genSeed(['joint', this.depth], () => U.chance(0.35))) {
+        const id2 = this.genSeed(['joint2', this.depth], () => U.choice(JOINT_POOL.filter(id => id !== this.bossId)));
+        try {
+          this.boss2 = new Boss(id2, this.depth, this);
+          this.boss2._joint = true; this.boss._joint = true; this._wasJoint = true;
+          this.boss.hp *= 0.82; this.boss.maxhp *= 0.82;
+          this.boss2.hp *= 0.82; this.boss2.maxhp *= 0.82;
+          this.boss.x = CW / 2 - 120; this.boss2.x = CW / 2 + 120;
+          this.boss2.introT = 0;              // one intro card covers the merger
+          this.boss2._wakeT = 3.6;            // reviewing its notes while the first one opens
+          this.toast('🏥 JOINT COMMISSION — consolidated care: two managers, one room, one paycheck.', '#c8a24a');
+          this.diaryNote('Two managers shared one room. They called it efficiency. I called it a Tuesday.');
+        } catch (e) { this.boss2 = null; }
+      }
       room.bossPending = false;
       SFX.play('vs');
       SFX.play('boss');
@@ -2543,6 +2784,14 @@ const G = {
     if (room.type === 'secret' && !room.greeted) { room.greeted = true; this.toast(DATA.TOASTS.secret); }
     if (room.type === 'oon' && !room.greeted) { room.greeted = true; this.toast(DATA.TOASTS.oon, '#e08a8a'); }
     if (room.type === 'gym' && !room.greeted) { room.greeted = true; this.toast('🥊 The gym. Someone chalked a name on the board. It\'s yours, misspelled.', '#d08a4a'); }
+    if (room.type === 'incident' && !room.greeted) {
+      room.greeted = true;
+      const inc = Meta.data.incident || {};
+      this.setBanner('🚧 THE INCIDENT SITE', 'this is where it happened. they kept your outline.', 3.0);
+      this.toast('🚧 ' + ((DATA.DIAG[inc.diag] || {}).name || 'Someone') + ', ward ' + (inc.depth || '?') + '. The report says “resolved.” The rope says otherwise.', '#e0a05a');
+      this.diaryNote('Found the room where I died last time. My outline was still there. It looked comfortable.');
+      SFX.play('sting');
+    }
     // THE RIVAL heard there's a pedestal in here
     if (room.type === 'item' && !room._raced && this.seed == null && !this.practice && !this.sandbox && !this.overtime && !this.bossRush && this.depth >= 2 && (this._races || 0) < 2 && !this.race) {
       const rped = this.peds.find(pd => pd.kind === 'item' && !pd.taken && !pd.price);
@@ -2620,6 +2869,11 @@ const G = {
           room.peds.push({ x: RX + 110, y: yi, kind: 'restock', price: px(6), taken: false });
         }
         if (U.chance(0.3)) room.peds.push({ x: RX + RW - 90, y: yi, kind: U.choice(['vending', 'horoscope']), taken: false, uses: 3 });   // commissary corner
+        // THE COMPOUNDING PHARMACIST: a back room, sometimes, if you look like the type
+        if (this.depth >= 4 && U.chance(0.25)) {
+          const cpool = U.shuffle([].concat(DATA.POOLS.special, DATA.POOLS.shop)).filter(id => !p.items.includes(id));
+          if (cpool.length >= 2) room.peds.push({ x: RX + RW - 90, y: RY + RH - 80, kind: 'compound', a: cpool[0], b: cpool[1], price: px(6), taken: false });
+        }
         this.shopStock = room.stock;
         break;
       }
@@ -2673,6 +2927,22 @@ const G = {
         room.cleared = true;
         if (!room._dueled) { room._dueled = true; room.peds.push({ x: CW / 2, y: RY + RH / 2 - 20, kind: 'rivalduel', taken: false }); }
         room.pickups.push(new Pickup('half', RX + 90, RY + RH - 90));   // the water fountain works, at least
+        break;
+      }
+      case 'incident': {   // THE INCIDENT SITE — roped off, guarded, still yours
+        room.cleared = true;   // quiet until the guard notices you
+        const inc = Meta.data.incident || {};
+        const gid = DATA.ENEMIES[inc.cause] ? inc.cause : 'orderly';
+        const guard = new Enemy(gid, CW / 2, RY + RH / 2 - 40, this.depth, false, 2.0, U.choice(DATA.ELITES).id);
+        guard._asleep = true; guard._incGuard = true; guard.spawnT = 0;
+        this.enemies.push(guard);
+        room._incident = true;
+        if (inc.item && DATA.ITEMS[inc.item]) {
+          room.peds.push({ x: CW / 2, y: RY + RH / 2 + 60, itemId: inc.item, kind: 'item', taken: false, _evidence: true });
+        } else {
+          for (let i = 0; i < 3; i++) room.pickups.push(new Pickup('coin', CW / 2 + U.rand(-40, 40), RY + RH / 2 + 60));
+          room.pickups.push(new Pickup('half', CW / 2, RY + RH / 2 + 90));
+        }
         break;
       }
       case 'clinic': {   // The Clinic — a miniboss is holding office hours
@@ -2796,6 +3066,18 @@ const G = {
       this.toast('🪪 Someone small is hiding behind the pedestal. They have a NEW badge.', '#e8c05a');
       SFX.play('voice');
     }
+    // THE INCIDENT SITE: cleared — the scene is released
+    if (room._incident && !room._resolvedInc) {
+      room._resolvedInc = true;
+      Meta.data.incident = null;
+      Meta.data.incidentsCleared = (Meta.data.incidentsCleared || 0) + 1;
+      Meta.data.insight = (Meta.data.insight || 0) + 4;
+      Meta.save();
+      this.checkUnlocks();
+      this.toast('🚧 Scene released. +◆4. The outline stays — it\'s load-bearing now.', '#8fd08a');
+      this.diaryNote('Cleared my own incident site. Closure, with a copay.');
+      SFX.play('bell');
+    }
     // ROOM DESIGNER: the room is clear — leave a door back to the drafting table
     if (this.designTest && !room._dexit) {
       room._dexit = true;
@@ -2900,6 +3182,23 @@ const G = {
 
   onBossDead() {
     const room = this.room, p = this.player;
+    // JOINT COMMISSION: one manager down, the other one saw that
+    if (this.boss2 || (this.boss && this.boss.dead && this.boss._joint && this._jointSurvivor())) {
+      const survivor = this._jointSurvivor();
+      if (survivor) {
+        this.boss = survivor;
+        this.boss2 = null;
+        survivor._wakeT = 0;
+        survivor.aggr = (survivor.aggr || 1) * 1.15;
+        this.pickups.push(new Pickup('half', CW / 2, RY + RH / 2));
+        this.pickups.push(new Pickup('coin', CW / 2 - 22, RY + RH / 2 + 10));
+        this.pickups.push(new Pickup('coin', CW / 2 + 22, RY + RH / 2 + 10));
+        this.toast('🏥 One signature down. The co-signer is FURIOUS.', '#e0a05a');
+        SFX.play('sting');
+        SFX.setMusic(['founder', 'thesystem', 'thecure'].includes(this.bossId) ? 'superboss' : 'boss');
+        return;   // the room is not done with you
+      }
+    }
     // SPARRING: bow, towel off, back to the gallery
     if (this.practice) {
       room.cleared = true;
@@ -2926,6 +3225,19 @@ const G = {
       const BN = (DATA.BOSSES[this.bossId] || { name: this.bossId }).name;
       this.diaryNote('Put down ' + BN + (this.boss && this.boss._shift2 ? ' (working a double, no less)' : '') + ' on ward ' + this.depth + '. Management will send a replacement.');
       if (this.bossId === 'walrus') this.bingoEvent('walrus');
+    }
+    // JOINT COMMISSION cleared: two signatures, double severance
+    if (this._wasJoint) {
+      this._wasJoint = false;
+      Meta.data.jointsCleared = (Meta.data.jointsCleared || 0) + 1;
+      Meta.data.insight = (Meta.data.insight || 0) + 4;
+      Meta.save();
+      const poolJ = DATA.pickPool('boss', p.items);
+      this.peds.push({ x: CW / 2 - 90, y: RY + RH / 2 + 70, itemId: U.choice(poolJ.length ? poolJ : DATA.POOLS.special), kind: 'item', taken: false });
+      for (let i = 0; i < 4; i++) this.pickups.push(new Pickup('coin', CW / 2 + U.rand(-60, 60), RY + RH / 2 + U.rand(20, 60)));
+      this.toast('🏥 CONSOLIDATED PAYOUT — two managers, two severances, +◆4.', '#8fd08a');
+      this.diaryNote('Cleared a Joint Commission room. Two managers, one paycheck — mine, for once.');
+      this.checkUnlocks();
     }
     else {
       (Meta.data.sparedBosses || (Meta.data.sparedBosses = {}))[this.bossId] = 1;
@@ -3051,6 +3363,7 @@ const G = {
       if (U.dist(x, y, e.x, e.y) < rad + e.r) e.hurt(dmg, this, true);
     }
     if (this.boss && !this.boss.dead && U.dist(x, y, this.boss.x, this.boss.y) < rad + this.boss.r) this.boss.hurt(dmg, this);
+    if (this.boss2 && !this.boss2.dead && U.dist(x, y, this.boss2.x, this.boss2.y) < rad + this.boss2.r) this.boss2.hurt(dmg, this);
     // destroy tiles
     const room = this.room;
     for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
@@ -3290,6 +3603,7 @@ const G = {
       return;
     }
     if (this.state === 'hub') { this.t += dt; this.hubUpdate(dt); return; }
+    if (this.state === 'arcade') { this.t += dt; this.arcadeUpdate(dt); return; }
     if (this.state === 'appeal') { this.t += dt; this.appealUpdate(dt); return; }
     if (this.state === 'credits') { this.t += dt; this.creditsUpdate(dt); return; }
     if (this.state === 'exit') { this.t += dt; this.exitUpdate(dt); return; }
@@ -3333,6 +3647,12 @@ const G = {
     for (const e of this.enemies) e.update(dt * smf, this);
     this.enemies = this.enemies.filter(e => !e.dying);
     if (this.boss) this.boss.update(dt * smf, this);
+    if (this.boss2 && !this.boss2.dead) {   // the partner reviews its notes, then joins
+      if (this.boss2._wakeT > 0) {
+        this.boss2._wakeT -= dt * smf;
+        if (this.boss2._wakeT <= 0) { this.setBanner('📋 ' + ((DATA.BOSSES[this.boss2.id] || {}).name || 'THE PARTNER'), 'has finished reviewing your file', 2.0); SFX.play('boss'); }
+      } else this.boss2.update(dt * smf, this);
+    }
     for (const t of this.tears) t.update(dt, this);
     this.tears = this.tears.filter(t => !t.dead);
     for (const b of this.eBullets) b.update(dt * smf, this);
@@ -3428,7 +3748,7 @@ const G = {
       if (this._loneT > 14) for (const e of liveNow) e._impatient = true;   // even the symptoms get bored
     } else this._loneT = 0;
     const hostiles = this.enemies.some(e => !e.charmed && e.id !== 'auditor');   // the Auditor never blocks the doors — run if you want
-    if (!room.cleared && (room.type === 'normal' || room.type === 'padded' || room.type === 'clinic' || room.type === 'gym') && room.spawned && !hostiles) this.onRoomCleared();
+    if (!room.cleared && (room.type === 'normal' || room.type === 'padded' || room.type === 'clinic' || room.type === 'gym' || room.type === 'incident') && room.spawned && !hostiles) this.onRoomCleared();
     if (!room.cleared && room.type === 'boss' && this.boss && this.boss.dead && this.enemies.length === 0 && !room.cleared) {
       // onBossDead already ran via boss.die
     }
@@ -3539,7 +3859,7 @@ const G = {
           for (const o of this.peds) if (o.kind === 'shop' && o.variant) { o.itemId = src[i % src.length] || o.itemId; o.taken = false; i++; }
           SFX.play('coin'); this.toast('Shelves restocked.', '#9db85a');
         } else if (this.lockCd <= 0) { this.lockCd = 1.4; this.texts.push(new FloatText(ped.x, ped.y - 40, 'need ' + ped.price + '¢', '#e8c84c')); SFX.play('error'); }
-      } else if (ped.price && ped.kind !== 'janitor' && ped.kind !== 'boss') { // shop item (Brand or Generic), GoodRx coupon halves it
+      } else if (ped.price && ped.kind !== 'janitor' && ped.kind !== 'boss' && ped.kind !== 'compound') { // shop item (Brand or Generic), GoodRx coupon halves it
         const useCoupon = (p.coupons || 0) > 0;
         const price = useCoupon ? Math.max(1, Math.ceil(ped.price * 0.5)) : ped.price;
         if (p.coins >= price) {
@@ -3609,6 +3929,8 @@ const G = {
         this.diaryNote('Someone with a brand-new badge asked to follow me. I said the wrong thing: "sure."');
         this.toast('🪪 THE INTERN is shadowing you. Keep them alive for 3 floors. They panic. A lot.', '#e8c05a');
         SFX.play('voice');
+      } else if (ped.kind === 'compound') {   // the back room. the mortar. the smell of progress.
+        if (this.lockCd <= 0) { this.lockCd = 2.0; this.showCompound(ped); return; }
       } else if (ped.kind === 'rivalduel') {   // they've been stretching. audibly.
         if (this.lockCd <= 0) { this.lockCd = 2.0; this.showRivalDuel(ped); return; }
       } else if (ped.kind === 'designexit') {   // back to the drawing board (literally)
@@ -4935,7 +5257,7 @@ const G = {
     if (G.state === 'cutscene' && typeof Story !== 'undefined' && Story.active) {
       try { Story.update(dt); Story.draw(); } catch (e) { Story.active = false; if (G.showTitle) G.showTitle(); }
     } else {
-      if (G.state === 'run' || G.state === 'descend' || G.state === 'hub' || G.state === 'appeal' || G.state === 'credits' || G.state === 'exit') G.update(dt);
+      if (G.state === 'run' || G.state === 'descend' || G.state === 'hub' || G.state === 'appeal' || G.state === 'credits' || G.state === 'exit' || G.state === 'arcade') G.update(dt);
       Render.draw(G);
     }
     if (G.state === 'bestiary' && G._bestiary) {

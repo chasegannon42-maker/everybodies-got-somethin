@@ -148,7 +148,7 @@ class Boss {
     dt *= (this.aggr || 1); // endless: deeper bosses move & attack faster
     const p = G.player;
     // NEGOTIATION: at the end of the rope, some of them talk (once, not champions, not in OVERTIME)
-    if (!this._dealDone && DATA.BOSS_DEALS && DATA.BOSS_DEALS[this.id] && !this.affix && !G.overtime && !G.practice && this.hp < this.maxhp * 0.25 && !this.dead && G.state === 'run') {
+    if (!this._dealDone && DATA.BOSS_DEALS && DATA.BOSS_DEALS[this.id] && !this.affix && !G.overtime && !G.practice && !G.boss2 && this.hp < this.maxhp * 0.25 && !this.dead && G.state === 'run') {
       this._dealDone = true;
       this._dealHold = true;
       this.vulnerable = false;
@@ -156,6 +156,8 @@ class Boss {
       return;
     }
     if (this._dealHold) return;   // frozen mid-offer, hands visible
+    if (this.hp < this.maxhp * 0.5) this.phase = 2;
+    const P2 = this.phase === 2;
     // SECOND SHIFT: the early three, sixteen hours in — extra habits per boss
     if (this._shift2) {
       this._s2T = (this._s2T == null ? 5 : this._s2T) - dt;
@@ -188,9 +190,6 @@ class Boss {
       if (Math.random() < dt * 10) G.parts.push(new Particle(this.x + U.rand(-this.r * 0.6, this.r * 0.6), this.y + U.rand(-this.r * 0.6, 0), U.rand(-20, 20), U.rand(-80, -40), 0.4, U.chance(0.5) ? '#e8944a' : '#e0c050', 3.5));
       if (this.hp <= 0) { this.die(G); return; }
     }
-    if (this.hp < this.maxhp * 0.5) this.phase = 2;
-    const P2 = this.phase === 2;
-
     switch (this.id) {
       /* ---------- THE GATEKEEPER ---------- */
       case 'gatekeeper': {

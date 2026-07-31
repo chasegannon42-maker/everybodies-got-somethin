@@ -469,7 +469,11 @@ DATA.ACHIEVEMENTS = [
   { id: 'races5',     name: "Photo Finish",        desc: "Beat your rival to 5 prescriptions.",             hint: "When they burst in, stop aiming and RUN.",  check: m => !!(m.rival && (m.rival.raceW || 0) >= 5) },
   { id: 'retail8',    name: "Retail Therapy",      desc: "Buy 8 things from the Gift Shop.",                hint: "The fund was going to the walrus anyway.",  check: m => (m.giftBuys || 0) >= 8 },
   { id: 'nightOwl',   name: "Working Nights",      desc: "Clear 3 floors on the night shift (9pm–6am).",    hint: "The building keeps hours. Keep worse ones.", check: m => (m.nightFloors || 0) >= 3 },
-  { id: 'blackout',   name: "BLACKOUT",            desc: "Complete every square on a daily bingo card.",    hint: "The activities coordinator believes in you. Contractually.", check: m => (m.bingoBlackouts || 0) >= 1 }
+  { id: 'blackout',   name: "BLACKOUT",            desc: "Complete every square on a daily bingo card.",    hint: "The activities coordinator believes in you. Contractually.", check: m => (m.bingoBlackouts || 0) >= 1 },
+  { id: 'breakroom',  name: "Employee of the Break", desc: "Beat your rival's posted PILL CATCHER score.",  hint: "The machine in the breakroom. They taped their score to it.", check: m => !!(m.arcade && m.arcade.rivalBeaten) },
+  { id: 'twoBirds',   name: "Two Birds",           desc: "Clear a JOINT COMMISSION room (two bosses, one paycheck).", hint: "Past Ward 15, management consolidates.", check: m => (m.jointsCleared || 0) >= 1 },
+  { id: 'compound3',  name: "Ask Your Alchemist",  desc: "Have the Compounding Pharmacist fuse 3 meds.",    hint: "A back room behind some pharmacies. Two enter. One leaves.", check: m => (m.compounds || 0) >= 3 },
+  { id: 'sceneReturn', name: "Return To The Scene", desc: "Clear the Incident Site where you last died.",   hint: "They roped it off. Your outline is still there.", check: m => (m.incidentsCleared || 0) >= 1 }
 ];
 DATA.checkAchievements = function (m) {
   if (!m.unlocks) m.unlocks = {};
@@ -666,6 +670,13 @@ DATA.GIFTS = [
   { id: 'visitor',   icon: '🎫', name: 'Visitor Pass',       cost: 35, desc: 'One (1) guest may accompany the patient. The guest is armed.', fx: 'a random ally joins at check-in', quip: '“Visiting hours are whenever now. Nobody checks.”' },
   { id: 'chocolate', icon: '🍫', name: 'Contraband Chocolate', cost: 10, desc: 'Smuggled past the nutrition board in a get-well basket.', fx: 'a pre-identified pill + 2¢', quip: '“It\'s medicinal if you chew slowly.”' }
 ];
+
+/* ============ THE COMPOUNDING PHARMACIST (two meds enter. one leaves. don't ask.) ============ */
+DATA.COMPOUND_LINES = {
+  greet: ["“Back here. Quickly. The cameras sweep on the minute.”", "“You look like someone who reads warning labels as suggestions.”", "“Compounding is legal. THIS is compounding-adjacent.”"],
+  fuse: ["“They're reacting. That's normal. The smoke is normal. Stand back-ish.”", "“Molecularly speaking, these two always wanted each other.”", "“If anyone asks, this is a smoothie.”"],
+  broke: ["“No charity. The mortar has a mortgage.”"]
+};
 
 /* ============ WARD BINGO (the activities coordinator finally did something) ============ */
 DATA.BINGO_POOL = [
