@@ -85,6 +85,8 @@ const Render = {
       this.drawArcade(G);
     } else if (G.state === 'stairs') {
       this.drawStairs(G);
+    } else if (G.state === 'handoff') {
+      this.drawHandoff(G);
     } else if (G.state === 'appeal') {
       this.drawAppeal(G);
     } else if (G.state === 'credits') {
@@ -180,6 +182,70 @@ const Render = {
     }
     ctx.fillStyle = 'rgba(60,50,60,0.45)'; ctx.font = 'bold 10px "Trebuchet MS",sans-serif'; ctx.textAlign = 'right';
     if (T > 3) ctx.fillText('SPACE to continue', CW - 16, CH - 12);
+  },
+
+  /* ============ THE HANDOFF (he walks out. you stay. the floor is yours.) ============ */
+  drawHandoff(G) {
+    const ctx = this.ctx, T = G.handoffT || 0;
+    // the same morning HE never got to walk into — until now
+    const sky = ctx.createLinearGradient(0, 0, 0, CH);
+    sky.addColorStop(0, '#8fc4e8'); sky.addColorStop(0.55, '#e8d8b0'); sky.addColorStop(1, '#d8b890');
+    ctx.fillStyle = sky; ctx.fillRect(0, 0, CW, CH);
+    ctx.fillStyle = 'rgba(255,244,200,0.9)'; ctx.beginPath(); ctx.arc(CW * 0.78, 110, 46, 0, TAU); ctx.fill();
+    // the building, with you still in it
+    ctx.fillStyle = '#b8aa98'; ctx.fillRect(0, 120, 190, CH - 260);
+    ctx.fillStyle = '#8a7c68';
+    for (let w = 0; w < 4; w++) for (let h = 0; h < 5; h++) ctx.fillRect(18 + w * 42, 140 + h * 62, 26, 34);
+    ctx.fillStyle = '#5a4a38'; ctx.fillRect(150, CH - 220, 40, 80);
+    ctx.fillStyle = 'rgba(255,250,220,0.8)'; ctx.fillRect(166, CH - 216, 8, 72);
+    ctx.fillStyle = '#c8bca8'; ctx.fillRect(0, CH - 150, CW, 70);
+    ctx.fillStyle = '#7a7268'; ctx.fillRect(0, CH - 80, CW, 80);
+    ctx.setLineDash([26, 22]); ctx.strokeStyle = 'rgba(232,216,160,0.8)'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(0, CH - 40); ctx.lineTo(CW, CH - 40); ctx.stroke(); ctx.setLineDash([]);
+    // YOU, at the door, holding the mop (it is your mop now)
+    const px = 175, py = CH - 168;
+    this.shadow(px, py + 16, 13, 5, 0.25);
+    if (G.hub && G.hub.p) { const pl = G.hub.p; pl.x = px; pl.y = py; pl.moving = false; pl.aimAng = 0; try { this.drawPlayer(pl, G); } catch (e) { } }
+    else { ctx.fillStyle = '#8fb0d8'; ctx.beginPath(); ctx.ellipse(px, py, 11, 13, 0, 0, TAU); ctx.fill(); }
+    ctx.strokeStyle = '#6a5232'; ctx.lineWidth = 3; ctx.lineCap = 'round';   // the mop, held like a flag
+    ctx.beginPath(); ctx.moveTo(px + 14, py + 14); ctx.lineTo(px + 18, py - 34); ctx.stroke();
+    ctx.strokeStyle = '#d8d0b8'; ctx.lineWidth = 2;
+    for (let m = 0; m < 5; m++) { ctx.beginPath(); ctx.moveTo(px + 14, py + 13); ctx.lineTo(px + 9 + m * 2.5, py + 24); ctx.stroke(); }
+    ctx.lineCap = 'butt';
+    // HIM, walking out — suitcase, no mop, no look back (one wave at the middle)
+    const jx = Math.min(CW - 60, 215 + T * 46);
+    this.shadow(jx, CH - 152, 13, 5, 0.25);
+    ctx.save(); ctx.translate(jx, CH - 168);
+    const step = Math.sin(T * 7) * 1.5;
+    ctx.translate(0, -Math.abs(step));
+    ctx.fillStyle = '#4a5560'; this.rr(ctx, -9, -6, 18, 22, 5); ctx.fill();
+    ctx.fillStyle = '#d8c2a2'; ctx.beginPath(); ctx.arc(0, -14, 8, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#8a929c'; ctx.beginPath(); ctx.arc(0, -17.5, 8, Math.PI, 0); ctx.fill();
+    ctx.strokeStyle = '#2c2333'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(0, -11, 3, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();   // the smile he earned
+    ctx.fillStyle = '#6a4a2a'; this.rr(ctx, 8, 2, 15, 12, 2); ctx.fill();   // the suitcase (forty years fits in one)
+    ctx.fillStyle = '#c8a24a'; ctx.fillRect(13, 6, 4, 3);
+    if (T > 5.5 && T < 8) {   // the wave, without turning around
+      const wv = Math.sin(T * 6) * 0.5;
+      ctx.strokeStyle = '#4a5560'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(-8, -2); ctx.lineTo(-15, -14 + wv * 5); ctx.stroke(); ctx.lineCap = 'butt';
+    }
+    ctx.restore();
+    // captions
+    ctx.textAlign = 'center'; ctx.font = 'bold 15px "Trebuchet MS","Segoe UI",sans-serif';
+    ctx.fillStyle = 'rgba(60,50,60,0.85)';
+    if (T > 1.5 && T <= 5) ctx.fillText('Forty years.', CW / 2, CH - 205);
+    if (T > 5 && T <= 9) ctx.fillText('He doesn\'t look back. He does wave.', CW / 2, CH - 205);
+    if (T > 9 && T <= 13) ctx.fillText('The floor is yours now.', CW / 2, CH - 205);
+    if (T > 11.5) {
+      const k = U.clamp((T - 11.5) / 0.35, 0, 1);
+      ctx.save(); ctx.translate(CW / 2, 150); ctx.rotate(-0.1); ctx.scale(2.2 - k * 1.2, 2.2 - k * 1.2); ctx.globalAlpha = Math.min(1, k * 1.6);
+      ctx.strokeStyle = '#6a5232'; ctx.lineWidth = 5; this.rr(ctx, -150, -34, 300, 68, 8); ctx.stroke();
+      ctx.fillStyle = '#6a5232'; ctx.font = 'bold 38px Impact,"Arial Black",sans-serif';
+      ctx.fillText('SHIFT CHANGE', 0, 14);
+      ctx.restore();
+    }
+    ctx.fillStyle = 'rgba(60,50,60,0.45)'; ctx.font = 'bold 10px "Trebuchet MS",sans-serif'; ctx.textAlign = 'right';
+    if (T > 4) ctx.fillText('SPACE / tap to continue', CW - 16, CH - 12);
   },
 
   /* ============ THE CREDITS (rolling, like the eyes of the billing department) ============ */
@@ -810,6 +876,20 @@ const Render = {
         ctx.beginPath(); ctx.moveTo(jx - 34, jy + 14); ctx.lineTo(jx - 28, jy - 34); ctx.stroke();
         ctx.fillStyle = 'rgba(200,190,220,0.55)'; ctx.font = this.font(10, true); ctx.textAlign = 'center';
         ctx.fillText('🌙 off the clock. finally. the floor can wait.', CW / 2, 286);
+      } else if (Meta.data.handoffDone) {
+        // THE HANDOFF holds: the one mopping by lamplight now is YOU
+        const jx = CW / 2 - 130 + Math.sin(G.t * 0.4) * 60, jy = 240;
+        this.shadow(jx, jy + 16, 13, 5, 0.3);
+        ctx.save(); ctx.translate(jx, jy);
+        const myD = DATA.DIAG[Meta.data.lastDiag] || { color: '#8fb0d8' };
+        ctx.fillStyle = myD.color; this.rr(ctx, -8, -6, 16, 20, 5); ctx.fill();
+        ctx.fillStyle = '#e8c9a6'; ctx.beginPath(); ctx.arc(0, -13, 7, 0, TAU); ctx.fill();
+        ctx.strokeStyle = '#2c2333'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(0, -10, 2.4, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();   // you don't mind it, actually
+        ctx.strokeStyle = '#6a5232'; ctx.lineWidth = 2.2;
+        ctx.beginPath(); ctx.moveTo(10, 12); ctx.lineTo(14, -18); ctx.stroke();
+        ctx.restore();
+        ctx.fillStyle = 'rgba(200,190,220,0.55)'; ctx.font = this.font(10, true); ctx.textAlign = 'center';
+        ctx.fillText('🌙 your shift now. mind the wet floor.', CW / 2, 246 + 40);
       } else {
         // the janitor, mopping by lamplight
         const jx = CW / 2 - 130 + Math.sin(G.t * 0.4) * 60, jy = 240;
@@ -1571,6 +1651,31 @@ const Render = {
         ctx.fillStyle = lg2; ctx.beginPath(); ctx.arc(fp.x, fp.y - 8, 60, 0, TAU); ctx.fill();
       }
     }
+    // THE INSPECTION: the visitor, the countdown, the theater
+    if (G.inspection && G.inspection.active) {
+      if (G.inspector) {
+        const ins = G.inspector;
+        this.shadow(ins.x, ins.y + 16, 13, 5, 0.24);
+        ctx.save(); ctx.translate(ins.x, ins.y);
+        ctx.fillStyle = '#3a3a44'; this.rr(ctx, -10, -8, 20, 26, 5); ctx.fill();   // a suit of consequence
+        ctx.fillStyle = '#e8d9c2'; ctx.beginPath(); ctx.arc(0, -15, 7.5, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#8a8a94'; ctx.beginPath(); ctx.arc(0, -18.5, 7.5, Math.PI, 0); ctx.fill();   // distinguished gray
+        ctx.fillStyle = '#2c2333'; ctx.beginPath(); ctx.arc(-2.6, -15, 1.1, 0, TAU); ctx.arc(2.6, -15, 1.1, 0, TAU); ctx.fill();
+        ctx.strokeStyle = '#2c2333'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-2, -11); ctx.lineTo(2, -11); ctx.stroke();   // unreadable
+        ctx.fillStyle = '#f4eee0'; this.rr(ctx, 8, -4, 9, 13, 1.5); ctx.fill();   // THE clipboard
+        ctx.strokeStyle = '#8a7a5a'; ctx.lineWidth = 1;
+        for (let l = 0; l < 3; l++) { ctx.beginPath(); ctx.moveTo(10, 0 + l * 3); ctx.lineTo(15, 0 + l * 3); ctx.stroke(); }
+        ctx.restore();
+        ctx.fillStyle = '#a8d0a0'; ctx.font = this.font(9, true); ctx.textAlign = 'center';
+        ctx.fillText('🕴 THE INSPECTOR', ins.x, ins.y - 32);
+      }
+      // countdown strip
+      const IT = Math.ceil(G.inspection.t);
+      ctx.fillStyle = 'rgba(10,14,10,0.75)'; this.rr(ctx, CW / 2 - 200, 96, 400, 30, 9); ctx.fill();
+      ctx.strokeStyle = 'rgba(168,208,160,0.7)'; ctx.lineWidth = 2; this.rr(ctx, CW / 2 - 200, 96, 400, 30, 9); ctx.stroke();
+      ctx.fillStyle = IT <= 10 ? '#e8c84c' : '#a8d0a0'; ctx.font = this.font(13, true); ctx.textAlign = 'center';
+      ctx.fillText('🕴 INSPECTION IN PROGRESS — ' + IT + 's — hold your fire', CW / 2, 116);
+    }
     // CASUAL FRIDAY reaches management too
     if (G.calDay === 5 && G.boss && !G.boss.dead) {
       ctx.save(); ctx.translate(G.boss.x, G.boss.y - (G.boss.r || 30) - 26); ctx.rotate(-0.05);
@@ -1921,6 +2026,24 @@ const Render = {
         ctx.fillText('FREE SAMPLES', ped.x, ped.y - 34);
         continue;
       }
+      if (ped.kind === 'secondmop') {   // there has only ever been one mop
+        const glm = ctx.createRadialGradient(ped.x, ped.y - 14, 6, ped.x, ped.y - 14, 56);
+        glm.addColorStop(0, 'rgba(232,192,90,0.28)'); glm.addColorStop(1, 'rgba(232,192,90,0)');
+        ctx.fillStyle = glm; ctx.beginPath(); ctx.arc(ped.x, ped.y - 14, 56, 0, TAU); ctx.fill();
+        ctx.strokeStyle = '#8a6a3a'; ctx.lineWidth = 3.5; ctx.lineCap = 'round';   // the rack
+        ctx.beginPath(); ctx.moveTo(ped.x - 22, ped.y - 38); ctx.lineTo(ped.x + 22, ped.y - 38); ctx.stroke();
+        for (const mx of [-10, 10]) {   // two mops. TWO.
+          ctx.strokeStyle = '#6a5232'; ctx.lineWidth = 3;
+          ctx.beginPath(); ctx.moveTo(ped.x + mx, ped.y - 36); ctx.lineTo(ped.x + mx + 3, ped.y + 18); ctx.stroke();
+          ctx.strokeStyle = '#d8d0b8'; ctx.lineWidth = 2;
+          for (let m = 0; m < 5; m++) { ctx.beginPath(); ctx.moveTo(ped.x + mx + 3, ped.y + 16); ctx.lineTo(ped.x + mx - 2 + m * 2.5, ped.y + 27); ctx.stroke(); }
+        }
+        ctx.lineCap = 'butt';
+        ctx.fillStyle = '#e8c05a'; ctx.font = this.font(10, true); ctx.textAlign = 'center';
+        ctx.fillText('🧹 THE SECOND MOP', ped.x, ped.y - 50);
+        if (U.dist(G.player.x, G.player.y, ped.x, ped.y) < 90) { ctx.fillStyle = '#e8c84c'; ctx.font = this.font(10, true); ctx.fillText('it\'s leaning like it\'s yours', ped.x, ped.y + 42); }
+        continue;
+      }
       if (ped.kind === 'payphone') {   // exact change, one feeling at a time
         this.shadow(ped.x, ped.y + 24, 16, 5, 0.22);
         ctx.save(); ctx.translate(ped.x, ped.y);
@@ -2219,6 +2342,7 @@ const Render = {
     for (const f of G.player.familiars) this.drawFamiliar(f, G);
     for (const a of G.player.allies) this.drawAlly(a, G);
     if (G.player.pet) this.drawPet(G.player.pet, G);
+    if (G.player.pet2) this.drawPet(G.player.pet2, G);
     if (G.p2) this.drawP2(G.p2, G);
     if (G.intern) this.drawIntern(G.intern, G);
     if (G.race) this.drawRaceRival(G.race, G);

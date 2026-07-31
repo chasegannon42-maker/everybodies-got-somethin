@@ -95,6 +95,18 @@ keyboard and mouse.
 - **📋 Patient Chart** — a codex of every patient, boss, med, and pill you've met; completing a
   tab pays out a permanent perk. **📊 Run History** keeps your real win-rate receipts, and a
   **speedrun timer with splits** is one Settings toggle away.
+- **🕴 THE INSPECTION** — once per deep run an Inspector tours the ward and every enemy performs
+  wellness: gentle wandering, folded hands, "thriving!" Hold your fire for the full 60 seconds
+  and everyone files out smiling (full heal, +8¢, +◆6) — or attack the performance and face the
+  whole room enraged. The intercom does damage control throughout.
+- **📋 THE MIX-UP** — a chart swap with bay 6: for one whole ward you play as a completely
+  different diagnosis, then get handed back with an apology coupon and an explanation you never hear.
+- **🧹 THE HANDOFF** — a new ending. Close your file, earn the janitor's trust ten times over,
+  and a second mop appears in the basement. Take it, and he walks out the front door into the
+  morning — one wave, no look back — while you stay. The night-shift Waiting Room shows you
+  mopping ever after, and his nephew runs the cart.
+- **🐾 Pet Playdates** — two fully-evolved animals can clock in together, any pair, one whistle
+  commands both. The pigeon rides the dog. Obviously the pigeon rides the dog.
 - **🚑 The Walk-In Clinic** — a 5-minute appointment mode: one compact ward, one manager,
   automatic discharge with an itemized bill and a best-time board. Under 4:00 earns *In And Out*.
 - **🍂 SEASONAL AFFECTIVE** — a 12th playable character whose kit rotates with the seasons every

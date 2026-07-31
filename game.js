@@ -430,7 +430,16 @@ const G = {
             }));
           const btns = rows.map(pt =>
             `<button class="btn minor" data-pet="${pt.id}" ${pt.ok ? '' : 'disabled'} style="${(Meta.data.pet || '') === pt.id ? 'outline:2px solid #e8c84c' : ''}${pt.ok ? '' : ';opacity:.5'}" title="${pt.note}">${pt.icon} ${pt.name}</button>`).join('');
-          return `<div class="tagline" style="margin:10px 0 2px">Emotional Support Animal</div><div class="btnrow" style="flex-wrap:wrap">${btns}</div>`;
+          // PLAYDATE: a second slot opens when two animals are fully evolved
+          const xp = Meta.data.petXp || {};
+          const evolved = DATA.PETS.filter(pt => pt.unlock(Meta.data) && (xp[pt.id] || 0) >= 40);
+          let pairRow = '';
+          if (Meta.data.pet && evolved.length >= 2) {
+            const opts = evolved.filter(pt => pt.id !== Meta.data.pet).map(pt =>
+              `<button class="btn minor" data-pet2="${pt.id}" style="font-size:11px;${Meta.data.pet2 === pt.id ? 'outline:2px solid #e8c84c' : ''}">${pt.icon} ${pt.name} ★</button>`).join('');
+            pairRow = `<div class="tagline" style="margin:6px 0 2px">🐾 Playdate (second ★ animal)</div><div class="btnrow" style="flex-wrap:wrap"><button class="btn minor" data-pet2="" style="font-size:11px;${!Meta.data.pet2 ? 'outline:2px solid #e8c84c' : ''}">∅ solo shift</button>${opts}</div>`;
+          }
+          return `<div class="tagline" style="margin:10px 0 2px">Emotional Support Animal</div><div class="btnrow" style="flex-wrap:wrap">${btns}</div>${pairRow}`;
         })()}
         <button class="btn minor" id="bPaToggle">${ct(!Meta.data.paOff, 'Intercom (Dr. Walrus PA)')}</button>
         <button class="btn minor" id="bSpeedrun">${ct(!!Meta.data.speedrun, 'Speedrun timer + splits')}</button>
@@ -455,7 +464,8 @@ const G = {
     const bst = document.getElementById('bStoryToggle');
     if (bst) bst.onclick = () => { SFX.play('ui'); Meta.data.storyOff = Meta.data.storyOff ? 0 : 1; Meta.save(); bst.textContent = ct(!Meta.data.storyOff, 'Story cutscenes'); };
     document.querySelectorAll('[data-hat]').forEach(b => b.onclick = () => { SFX.play('ui'); Meta.data.hat = b.dataset.hat || null; Meta.save(); this.showSettings(returnTo); });
-    document.querySelectorAll('[data-pet]').forEach(b => b.onclick = () => { SFX.play('ui'); Meta.data.pet = b.dataset.pet || null; Meta.save(); this.showSettings(returnTo); });
+    document.querySelectorAll('[data-pet]').forEach(b => b.onclick = () => { SFX.play('ui'); Meta.data.pet = b.dataset.pet || null; if (!Meta.data.pet || Meta.data.pet === Meta.data.pet2) Meta.data.pet2 = null; Meta.save(); this.showSettings(returnTo); });
+    document.querySelectorAll('[data-pet2]').forEach(b => b.onclick = () => { SFX.play('ui'); Meta.data.pet2 = b.dataset.pet2 || null; Meta.save(); this.showSettings(returnTo); });
     const bpa = document.getElementById('bPaToggle');
     if (bpa) bpa.onclick = () => { SFX.play('ui'); Meta.data.paOff = Meta.data.paOff ? 0 : 1; Meta.save(); bpa.textContent = ct(!Meta.data.paOff, 'Intercom (Dr. Walrus PA)'); };
     const bsr = document.getElementById('bSpeedrun');
@@ -494,6 +504,7 @@ const G = {
         cured: 'They said the word. “Cured.” The building disagreed, quietly, through the vents.',
         ama: 'Left through the fire door, against advice. The morning was free. The bill was not.',
         walkin: 'In and out in one appointment. The bill still found the mailbox first.',
+        handoff: 'Took the mop. He walked out into the morning. The floor is mine now.',
         quit: 'Walked out mid-appointment. No regrets. Some regrets. One regret, recurring.'
       };
       const lines = [open].concat((this._diary || []).slice(0, 14)).concat([closers[out] || closers.quit]);
@@ -1334,6 +1345,57 @@ const G = {
       RC.exitVx = Math.cos(ea) * 240; RC.exitVy = 0;
     }
   },
+  /* ---------- THE INSPECTION (60 seconds of institutional theater) ---------- */
+  inspectionUpdate(dt) {
+    const I = this.inspection;
+    if (!I || !I.active) return;
+    // the Inspector's dignified figure-eight
+    if (this.inspector) {
+      const ins = this.inspector;
+      ins.t += dt;
+      ins.x = CW / 2 + Math.sin(ins.t * 0.5) * (RW * 0.32);
+      ins.y = RY + RH / 2 + Math.sin(ins.t * 0.9) * (RH * 0.26);
+    }
+    I.t -= dt;
+    if (I.t <= 0) {   // held the whole minute — the building owes you
+      this.inspection = null;
+      this.inspector = null;
+      const p = this.player;
+      for (const e of this.enemies) {
+        if (e.dying) continue;
+        e.dying = true; e.deadDone = true; e.noDrop = true;
+        this.texts.push(new FloatText(e.x, e.y - 10, '🙂 (files out, still smiling)', '#a8d0a0'));
+      }
+      p.heal(99);
+      p.coins += 8;
+      Meta.data.insight = (Meta.data.insight || 0) + 6;
+      if (!this.sandbox && !this.practice) { Meta.data.inspections = (Meta.data.inspections || 0) + 1; Meta.save(); this.checkUnlocks(); }
+      this.setBanner('⭐ FIVE STARS', 'the performance holds. everyone is discharged from the scene.', 3.2);
+      this.toast('🕴 “Remarkable facility.” Full heal, +8¢, +◆6. Nobody mention the fog.', '#8fd08a');
+      this.pa('inspectionPass');
+      this.diaryNote('An inspector toured the ward. Everyone performed wellness, including me. We passed. The performance was the healthiest thing in the building.');
+      SFX.play('fanfare');
+    }
+  },
+  inspectionBust() {
+    const I = this.inspection;
+    if (!I || !I.active || I.busted) return;
+    I.busted = true;
+    this.inspection = null;
+    this.inspector = null;
+    for (const e of this.enemies) {
+      if (e.dying || e.fake) continue;
+      e._perform = false;
+      e._enraged = 8;
+      e.spd *= 1.2;
+    }
+    this.setBanner('🎭 PERFORMANCE OVER', 'you attacked the show. the show attacks back.', 2.8);
+    this.toast('🕴 The Inspector leaves at speed. The smiles come off. All of them. At once.', '#e05a5a');
+    this.pa('inspectionBust');
+    this.diaryNote('An inspector toured the ward and I opened fire on the performance. Critics: furious. Review: violent.');
+    SFX.play('boss');
+  },
+
   /* ---------- THE RECORDS ROOM (stealth: three patrols, one original file) ---------- */
   heistUpdate(dt) {
     const room = this.room;
@@ -1645,6 +1707,11 @@ const G = {
     if (ks[1]) this.peds.push({ x: CW / 2 + 130, y: RY + RH / 2 - 20, itemId: ks[1], kind: 'shop', price: 8, taken: false });
     this.peds.push({ x: RX + 80, y: RY + 90, kind: 'diploma', taken: false });
     this.peds.push({ x: CW / 2, y: RY + 80, kind: 'basementexit', taken: false });
+    // THE HANDOFF: when your file is closed and he trusts you completely, there are two mops
+    if (Meta.data.exitDone && (Meta.data.janitorBuys || 0) >= 10 && !Meta.data.handoffDone) {
+      this.peds.push({ x: RX + RW - 80, y: RY + RH - 80, kind: 'secondmop', taken: false });
+      setTimeout(() => { if (this.state === 'run') { this.toast('🧹 There are two mops on the rack tonight. There has only ever been one mop.', '#e8c05a'); SFX.play('voice'); } }, 2000);
+    }
     // the Compounding Pharmacist works out of the basement (of course they do)
     const cbpool = U.shuffle([].concat(DATA.POOLS.special, DATA.POOLS.shop)).filter(id => !p.items.includes(id));
     if (cbpool.length >= 2) this.peds.push({ x: RX + RW - 90, y: RY + RH / 2 + 40, kind: 'compound', a: cbpool[0], b: cbpool[1], price: 5, taken: false });
@@ -1706,6 +1773,52 @@ const G = {
     this.player.x = R.x; this.player.y = R.y;
     this._roofReturn = null;
     this.toast('🪜 Back down into the hum. The tomatoes wave. Tomatoes can\'t wave. These did.', '#b8b0a0');
+  },
+
+  /* ---------- THE HANDOFF (forty years, one bucket, two mops) ---------- */
+  showHandoffOffer(ped) {
+    this.state = 'handoffoffer';
+    SFX.play('voice');
+    this.overlay(`
+      <div class="panel">
+        <h1 class="logo" style="font-size:26px">🧹 THE SECOND MOP</h1>
+        <div class="tagline">“Been forty years,” he says, not looking up. “Floor doesn't need me. Needs a person. Doesn't much care which.”</div>
+        <div class="stats-line">“You know the prices. You know the vents. You knew about the basement before I showed you — don't lie.”</div>
+        <div class="cmgrid">
+          <button class="cmcard" id="bMopYes"><div class="cmname" style="color:#e8c05a">🧹 TAKE THE MOP</div><div class="cmdesc">He walks out the front door into the morning. You stay. The floor is yours.</div><div class="cmtag">this ends the run — and changes the building, a little, forever</div></button>
+          <button class="cmcard" id="bMopNo"><div class="cmname">not yet</div><div class="cmdesc">“No rush. Floor's not going anywhere. That's the whole problem with floors.”</div><div class="cmtag">the mop will wait</div></button>
+        </div>
+      </div>`);
+    document.getElementById('bMopYes').onclick = () => {
+      ped.taken = true;
+      this.hideOverlay();
+      this.startHandoff();
+    };
+    document.getElementById('bMopNo').onclick = () => { SFX.play('ui'); this.hideOverlay(); this.state = 'run'; };
+  },
+  startHandoff() {
+    this.state = 'handoff';
+    this.handoffT = 0;
+    this.hideOverlay();
+    document.body.classList.remove('inrun');
+    SFX.setMusic('cutscene');
+    if (!this._hoTapBound) {
+      this._hoTapBound = () => { if (this.state === 'handoff' && this.handoffT > 4) this.handoffT = Math.max(this.handoffT, 13.5); };
+      document.getElementById('game').addEventListener('pointerdown', this._hoTapBound);
+    }
+  },
+  handoffUpdate(dt) {
+    this.handoffT += dt;
+    if (Input.take('confirm') && this.handoffT > 4) this.handoffT = Math.max(this.handoffT, 13.5);
+    if (this.handoffT >= 15) {
+      Meta.data.handoffDone = 1;
+      Meta.data.insight = (Meta.data.insight || 0) + 25;
+      Meta.save();
+      this.checkUnlocks();
+      this.diaryNote('Took the mop. He left through the front door, into the morning, with a wave and no look back. The floor is mine now. It has always needed a person.');
+      this.recordRun('handoff');
+      this.showTitle();
+    }
   },
 
   /* ---------- THE PAYPHONE (1¢ a call. one feeling at a time.) ---------- */
@@ -2240,6 +2353,15 @@ const G = {
       const pd = DATA.PETS.find(x => x.id === Meta.data.pet);
       if (pd && pd.unlock(Meta.data)) this.player.pet = new Pet(pd.id);
     }
+    // PLAYDATE: a second animal clocks in if both are fully evolved
+    if (this.player.pet && Meta.data.pet2 && Meta.data.pet2 !== Meta.data.pet) {
+      const pd2 = DATA.PETS.find(x => x.id === Meta.data.pet2);
+      const xp2 = (Meta.data.petXp || {});
+      if (pd2 && pd2.unlock(Meta.data) && (xp2[Meta.data.pet] || 0) >= 40 && (xp2[Meta.data.pet2] || 0) >= 40) {
+        this.player.pet2 = new Pet(pd2.id);
+        this.toast('🐾 PLAYDATE — both animals are on shift. The kidney dish is crowded.', '#e8c05a');
+      }
+    }
     // a care package arrived (someone out there is thinking of you)
     if (Meta.data.pendingGift && !daily) {
       const g = Meta.data.pendingGift;
@@ -2358,6 +2480,7 @@ const G = {
     this.race = null; this._races = 0; this._raceLostThisRun = false; this._icNight = false;   // THE RIVAL + night shift, fresh per run
     this.actuaryBet = null; this._actuaryDone = false; this.nightShift = false; this.stairs = null;   // the Actuary's book opens fresh
     this.walkin = false; this._roofDone = false; this._phoneFloor = false;   // walk-in / roof / payphone, fresh per run
+    this.inspection = null; this._inspectionDone = false; this._mixup = null; this._mixupDone = false;   // the tour + the chart mix-up
     // THE COMPLAINT DEPARTMENT: your grievance reports for duty
     this._complaint = (!daily && Meta.data.pendingComplaint) ? String(Meta.data.pendingComplaint).slice(0, 40) : null;
     this._complaintSpawned = false;
@@ -2915,6 +3038,36 @@ const G = {
         setTimeout(() => { if (this.state === 'run') this.toast('🚧 Somewhere on this ward, a room is roped off. It has your outline in it.', '#e0a05a'); }, 1200);
       }
     }
+    // THE INSPECTION: once per run, the building performs wellness for a visitor (depth 5+)
+    if (!this._inspectionDone && this.depth >= 5 && !this.overtime && !this.bossRush && !this.walkin && !this.practice && this.genSeed(['inspection', this.depth], () => U.chance(0.14))) {
+      this._inspectionDone = true;
+      this.inspection = { pending: true };
+      setTimeout(() => { if (this.state === 'run' && this.inspection && this.inspection.pending) { this.toast('🕴 An INSPECTOR is touring this ward. The building is… rehearsing.', '#a8d0a0'); this.pa('inspection'); } }, 1400);
+    }
+    // THE MIX-UP: somewhere, two charts swap (depth 3+, core diagnoses only)
+    const p0 = this.player;
+    if (!this._mixupDone && this.depth >= 3 && !this.overtime && !this.bossRush && !this.walkin && !this.practice && !p0.variant && p0.baseDiag !== 'undiag'
+      && ['adhd', 'bipolar', 'depression', 'anxiety', 'schizo', 'ocd', 'ptsd', 'insomnia'].includes(p0.baseDiag)
+      && this.genSeed(['mixup', this.depth], () => U.chance(0.1))) {
+      this._mixupDone = true;
+      const pool0 = ['adhd', 'bipolar', 'depression', 'anxiety', 'schizo', 'ocd', 'ptsd', 'insomnia'].filter(d => d !== p0.diag);
+      const nd = this.genSeed(['mixupto', this.depth], () => U.choice(pool0));
+      this._mixup = { orig: p0.baseDiag, depth: this.depth };
+      p0.rediagnose(nd);
+      this.setBanner('📋 THE MIX-UP', 'your chart got swapped with bay 6. you are now, clinically, someone else.', 3.2);
+      this.toast('🦭 “Small clerical thing! For one ward you are ' + DATA.DIAG[nd].name + '. Enjoy? Enjoy.”', '#e0a05a');
+      this.diaryNote('A chart mix-up made me ' + DATA.DIAG[nd].name + ' for a whole ward. Honestly? Their symptoms have better ergonomics.');
+      SFX.play('stamp');
+    } else if (this._mixup && this.depth > this._mixup.depth) {   // the apology
+      const orig = this._mixup.orig;
+      this._mixup = null;
+      p0.rediagnose(orig);
+      p0.coupons = (p0.coupons || 0) + 1;
+      if (!this.sandbox) { Meta.data.mixups = (Meta.data.mixups || 0) + 1; Meta.save(); this.checkUnlocks(); }
+      this.toast('📋 Charts un-swapped. “Our sincerest.” You get a coupon. Bay 6 gets an explanation.', '#8fd08a');
+      this.diaryNote('Got my own chart back, plus an apology coupon. Bay 6, if you\'re reading this: your knees are a disaster.');
+      SFX.play('bell');
+    }
     // THE RECORDS ROOM: they keep the originals down here (depth 4+, don't be seen)
     if (this.depth >= 4 && !this.overtime && !this.bossRush && this.genSeed(['records', this.depth], () => U.chance(0.16))) {
       const normalsR = this.floorRooms.filter(r => r.type === 'normal');
@@ -3088,6 +3241,7 @@ const G = {
     else { p.x = midX; p.y = RY + RH - 90; }
     if (p.allies) for (const a of p.allies) { a.x = p.x + U.rand(-36, 36); a.y = p.y + U.rand(-36, 36); }   // group files in with you
     if (p.pet) { p.pet.x = p.x - 30; p.pet.y = p.y + 14; p.pet.segs = []; }   // the animal keeps up
+    if (p.pet2) { p.pet2.x = p.x + 30; p.pet2.y = p.y + 14; p.pet2.segs = []; }   // both animals keep up
     if (this.p2) { this.p2.x = U.clamp(p.x + 38, RX + 16, RX + RW - 16); this.p2.y = p.y; }   // Patient Two files in behind you
 
     // INCIDENT SITE: the guard doesn't leave the scene (respawns if you step out and back in)
@@ -3175,6 +3329,15 @@ const G = {
     if (room.type === 'secret' && !room.greeted) { room.greeted = true; this.toast(DATA.TOASTS.secret); }
     if (room.type === 'oon' && !room.greeted) { room.greeted = true; this.toast(DATA.TOASTS.oon, '#e08a8a'); }
     if (room.type === 'gym' && !room.greeted) { room.greeted = true; this.toast('🥊 The gym. Someone chalked a name on the board. It\'s yours, misspelled.', '#d08a4a'); }
+    // THE INSPECTION begins: the first live room on this ward becomes the tour stop
+    if (this.inspection && this.inspection.pending && room.type === 'normal' && !room.cleared && this.enemies.length > 0) {
+      this.inspection = { active: true, t: 60, busted: false };
+      for (const e of this.enemies) { e._perform = true; e.spawnT = 0; }
+      this.inspector = { x: RX + 60, y: RY + 60, t: 0 };
+      this.setBanner('🕴 THE INSPECTION', 'hold your fire for 60 seconds. let them perform.', 3.4);
+      this.toast('🕴 The Inspector enters. Every patient is suddenly, aggressively, DOING GREAT.', '#a8d0a0');
+      SFX.play('bell');
+    }
     if (room.type === 'records' && !room.greeted) {
       room.greeted = true;
       this.setBanner('🗄 THE RECORDS ROOM', 'they keep the originals here. don\'t be seen.', 3.0);
@@ -3471,6 +3634,7 @@ const G = {
       if (U.chance(0.3)) this.texts.push(new FloatText(CW / 2, RY + RH / 2 - 24, 'night differential +1¢', '#8a90c8'));
     }
     // pet XP: 40 rooms together changes an animal
+    if (p.pet2) { const xp2 = Meta.data.petXp || (Meta.data.petXp = {}); xp2[p.pet2.type] = (xp2[p.pet2.type] || 0) + 1; }
     if (p.pet) {
       const xp = Meta.data.petXp || (Meta.data.petXp = {});
       xp[p.pet.type] = (xp[p.pet.type] || 0) + 1;
@@ -3803,6 +3967,7 @@ const G = {
     }
     if (this.boss && !this.boss.dead && U.dist(x, y, this.boss.x, this.boss.y) < rad + this.boss.r) this.boss.hurt(dmg, this);
     if (this.boss2 && !this.boss2.dead && U.dist(x, y, this.boss2.x, this.boss2.y) < rad + this.boss2.r) this.boss2.hurt(dmg, this);
+    if (this.inspection && this.inspection.active && this.enemies.some(e => e._perform && !e.dying && U.dist(x, y, e.x, e.y) < rad + e.r)) this.inspectionBust();   // you BOMBED the recital
     // destroy tiles
     const room = this.room;
     for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
@@ -3889,6 +4054,10 @@ const G = {
   /* ---------- comorbidity choice on descent ---------- */
   doDescend() {
     if (this.floorHits === 0) this.goalEvent('floorclean');   // Clean Bill
+    // PLAYDATE: a full floor with both professionals on shift
+    if (this.player && this.player.pet && this.player.pet2 && !this.sandbox && !this.practice && !Meta.data.playdates) {
+      Meta.data.playdates = 1; Meta.save(); this.checkUnlocks();
+    }
     // A YEAR INDOORS: mark the season this ward was cleared in
     if (this.player && this.player.diag === 'seasonal' && !this.sandbox && !this.practice) {
       const ss = Meta.data.seasonsSeen || (Meta.data.seasonsSeen = {});
@@ -4049,6 +4218,7 @@ const G = {
     if (this.state === 'hub') { this.t += dt; this.hubUpdate(dt); return; }
     if (this.state === 'arcade') { this.t += dt; this.arcadeUpdate(dt); return; }
     if (this.state === 'stairs') { this.t += dt; this.stairsUpdate(dt); return; }
+    if (this.state === 'handoff') { this.t += dt; this.handoffUpdate(dt); return; }
     if (this.state === 'appeal') { this.t += dt; this.appealUpdate(dt); return; }
     if (this.state === 'credits') { this.t += dt; this.creditsUpdate(dt); return; }
     if (this.state === 'exit') { this.t += dt; this.exitUpdate(dt); return; }
@@ -4329,7 +4499,7 @@ const G = {
           ped._greeted = true;
           const met = (Meta.data.janitorMet || 0) > 0;
           Meta.data.janitorMet = (Meta.data.janitorMet || 0) + 1; Meta.save();
-          this.toast('🧹 ' + (ped._lost ? '“Found this in the vents after… last time. Looked important. Looked yours.”' : U.choice(met ? DATA.JANITOR.again : DATA.JANITOR.greet)), ped._lost ? '#e8c84c' : '#b8b0a0');
+          this.toast('🧹 ' + (ped._lost ? '“Found this in the vents after… last time. Looked important. Looked yours.”' : U.choice(Meta.data.handoffDone ? DATA.JANITOR.newguy : (met ? DATA.JANITOR.again : DATA.JANITOR.greet))), ped._lost ? '#e8c84c' : '#b8b0a0');
           SFX.play('voice');
         }
         if (p.coins >= ped.price) {
@@ -4406,6 +4576,8 @@ const G = {
         ped.taken = true;
         this.showDesigner();
         return;
+      } else if (ped.kind === 'secondmop') {   // it's leaning there like it's always been yours
+        if (this.lockCd <= 0) { this.lockCd = 2.0; this.showHandoffOffer(ped); return; }
       } else if (ped.kind === 'payphone') {   // it takes exact change and one feeling at a time
         if (this.lockCd <= 0) { this.lockCd = 2.0; this.showPayphone(ped); return; }
       } else if (ped.kind === 'roofladder') {   // up, for once
@@ -4548,6 +4720,8 @@ const G = {
       const live = this.enemies.filter(e => !e.dying && !e.fake && !e.charmed && e.spawnT <= 0 && e.id !== 'auditor').length;
       if (live >= 4 && Math.random() < 0.12) this.unionize();
     }
+    // THE INSPECTION: the tour, in progress
+    if (this.inspection && this.inspection.active) this.inspectionUpdate(dt);
     // THE RECORDS ROOM: patrol sweeps + vision cones
     if (this.room && this.room.type === 'records') this.heistUpdate(dt);
     // THE RIVAL: pedestal race in progress
@@ -4731,7 +4905,12 @@ const G = {
 
   /* ---------- SEND THE ANIMAL (each companion has one trick, per cooldown) ---------- */
   petCommand() {
-    const p = this.player, pet = p.pet;
+    const p = this.player;
+    this._petCommandOne(p.pet);
+    if (p.pet2) this._petCommandOne(p.pet2);   // playdates: one whistle, two professionals
+  },
+  _petCommandOne(pet) {
+    const p = this.player;
     if (!pet) return;
     if (pet.cmdCd > 0) { if (this.lockCd <= 0) { this.lockCd = 0.8; this.toast('the animal is resting (' + Math.ceil(pet.cmdCd) + 's)', '#b8b0a0'); } return; }
     pet.cmdCd = 8;
@@ -5709,7 +5888,7 @@ const G = {
         ? causeKeys.map(c => row(this._causeName(c), C[c])).join('')
         : `<div class="stats-line">no deaths logged (nice)</div>`;
       const recent = log.slice(-8).reverse().map(r => {
-        const tag = (r.out === 'cured' || r.cured) ? '✓ cured' : r.out === 'walkin' ? '🚑 seen & billed' : r.out === 'ama' ? '🚪 left AMA' : r.out === 'quit' ? 'left' : '☠ ' + this._causeName(r.cause);
+        const tag = (r.out === 'cured' || r.cured) ? '✓ cured' : r.out === 'walkin' ? '🚑 seen & billed' : r.out === 'ama' ? '🚪 left AMA' : r.out === 'handoff' ? '🧹 took the mop' : r.out === 'quit' ? 'left' : '☠ ' + this._causeName(r.cause);
         const mode = (r.mode && r.mode !== 'normal') ? ` <i style="color:#8a7a68">[${r.mode}]</i>` : '';
         return row(`${DATA.DIAG[r.diag] ? DATA.DIAG[r.diag].name : r.diag}${mode}`, `ward ${r.ward} · ${tag}`);
       }).join('');
@@ -5838,7 +6017,7 @@ const G = {
     if (G.state === 'cutscene' && typeof Story !== 'undefined' && Story.active) {
       try { Story.update(dt); Story.draw(); } catch (e) { Story.active = false; if (G.showTitle) G.showTitle(); }
     } else {
-      if (G.state === 'run' || G.state === 'descend' || G.state === 'hub' || G.state === 'appeal' || G.state === 'credits' || G.state === 'exit' || G.state === 'arcade' || G.state === 'stairs') G.update(dt);
+      if (G.state === 'run' || G.state === 'descend' || G.state === 'hub' || G.state === 'appeal' || G.state === 'credits' || G.state === 'exit' || G.state === 'arcade' || G.state === 'stairs' || G.state === 'handoff') G.update(dt);
       Render.draw(G);
     }
     if (G.state === 'bestiary' && G._bestiary) {

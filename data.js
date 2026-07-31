@@ -497,7 +497,11 @@ DATA.ACHIEVEMENTS = [
   { id: 'walkinFast', name: "In And Out",           desc: "Finish a Walk-In Clinic visit in under 4 minutes.", hint: "Six-ish rooms, one manager, no dawdling.",     check: m => !!(m.walkinBest && m.walkinBest.secs <= 240) },
   { id: 'freshAir',   name: "Fresh Air",            desc: "Find the roof.",                                  hint: "A service ladder, sometimes, past Ward 6. Up, for once.", check: m => (m.roofVisits || 0) >= 1 },
   { id: 'phoneHome',  name: "Called Home",          desc: "Call MOM from the payphone 3 times.",             hint: "She worries. It's 1¢. Come on.",               check: m => (m.momCalls || 0) >= 3 },
-  { id: 'fourSeasons', name: "A Year Indoors",      desc: "Clear a ward in all four seasons as Seasonal Affective.", hint: "Spring, summer, fall, winter — the building has no windows, but you'd know.", check: m => Object.keys(m.seasonsSeen || {}).length >= 4 }
+  { id: 'fourSeasons', name: "A Year Indoors",      desc: "Clear a ward in all four seasons as Seasonal Affective.", hint: "Spring, summer, fall, winter — the building has no windows, but you'd know.", check: m => Object.keys(m.seasonsSeen || {}).length >= 4 },
+  { id: 'goodShow',   name: "Nothing To See Here",  desc: "Hold your fire through an entire INSPECTION.",    hint: "When the Inspector tours, the ward performs wellness. Let it.", check: m => (m.inspections || 0) >= 1 },
+  { id: 'whoAmI',     name: "Administrative Error", desc: "Survive a chart MIX-UP (a whole ward as someone else).", hint: "Bay 6 has your chart. You have theirs. Make it work.", check: m => (m.mixups || 0) >= 1 },
+  { id: 'theHandoff', name: "Forty Years, One Bucket", desc: "Take the mop.",                                hint: "Close your file. Earn his trust, ten times over. Then look in the basement.", check: m => !!m.handoffDone },
+  { id: 'playdate',   name: "The Daycare Expands",  desc: "Clear a floor with two fully-evolved animals on shift.", hint: "Two ★ companions. One very crowded kidney dish.", check: m => (m.playdates || 0) >= 1 }
 ];
 DATA.checkAchievements = function (m) {
   if (!m.unlocks) m.unlocks = {};
@@ -834,6 +838,11 @@ DATA.BOSS_DEALS = {
 
 /* ============ THE JANITOR (he's seen every ward. he's mopped every ward.) ============ */
 DATA.JANITOR = {
+  newguy: [
+    "(checks a laminated note) “…uncle says hi.”",
+    "(reading from a card) “Don't… ask where it's… been.” Sorry, his handwriting.",
+    "“He said you'd know the prices. He said you'd know everything, actually.”"
+  ],
   greet: [
     "Found this in the vents. Cash only.",
     "Lost and found. Emphasis on lost.",
@@ -895,7 +904,10 @@ DATA.INTERCOM = {
   internGrad: ["The intern survived three floors. HR is calling it 'a program.'", "Congratulations to the intern, who has been promoted to Slightly Less Terrified."],
   rival: ["Patient {X} has claimed another prescription. The board is keeping score. The board was ASKED not to.", "Would {X} please stop lapping the other intake. This is a ward, not a track meet.", "Reminder: recovery is not a competition. {X} has requested that it be."],
   rivalLost: ["Update: {X} did not get there first. {X} would like the record to show the floor was wet.", "A moment of silence for {X}'s undefeated season."],
-  night: ["(whisper) It's the night shift. If you need anything, need it quietly.", "(whisper) The lights are off for morale. The dark is complimentary.", "(whisper) Night differential is in effect. The coins apologize for the hour."]
+  night: ["(whisper) It's the night shift. If you need anything, need it quietly.", "(whisper) The lights are off for morale. The dark is complimentary.", "(whisper) Night differential is in effect. The coins apologize for the hour."],
+  inspection: ["Reminder to all patients: we have ALWAYS had a meditation garden. Point at the garden when asked.", "The Inspector is here. Nothing is wrong. Nothing has EVER been wrong. Smile with your eyes.", "For the duration of the tour, symptoms are 'wellness journeys.' The fog machine is 'ambiance.' The screaming is 'a choir.'"],
+  inspectionPass: ["The Inspector has departed, five stars. Regular dysfunction resumes... now.", "Tour complete. Everyone did BEAUTIFULLY. Especially the fog."],
+  inspectionBust: ["The patient has attacked the performance. The performance is now attacking back.", "Well. THAT'S going in the report."]
 };
 
 /* ============ INSURANCE PLANS (pick your coverage at intake) ============ */

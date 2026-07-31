@@ -46,9 +46,13 @@ class Pet {
       return;   // the lunge overrides normal slither
     }
     if (this.type === 'pigeon') {   // flutters near you; periodically finds change
+      // PLAYDATE: if the dog's on shift too, the pigeon rides the dog. obviously.
+      const dogMate = (p.pet && p.pet !== this && p.pet.type === 'dog') ? p.pet : (p.pet2 && p.pet2 !== this && p.pet2.type === 'dog') ? p.pet2 : null;
+      if (dogMate) { this.x = dogMate.x - 2; this.y = dogMate.y - (dogMate.evo ? 18 : 14); this._riding = true; }
+      else this._riding = false;
       const a = U.ang(this.x, this.y, p.x - 34, p.y - 8);
       const d = U.dist(this.x, this.y, p.x - 34, p.y - 8);
-      if (d > 20) { this.x += Math.cos(a) * Math.min(d * 3, 260) * dt; this.y += Math.sin(a) * Math.min(d * 3, 260) * dt; }
+      if (!dogMate && d > 20) { this.x += Math.cos(a) * Math.min(d * 3, 260) * dt; this.y += Math.sin(a) * Math.min(d * 3, 260) * dt; }
       if (this.actT <= 0) {
         this.actT = (this.evo ? 25 : 45) * (G.volunteer ? 0.7 : 1);
         G.pickups.push(new Pickup(this.evo && U.chance(0.25) ? 'nickel' : 'coin', this.x, this.y));
@@ -726,6 +730,7 @@ class Player {
     for (const f of this.familiars) f.update(dt, G);
     for (const a of this.allies) a.update(dt, G);
     if (this.pet) this.pet.update(dt, G);
+    if (this.pet2) this.pet2.update(dt, G);   // playdates: the daycare expanded
   }
 
   /* The Undiagnosed: Dr. Walrus changes his mind — swap the whole mechanical identity */
@@ -916,6 +921,7 @@ class Tear {
         if (G.player.flags.hyperfix && G.hyperfixType === e.id) d *= 1.5;
         if (G.player.flags.hpBars && e.hp >= e.maxhp) d *= 1.15;
         if (G.player.trinket === 'luckypen' && !this._ally && U.chance(0.1)) { d *= 2; G.texts.push(new FloatText(e.x, e.y - 18, 'signed!', '#e8c84c')); }
+        if (e._perform && !this._ally && G.inspectionBust) G.inspectionBust();   // YOU attacked the performance (the group's strays don't count)
         e.hurt(d, G);
         // status effects — the compress, the report, the thought
         if (G.player.flags.chillTears && !e.fake) { e._chill = Math.min(4, (e._chill || 0) + 1); e._chillT = 1.4; }
@@ -1111,6 +1117,16 @@ class Enemy {
     if (this._shieldT > 0) this._shieldT -= dt;   // Wellness Bot aura fades if the bot stops tending you
     if (this._enraged > 0) this._enraged -= dt;   // Now Serving enrage wears off
     if (this._dazeT > 0) { this._dazeT -= dt; return; }   // the Goldfish made it forget what it was doing
+    // THE INSPECTION: everyone performs wellness for the visitor
+    if (this._perform) {
+      this._perfA = (this._perfA == null ? U.rand(0, TAU) : this._perfA) + dt * 0.5;
+      this.x += Math.cos(this._perfA) * 16 * dt;
+      this.y += Math.sin(this._perfA * 1.3) * 12 * dt;
+      this.x = U.clamp(this.x, RX + this.r, RX + RW - this.r);
+      this.y = U.clamp(this.y, RY + this.r, RY + RH - this.r);
+      if (Math.random() < dt * 0.12) G.texts.push(new FloatText(this.x, this.y - this.r - 8, U.choice(['🙂', 'thriving!', 'so well', 'namaste', '(waves)']), '#a8d0a0'));
+      return;   // no shooting. no biting. we have a GUEST.
+    }
     // INCIDENT SITE guard: dozing at the scene until you get too close
     if (this._asleep) {
       if (U.dist(this.x, this.y, p.x, p.y) < 135) {
@@ -1526,9 +1542,9 @@ class Enemy {
       }
     }
 
-    // contact damage (dmg > 0 skips harmless props like Prior Auth forms)
+    // contact damage (dmg > 0 skips harmless props like Prior Auth forms; performers only smile)
     const p2 = G.player;
-    if (!this.fake && this.dmg > 0 && p2.iframes <= 0 && U.dist(this.x, this.y, p2.x, p2.y) < this.r + p2.r - 4) {
+    if (!this.fake && !this._perform && this.dmg > 0 && p2.iframes <= 0 && U.dist(this.x, this.y, p2.x, p2.y) < this.r + p2.r - 4) {
       p2.hurt(this.dmg, G, this.id);
     }
   }
