@@ -70,6 +70,7 @@ const G = {
   },
   setBanner(text, sub, dur) { this.banner = { text, sub, t: 0, dur: dur || 2.2 }; },
   checkUnlocks() {
+    if (this.sandbox) return;   // sandbox shifts earn nothing but experience
     const fresh = DATA.checkAchievements(Meta.data);
     if (!fresh.length) return;
     Meta.save();
@@ -311,6 +312,7 @@ const G = {
 
   /* ---------- flow: title / quiz / card ---------- */
   showTitle() {
+    this.endSandbox();   // any imaginary shift ends at the front desk
     this.state = 'title';
     SFX.setMusic('menu');
     document.body.classList.remove('inrun');
@@ -352,6 +354,7 @@ const G = {
           <button class="btn minor" id="bSettings">⚙ SETTINGS</button>
         </div>
         ${statsLine}
+        <button class="btn minor" id="bTester" style="opacity:.55;font-size:10px;padding:5px 10px;margin-top:4px">🔧 ${m.tester ? 'GAME TESTER' : 'STAFF ONLY'}</button>
         <div class="smallprint">A satire about a system that hands out labels like candy — not about the people living with them. Be kind, including to yourself. ♥</div>
       </div>`);
     document.getElementById('overlay').classList.add('lightbg');   // let the atmospheric backdrop show on the title
@@ -375,6 +378,8 @@ const G = {
     document.getElementById('bUnlocksT').onclick = () => { SFX.init(); SFX.play('ui'); this.showUnlocks(() => this.showTitle()); };
     document.getElementById('bSettings').onclick = () => { SFX.init(); SFX.play('ui'); this.showSettings(() => this.showTitle()); };
     const brh = document.getElementById('bRunHist'); if (brh) brh.onclick = () => { SFX.init(); SFX.play('ui'); this.showStats(() => this.showTitle()); };
+    const bts = document.getElementById('bTester');
+    if (bts) bts.onclick = () => { SFX.init(); SFX.play('ui'); Meta.data.tester ? this.showTester(() => this.showTitle()) : this.showTesterGate(); };
   },
 
   /* settings overlay with SFX + music volume sliders; returnTo() restores the prior screen */
@@ -464,6 +469,451 @@ const G = {
   },
   hasRule(id) { return !!(this.houseRules && this.houseRules.includes(id)); },
 
+  /* ---------- THE PATIENT DIARY (the run writes itself down) ---------- */
+  diaryNote(txt) {
+    if (this.practice || this.sandbox || this.overtime) return;
+    const D = this._diary || (this._diary = []);
+    if (D.length < 22) D.push(txt);
+  },
+  composeDiary(out) {
+    if (this.practice || this.sandbox || this.overtime) return;
+    try {
+      const p = this.player;
+      const day = Meta.data.dayCount = (Meta.data.dayCount || 0) + 1;
+      const D = DATA.DIAG[p.diag] || { name: p.diag };
+      const open = 'Checked in as ' + D.name + (this.daily ? ' (the house picked)' : '') + '. Made it to ward ' + this.depth + '.';
+      const cause = this._causeName ? this._causeName(p._lastSrc || 'unknown') : 'something';
+      const closers = {
+        dead: 'Then the ' + cause + ' got me. Filed under: recurring.',
+        cured: 'They said the word. “Cured.” The building disagreed, quietly, through the vents.',
+        ama: 'Left through the fire door, against advice. The morning was free. The bill was not.',
+        quit: 'Walked out mid-appointment. No regrets. Some regrets. One regret, recurring.'
+      };
+      const lines = [open].concat((this._diary || []).slice(0, 14)).concat([closers[out] || closers.quit]);
+      const log = Meta.data.diary || (Meta.data.diary = []);
+      log.push({ day, t: this.todayKey(), diag: p.baseDiag === 'undiag' ? 'undiag' : p.diag, ward: this.depth, out, lines });
+      while (log.length > 20) log.shift();
+    } catch (e) { }
+  },
+  showJournal(returnTo) {
+    this.state = 'journal';
+    SFX.play('paper');
+    const log = (Meta.data.diary || []).slice().reverse();
+    const tag = e => e.out === 'cured' ? '✓ cured' : e.out === 'ama' ? '🚪 left AMA' : e.out === 'quit' ? 'walked out' : '☠ didn\'t';
+    const rows = log.length ? log.map((e, i) => `
+      <div class="ach got" data-de="${i}" style="cursor:pointer">
+        <div class="achicon">📔</div>
+        <div class="achbody">
+          <div class="achname">DAY ${e.day} — ${(DATA.DIAG[e.diag] || { name: e.diag }).name}</div>
+          <div class="achdesc">ward ${e.ward} · ${tag(e)} · ${e.lines.length} lines</div>
+        </div>
+      </div>`).join('')
+      : '<div class="stats-line">The journal is blank. It\'s waiting. It\'s very patient. It lives here.</div>';
+    this.overlay(`
+      <div class="panel wide">
+        <h1 class="logo" style="font-size:26px">📔 THE PATIENT DIARY</h1>
+        <div class="tagline">it writes itself, one run at a time. nobody asked it to.</div>
+        <div class="achlist">${rows}</div>
+        <button class="btn" id="bJournalBack">BACK</button>
+      </div>`);
+    document.querySelectorAll('[data-de]').forEach(b => b.onclick = () => { SFX.play('paper'); this.showJournalPage(log[+b.dataset.de], returnTo); });
+    document.getElementById('bJournalBack').onclick = () => { SFX.play('ui'); (returnTo || (() => this.showTitle()))(); };
+  },
+  showJournalPage(e, returnTo) {
+    this.state = 'journal';
+    const body = e.lines.map(l => `<div style="margin:7px 0;line-height:1.45">${l}</div>`).join('');
+    this.overlay(`
+      <div class="panel wide">
+        <div class="docpaper">
+          <div class="docstamp" style="color:#7a5a9a;border-color:#7a5a9a">DAY ${e.day}</div>
+          <div class="doctitle">📔 ${(DATA.DIAG[e.diag] || { name: e.diag }).name} · ward ${e.ward}</div>
+          <div class="docsub">${e.t || ''} · patient's own hand · legibility: disputed</div>
+          <div class="docbody">${body}</div>
+        </div>
+        <button class="btn" id="bDiaryPgBack">CLOSE THE JOURNAL</button>
+      </div>`);
+    document.getElementById('bDiaryPgBack').onclick = () => { SFX.play('paper'); this.showJournal(returnTo); };
+  },
+
+  /* ---------- MISFILED DOCUMENTS (the building's paperwork surfaces) ---------- */
+  showDocument(id, returnTo) {
+    const D = (DATA.DOCUMENTS || []).find(d => d.id === id);
+    if (!D) return;
+    const wasRun = this.state === 'run';
+    this.state = 'document';
+    SFX.play('paper');
+    const docs = Meta.data.docs || (Meta.data.docs = {});
+    if (!docs[id]) {
+      docs[id] = 1;
+      Meta.save();
+      this.diaryNote('Found misfiled paperwork: “' + D.title + '.” Reading it felt like trespassing. Kept it.');
+    }
+    const got = Object.keys(docs).length, total = (DATA.DOCUMENTS || []).length;
+    const body = D.body.map(l => `<div style="margin:8px 0;line-height:1.45">${l}</div>`).join('');
+    this.overlay(`
+      <div class="panel wide">
+        <div class="docpaper">
+          <div class="docstamp">MISFILED</div>
+          <div class="doctitle">${D.icon} ${D.title}</div>
+          <div class="docsub">${D.sub}</div>
+          <div class="docbody">${body}</div>
+          <div class="docfoot">ARCHIVE · ${got} / ${total} recovered · refiled under: you</div>
+        </div>
+        <button class="btn" id="bDocBack">🗂 FILE IT PROPERLY (keep it)</button>
+      </div>`);
+    document.getElementById('bDocBack').onclick = () => {
+      SFX.play('stamp');
+      this.checkUnlocks();
+      if (returnTo) returnTo();
+      else if (wasRun) { this.hideOverlay(); this.state = 'run'; }
+      else this.showTitle();
+    };
+  },
+
+  /* ============================================================
+     GAME TESTER (STAFF ONLY — the secret menu behind the code)
+     Sandbox runs and the room designer never touch the real save:
+     Meta.save() is latched off and Meta.data is snapshot-restored.
+     ============================================================ */
+  showTesterGate() {
+    this.state = 'testergate';
+    this.overlay(`
+      <div class="panel">
+        <h1 class="logo" style="font-size:26px">🔧 STAFF ONLY</h1>
+        <div class="tagline">authorized personnel, contractors, and whoever knows the code</div>
+        <div class="setrow"><label>ACCESS CODE:</label>
+          <input type="password" id="tgIn" class="seedfield" maxlength="24" placeholder="•••••" autocomplete="off"></div>
+        <button class="btn" id="bTgGo">🔓 CLOCK IN</button>
+        <div class="smallprint">hint: it's what the building actually runs on.</div>
+        <button class="btn minor" id="bTgBack">BACK</button>
+      </div>`);
+    const tryCode = () => {
+      const v = String(document.getElementById('tgIn').value || '').trim().toLowerCase();
+      if (v === 'money') {
+        Meta.data.tester = 1; Meta.save();
+        SFX.play('fanfare');
+        this.toast('🔧 Badge accepted. Welcome to the staff side. Mind the wet floor.', '#8fd08a');
+        this.showTester(() => this.showTitle());
+      } else {
+        SFX.play('denied');
+        this.toast('That is not the code. This attempt will be billed.', '#e08a8a');
+      }
+    };
+    document.getElementById('bTgGo').onclick = tryCode;
+    document.getElementById('tgIn').onkeydown = (e) => { if (e.key === 'Enter') tryCode(); };
+    document.getElementById('bTgBack').onclick = () => { SFX.play('ui'); this.showTitle(); };
+  },
+  showTester(returnTo) {
+    this.endSandbox();   // stepping into the office ends any imaginary shift
+    this.state = 'tester';
+    const ct = on => on ? '✅' : '⬜';
+    this.overlay(`
+      <div class="panel">
+        <h1 class="logo" style="font-size:26px">🔧 GAME TESTER</h1>
+        <div class="tagline">internal tools · nothing in here touches your real save unless it says so</div>
+        <button class="btn" id="bTSandbox">🏖 SANDBOX RUN — any patient, any ward, nothing counts</button>
+        <button class="btn" id="bTDesign">🏗 ROOM DESIGNER — build a room, fill it, playtest it</button>
+        <button class="btn minor" id="bTGod">${ct(!!this.god)} GOD MODE (this session)</button>
+        <button class="btn minor" id="bTDebug">${ct(!!this.debug)} DEBUG KEYS (this session) — N floor · B boss · K clear · H heal · G goods</button>
+        <button class="btn minor" id="bTFps">${ct(!!Meta.data.fpsHud)} FPS + ENTITY OVERLAY (saved)</button>
+        <button class="btn minor" id="bTLock">🔒 RESET TESTER ACCESS (forget the code)</button>
+        <div class="smallprint">during any run, PAUSE gains a 🔧 TESTER TOOLS drawer: heals, currency, item grants, enemy spawns, floor skips.</div>
+        <button class="btn" id="bTesterBack">BACK</button>
+      </div>`);
+    document.getElementById('bTSandbox').onclick = () => { SFX.play('ui'); this.showSandbox(returnTo); };
+    document.getElementById('bTDesign').onclick = () => { SFX.play('ui'); this.showDesigner(); };
+    document.getElementById('bTGod').onclick = (e) => { SFX.play('ui'); this.god = !this.god; e.target.textContent = (this.god ? '✅' : '⬜') + ' GOD MODE (this session)'; };
+    document.getElementById('bTDebug').onclick = (e) => { SFX.play('ui'); this.debug = !this.debug; e.target.textContent = (this.debug ? '✅' : '⬜') + ' DEBUG KEYS (this session) — N floor · B boss · K clear · H heal · G goods'; };
+    document.getElementById('bTFps').onclick = (e) => { SFX.play('ui'); Meta.data.fpsHud = Meta.data.fpsHud ? 0 : 1; Meta.save(); e.target.textContent = (Meta.data.fpsHud ? '✅' : '⬜') + ' FPS + ENTITY OVERLAY (saved)'; };
+    document.getElementById('bTLock').onclick = () => { SFX.play('stamp'); Meta.data.tester = 0; Meta.save(); this.toast('🔒 Badge surrendered. The code still works, if you still know it.', '#b8b0a0'); this.showTitle(); };
+    document.getElementById('bTesterBack').onclick = () => { SFX.play('ui'); (returnTo || (() => this.showTitle()))(); };
+  },
+  showSandbox(returnTo) {
+    this.state = 'tester';
+    this._sbWard = this._sbWard || 1;
+    const order = ['adhd', 'bipolar', 'depression', 'anxiety', 'schizo', 'ocd', 'ptsd', 'insomnia', 'fine', 'undiag', 'burnout'];
+    const chips = order.map(id => `<button class="btn minor" data-sb="${id}" style="font-size:11px;padding:6px 8px;${this._sbDiag === id ? 'outline:2px solid #e8c84c' : ''}">${DATA.DIAG[id] ? DATA.DIAG[id].name : id}</button>`).join('');
+    this.overlay(`
+      <div class="panel wide">
+        <h1 class="logo" style="font-size:26px">🏖 SANDBOX RUN</h1>
+        <div class="tagline">pick a patient and a ward. play normally. the save never hears about it.</div>
+        <div class="btnrow" style="flex-wrap:wrap">${chips}</div>
+        <div class="setrow" style="justify-content:center;gap:10px;margin-top:8px">
+          <button class="btn minor" id="bSbDn" style="min-width:44px">−</button>
+          <span id="sbWardLbl" style="font-weight:bold;min-width:160px;text-align:center">START AT WARD ${this._sbWard}</span>
+          <button class="btn minor" id="bSbUp" style="min-width:44px">+</button>
+        </div>
+        <button class="btn" id="bSbGo">▶ CHECK IN (off the record)</button>
+        <button class="btn minor" id="bSbBack">BACK</button>
+      </div>`);
+    document.querySelectorAll('[data-sb]').forEach(b => b.onclick = () => { SFX.play('ui'); this._sbDiag = b.dataset.sb; this.showSandbox(returnTo); });
+    const upd = () => { document.getElementById('sbWardLbl').textContent = 'START AT WARD ' + this._sbWard; };
+    document.getElementById('bSbUp').onclick = () => { SFX.play('ui'); this._sbWard = Math.min(30, this._sbWard + 1); upd(); };
+    document.getElementById('bSbDn').onclick = () => { SFX.play('ui'); this._sbWard = Math.max(1, this._sbWard - 1); upd(); };
+    document.getElementById('bSbGo').onclick = () => { SFX.play('stamp'); this.beginSandbox(this._sbDiag || 'adhd', this._sbWard || 1); };
+    document.getElementById('bSbBack').onclick = () => { SFX.play('ui'); this.showTester(returnTo); };
+  },
+  beginSandbox(diagId, depth, opts) {
+    opts = opts || {};
+    if (!this._metaSnap) this._metaSnap = JSON.stringify(Meta.data);   // freeze the real save
+    Meta._noSave = true;
+    this._sandboxStart = true;
+    this._startPlan = null; this._startIntensity = 0; this._startVolunteer = false; this._startCustom = null;
+    this._startChronic = false; this._startBossRush = false; this._startPrognosis = null; this._startProtocol = null;
+    this.beginRun(diagId);
+    this._runLogged = true;   // nothing about this run is ever recorded
+    if (depth > 1) { this.depth = depth; this.newFloor(); }
+    if (!opts.silent) {
+      this.setBanner('🏖 SANDBOX', 'nothing counts. everything is possible.', 2.6);
+      this.toast('🏖 Sandbox shift: saves, unlocks and stats stay untouched. Quit to title to clock out.', '#8fd0e0');
+    }
+  },
+  endSandbox() {
+    if (!this.sandbox && !this._metaSnap) return;
+    this.sandbox = false; this.designTest = false;
+    Meta._noSave = false;
+    if (this._metaSnap) {
+      try {
+        const d = JSON.parse(this._metaSnap);
+        for (const k of Object.keys(Meta.data)) delete Meta.data[k];
+        Object.assign(Meta.data, d);
+      } catch (e) { }
+      this._metaSnap = null;
+    }
+  },
+
+  /* ---------- THE ROOM DESIGNER (paint the ward; staff will bill someone for it) ---------- */
+  _blankDesign() {
+    const layout = [];
+    for (let r = 0; r < ROWS; r++) { layout[r] = []; for (let c = 0; c < COLS; c++) layout[r][c] = 0; }
+    return { ward: 3, layout, ents: [], picks: [], boss: null, start: { c: 6, r: 5 } };
+  },
+  showDesigner() {
+    this.state = 'design';
+    if (!this._design) this._design = this._blankDesign();
+    if (!this._dgTool) this._dgTool = 'wall';
+    const D = this._design;
+    const enemyOpts = Object.keys(DATA.ENEMIES).filter(id => id !== 'form').map(id => `<option value="${id}" ${this._dgEnemy === id ? 'selected' : ''}>${DATA.ENEMIES[id].name}</option>`).join('');
+    const pickOpts = [['coin', '🪙 coin'], ['nickel', '💰 nickel'], ['half', '❤️ half heart'], ['full', '💗 full heart'], ['pill', '💊 pill'], ['key', '🔑 key'], ['bomb', '📄 claim form'], ['trinket', '🧷 trinket'], ['item', '💊 ITEM PEDESTAL']].map(([v, l]) => `<option value="${v}" ${this._dgPick === v ? 'selected' : ''}>${l}</option>`).join('');
+    const bossOpts = ['', 'gatekeeper', 'larperking', 'adjuster', 'priorauth', 'stigma', 'dsm', 'algorithm', 'influencer', 'peerreview', 'withdrawal', 'burnout', 'walrus', 'thecure', 'founder', 'thesystem', 'theboard'].map(id => `<option value="${id}" ${D.boss === id ? 'selected' : ''}>${id ? (DATA.BOSSES[id] || { name: id }).name : '— no boss —'}</option>`).join('');
+    const tools = [['wall', '🧱 wall'], ['paper', '📄 paperwork'], ['spikes', '⚠ hazard'], ['floor', '⬜ floor'], ['start', '🎯 start'], ['enemy', '🧟 enemy'], ['pick', '🎁 pickup'], ['erase', '✖ erase']];
+    const toolBtns = tools.map(([id, l]) => `<button class="btn minor dgt" data-t="${id}" style="font-size:11px;padding:6px 9px;${this._dgTool === id ? 'outline:2px solid #e8c84c' : ''}">${l}</button>`).join('');
+    let grid = '';
+    for (let r = 0; r < ROWS; r++) {
+      grid += '<div class="dgrow">';
+      for (let c = 0; c < COLS; c++) grid += `<button class="dgc" data-c="${c}" data-r="${r}"></button>`;
+      grid += '</div>';
+    }
+    this.overlay(`
+      <div class="panel wide">
+        <h1 class="logo" style="font-size:24px">🏗 ROOM DESIGNER</h1>
+        <div class="tagline">paint tiles, drop a crowd, playtest it live · ${COLS}×${ROWS} · staff use only</div>
+        <div class="btnrow" style="flex-wrap:wrap">${toolBtns}</div>
+        <div class="btnrow" style="flex-wrap:wrap;gap:6px">
+          <select id="dgEnemy" class="seedfield" style="max-width:180px">${enemyOpts}</select>
+          <select id="dgPick" class="seedfield" style="max-width:150px">${pickOpts}</select>
+          <select id="dgBoss" class="seedfield" style="max-width:170px">${bossOpts}</select>
+        </div>
+        <div id="dgWrap">${grid}</div>
+        <div class="setrow" style="justify-content:center;gap:10px">
+          <button class="btn minor" id="bDgWdn" style="min-width:40px">−</button>
+          <span id="dgWardLbl" style="font-weight:bold;min-width:150px;text-align:center">SIMULATED WARD ${D.ward}</span>
+          <button class="btn minor" id="bDgWup" style="min-width:40px">+</button>
+        </div>
+        <div class="btnrow" style="flex-wrap:wrap">
+          <button class="btn" id="bDgPlay">▶ PLAYTEST</button>
+          <button class="btn minor" id="bDgExport">📤 COPY CODE</button>
+          <button class="btn minor" id="bDgClear">🧹 CLEAR</button>
+        </div>
+        <div class="setrow"><label>📥 room code:</label><input type="text" id="dgIn" class="seedfield" placeholder="EGSROOM..." autocomplete="off"><button class="btn minor" id="bDgImport">LOAD</button></div>
+        <button class="btn minor" id="bDesignBack">BACK</button>
+      </div>`);
+    // paint every cell to match the model
+    document.querySelectorAll('.dgc').forEach(el => this._dgPaintCell(el));
+    const bindCell = (el) => {
+      const act = () => { this._dgApply(+el.dataset.c, +el.dataset.r); this._dgPaintCell(el); };
+      el.onpointerdown = (e) => { e.preventDefault(); this._dgDrag = true; act(); };
+      el.onpointerenter = () => { if (this._dgDrag) act(); };
+    };
+    document.querySelectorAll('.dgc').forEach(bindCell);
+    document.getElementById('dgWrap').onpointerup = () => { this._dgDrag = false; };
+    window.addEventListener('pointerup', () => { this._dgDrag = false; }, { once: false });
+    document.querySelectorAll('.dgt').forEach(b => b.onclick = () => { SFX.play('ui'); this._dgTool = b.dataset.t; this.showDesigner(); });
+    document.getElementById('dgEnemy').onchange = (e) => { this._dgEnemy = e.target.value; this._dgTool = 'enemy'; this.showDesigner(); };
+    document.getElementById('dgPick').onchange = (e) => { this._dgPick = e.target.value; this._dgTool = 'pick'; this.showDesigner(); };
+    document.getElementById('dgBoss').onchange = (e) => { D.boss = e.target.value || null; SFX.play('ui'); };
+    const wupd = () => { document.getElementById('dgWardLbl').textContent = 'SIMULATED WARD ' + D.ward; };
+    document.getElementById('bDgWup').onclick = () => { SFX.play('ui'); D.ward = Math.min(30, D.ward + 1); wupd(); };
+    document.getElementById('bDgWdn').onclick = () => { SFX.play('ui'); D.ward = Math.max(1, D.ward - 1); wupd(); };
+    document.getElementById('bDgPlay').onclick = () => { SFX.play('stamp'); this.playtestDesign(); };
+    document.getElementById('bDgExport').onclick = () => {
+      const code = this.designCode();
+      const inp = document.getElementById('dgIn');
+      inp.value = code;
+      inp.select();
+      try { navigator.clipboard && navigator.clipboard.writeText(code); } catch (e) { }
+      SFX.play('paper');
+      this.toast('📤 Room code staged in the field (and clipboard, where allowed).', '#8fd08a');
+    };
+    document.getElementById('bDgImport').onclick = () => {
+      const ok = this.parseDesignCode(document.getElementById('dgIn').value);
+      if (ok) { SFX.play('fanfare'); this.toast('📥 Blueprint accepted. Someone else\'s problem is now yours.', '#8fd08a'); this.showDesigner(); }
+      else { SFX.play('denied'); this.toast('That is not a room. Structurally.', '#e08a8a'); }
+    };
+    document.getElementById('bDgClear').onclick = () => { SFX.play('ui'); this._design = this._blankDesign(); this.showDesigner(); };
+    document.getElementById('bDesignBack').onclick = () => { SFX.play('ui'); this.showTester(() => this.showTitle()); };
+  },
+  _dgApply(c, r) {
+    const D = this._design, t = this._dgTool;
+    const clearMarks = () => {
+      D.ents = D.ents.filter(e => !(e.c === c && e.r === r));
+      D.picks = D.picks.filter(p => !(p.c === c && p.r === r));
+    };
+    if (t === 'wall' || t === 'paper' || t === 'spikes') { D.layout[r][c] = t === 'wall' ? 1 : t === 'paper' ? 2 : 3; clearMarks(); }
+    else if (t === 'floor') { D.layout[r][c] = 0; }
+    else if (t === 'erase') { D.layout[r][c] = 0; clearMarks(); }
+    else if (t === 'start') { D.layout[r][c] = 0; clearMarks(); D.start = { c, r }; document.querySelectorAll('.dgc').forEach(el => this._dgPaintCell(el)); }
+    else if (t === 'enemy') {
+      if (D.ents.length + D.picks.length >= 24 && !D.ents.some(e => e.c === c && e.r === r)) { this.toast('24 placements max. This is a room, not a filing backlog.', '#e0a05a'); return; }
+      D.layout[r][c] = 0; clearMarks();
+      D.ents.push({ id: this._dgEnemy || Object.keys(DATA.ENEMIES)[0], c, r });
+    } else if (t === 'pick') {
+      if (D.ents.length + D.picks.length >= 24 && !D.picks.some(p => p.c === c && p.r === r)) { this.toast('24 placements max.', '#e0a05a'); return; }
+      D.layout[r][c] = 0; clearMarks();
+      D.picks.push({ t: this._dgPick || 'coin', c, r });
+    }
+  },
+  _dgPaintCell(el) {
+    const D = this._design, c = +el.dataset.c, r = +el.dataset.r;
+    const t = D.layout[r][c];
+    el.style.background = t === 1 ? '#8a7a66' : t === 2 ? '#efe6cc' : t === 3 ? '#c05050' : '#d8cfc0';
+    let mark = '';
+    if (D.start && D.start.c === c && D.start.r === r) mark = '🎯';
+    const en = D.ents.find(e => e.c === c && e.r === r);
+    if (en) mark = '🧟';
+    const pk = D.picks.find(p => p.c === c && p.r === r);
+    if (pk) mark = pk.t === 'item' ? '💊' : pk.t === 'key' ? '🔑' : pk.t === 'bomb' ? '📄' : pk.t === 'pill' ? '💊' : (pk.t === 'half' || pk.t === 'full') ? '❤️' : pk.t === 'trinket' ? '🧷' : '🪙';
+    el.textContent = mark || (t === 2 ? '📄' : t === 3 ? '⚠' : '');
+    el.title = en ? DATA.ENEMIES[en.id].name : '';
+  },
+  designCode() {
+    const D = this._design;
+    const o = { v: 1, w: D.ward, l: D.layout.map(row => row.join('')), e: D.ents.map(e => [e.id, e.c, e.r]), p: D.picks.map(p => [p.t, p.c, p.r]), b: D.boss || '', s: [D.start.c, D.start.r] };
+    return 'EGSROOM' + btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/=+$/, '');
+  },
+  parseDesignCode(str) {
+    try {
+      const s = String(str || '').trim();
+      if (!s.startsWith('EGSROOM')) return false;
+      const o = JSON.parse(decodeURIComponent(escape(atob(s.slice(7)))));
+      if (!o || !Array.isArray(o.l) || o.l.length !== ROWS) return false;
+      const D = this._blankDesign();
+      D.ward = U.clamp(parseInt(o.w, 10) || 1, 1, 30);
+      for (let r = 0; r < ROWS; r++) {
+        const row = String(o.l[r] || '');
+        for (let c = 0; c < COLS; c++) { const v = parseInt(row[c], 10); D.layout[r][c] = (v >= 0 && v <= 3) ? v : 0; }
+      }
+      for (const e of (o.e || []).slice(0, 24)) if (DATA.ENEMIES[e[0]] && e[0] !== 'form') D.ents.push({ id: e[0], c: U.clamp(+e[1] | 0, 0, COLS - 1), r: U.clamp(+e[2] | 0, 0, ROWS - 1) });
+      for (const p of (o.p || []).slice(0, 24)) if (['coin', 'nickel', 'half', 'full', 'pill', 'key', 'bomb', 'trinket', 'item'].includes(p[0])) D.picks.push({ t: p[0], c: U.clamp(+p[1] | 0, 0, COLS - 1), r: U.clamp(+p[2] | 0, 0, ROWS - 1) });
+      D.boss = (o.b && DATA.BOSSES[o.b]) ? o.b : null;
+      if (Array.isArray(o.s)) D.start = { c: U.clamp(+o.s[0] | 0, 0, COLS - 1), r: U.clamp(+o.s[1] | 0, 0, ROWS - 1) };
+      D.layout[D.start.r][D.start.c] = 0;
+      this._design = D;
+      return true;
+    } catch (e) { return false; }
+  },
+  playtestDesign() {
+    const D = this._design;
+    if (!D) return;
+    const diag = (Meta.data.lastDiag && DATA.DIAG[Meta.data.lastDiag]) ? Meta.data.lastDiag : 'adhd';
+    this.endSandbox();   // fresh shift every playtest
+    this.beginSandbox(diag, Math.max(1, D.ward || 1), { silent: true });
+    this.designTest = true;
+    const room = makeRoom(499, 499, 'normal');
+    room.doors = { N: false, S: false, E: false, W: false };
+    room.secretDoors = { N: false, S: false, E: false, W: false };
+    room.layout = D.layout.map(row => row.slice());
+    room.layout[D.start.r][D.start.c] = 0;
+    room.paperHp = {};
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) if (room.layout[r][c] === 2) room.paperHp[c + ',' + r] = 10;
+    room.discovered = room.visited = true;
+    room.spawned = true;   // the designer decides the crowd, not the generator
+    room.theme = 'exam';
+    this.grid.set(U.key(499, 499), room);
+    this.floorRooms.push(room);
+    this.enterRoom(room, null);
+    const sp = tileToPx(D.start.c, D.start.r);
+    this.player.x = sp.x; this.player.y = sp.y;
+    for (const en of D.ents) {
+      const px = tileToPx(en.c, en.r);
+      const e = new Enemy(en.id, px.x, px.y, this.depth, false, 1);
+      e.spawnT = 0.9;
+      this.enemies.push(e);
+    }
+    for (const pk of D.picks) {
+      const px = tileToPx(pk.c, pk.r);
+      if (pk.t === 'item') {
+        const pool = DATA.pickPool('special', this.player.items);
+        this.peds.push({ x: px.x, y: px.y, itemId: U.choice(pool.length ? pool : DATA.POOLS.special), kind: 'item', taken: false });
+      } else {
+        const p2 = new Pickup(pk.t, px.x, px.y);
+        p2.settle = 0; p2.vx = 0; p2.vy = 0;
+        this.pickups.push(p2);
+      }
+    }
+    if (D.boss) {
+      this.bossId = D.boss;
+      try { this.boss = new Boss(D.boss, this.depth, this); } catch (e) { }
+    }
+    this.setBanner('🏗 PLAYTEST', 'PAUSE to return to the designer · deaths respawn', 2.8);
+  },
+  showTesterTools() {
+    this.state = 'testertools';
+    const p = this.player;
+    const ct = on => on ? '✅' : '⬜';
+    const itemOpts = Object.keys(DATA.ITEMS).sort((a, b) => DATA.ITEMS[a].name.localeCompare(DATA.ITEMS[b].name)).map(id => `<option value="${id}">${DATA.ITEMS[id].name}</option>`).join('');
+    const enemyOpts = Object.keys(DATA.ENEMIES).filter(id => id !== 'form').map(id => `<option value="${id}">${DATA.ENEMIES[id].name}</option>`).join('');
+    this.overlay(`
+      <div class="panel wide">
+        <h1 class="logo" style="font-size:24px">🔧 TESTER TOOLS</h1>
+        <div class="tagline">${this.sandbox ? 'sandbox shift — nothing counts anyway' : 'REAL RUN — these cheats affect this run (your call, staff)'}</div>
+        <div class="btnrow" style="flex-wrap:wrap">
+          <button class="btn minor" id="ttHeal">❤️ FULL HEAL</button>
+          <button class="btn minor" id="ttGoods">💰 +20¢ +3🔑 +3📄 +💊</button>
+          <button class="btn minor" id="ttKill">☠ CLEAR ROOM</button>
+          <button class="btn minor" id="ttFloor">⬇ NEXT FLOOR</button>
+        </div>
+        <div class="btnrow" style="flex-wrap:wrap">
+          <button class="btn minor" id="ttGod">${ct(!!this.god)} GOD</button>
+          <button class="btn minor" id="ttDebug">${ct(!!this.debug)} DEBUG KEYS</button>
+          <button class="btn minor" id="ttFps">${ct(!!Meta.data.fpsHud)} FPS HUD</button>
+        </div>
+        <div class="setrow"><label>℞ grant:</label><select id="ttItem" class="seedfield">${itemOpts}</select><button class="btn minor" id="ttGive">GIVE</button></div>
+        <div class="setrow"><label>🧟 spawn:</label><select id="ttEnemy" class="seedfield">${enemyOpts}</select><button class="btn minor" id="ttSpawn">SPAWN</button></div>
+        <button class="btn" id="ttResume">RESUME</button>
+      </div>`);
+    document.getElementById('ttHeal').onclick = () => { SFX.play('heal'); p.hp = p.maxhp; this.toast('❤️ topped off', '#8fd08a'); };
+    document.getElementById('ttGoods').onclick = () => { SFX.play('coin'); p.coins += 20; p.keys += 3; p.bombs += 3; if (p.pill == null) p.pill = U.randi(0, 9); this.toast('💰 petty cash disbursed', '#e8c84c'); };
+    document.getElementById('ttKill').onclick = () => { SFX.play('stamp'); this.hideOverlay(); this.state = 'run'; for (const e of this.enemies) e.hurt(9999, this, true); if (this.boss && !this.boss.dead) this.boss.hurt(9999, this); };
+    document.getElementById('ttFloor').onclick = () => { SFX.play('descend'); this.hideOverlay(); this.state = 'run'; this.depth++; this.newFloor(); };
+    document.getElementById('ttGod').onclick = (e) => { SFX.play('ui'); this.god = !this.god; e.target.textContent = (this.god ? '✅' : '⬜') + ' GOD'; };
+    document.getElementById('ttDebug').onclick = (e) => { SFX.play('ui'); this.debug = !this.debug; e.target.textContent = (this.debug ? '✅' : '⬜') + ' DEBUG KEYS'; };
+    document.getElementById('ttFps').onclick = (e) => { SFX.play('ui'); Meta.data.fpsHud = Meta.data.fpsHud ? 0 : 1; Meta.save(); e.target.textContent = (Meta.data.fpsHud ? '✅' : '⬜') + ' FPS HUD'; };
+    document.getElementById('ttGive').onclick = () => { const id = document.getElementById('ttItem').value; if (DATA.ITEMS[id]) { p.addItem(id, this); this.stats.items++; SFX.play('item'); this.toast('℞ granted: ' + DATA.ITEMS[id].name, '#8fd08a'); } };
+    document.getElementById('ttSpawn').onclick = () => {
+      const id = document.getElementById('ttEnemy').value;
+      if (!DATA.ENEMIES[id]) return;
+      this.hideOverlay(); this.state = 'run';
+      const a = U.rand(0, TAU);
+      const ex = U.clamp(p.x + Math.cos(a) * 170, RX + 30, RX + RW - 30), ey = U.clamp(p.y + Math.sin(a) * 170, RY + 30, RY + RH - 30);
+      const e = new Enemy(id, ex, ey, this.depth, false, 1);
+      e.spawnT = 0.8;
+      this.enemies.push(e);
+      SFX.play('sting');
+    };
+    document.getElementById('ttResume').onclick = () => { SFX.play('ui'); this.hideOverlay(); this.state = 'run'; };
+  },
+
   /* ---------- THE CREDITS (roll them. you earned them. someone will be billed.) ---------- */
   showCredits() {
     this.state = 'credits';
@@ -505,6 +955,7 @@ const G = {
       try { D.apply(this.player, this); } catch (e) { }
       boss._spared = true;
       boss._dealHold = false;
+      this.diaryNote('Spared ' + B.name + ' on ward ' + this.depth + '. We shook on it. Their hand was mostly clipboard.');
       this.hideOverlay(); this.state = 'run';
       boss.die(this);
     };
@@ -538,6 +989,14 @@ const G = {
     this.pickups.push(new Pickup('full', CW / 2 - 40, RY + RH - 130));
     this.pickups.push(new Pickup('pill', CW / 2 + 40, RY + RH - 130));
     for (let i = 0; i < 3; i++) this.pickups.push(new Pickup('coin', CW / 2 + U.rand(-90, 90), RY + RH / 2 + 60));
+    // one misfiled document always ends up down here (he files by instinct)
+    const undoc = (DATA.DOCUMENTS || []).filter(d => !(Meta.data.docs || {})[d.id]);
+    if (undoc.length && !this.sandbox && !this.practice) {
+      const dp = new Pickup('coin', RX + RW - 90, RY + 110);
+      dp.type = 'document'; dp._docId = U.choice(undoc).id; dp.settle = 0; dp.vx = 0; dp.vy = 0;
+      this.pickups.push(dp);
+    }
+    this.diaryNote('Saw the basement. Forty years of finding things. Bought two of them.');
     this.setBanner('🕯 THE BASEMENT', 'forty years of finding things', 2.6);
     this.toast('🧹 “Touch whatever. The walrus doesn\'t know this floor exists.”', '#b8b0a0');
     SFX.setMusic('basement');
@@ -850,8 +1309,11 @@ const G = {
         </div>
         <div class="tagline" style="opacity:.7" id="heatDesc">each notch stacks a complication — and multiplies ◆ Insight. best so far: ${bestHeat}</div>` : ''}
         ${Meta.data.exitDone ? `<button class="btn minor" id="bVolT">🎗 VOLUNTEER BADGE: OFF — your file is closed. theirs aren't.</button>` : ''}
+        ${!daily ? `<button class="btn minor" id="bCustomPlan">📋 DESIGN A CUSTOM CARE PLAN — stack your own rules, share the code</button>` : ''}
         <div class="tagline" style="opacity:.6">seeded runs (daily / quarterly / challenge) are assigned SILVER. you don't get to pick. that's the joke.</div>
       </div>`);
+    const bcp = document.getElementById('bCustomPlan');
+    if (bcp) bcp.onclick = () => { SFX.play('paper'); this.showPlanBuilder(diagId, daily, variant); };
     if (heatOk) {
       const NOTCHES = ['standard care', '+10% patient vitality', 'copays +25%', 'management hustles', '−1 heart container', 'champions everywhere', 'a side-effect every ward', 'faster paperwork (bullets)', 'the ward stops tipping', 'constant CODE GRAY risk', 'desperation comes early'];
       const upd = () => {
@@ -878,7 +1340,93 @@ const G = {
     });
   },
 
+  /* ---------- CUSTOM CARE PLANS (design your own complications; share the code) ---------- */
+  showPlanBuilder(diagId, daily, variant) {
+    this.state = 'planbuilder';
+    const B = this._builderMem || (this._builderMem = { name: '', heat: 0, rules: [], plan: 'silver' });
+    const heatOk = !!Meta.data.cured;
+    if (!heatOk) B.heat = 0;
+    const ruleBtns = DATA.HOUSE_RULES.map(r => {
+      const on = B.rules.includes(r.id);
+      return `<button class="btn minor" data-rule="${r.id}" style="font-size:11px;padding:6px 9px;text-align:left;${on ? 'outline:2px solid #e8c84c' : 'opacity:.8'}">${on ? '✅' : '⬜'} ${r.icon} ${r.name} — <i>${r.desc}</i></button>`;
+    }).join('');
+    const planChips = DATA.PLANS.map(pl => `<button class="btn minor" data-bplan="${pl.id}" style="${B.plan === pl.id ? 'outline:2px solid ' + pl.clr : ''}">${pl.icon} ${pl.name}</button>`).join('');
+    const known = Object.keys(Meta.data.carePlans || {});
+    const bestLine = known.length ? `<div class="smallprint">filed protocols: ${known.slice(-4).map(n => { const cp = Meta.data.carePlans[n]; return '“' + n + '” (best: ward ' + (cp.best || 0) + ')'; }).join(' · ')}</div>` : '';
+    this.overlay(`
+      <div class="panel wide">
+        <h1 class="logo" style="font-size:26px">📋 CUSTOM CARE PLAN</h1>
+        <div class="tagline">stack the house rules yourself. name it. export it. dare somebody to run it.</div>
+        <div class="setrow"><label>PROTOCOL NAME:</label>
+          <input type="text" id="cpName" class="seedfield" maxlength="24" placeholder="the tuesday special" value="${(B.name || '').replace(/"/g, '&quot;')}" autocomplete="off"></div>
+        ${heatOk ? `<div class="setrow" style="justify-content:center;gap:10px">
+          <button class="btn minor" id="bCpHdn" style="min-width:40px">−</button>
+          <span id="cpHeatLbl" style="font-weight:bold;color:#e08a5a;min-width:190px;text-align:center">🔥 INTENSITY ${B.heat}</span>
+          <button class="btn minor" id="bCpHup" style="min-width:40px">+</button>
+        </div>` : '<div class="tagline" style="opacity:.6">🔥 intensity unlocks once you\'ve reached THE CURE</div>'}
+        <div class="btnrow" style="flex-wrap:wrap;gap:5px">${ruleBtns}</div>
+        <div class="btnrow" style="flex-wrap:wrap;margin-top:6px">${planChips}</div>
+        <div class="tagline" style="opacity:.7">◆ Insight pays +8% per stacked rule — the building respects ambition</div>
+        <button class="btn" id="bCpBegin">▶ BEGIN THIS PLAN</button>
+        <div class="btnrow" style="flex-wrap:wrap">
+          <button class="btn minor" id="bCpExport">📤 COPY PLAN CODE</button>
+        </div>
+        <div class="setrow"><label>📥 plan code:</label><input type="text" id="cpCode" class="seedfield" placeholder="EGSCARE..." autocomplete="off"><button class="btn minor" id="bCpLoad">LOAD</button></div>
+        ${bestLine}
+        <button class="btn minor" id="bCpBBack">BACK TO ENROLLMENT</button>
+      </div>`);
+    const nameEl = document.getElementById('cpName');
+    nameEl.oninput = () => { B.name = nameEl.value; };
+    const hup = document.getElementById('bCpHup');
+    if (hup) {
+      const updH = () => { document.getElementById('cpHeatLbl').textContent = '🔥 INTENSITY ' + B.heat; };
+      hup.onclick = () => { SFX.play('ui'); B.heat = Math.min(10, B.heat + 1); updH(); };
+      document.getElementById('bCpHdn').onclick = () => { SFX.play('ui'); B.heat = Math.max(0, B.heat - 1); updH(); };
+    }
+    document.querySelectorAll('[data-rule]').forEach(b => b.onclick = () => {
+      SFX.play('ui');
+      const id = b.dataset.rule;
+      B.rules = B.rules.includes(id) ? B.rules.filter(x => x !== id) : B.rules.concat(id);
+      this.showPlanBuilder(diagId, daily, variant);
+    });
+    document.querySelectorAll('[data-bplan]').forEach(b => b.onclick = () => { SFX.play('ui'); B.plan = b.dataset.bplan; this.showPlanBuilder(diagId, daily, variant); });
+    document.getElementById('bCpBegin').onclick = () => {
+      SFX.play('stamp');
+      this._startPlan = B.plan;
+      this._startIntensity = heatOk ? (B.heat || 0) : 0;
+      this._startVolunteer = false;
+      this._startCustom = { name: (B.name || '').trim() || 'UNTITLED PROTOCOL', rules: B.rules.slice() };
+      this.beginRun(diagId, daily, variant);
+    };
+    document.getElementById('bCpExport').onclick = () => {
+      const code = 'EGSCARE' + btoa(unescape(encodeURIComponent(JSON.stringify({ n: (B.name || '').trim() || 'UNTITLED PROTOCOL', h: B.heat || 0, r: B.rules, p: B.plan })))).replace(/=+$/, '');
+      const el = document.getElementById('cpCode');
+      el.value = code; el.select();
+      try { navigator.clipboard && navigator.clipboard.writeText(code); } catch (e) { }
+      SFX.play('paper');
+      this.toast('📤 Plan code staged (and copied, where allowed). Inflict it on someone.', '#8fd08a');
+    };
+    document.getElementById('bCpLoad').onclick = () => {
+      try {
+        const s = String(document.getElementById('cpCode').value || '').trim();
+        if (!s.startsWith('EGSCARE')) throw 0;
+        const o = JSON.parse(decodeURIComponent(escape(atob(s.slice(7)))));
+        B.name = String(o.n || '').slice(0, 24);
+        B.heat = U.clamp(parseInt(o.h, 10) || 0, 0, 10);
+        B.rules = (Array.isArray(o.r) ? o.r : []).filter(id => DATA.HOUSE_RULES.some(hr => hr.id === id));
+        B.plan = DATA.PLANS.some(pl => pl.id === o.p) ? o.p : 'silver';
+        SFX.play('fanfare');
+        this.toast('📥 “' + (B.name || 'UNTITLED PROTOCOL') + '” loaded. Somebody built this on purpose.', '#8fd08a');
+        this.showPlanBuilder(diagId, daily, variant);
+      } catch (e) { SFX.play('denied'); this.toast('That is not a care plan. It may be a cry for help.', '#e08a8a'); }
+    };
+    document.getElementById('bCpBBack').onclick = () => { SFX.play('ui'); this.showEnrollment(diagId, daily, variant); };
+  },
+
   beginRun(diagId, daily, variant) {
+    this.sandbox = !!this._sandboxStart; this._sandboxStart = false;   // GAME TESTER: an off-the-record shift
+    this.designTest = false;
+    this._diary = [];   // the Patient Diary starts a fresh page
     this.variantRun = !!variant && !daily;   // Second Opinion runs (never in dailies)
     this.daily = !!daily;
     this.dailyKind = daily ? (daily.isQuarterly ? 'quarterly' : daily.isDaily ? 'daily' : 'challenge') : null;
@@ -906,7 +1454,7 @@ const G = {
         ds.best = Math.max(ds.best || 0, ds.count);
       }
     }
-    if (!this._resuming) {   // a resumed run isn't a new run
+    if (!this._resuming && !this.sandbox) {   // a resumed run isn't a new run; a sandbox run isn't a run at all
       Meta.data.runs++;
       if (!Meta.data.diagsPlayed) Meta.data.diagsPlayed = {};
       Meta.data.diagsPlayed[diagId] = 1;
@@ -932,6 +1480,7 @@ const G = {
         this.toast('📦 CARE PACKAGE: ' + DATA.ITEMS[g.i].name + (g.n ? ' — “' + g.n + '”' : '') + ' (inspected. for safety.)', '#8fd08a');
         SFX.play('fanfare');
         Meta.data.giftsGot = (Meta.data.giftsGot || 0) + 1;
+        this.diaryNote('A care package came: ' + DATA.ITEMS[g.i].name + '. Someone out there believes in me. It was inspected, of course.');
       }
       Meta.data.pendingGift = null;
       Meta.save();
@@ -940,8 +1489,16 @@ const G = {
     // insurance plan (dailies & seeded runs are assigned SILVER — no marketplace for you)
     this.plan = (!daily && this._startPlan) ? this._startPlan : 'silver';
     this._startPlan = null;
+    // CUSTOM CARE PLAN: your rules, your problem — stacks any house rules you designed
+    this.customPlan = (!daily && this._startCustom) ? this._startCustom : null;
+    this._startCustom = null;
     // DAILY HOUSE RULES: posted at the door, enforced by the building
-    this.houseRules = (daily && daily.isDaily && daily.seed != null) ? this.dailyRules(daily.seed) : [];
+    this.houseRules = (daily && daily.isDaily && daily.seed != null) ? this.dailyRules(daily.seed)
+      : (this.customPlan ? (this.customPlan.rules || []).slice() : []);
+    if (this.customPlan) {
+      this.toast('📋 CUSTOM CARE PLAN — “' + this.customPlan.name + '”', '#8fd0e0');
+      this.diaryNote('Ran my own care plan: “' + this.customPlan.name + '.” The building approved it, which worried me.');
+    }
     if (this.houseRules.length) {
       const named = this.houseRules.map(id => { const r = DATA.HOUSE_RULES.find(x => x.id === id); return r ? r.icon + ' ' + r.name : id; }).join(' · ');
       this.toast('📜 HOUSE RULES: ' + named, '#c8a24a');
@@ -951,13 +1508,14 @@ const G = {
     this.intensity = (!daily && this._startIntensity) ? this._startIntensity : 0;
     this._startIntensity = 0;
     if (this.intensity >= 4) { this.player.maxhp = Math.max(2, this.player.maxhp - 2); this.player.hp = Math.min(this.player.hp, this.player.maxhp); }
-    if (this.intensity > 0) this.toast('🔥 TREATMENT INTENSITY ' + this.intensity + ' — Insight ×' + (1 + this.intensity * 0.15).toFixed(2), '#e08a5a');
+    if (this.intensity > 0) { this.toast('🔥 TREATMENT INTENSITY ' + this.intensity + ' — Insight ×' + (1 + this.intensity * 0.15).toFixed(2), '#e08a5a'); this.diaryNote('Asked for intensity ' + this.intensity + '. On purpose. In writing.'); }
     // THE VOLUNTEER BADGE: you came back for them
     this.volunteer = !daily && !!this._startVolunteer && !!Meta.data.exitDone;
     this._startVolunteer = false;
     if (this.volunteer) {
       for (const a of this.player.allies) a.dmgMul = (a.dmgMul || 1) * 1.5;
       this.toast('🎗 VOLUNTEER. Not a patient — a regular. The companions can feel it.', '#e8c05a');
+      this.diaryNote('Wore the volunteer badge in. Not my circus anymore. Still my monkeys.');
     }
     if (this.plan === 'bronze') { this.player.coins += 15; }
     if (this.plan === 'gold') { this.player.maxhp = Math.max(2, this.player.maxhp - 2); this.player.hp = Math.min(this.player.hp, this.player.maxhp); }
@@ -1045,9 +1603,29 @@ const G = {
         { x: 820, y: 560, r: 48, door: false, label: '📋 PATIENT CHART', hint: 'the codex', act: () => this.showCodex(() => this.showHub()) },
         { x: 330, y: 565, r: 46, door: false, label: '🫙 WELLNESS FUND', hint: 'balance: ' + (Meta.data.fund || 0) + '¢', act: () => this.showFacility(() => this.showHub()) },
         { x: 480, y: 565, r: 44, door: false, label: '📋 COMPLAINTS', hint: Meta.data.pendingComplaint ? 'one pending' : 'file a grievance', act: () => this.showComplaints(() => this.showHub()) },
+        { x: 660, y: 330, r: 46, door: false, label: '📔 PATIENT DIARY', hint: (Meta.data.diary || []).length ? (Meta.data.diary.length + ' entries · it kept writing') : 'it writes itself. about you.', act: () => this.showJournal(() => this.showHub()) },
         { x: 480, y: 628, r: 40, door: this.exitReady(), label: this.exitReady() ? '🚪 THE FRONT DOOR' : '🔒 FRONT DOOR', hint: this.exitReady() ? 'it\'s open. it\'s actually open.' : 'locked since intake', act: () => this.tryExit() }
       ]
     };
+    // THE REUNION: once your file is closed, the people from your journey drop by
+    if (Meta.data.exitDone) {
+      const vis = [];
+      const LINES = {
+        gatekeeper: ["The rope's retired. I hold the door now.", "You still don't look sick. You look... through. Good for you."],
+        larperking: ["I read a THIRD article. It said to rest.", "The grip I taught you — still got it?"],
+        adjuster: ["I adjusted my own claim. Denied myself. It felt fair.", "Your paperwork? Shredded it personally. You're welcome."],
+        influencer: ["I post about recovery now. Engagement's down 90%. Worth it.", "No code today. Just... hi."],
+        generic: ["They let us sit out here now.", "Tuesday, right? We're all here Tuesdays.", "The chairs are better on this side."]
+      };
+      Object.keys(Meta.data.sparedBosses || {}).slice(0, 3).forEach((id, i) => {
+        vis.push({ kind: 'boss', id, x: 640 + i * 76, y: 448, sayT: 0, lines: LINES[id] || LINES.generic });
+      });
+      if (Meta.data.internGrad) {
+        const wknd = [0, 6].includes(new Date().getDay());
+        vis.push({ kind: 'grad', x: 604, y: 128, sayT: 0, lines: wknd ? ["Weekends I run the desk. By CHOICE.", "The doctor sleeps in. I don't tell anyone."] : ["Reception's easy. Nobody bites. Mostly.", "I tell the new ones about you.", "Three floors. I still count them."] });
+      }
+      if (vis.length) this.hub.visitors = vis;
+    }
   },
   /* ---------- Facility Improvements (spend the Wellness Fund on the room itself) ---------- */
   showFacility(returnTo) {
@@ -1150,6 +1728,16 @@ const G = {
       }
     }
     if (!H.prompt) H.dwell = 0;
+    // reunion visitors: walk close and they'll say something they've been saving
+    if (H.visitors) for (const v of H.visitors) {
+      v.sayT = Math.max(0, (v.sayT || 0) - dt);
+      v.cd = Math.max(0, (v.cd || 0) - dt);
+      if (v.cd <= 0 && v.sayT <= 0 && U.dist(p.x, p.y, v.x, v.y) < 64) {
+        v._li = ((v._li || 0) + 1) % v.lines.length;
+        v.say = v.lines[v._li];
+        v.sayT = 3.4; v.cd = 5.5;
+      }
+    }
   },
 
   /* ---------- The Itemized Bill (post-run insurance statement) ---------- */
@@ -1186,12 +1774,12 @@ const G = {
   SAVE_KEY: 'egs_save1',
   SAVE_FIELDS: ['hp', 'maxhp', 'spd', 'tearDelay', 'dmg', 'shotSpd', 'range', 'wobble', 'luck', 'coins', 'keys', 'bombs', 'coupons', 'pill', 'iframeTime', 'abilMax', 'sleep', 'compulsion', '_scar', '_recRooms', 'trinket', '_rosaryUsed', 'battery'],
   saveCheckpoint() {
-    if (this.dailyKind || this.overtime || !this.player || this.player.dead) return;
+    if (this.dailyKind || this.overtime || this.sandbox || this.practice || !this.player || this.player.dead) return;
     const p = this.player;
     try {
       const S = {
         v: 1, diag: p.baseDiag === 'undiag' ? 'undiag' : p.diag, variant: p.variant ? 1 : 0, depth: this.depth,
-        chronic: this.chronic ? 1 : 0, bossRush: this.bossRush ? 1 : 0, prognosis: this.prognosis || null, protocol: this.protocol || null, protoT: this.protoT, ascent: this.ascent ? 1 : 0, ascentBase: this.ascentBase || 0, apl: this._appealUsed ? 1 : 0, plan: this.plan || 'silver', contracts: (this.contracts || []).map(c => ({ id: c.id, prog: c.prog, done: c.done ? 1 : 0 })),
+        chronic: this.chronic ? 1 : 0, bossRush: this.bossRush ? 1 : 0, prognosis: this.prognosis || null, protocol: this.protocol || null, protoT: this.protoT, ascent: this.ascent ? 1 : 0, ascentBase: this.ascentBase || 0, apl: this._appealUsed ? 1 : 0, plan: this.plan || 'silver', custom: this.customPlan || null, contracts: (this.contracts || []).map(c => ({ id: c.id, prog: c.prog, done: c.done ? 1 : 0 })),
         lastBoss: this.lastBoss || null,
         flags: p.flags, items: p.items, comorbidities: p.comorbidities || [],
         transforms: p._transforms || [], transformTint: p.transformTint || null,
@@ -1211,6 +1799,7 @@ const G = {
   resumeRun(S) {
     this._resuming = true;
     this._startChronic = !!S.chronic; this._startBossRush = !!S.bossRush; this._startPrognosis = S.prognosis || null; this._startProtocol = S.protocol || null;
+    this._startCustom = S.custom || null;   // a saved Custom Care Plan resumes with its rules intact
     this.beginRun(S.diag, null, !!S.variant);
     this._resuming = false;
     const p = this.player;
@@ -1239,6 +1828,7 @@ const G = {
 
   // Treatment Goals: advance any active objective listening for this event
   goalEvent(ev, amt) {
+    if (this.sandbox) return;   // nothing counts on an imaginary shift
     this.contractEvent(ev, amt);
     if (!this.goals) return;
     for (const g of this.goals) {
@@ -1334,7 +1924,7 @@ const G = {
       const losable = p.items.filter(id => DATA.ITEMS[id] && (DATA.ITEMS[id].pools || []).length);   // starters stay lost forever
       if (losable.length) { Meta.data.lostItem = U.choice(losable); }
     }
-    const mode = this.overtime ? 'overtime' : this.protocol ? this.protocol : this.prognosis ? this.prognosis : this.chronic ? 'chronic' : this.bossRush ? 'bossrush' : this.dailyKind === 'daily' ? 'daily' : this.dailyKind === 'quarterly' ? 'quarterly' : this.dailyKind === 'challenge' ? 'challenge' : 'normal';
+    const mode = this.overtime ? 'overtime' : this.customPlan ? 'custom' : this.protocol ? this.protocol : this.prognosis ? this.prognosis : this.chronic ? 'chronic' : this.bossRush ? 'bossrush' : this.dailyKind === 'daily' ? 'daily' : this.dailyKind === 'quarterly' ? 'quarterly' : this.dailyKind === 'challenge' ? 'challenge' : 'normal';
     if (this.prognosis) { const pb = Meta.data.prognosisBest || (Meta.data.prognosisBest = {}); pb[this.prognosis] = Math.max(pb[this.prognosis] || 0, this.depth); }
     const cured = !!this._runCured || out === 'cured';
     const walrus = (Meta.data.walrusKills || 0) > (this._startWalrusKills || 0);
@@ -1370,9 +1960,21 @@ const G = {
       if (this.depth >= 5) { const ib = Meta.data.intensityBest || (Meta.data.intensityBest = {}); const k = p.baseDiag === 'undiag' ? 'undiag' : p.diag; ib[k] = Math.max(ib[k] || 0, this.intensity); }
     }
     if (this.volunteer) gained *= 2;   // volunteering pays. in Insight. only in Insight.
+    // CUSTOM CARE PLAN: ambition compounds — +8% Insight per stacked rule, and the protocol gets a record
+    if (this.customPlan) {
+      const nrules = (this.customPlan.rules || []).length;
+      if (nrules) gained = Math.round(gained * (1 + 0.08 * nrules));
+      const cps = Meta.data.carePlans || (Meta.data.carePlans = {});
+      const cp = cps[this.customPlan.name] || (cps[this.customPlan.name] = { best: 0, runs: 0 });
+      cp.runs++;
+      cp.best = Math.max(cp.best || 0, this.depth);
+      if (this.depth >= 5) Meta.data.carePlanDeep = 1;
+    }
     Meta.data.insight = (Meta.data.insight || 0) + gained;
     this._insightGained = gained;
+    this.composeDiary(out);   // the Patient Diary binds this run into the journal
     Meta.save();
+    this.checkUnlocks();
   },
 
   newFloor() {
@@ -1396,6 +1998,7 @@ const G = {
       }
     });
     this._janitorFloor = false;   // the Janitor makes one appearance per floor, tops
+    this._docFloor = false;       // misfiled documents surface at most once a floor
     // THE ELEVATOR: the route you picked shapes this floor
     const RM = this._routeMod; this._routeMod = null;
     this._forceShadow = !!(RM && RM.mod === 'shadow');
@@ -1419,6 +2022,7 @@ const G = {
         if (r.type === 'item') r.lockOpen = true;   // the doors here don't believe in keys
       }
       this.setBanner('🕯 THE THIRTEENTH WARD', 'there is no room 13. there is only ward 13.', 3.2);
+      this.diaryNote('Ward 13 exists. I have been. The candles know my name now.');
       SFX.play('sting');
       SFX.setMusic('ward13');
     } else if (SFX.musicMode === 'ward13' && !this.overtime) SFX.setMusic('run');   // ward 14 lets the building breathe again
@@ -1623,6 +2227,7 @@ const G = {
           this.boss._shift2 = true;
           this.boss.hp *= 1.3; this.boss.maxhp *= 1.3;
           this.toast('🌙 SECOND SHIFT. It has been here for sixteen hours. It is not happier.', '#c8a8d8');
+          this.diaryNote('The ' + (DATA.BOSSES[this.bossId] || { name: this.bossId }).name + ' was working a double. It showed. It shared.');
         }
       }
       // champion roll: past Ward 8, the rotation bosses can come back wrong
@@ -1864,6 +2469,7 @@ const G = {
         p.pet.evo = true;
         const names = { pigeon: 'THE CARRIER PIGEON', cat: 'SENIOR OFFICE CAT', snake: 'THE EXTENDED METAPHOR', goldfish: 'TWO GOLDFISH (they remember each other)' };
         this.toast('✨ Your companion evolved: ' + (names[p.pet.type] || p.pet.type) + '!', '#e8c84c');
+        this.diaryNote('The ' + p.pet.type + ' evolved. It was already perfect. Now it is MORE.');
         SFX.play('evolve');
         Meta.save();
         this.checkUnlocks();
@@ -1875,6 +2481,29 @@ const G = {
       this.peds.push({ x: CW / 2 + U.rand(-60, 60), y: RY + RH / 2 + U.rand(-20, 40), kind: 'intern', taken: false });
       this.toast('🪪 Someone small is hiding behind the pedestal. They have a NEW badge.', '#e8c05a');
       SFX.play('voice');
+    }
+    // ROOM DESIGNER: the room is clear — leave a door back to the drafting table
+    if (this.designTest && !room._dexit) {
+      room._dexit = true;
+      this.peds.push({ x: CW / 2, y: RY + RH / 2, kind: 'designexit', taken: false });
+      this.toast('🏗 Room cleared. Step on the blueprint (or PAUSE) to return to the designer.', '#8fd0e0');
+    }
+    // MISFILED DOCUMENTS: the building's paperwork surfaces where the mess was
+    if (!this.sandbox && !this.practice && !this.overtime && !this._docFloor) {
+      const undoc = (DATA.DOCUMENTS || []).filter(d => !(Meta.data.docs || {})[d.id]);
+      if (undoc.length) {
+        this._docPity = (this._docPity || 0) + 1;
+        const guarantee = this.ward13 && !room._docTried;
+        room._docTried = true;
+        if (guarantee || U.chance(0.045 + this._docPity * 0.012)) {
+          this._docFloor = true; this._docPity = 0;
+          const dp = new Pickup('coin', CW / 2 + U.rand(-50, 50), RY + RH / 2 + U.rand(-30, 30));
+          dp.type = 'document'; dp._docId = U.choice(undoc).id; dp.settle = 0.25;
+          this.pickups.push(dp);
+          this.toast('🗂 Something slid out from under the baseboard. It has a filing stamp.', '#c8b0e0');
+          SFX.play('paper');
+        }
+      }
     }
     // THE JANITOR: he appears where the mess was (10%, once a floor — 25% if he's holding YOUR lost item)
     const holdingYours = Meta.data.lostItem && DATA.ITEMS[Meta.data.lostItem] && !p.items.includes(Meta.data.lostItem);
@@ -1978,7 +2607,11 @@ const G = {
     room.cleared = true;
     this.doorsOpen = true;
     const spared = this.boss && this.boss._spared;
-    if (!spared) { this.stats.bosses++; }
+    if (!spared) {
+      this.stats.bosses++;
+      const BN = (DATA.BOSSES[this.bossId] || { name: this.bossId }).name;
+      this.diaryNote('Put down ' + BN + (this.boss && this.boss._shift2 ? ' (working a double, no less)' : '') + ' on ward ' + this.depth + '. Management will send a replacement.');
+    }
     else {
       (Meta.data.sparedBosses || (Meta.data.sparedBosses = {}))[this.bossId] = 1;
       Meta.save();
@@ -2197,6 +2830,7 @@ const G = {
       if (this.intern.floors >= 3) {
         this.intern = null;
         if (!Meta.data.internGrad) { Meta.data.internGrad = 1; Meta.save(); this.checkUnlocks(); }
+        this.diaryNote('The intern graduated. Three floors, alive. They cried. I did not (documented).');
         this.toast('🎓 THE INTERN GRADUATED. They\'re a recruitable ally now — look for The Graduate in Day Rooms.', '#e8c05a');
         SFX.play('fanfare');
         setTimeout(() => { if (this.state === 'run') this.pa('internGrad'); }, 2400);
@@ -2317,6 +2951,12 @@ const G = {
 
   /* ---------- update ---------- */
   update(dt) {
+    // banners + toasts age in every live state (a run banner must not freeze over the hub)
+    if (this.banner) { this.banner.t += dt; if (this.banner.t > this.banner.dur) this.banner = null; }
+    if (this.state !== 'run') {   // the run branch below does its own toast pass
+      for (const t of this.toasts) t.t += dt;
+      this.toasts = this.toasts.filter(t => t.t < t.dur);
+    }
     if (this.state === 'descend') {
       this.descendT += dt;
       if (this.descendT >= 0.55 && !this._descended) {
@@ -2345,7 +2985,6 @@ const G = {
       this.darkTarget = dtarget;
     }
     this.dark = U.lerp(this.dark, dtarget, U.clamp(dt * 2.5, 0, 1));
-    if (this.banner) { this.banner.t += dt; if (this.banner.t > this.banner.dur) this.banner = null; }
     for (const t of this.toasts) t.t += dt;
     this.toasts = this.toasts.filter(t => t.t < t.dur);
     if (this.healBeam) { this.healBeam.t -= dt; if (this.healBeam.t <= 0) this.healBeam = null; }
@@ -2615,6 +3254,7 @@ const G = {
             this.stats.items++;
             this.goalEvent('buy');
             if (ped._lost) { Meta.data.lostItem = null; }   // reclaimed
+            this.diaryNote(ped._lost ? 'Bought back something I lost from the man with the bucket. He knew it was mine. He always knows.' : 'Bought contraband off a mop cart. No receipt. No regrets.');
             Meta.data.janitorBuys = (Meta.data.janitorBuys || 0) + 1; Meta.save();
             this.toast('🧹 ' + (ped._lost ? '“Welcome back to it. No questions. Well — one: how?”' : U.choice(DATA.JANITOR.buy)), '#b8b0a0');
             if (U.chance(0.35)) setTimeout(() => { if (this.state === 'run') this.toast('🧹 ' + U.choice(DATA.JANITOR.wisdom), '#b8b0a0'); }, 2600);
@@ -2643,8 +3283,13 @@ const G = {
       } else if (ped.kind === 'intern') {   // "can I… follow you? you seem like you've done this before."
         ped.taken = true;
         this.intern = { x: ped.x, y: ped.y, hp: 4, iframes: 1.5, floors: 0, panic: 0, t: 0, flash: 0 };
+        this.diaryNote('Someone with a brand-new badge asked to follow me. I said the wrong thing: "sure."');
         this.toast('🪪 THE INTERN is shadowing you. Keep them alive for 3 floors. They panic. A lot.', '#e8c05a');
         SFX.play('voice');
+      } else if (ped.kind === 'designexit') {   // back to the drawing board (literally)
+        ped.taken = true;
+        this.showDesigner();
+        return;
       } else if (ped.kind === 'basementdoor') {   // STAFF ONLY. you're staff now, apparently.
         ped.taken = true;
         this.enterBasement();
@@ -2768,6 +3413,15 @@ const G = {
       R.push({ x: p.x, y: p.y, hp: p.hp, b: this.eBullets.filter(b => !b.dead && !b.fake).slice(0, 40).map(b => [Math.round(b.x), Math.round(b.y)]), e: this.enemies.filter(e => !e.dying).slice(0, 12).map(e => [Math.round(e.x), Math.round(e.y)]) });
       if (R.length > 60) R.shift();
     }
+    // ROOM DESIGNER playtest: death is a note in the margin, not an ending
+    if (p.dead && this.designTest) {
+      p.dead = false; p.hp = p.maxhp; p.iframes = 2.5; this.deathT = 0;
+      const st = (this._design && this._design.start) || { c: 6, r: 5 };
+      const sp = tileToPx(st.c, st.r);
+      p.x = sp.x; p.y = sp.y;
+      this.toast('💀→🏗 Respawned at the start marker. The designer forgives.', '#8fd0e0');
+      SFX.play('heal');
+    }
     // death — but everyone deserves one appeal
     if (p.dead) {
       if (this.amaRun && !this.amaRun.done) this._amaFailed = true;   // died mid-elopement: the bill doubles
@@ -2811,11 +3465,17 @@ const G = {
         <div class="stats-line" style="opacity:.75">${PL ? PL.icon + ' ' + PL.name + ' plan' : ''}${petD ? ' · ' + petD.icon + ' ' + petD.name + (this.player.pet.evo ? ' ★' : '') : ''}${this.player.trinket ? ' · ' + (DATA.TRINKETS.find(t => t.id === this.player.trinket) || {}).name : ''}</div>
         ${goalRows ? `<div class="summary" style="margin-top:8px">${goalRows}</div>` : ''}
         <button class="btn" id="bResume">RESUME</button>
+        ${this.designTest ? '<button class="btn" id="bBackDesign" style="border-color:#8fd0e0">🏗 BACK TO THE DESIGNER</button>' : ''}
         <button class="btn minor" id="bP2Toggle">🎮 ${this.p2 ? 'PATIENT TWO LEAVES' : 'PATIENT TWO JOINS (pad)'}</button>
+        ${Meta.data.tester ? '<button class="btn minor" id="bTesterTools">🔧 TESTER TOOLS</button>' : ''}
         <button class="btn minor" id="bSettings2">⚙ SETTINGS</button>
-        <button class="btn minor" id="bQuit">${this.dailyKind ? 'QUIT TO TITLE' : '💾 SAVE & QUIT'}</button>
+        <button class="btn minor" id="bQuit">${this.dailyKind ? 'QUIT TO TITLE' : (this.sandbox ? 'CLOCK OUT (sandbox)' : '💾 SAVE & QUIT')}</button>
       </div>`);
     document.getElementById('bResume').onclick = () => { SFX.play('ui'); this.hideOverlay(); this.state = 'run'; };
+    const bbd = document.getElementById('bBackDesign');
+    if (bbd) bbd.onclick = () => { SFX.play('ui'); this.showDesigner(); };
+    const btt = document.getElementById('bTesterTools');
+    if (btt) btt.onclick = () => { SFX.play('ui'); this.showTesterTools(); };
     document.getElementById('bP2Toggle').onclick = () => {
       SFX.play('ui');
       if (this.p2) { this.p2Leave(); this.hideOverlay(); this.state = 'run'; }
@@ -2864,6 +3524,7 @@ const G = {
     if (I.hp <= 0) {
       this.intern = null;
       Meta.data.internLost = (Meta.data.internLost || 0) + 1; Meta.save();
+      this.diaryNote('The intern didn\'t make it. The intercom told everyone. Twice.');
       this.toast('🪪 The intern didn\'t make it.', '#e08a8a');
       SFX.play('denied');
       setTimeout(() => { if (this.state === 'run') this.pa('internLost'); }, 2200);
@@ -2906,6 +3567,7 @@ const G = {
         this._union = null;
         Meta.data.unionsSettled = (Meta.data.unionsSettled || 0) + 1; Meta.save();
         this.checkUnlocks();
+        this.diaryNote('A union formed. I paid the severance. Everyone clocked out singing. Worth every cent.');
         this.toast('🤝 Severance paid. They filed out singing. The room is yours.', '#8fd05a');
         SFX.play('spare');
       }
@@ -3141,6 +3803,7 @@ const G = {
       ped.taken = true;
       this.hideOverlay(); this.state = 'run';
       this.amaRun = { wave: 0, total: 3, spawnT: 1.2, done: false };
+      this.diaryNote('Signed the AMA form. The pen was chained to the clipboard. I understand the chain now.');
       this.setBanner('🏃 AGAINST MEDICAL ADVICE', 'the ward disagrees. loudly.', 2.6);
       this.toast('The doors slam shut. Somewhere, a clipboard drops.', '#e08a8a');
       SFX.play('descend');
@@ -3249,6 +3912,7 @@ const G = {
           const p = this.player;
           this._appealUsed = true;
           Meta.data.appealsWon = (Meta.data.appealsWon || 0) + 1; Meta.save();
+          this.diaryNote('Died, briefly. Appealed it. Won. Death is negotiable with the right paperwork.');
           p.dead = false;
           p.hp = Math.max(2, Math.ceil(p.maxhp / 2));
           p.iframes = 2.8;
@@ -3517,15 +4181,17 @@ const G = {
   _renderCodex() {
     const tab = this._codexTab;
     const seen = Meta.data.seen || { enemies: {}, bosses: {}, items: {}, pills: {} };
-    const tabs = [['enemies', '🧟 Patients'], ['bosses', '☠ Bosses'], ['items', '℞ Meds'], ['pills', '💊 Pills']];
+    const tabs = [['enemies', '🧟 Patients'], ['bosses', '☠ Bosses'], ['items', '℞ Meds'], ['pills', '💊 Pills'], ['archive', '🗂 Archive']];
     let entries = [];
     if (tab === 'enemies') entries = Object.keys(DATA.ENEMIES).filter(id => id !== 'form').map(id => ({ id, name: DATA.ENEMIES[id].name, text: (DATA.CODEX_CHART.enemies[id] || ''), seen: !!(seen.enemies && seen.enemies[id]) }));
     else if (tab === 'bosses') entries = Object.keys(DATA.BOSSES).map(id => ({ id, name: DATA.BOSSES[id].name, text: (DATA.CODEX_CHART.bosses[id] || ''), seen: !!(seen.bosses && seen.bosses[id]) }));
     else if (tab === 'items') entries = Object.keys(DATA.ITEMS).map(id => ({ id, name: DATA.ITEMS[id].name, text: DATA.ITEMS[id].desc, seen: !!(seen.items && seen.items[id]) }));
+    else if (tab === 'archive') entries = (DATA.DOCUMENTS || []).map(d => ({ id: d.id, name: d.title, text: d.sub, icon: d.icon, seen: !!(Meta.data.docs || {})[d.id] }));
     else entries = DATA.PILLS.map((p, idx) => ({ id: idx, name: p.name, text: p.msg, seen: !!(seen.pills && seen.pills[idx]) }));
     const total = entries.length, got = entries.filter(e => e.seen).length;
     const rows = entries.map(e => {
-      if (!e.seen) return `<div class="ach locked"><div class="codexicon locked">?</div><div class="achbody"><div class="achname">???</div><div class="achdesc">not yet encountered</div></div></div>`;
+      if (!e.seen) return `<div class="ach locked"><div class="codexicon locked">?</div><div class="achbody"><div class="achname">???</div><div class="achdesc">${tab === 'archive' ? 'still misfiled somewhere in the building' : 'not yet encountered'}</div></div></div>`;
+      if (tab === 'archive') return `<div class="ach got" data-doc="${e.id}" style="cursor:pointer"><div class="achicon">${e.icon}</div><div class="achbody"><div class="achname">${e.name}</div><div class="achdesc">${e.text} · tap to re-read</div></div></div>`;
       return `<div class="ach got"><canvas class="codexicon" width="48" height="48" data-kind="${tab}" data-id="${e.id}"></canvas><div class="achbody"><div class="achname">${e.name}</div><div class="achdesc">${e.text}</div></div></div>`;
     }).join('');
     const tabBtns = tabs.map(([k, label]) => `<button class="btn minor codextab${k === tab ? ' active' : ''}" data-tab="${k}">${label}</button>`).join('');
@@ -3547,6 +4213,7 @@ const G = {
       Render.drawCodexIcon(c.getContext('2d'), kind, kind === 'pills' ? parseInt(c.dataset.id, 10) : c.dataset.id, 48);
     });
     document.querySelectorAll('.codextab').forEach(b => b.onclick = () => { SFX.play('ui'); this._codexTab = b.dataset.tab; this._renderCodex(); });
+    document.querySelectorAll('.ach[data-doc]').forEach(b => b.onclick = () => { SFX.play('paper'); this.showDocument(b.dataset.doc, () => { this.state = 'codex'; this._renderCodex(); }); });
     document.getElementById('bCodexBack').onclick = () => { SFX.play('ui'); this._codexReturn(); };
   },
 
@@ -3931,6 +4598,7 @@ const G = {
   function frame(now) {
     let dt = (now - last) / 1000;
     last = now;
+    if (dt > 0.0001) G._fps = (G._fps || 60) * 0.92 + (1 / dt) * 0.08;   // smoothed, for the tester overlay
     if (dt > 0.05) dt = 0.05;
     Input.pollGamepad();
     if (G.state === 'cutscene' && typeof Story !== 'undefined' && Story.active) {

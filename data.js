@@ -461,7 +461,10 @@ DATA.ACHIEVEMENTS = [
   { id: 'fileClosed', name: "File Closed",         desc: "Walk out the front door.",                        hint: "The Cure. The Founder. The System. The Board. The AMA door. Then: the actual door.", check: m => !!m.exitDone },
   { id: 'mentor',     name: "The Mentor",          desc: "Graduate an Intern — three floors, alive.",       hint: "Someone new is checking in on Ward 2. They're terrified.", check: m => !!m.internGrad },
   { id: 'goodFaith',  name: "Bargained in Good Faith", desc: "Settle a union action with severance.",       hint: "When they unionize, you don't HAVE to fight.", check: m => (m.unionsSettled || 0) >= 1 },
-  { id: 'volunteer',  name: "Back On Purpose",     desc: "Clear a floor wearing the Volunteer Badge.",      hint: "Your file is closed. Theirs aren't.",       check: m => !!m.everVolunteer }
+  { id: 'volunteer',  name: "Back On Purpose",     desc: "Clear a floor wearing the Volunteer Badge.",      hint: "Your file is closed. Theirs aren't.",       check: m => !!m.everVolunteer },
+  { id: 'archivist',  name: "The Archivist",       desc: "Recover all 12 misfiled documents.",              hint: "The building's paperwork surfaces where the mess was.", check: m => Object.keys(m.docs || {}).length >= 12 },
+  { id: 'biographer', name: "An Unreliable Narrator", desc: "Fill 10 pages of the Patient Diary.",          hint: "The journal on the coffee table writes itself. About you.", check: m => (m.dayCount || 0) >= 10 },
+  { id: 'architect',  name: "Prior Authorization", desc: "Take a Custom Care Plan to ward 5.",              hint: "Design your own complications. Get them approved. Survive them.", check: m => !!m.carePlanDeep }
 ];
 DATA.checkAchievements = function (m) {
   if (!m.unlocks) m.unlocks = {};
@@ -635,6 +638,53 @@ DATA.CREDITS = [
   ['sub', 'everybody\'s got somethin. be kind. including to yourself.'],
   ['gap'],
   ['title', '🦭']
+];
+
+/* ============ MISFILED DOCUMENTS (the building's true history, one page at a time) ============
+   Found rarely where the mess was. Collected in the ARCHIVE tab of the Patient Chart. */
+DATA.DOCUMENTS = [
+  { id: 'intake1974', icon: '📄', title: 'Intake Form — March 4, 1974', sub: 'the first patient. the first label.',
+    body: ["PATIENT #0001. Presenting complaint: 'nerves.'", "Diagnosis (write clearly): nerves. Secondary: none. Tertiary: none. The form only had room for one and nobody minded.",
+      "Estimated stay: 'a few days.' Estimated cost: $4.00.", "Someone has underlined $4.00 twice, much later, in different ink, with what appears to be grief."] },
+  { id: 'cruise', icon: '🛳', title: 'Transcript — The Seminar at Sea', sub: 'where the doctor learned Everything™.',
+    body: ["DAY 2, POOLSIDE TRACK: 'Diagnosis as a Growth Industry.' Attendee D. WALRUS asks: 'But what if everyone has something?' Laughter. Then a pause. Then note-taking.",
+      "DAY 4: D. WALRUS wins the raffle (a stamp).", "DAY 6, CLOSING KEYNOTE: 'You are not selling sickness. You are selling CERTAINTY.' Standing ovation. The ship never technically entered any nation's waters.",
+      "Certificate mailed. Frame purchased separately. Sea legs: permanent."] },
+  { id: 'blueprint', icon: '📐', title: 'Blueprint — Revision C', sub: 'there is another basement.',
+    body: ["Floors shown: G, B1 through B12, then a floor drawn in pencil and labeled only 'THE JANITOR KNOWS.'", "Below it: a second, deeper rectangle. Someone wrote 'DO NOT NUMBER THIS FLOOR' and someone else wrote 'agreed' and someone else drew a small candle.",
+      "The elevator shaft stops at B12 on paper. The stairs do not stop anywhere. The stairs are drawn going off the edge of the page.",
+      "Revision D was never filed. Revision D was never going to be filed."] },
+  { id: 'memoIntercom', icon: '📢', title: 'Memo — RE: RE: RE: The Intercom', sub: 'nobody installed it.',
+    body: ["FROM: Facilities. 'Which contractor installed the PA system? We have no invoice.'", "FROM: Purchasing. 'We have no record. We assumed it came with the building.'",
+      "FROM: The Architect (retired). 'The building did not come with a PA system. It came with excellent acoustics.'", "FROM: Facilities, four years later: 'Closing this ticket. It talks. People expect it now. Some things you stop asking about.'",
+      "Attached: a maintenance schedule for a microphone no one has ever found. It is always marked 'ON.'"] },
+  { id: 'mission', icon: '🖋', title: 'The Original Mission Statement', sub: 'edited until it meant nothing.',
+    body: ["Draft 1 (handwritten): 'Help people.'", "Draft 4 (typed): 'Help people navigate their care journey.'", "Draft 9 (legal): 'Facilitate outcome-adjacent wellness pathways at scale, subject to coverage.'",
+      "Draft 14 (final, framed in the lobby): 'YOUR HEALTH IS OUR EVERYTHING™.'", "Under the frame's backing paper, someone kept Draft 1. You can feel the pen strokes through the cardboard. Whoever wrote it pressed very hard."] },
+  { id: 'fogInvoice', icon: '🧾', title: 'Invoice #0001 — Atmosphere, Rental', sub: 'the fog is partly a machine.',
+    body: ["ITEM: Fog machine, model 'GRAVITAS II.' QTY: 3. PURPOSE (as written): 'ambiance / morale / plausible depth.'", "RECURRING MONTHLY SINCE: 1981. TOTAL TO DATE: do not calculate this. The margin note says 'do not calculate this' and the margin note is right.",
+      "Note from the supplier: 'You know these are for theaters, right?' Reply, stamped: 'THIS IS A THEATER.'",
+      "The Brain Fog on ward 4 is, at minimum, 30% rental equipment. The other 70% declined to be itemized."] },
+  { id: 'peerFile', icon: '🪞', title: 'Employment File — "The Peer Review"', sub: 'hire date: unknown. photo: a mirror.',
+    body: ["NAME: (the space is blank but worn, as if written and erased many times).", "HIRE DATE: unknown. FIRST PAYCHECK: never cashed. EMERGENCY CONTACT: 'you.'",
+      "The attached photo is a photocopy of a mirror. It is, technically, a photo of whoever is holding the file.", "Performance review, single line, repeated annually for thirty years: 'Meets expectations. Exactly. Unsettlingly.'"] },
+  { id: 'janitorAward', icon: '🏆', title: 'Employee of the Month — ×480', sub: 'forty years. never collected.',
+    body: ["WINNER, EVERY MONTH SINCE 1985: 'the janitor' (no surname on file; payroll lists him as 'THE CONSTANT').", "Plaques ordered: 480. Plaques collected: 0. Plaques location: 'basement, probably. he'd know.'",
+      "HR note, 1993: 'Asked him why he never comes to the ceremony. He said the floor doesn't mop itself during ceremonies.'", "HR note, 2011: 'Stopped holding the ceremony. He noticed. He sent a card. It said KEEP GOING.'"] },
+  { id: 'ropeOrder', icon: '🪢', title: 'Purchase Order — Velvet Rope', sub: 'ordered before there was a line.',
+    body: ["ITEM: rope, velvet, burgundy. QTY: 1. REQUESTED BY: G. Keeper, front of house.", "JUSTIFICATION (required): 'to have one.'", "FOLLOW-UP (required): 'a line will form. lines form where ropes are. this is the whole science of ropes.'",
+      "APPROVED, with a note from Purchasing: 'First sensible request all year. People need something to wait behind, or they notice what they're waiting for.'"] },
+  { id: 'boardMinutes', icon: '📋', title: 'Minutes — The Board, Q3 1997', sub: 'eleven seconds, in full.',
+    body: ["CALLED TO ORDER: 9:00:00 AM. AGENDA ITEM 1 (of 1): 'renew everything.'", "MOTION: renewed. DISCUSSION: none. VOTE: unanimous, by silence. ADJOURNED: 9:00:11 AM.",
+      "CATERING (attached receipt): $11,000.", "A shareholder asked, in writing, what 'everything' meant. The reply, in full: 'yes.'"] },
+  { id: 'diploma', icon: '🎓', title: 'Certificate of Attendance', sub: 'attendance. not achievement.',
+    body: ["'CRUISE SHIP MEDICAL ACADEMY hereby certifies that D. WALRUS was PRESENT.'", "Present for what is not specified. The seal is a sticker of an anchor. The anchor is smiling.",
+      "Cost of the certificate: included with cruise. Cost of the frame: $340, gilt, museum glass.", "On the back, in pencil, in careful letters: 'they clapped for me.' It is the only honest document in this building."] },
+  { id: 'patientZero', icon: '🗂', title: 'Discharge Summary — Patient #0001', sub: 'the door worked fine.',
+    body: ["DATE: June 1, 1974. PATIENT #0001, admitted with 'nerves,' discharged with: nothing. The nerves left on their own, the way weather does.",
+      "DISPOSITION: 'walked out the front door.' The front door. The one in the waiting room. It opened. It was a door the whole time.",
+      "FOLLOW-UP SCHEDULED: none. FOLLOW-UP KEPT: none. LAST KNOWN STATUS: 'fine, or close enough, which is the same thing on a Tuesday.'",
+      "At the bottom, handwritten, by a nurse whose name the ink has kept safe for fifty years: 'door works fine. remember that.'"] }
 ];
 
 /* ============ ITEM SYNERGIES (some prescriptions were meant for each other) ============ */

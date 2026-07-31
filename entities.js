@@ -291,6 +291,7 @@ class Player {
           try { sy.apply(this, G); } catch (e) { }
           if (G.setBanner) G.setBanner('✨ SYNERGY: ' + sy.name, sy.desc, 3.0);
           if (G.toast) G.toast('✨ ' + DATA.ITEMS[sy.a].name + ' + ' + DATA.ITEMS[sy.b].name + ' = ' + sy.name, '#e8c84c');
+          if (G.diaryNote) G.diaryNote('Two prescriptions synergized: ' + sy.name + '. Pharmacy is thrilled and afraid.');
           SFX.play('evolve');
         }
       }
@@ -700,6 +701,7 @@ class Player {
 
   hurt(n, G, src) {
     if (this.iframes > 0 || this.dead) return;
+    if (G && G.god) { this.iframes = 0.2; return; }   // tester god mode: the paperwork bounces off
     // Grandma's Rosary: once per floor, a killing blow leaves you standing
     if (this.trinket === 'rosary' && !this._rosaryUsed && this.hp - n <= 0 && src !== 'timeslot') {
       this._rosaryUsed = true;
@@ -1476,6 +1478,7 @@ class Enemy {
         G.texts.push(new FloatText(e.x, e.y - 14, '✊…', '#a89078'));
       }
       G.toast('The rep is down. The drive collapses. Management sends its regards.', '#a89078');
+      if (G.diaryNote) G.diaryNote('A union formed. I made it brief. HR sent a fruit basket I did not open.');
     }
     // The Placebo: it was nothing. it was confetti.
     if (this.id === 'placebo' && !this.fake) {
@@ -1497,6 +1500,7 @@ class Enemy {
       Meta.data.revenges = (Meta.data.revenges || 0) + 1;
       G._goalInsight += 5;
       Meta.save();
+      if (G.diaryNote) G.diaryNote('Settled the score with the thing that got me last time. It dropped everything, including the attitude.');
       G.toast('🩸 GRUDGE SETTLED — +◆5, and it dropped everything.', '#e05a5a');
       SFX.play('fanfare');
       if (G.checkUnlocks) G.checkUnlocks();
@@ -1624,6 +1628,10 @@ class Pickup {
           p.pill = this.colorIdx; SFX.play('pickup'); break;
         case 'key': p.keys++; SFX.play('pickup'); break;
         case 'bomb': p.bombs++; SFX.play('pickup'); break;
+        case 'document': {   // MISFILED: a page of the building's true history
+          if (G.showDocument) G.showDocument(this._docId);
+          break;
+        }
         case 'trinket': {   // Personal Effects: one slot — swap what you're holding
           const T2 = DATA.TRINKETS.find(t2 => t2.id === this.trinketId) || DATA.TRINKETS[0];
           if (p.trinket) {

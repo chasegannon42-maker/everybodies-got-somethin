@@ -95,8 +95,24 @@ keyboard and mouse.
 - **📋 Patient Chart** — a codex of every patient, boss, med, and pill you've met; completing a
   tab pays out a permanent perk. **📊 Run History** keeps your real win-rate receipts, and a
   **speedrun timer with splits** is one Settings toggle away.
+- **📋 Custom Care Plans** — stack the house rules yourself (blackouts, fire drills, rate hikes…),
+  name the protocol, dial the intensity, and export it as an `EGSCARE` code to dare a friend.
+  Insight pays +8% per stacked rule; the building respects ambition.
+- **📔 The Patient Diary** — every run writes itself into the journal on the hub coffee table:
+  who you spared, what unionized, which intern graduated, what finally got you. Twenty pages,
+  brutally honest, re-readable.
+- **🗂 Misfiled Documents** — twelve pages of the building's true history (the 1974 intake form,
+  the blueprint with an unnumbered floor, the fog-machine invoice) surface rarely where the mess
+  was. Collected in the **ARCHIVE** tab of the Patient Chart.
+- **🤝 The Reunion** — once your file is closed, the people from your journey drop by the Waiting
+  Room: spared bosses take the visitor chairs, the Graduate works reception, and at night the
+  janitor finally sits down.
 - **💾 Your save keeps itself** — automatically, on-device, mirrored twice. Back it up or move it
   between devices with a save code from **Settings → SAVE DATA**.
+- **🔧 STAFF ONLY** — a Game Tester door on the title screen, behind a secret code. Inside: a
+  sandbox mode (any patient, any ward, nothing recorded — the save is snapshot-frozen), a full
+  **Room Designer** (paint tiles, place any enemy or boss, playtest live, share rooms as
+  `EGSROOM` codes), god mode, debug keys, an FPS overlay, and a cheat drawer on the pause menu.
 
 ## The story
 

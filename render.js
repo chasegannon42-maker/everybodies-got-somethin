@@ -94,6 +94,16 @@ const Render = {
     if (G.banner) this.drawBanner(G);
     if (G.toasts.length) this.drawToasts(G);
     if (G.state === 'descend') this.drawDescend(G);
+    // GAME TESTER: the fps + entity readout (Meta.data.fpsHud)
+    if (typeof Meta !== 'undefined' && Meta.data.fpsHud) {
+      const fps = Math.round(G._fps || 0);
+      const line = fps + ' fps · e' + ((G.enemies && G.enemies.length) || 0) + ' b' + ((G.eBullets && G.eBullets.length) || 0) + ' t' + ((G.tears && G.tears.length) || 0) + ' p' + ((G.parts && G.parts.length) || 0) + (G.sandbox ? ' · SANDBOX' : '') + (G.god ? ' · GOD' : '');
+      ctx.font = 'bold 11px monospace'; ctx.textAlign = 'left';
+      const w = ctx.measureText(line).width + 12;
+      ctx.fillStyle = 'rgba(10,8,14,0.72)'; ctx.fillRect(4, CH - 22, w, 18);
+      ctx.fillStyle = fps >= 55 ? '#8fd05a' : fps >= 30 ? '#e8c84c' : '#e05a5a';
+      ctx.fillText(line, 10, CH - 9);
+    }
   },
 
   /* ============ THE EXIT INTERVIEW (the walk out. the actual outside.) ============ */
@@ -501,6 +511,22 @@ const Render = {
         ctx.fillStyle = '#f0ead8'; this.rr(ctx, s.x - 15, s.y - 14, 30, 11, 2); ctx.fill();   // taped label
         ctx.fillStyle = '#7a5a3a'; ctx.font = this.font(7, true); ctx.textAlign = 'center'; ctx.fillText('WELLNESS', s.x, s.y - 6);
         ctx.fillStyle = '#f4eee0'; ctx.font = this.font(12); ctx.fillText('🫙', s.x, s.y + 46);
+      } else if (s.label.includes('DIARY')) {   // the coffee table, and the journal that lives there
+        this.shadow(s.x, s.y + 26, 40, 10, 0.2);
+        ctx.fillStyle = '#7d5a38'; ctx.beginPath(); ctx.ellipse(s.x, s.y + 8, 46, 19, 0, 0, TAU); ctx.fill();   // table top
+        ctx.fillStyle = '#93683f'; ctx.beginPath(); ctx.ellipse(s.x, s.y + 4, 43, 17, 0, 0, TAU); ctx.fill();
+        ctx.strokeStyle = '#5a4428'; ctx.lineWidth = 3;   // legs
+        ctx.beginPath(); ctx.moveTo(s.x - 26, s.y + 18); ctx.lineTo(s.x - 30, s.y + 40); ctx.moveTo(s.x + 26, s.y + 18); ctx.lineTo(s.x + 30, s.y + 40); ctx.stroke();
+        ctx.save(); ctx.translate(s.x - 2, s.y - 2); ctx.rotate(-0.09);   // the journal
+        ctx.fillStyle = '#6a4a7a'; this.rr(ctx, -17, -12, 34, 24, 3); ctx.fill();
+        ctx.fillStyle = '#8a6a9a'; this.rr(ctx, -17, -12, 8, 24, 3); ctx.fill();   // spine
+        ctx.fillStyle = '#f0ead8'; this.rr(ctx, -6, -8, 19, 16, 1.5); ctx.fill();  // pages peeking
+        ctx.strokeStyle = 'rgba(90,70,100,0.5)'; ctx.lineWidth = 1;
+        for (let l = -4; l <= 4; l += 4) { ctx.beginPath(); ctx.moveTo(-3, l); ctx.lineTo(10, l); ctx.stroke(); }
+        ctx.restore();
+        ctx.strokeStyle = '#3a3040'; ctx.lineWidth = 2; ctx.lineCap = 'round';   // a pen, mid-thought
+        ctx.beginPath(); ctx.moveTo(s.x + 18, s.y - 8); ctx.lineTo(s.x + 28, s.y - 14); ctx.stroke(); ctx.lineCap = 'butt';
+        ctx.fillStyle = '#f4eee0'; ctx.font = this.font(11); ctx.textAlign = 'center'; ctx.fillText('📔', s.x, s.y + 38);
       } else {   // PATIENT CHART: filing cabinet
         ctx.fillStyle = '#9aa0aa'; this.rr(ctx, s.x - 26, s.y - 46, 52, 92, 5); ctx.fill();
         ctx.strokeStyle = 'rgba(60,64,74,0.5)'; ctx.lineWidth = 2; this.rr(ctx, s.x - 26, s.y - 46, 52, 92, 5); ctx.stroke();
@@ -618,6 +644,55 @@ const Render = {
       ctx.fillStyle = '#e05a6a'; ctx.beginPath(); ctx.arc(12, -4, 4, 0, TAU); ctx.fill();   // a ball
       ctx.restore();
     }
+    // ---- THE REUNION: after the file closes, the people from your journey drop by ----
+    if (H.visitors) {
+      for (const v of H.visitors) {
+        if (v.kind === 'boss') {
+          // their own chair, on the visitor side of the room
+          this.shadow(v.x, v.y + 24, 20, 6, 0.18);
+          ctx.fillStyle = this.shade('#8a9a7a', -0.15); this.rr(ctx, v.x - 19, v.y - 26, 38, 26, 7); ctx.fill();
+          ctx.fillStyle = 'rgba(255,255,255,0.18)'; this.rr(ctx, v.x - 15, v.y - 23, 30, 7, 4); ctx.fill();
+          ctx.fillStyle = '#8a9a7a'; this.rr(ctx, v.x - 20, v.y + 8, 40, 11, 5); ctx.fill();
+          ctx.strokeStyle = '#4a4038'; ctx.lineWidth = 3;
+          ctx.beginPath(); ctx.moveTo(v.x - 15, v.y + 19); ctx.lineTo(v.x - 17, v.y + 30); ctx.moveTo(v.x + 15, v.y + 19); ctx.lineTo(v.x + 17, v.y + 30); ctx.stroke();
+          if (!v._cv) {   // cached mini-portrait from the codex art
+            v._cv = document.createElement('canvas'); v._cv.width = 48; v._cv.height = 48;
+            try { this.drawCodexIcon(v._cv.getContext('2d'), 'bosses', v.id, 48); } catch (e) { }
+          }
+          const bob = Math.sin(G.t * 1.6 + v.x) * 1.5;
+          ctx.drawImage(v._cv, v.x - 24, v.y - 36 + bob);
+          ctx.fillStyle = '#8fd0e0'; ctx.font = this.font(8, true); ctx.textAlign = 'center';
+          ctx.fillText('✌ ' + ((DATA.BOSSES[v.id] || { name: v.id }).name || '').replace(/^THE /, '').slice(0, 14), v.x, v.y + 40);
+        } else if (v.kind === 'grad') {   // The Graduate, working the desk they once hid behind
+          const bob = Math.sin(G.t * 2 + 1) * 1.2;
+          this.shadow(v.x, v.y + 14, 11, 4, 0.2);
+          ctx.save(); ctx.translate(v.x, v.y + bob);
+          ctx.fillStyle = '#5a9a8a'; this.rr(ctx, -8, -6, 16, 20, 5); ctx.fill();   // scrubs, earned
+          ctx.fillStyle = '#e8c9a6'; ctx.beginPath(); ctx.arc(0, -13, 7, 0, TAU); ctx.fill();
+          ctx.fillStyle = '#4a3a2a'; ctx.beginPath(); ctx.arc(0, -16.5, 7, Math.PI, 0); ctx.fill();
+          ctx.fillStyle = '#2c2333'; ctx.beginPath(); ctx.arc(-2.4, -13, 1.1, 0, TAU); ctx.arc(2.4, -13, 1.1, 0, TAU); ctx.fill();
+          ctx.strokeStyle = '#2c2333'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(0, -10.5, 2.4, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();   // an actual smile
+          ctx.fillStyle = '#f0ead8'; this.rr(ctx, 3, -4, 7, 9, 1.5); ctx.fill();   // the badge — laminated now
+          ctx.fillStyle = '#e8c84c'; ctx.fillRect(4, -3, 5, 2);
+          ctx.restore();
+          ctx.fillStyle = '#8fd08a'; ctx.font = this.font(8, true); ctx.textAlign = 'center';
+          ctx.fillText('🎓 THE GRADUATE', v.x, v.y - 28);
+        }
+        if (v.sayT > 0 && v.say) {   // a saved-up line, offered when you come close
+          ctx.font = this.font(11, true); ctx.textAlign = 'center';
+          const tw = Math.min(300, ctx.measureText(v.say).width + 22);
+          const by = v.y - (v.kind === 'grad' ? 48 : 56);
+          const bx = U.clamp(v.x, tw / 2 + 8, CW - tw / 2 - 8);
+          ctx.globalAlpha = Math.min(1, v.sayT / 0.4);
+          ctx.fillStyle = 'rgba(250,247,240,0.96)'; this.rr(ctx, bx - tw / 2, by - 15, tw, 24, 8); ctx.fill();
+          ctx.strokeStyle = 'rgba(90,80,100,0.55)'; ctx.lineWidth = 1.5; this.rr(ctx, bx - tw / 2, by - 15, tw, 24, 8); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(bx - 5, by + 9); ctx.lineTo(bx + 5, by + 9); ctx.lineTo(bx, by + 16); ctx.closePath();
+          ctx.fillStyle = 'rgba(250,247,240,0.96)'; ctx.fill();
+          ctx.fillStyle = '#3a3040'; ctx.fillText(v.say, bx, by + 2);
+          ctx.globalAlpha = 1;
+        }
+      }
+    }
     // ---- NIGHT SHIFT: after 9pm local, the ward runs on lamplight and one tired man ----
     const hr = new Date().getHours();
     if (hr >= 21 || hr < 6) {
@@ -632,18 +707,40 @@ const Render = {
       ctx.fillStyle = 'rgba(232,220,200,0.8)'; ctx.font = this.font(13, true); ctx.textAlign = 'center';
       ctx.fillText('z', CW / 2 + 44, 96 + Math.sin(G.t * 1.4) * 2);
       ctx.font = this.font(9, true); ctx.fillText('z', CW / 2 + 54, 86 + Math.sin(G.t * 1.4 + 1) * 2);
-      // the janitor, mopping by lamplight
-      const jx = CW / 2 - 130 + Math.sin(G.t * 0.4) * 60, jy = 240;
-      this.shadow(jx, jy + 16, 13, 5, 0.3);
-      ctx.save(); ctx.translate(jx, jy);
-      ctx.fillStyle = '#4a5560'; this.rr(ctx, -8, -6, 16, 20, 5); ctx.fill();
-      ctx.fillStyle = '#d8c2a2'; ctx.beginPath(); ctx.arc(0, -13, 7, 0, TAU); ctx.fill();
-      ctx.fillStyle = '#8a929c'; ctx.beginPath(); ctx.arc(0, -16.5, 7, Math.PI, 0); ctx.fill();
-      ctx.strokeStyle = '#6a5232'; ctx.lineWidth = 2.2;
-      ctx.beginPath(); ctx.moveTo(10, 12); ctx.lineTo(14, -18); ctx.stroke();
-      ctx.restore();
-      ctx.fillStyle = 'rgba(200,190,220,0.55)'; ctx.font = this.font(10, true); ctx.textAlign = 'center';
-      ctx.fillText('🌙 night shift — mind the wet floor', CW / 2, 246 + 40);
+      if (Meta.data.exitDone) {
+        // THE REUNION, night edition: forty years in, he finally sits down
+        const jx = 176, jy = 486;
+        this.shadow(jx, jy + 20, 16, 5, 0.3);
+        ctx.fillStyle = this.shade('#7a8a99', -0.15); this.rr(ctx, jx - 19, jy - 24, 38, 24, 7); ctx.fill();   // his chair
+        ctx.fillStyle = '#7a8a99'; this.rr(ctx, jx - 20, jy + 6, 40, 11, 5); ctx.fill();
+        ctx.save(); ctx.translate(jx, jy - 4);
+        ctx.fillStyle = '#4a5560'; this.rr(ctx, -9, -6, 18, 18, 5); ctx.fill();   // seated, actually seated
+        ctx.fillStyle = '#d8c2a2'; ctx.beginPath(); ctx.arc(0, -13, 7, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#8a929c'; ctx.beginPath(); ctx.arc(0, -16.5, 7, Math.PI, 0); ctx.fill();
+        ctx.strokeStyle = '#2c2333'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(0, -10.5, 2.6, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();
+        ctx.fillStyle = '#f0ead8'; this.rr(ctx, 6, -4, 7, 8, 2); ctx.fill();   // a cup of the good decaf
+        const stm2 = Math.sin(G.t * 2.6) * 2;
+        ctx.strokeStyle = 'rgba(240,234,216,0.5)'; ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.moveTo(9, -6); ctx.quadraticCurveTo(9 + stm2, -12, 9, -16); ctx.stroke();
+        ctx.restore();
+        ctx.strokeStyle = '#6a5232'; ctx.lineWidth = 2.2;   // the mop, leaning on the wall, off duty
+        ctx.beginPath(); ctx.moveTo(jx - 34, jy + 14); ctx.lineTo(jx - 28, jy - 34); ctx.stroke();
+        ctx.fillStyle = 'rgba(200,190,220,0.55)'; ctx.font = this.font(10, true); ctx.textAlign = 'center';
+        ctx.fillText('🌙 off the clock. finally. the floor can wait.', CW / 2, 286);
+      } else {
+        // the janitor, mopping by lamplight
+        const jx = CW / 2 - 130 + Math.sin(G.t * 0.4) * 60, jy = 240;
+        this.shadow(jx, jy + 16, 13, 5, 0.3);
+        ctx.save(); ctx.translate(jx, jy);
+        ctx.fillStyle = '#4a5560'; this.rr(ctx, -8, -6, 16, 20, 5); ctx.fill();
+        ctx.fillStyle = '#d8c2a2'; ctx.beginPath(); ctx.arc(0, -13, 7, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#8a929c'; ctx.beginPath(); ctx.arc(0, -16.5, 7, Math.PI, 0); ctx.fill();
+        ctx.strokeStyle = '#6a5232'; ctx.lineWidth = 2.2;
+        ctx.beginPath(); ctx.moveTo(10, 12); ctx.lineTo(14, -18); ctx.stroke();
+        ctx.restore();
+        ctx.fillStyle = 'rgba(200,190,220,0.55)'; ctx.font = this.font(10, true); ctx.textAlign = 'center';
+        ctx.fillText('🌙 night shift — mind the wet floor', CW / 2, 246 + 40);
+      }
     }
     // ---- you ----
     this.shadow(H.p.x, H.p.y + 14, 13, 5, 0.24);
@@ -1350,6 +1447,20 @@ const Render = {
         if (U.dist(G.player.x, G.player.y, ped.x, ped.y) < 80) { ctx.fillStyle = '#c8b0e0'; ctx.font = this.font(10, true); ctx.textAlign = 'center'; ctx.fillText('🎓 squint at it', ped.x, ped.y + 34); }
         continue;
       }
+      if (ped.kind === 'designexit') {   // the blueprint back to the drafting table
+        const bob2 = Math.sin(G.t * 2.2) * 2;
+        this.shadow(ped.x, ped.y + 14, 22, 7, 0.22);
+        ctx.save(); ctx.translate(ped.x, ped.y + bob2); ctx.rotate(-0.03);
+        ctx.fillStyle = '#3a5a8a'; this.rr(ctx, -28, -20, 56, 40, 3); ctx.fill();   // blueprint sheet
+        ctx.strokeStyle = 'rgba(220,235,255,0.7)'; ctx.lineWidth = 1.2;
+        for (let gx = -20; gx <= 20; gx += 10) { ctx.beginPath(); ctx.moveTo(gx, -16); ctx.lineTo(gx, 16); ctx.stroke(); }
+        for (let gy = -12; gy <= 12; gy += 8) { ctx.beginPath(); ctx.moveTo(-24, gy); ctx.lineTo(24, gy); ctx.stroke(); }
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; this.rr(ctx, -14, -9, 28, 18, 2); ctx.stroke();   // the room, drafted
+        ctx.restore();
+        ctx.fillStyle = '#8fd0e0'; ctx.font = this.font(10, true); ctx.textAlign = 'center';
+        ctx.fillText('🏗 BACK TO THE DESIGNER', ped.x, ped.y - 30);
+        continue;
+      }
       if (ped.kind === 'janitor') {   // forty years. one bucket.
         const rb = Math.sin(G.t * 1.8 + ped.x) * 1.2;
         this.shadow(ped.x, ped.y + 16, 14, 5, 0.22);
@@ -1510,6 +1621,27 @@ const Render = {
       else if (pk.type === 'pill') this.drawPillIcon(pk.x, pk.y + bob, DATA.PILL_COLORS[pk.colorIdx]);
       else if (pk.type === 'key') this.drawKeyIcon(pk.x, pk.y + bob);
       else if (pk.type === 'bomb') this.drawBombIcon(pk.x, pk.y + bob);
+      else if (pk.type === 'document') {   // MISFILED: a manila folder that shouldn't be here
+        const gl = ctx.createRadialGradient(pk.x, pk.y + bob, 3, pk.x, pk.y + bob, 24);
+        gl.addColorStop(0, 'rgba(200,176,224,0.45)'); gl.addColorStop(1, 'rgba(200,176,224,0)');
+        ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(pk.x, pk.y + bob, 24, 0, TAU); ctx.fill();
+        ctx.save(); ctx.translate(pk.x, pk.y + bob); ctx.rotate(-0.06);
+        ctx.fillStyle = '#d8b878'; this.rr(ctx, -13, -9, 26, 18, 2); ctx.fill();            // folder
+        ctx.fillStyle = '#c8a860'; this.rr(ctx, -13, -12, 12, 5, 2); ctx.fill();            // tab
+        ctx.fillStyle = '#f4eee0'; this.rr(ctx, -10, -6, 20, 12, 1); ctx.fill();            // the page inside
+        ctx.strokeStyle = 'rgba(90,70,50,0.5)'; ctx.lineWidth = 1;
+        for (let l2 = -3; l2 <= 3; l2 += 3) { ctx.beginPath(); ctx.moveTo(-7, l2); ctx.lineTo(7, l2); ctx.stroke(); }
+        ctx.save(); ctx.rotate(-0.25); ctx.strokeStyle = 'rgba(176,48,48,0.85)'; ctx.lineWidth = 1.4;
+        ctx.strokeRect(-9, -4, 18, 8);
+        ctx.fillStyle = 'rgba(176,48,48,0.85)'; ctx.font = 'bold 5px "Trebuchet MS",sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText('MISFILED', 0, 2);
+        ctx.restore();
+        ctx.restore();
+        if (U.dist(G.player.x, G.player.y, pk.x, pk.y) < 80) {
+          ctx.fillStyle = '#c8b0e0'; ctx.font = this.font(10, true); ctx.textAlign = 'center';
+          ctx.fillText('🗂 a misfiled document', pk.x, pk.y - 18);
+        }
+      }
       else if (pk.type === 'trinket') {   // a personal effect, glinting
         const T2 = DATA.TRINKETS.find(t2 => t2.id === pk.trinketId);
         const gl = ctx.createRadialGradient(pk.x, pk.y + bob, 2, pk.x, pk.y + bob, 18);
