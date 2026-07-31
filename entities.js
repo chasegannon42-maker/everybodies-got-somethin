@@ -307,6 +307,12 @@ class Player {
       this.season = mo >= 2 && mo <= 4 ? 0 : mo >= 5 && mo <= 7 ? 1 : mo >= 8 && mo <= 10 ? 2 : 3;   // 0 spring 1 summer 2 fall 3 winter
       this._regenT = 0;
     }
+    if (diagId === 'graduate') {   // THE CLIPBOARD: thrown charts, out and back, something to prove
+      this.dmg = 4.2; this.spd *= 1.05; this.tearDelay = 0.48;
+      this.flags.boomTears = true; this._pierceAdd = 1;
+      this.flags.pierceTears = true;
+      this._sprintT = 0;
+    }
     if (diagId === 'janitor') {   // THE MOP: forty years, zero tears
       this.maxhp = 8; this.hp = 8;
       this.spd *= 0.9; this.dmg = 4.2; this.tearDelay = 0.52;
@@ -377,6 +383,7 @@ class Player {
 
   effSpd() {
     let s = this.spd;
+    if (this._sprintT > 0) s *= 1.35;   // the Graduate's terrified velocity
     if (this.diag === 'bipolar') {
       if (this.flags.stable) s *= 1.15;
       else if (this.variant) s *= this.mania ? 1.4 : 0.7;   // Ultradian: wilder weather
@@ -444,6 +451,14 @@ class Player {
         this.iframes = Math.max(this.iframes, 0.4);
         for (let i = 0; i < 4; i++) { const a = (i / 4) * TAU + 0.4; G.parts.push(new Particle(this.x, this.y, Math.cos(a) * 150, Math.sin(a) * 150, 0.35, '#6c7ff0', 3)); }
         G.toast('checked. everything\'s fine.', '#6c7ff0'); SFX.play('ui');
+        break;
+      }
+      case 'graduate': {   // Pep Talk — the thing you told them, back
+        this.heal(1);
+        this._sprintT = 2;
+        this.iframes = Math.max(this.iframes, 0.4);
+        G.toast('“Three floors. You can do three MORE.” — you, to you, via them.', '#5a9a8a');
+        SFX.play('heal');
         break;
       }
       case 'janitor': {   // Mop Bucket — a wave of wet floor rolls out; nearby shots are simply mopped up
@@ -554,6 +569,7 @@ class Player {
   update(dt, G) {
     this.iframes -= dt; this.hurtFlash -= dt; this.itemHold -= dt;
     this.tempSlow -= dt; this.tearTimer -= dt;
+    if (this._sprintT > 0) this._sprintT -= dt;
     if (this._courageT > 0) { this._courageT -= dt; if (this._courageT <= 0) { this.dmg = Math.max(0.5, this.dmg - 0.8); if (G.toast) G.toast('The courage wears off. The grape lingers.', '#b8a0c8'); } }
     // 🌱 SPRING: things grow back (Seasonal Affective)
     if (this.diag === 'seasonal' && this.season === 0 && this.hp < this.maxhp) {
@@ -894,6 +910,7 @@ class Player {
     this.iframes = this.iframeTime;
     this.hurtFlash = 0.35;
     if (this.diag === 'ptsd') { this.lastHitT = 0; if (this.variant) this._scar = (this._scar || 0) + 1; else if (src !== 'flashback') G.darkTarget = Math.max(G.darkTarget || 0, 0.4); }   // a hit ends On Edge / hardens the Weathered
+    if (this.diag === 'graduate') { this._sprintT = 1.3; G.texts.push(new FloatText(this.x, this.y - 30, 'PANIC SPRINT', '#5a9a8a')); }   // terror as cardio
     if (this.variant && this.diag === 'depression' && this.hp > 0) { this.dmg += 0.35; G.texts.push(new FloatText(this.x, this.y - 30, '“I\'m fine.” +dmg', '#5d8aa8')); }   // THE MASK: it fuels you
     G.floorHits = (G.floorHits || 0) + 1;
     G._roomHits = (G._roomHits || 0) + 1;

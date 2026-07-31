@@ -63,7 +63,7 @@ const Story = {
     if (this.idx < this.scene.length - 1) { this.idx++; this._loadPanel(); }
     else this.finish();
   },
-  skipScene() { if (this.active) this.finish(); },
+  skipScene() { if (this.active) { if (typeof G !== 'undefined' && this.sceneId === 'orientation') G._orientSkipped = true; this.finish(); } },
   finish() {
     this.active = false;
     const cb = this.onDone; this.onDone = null; this.scene = null;
@@ -367,6 +367,25 @@ const Story = {
     this.drawYou(240, MIDY + 16, 1.65);
     this._spot(CW / 2 + 190, CH * 0.62 - 20, 150, 0.14);
     this.drawDoc(CW / 2 + 190, 240, 1.55);
+  };
+
+  SC.vhs = function (ctx, t) {   // WELCOME TO THE WARD (1987) -- tracking damaged, chroma bleeding
+    ctx.fillStyle = '#0c0c10'; ctx.fillRect(0, 0, CW, CH);
+    for (let i = 0; i < 260; i++) { ctx.fillStyle = 'rgba(200,200,210,' + (Math.random() * 0.08) + ')'; ctx.fillRect(Math.random() * CW, Math.random() * CH, 2, 2); }
+    const tb = (t * 47) % (CH + 120) - 60;   // the tracking bar, forever
+    ctx.fillStyle = 'rgba(220,220,235,0.10)'; ctx.fillRect(0, tb, CW, 26);
+    ctx.fillStyle = 'rgba(120,220,180,0.05)'; ctx.fillRect(0, tb + 30, CW, 8);
+    ctx.save(); ctx.translate(CW / 2 + Math.sin(t * 9) * 1.6, CH * 0.34);
+    ctx.fillStyle = '#d8d4c8'; ctx.font = 'bold 34px "Courier New", monospace'; ctx.textAlign = 'center';
+    ctx.fillText('WELCOME TO THE WARD', 0, 0);
+    ctx.fillStyle = 'rgba(224,120,120,0.5)'; ctx.fillText('WELCOME TO THE WARD', 2.4, 1.2);
+    ctx.fillStyle = '#8fa89a'; ctx.font = '16px "Courier New", monospace';
+    ctx.fillText('A HealthCorp Family Orientation -- 1987', 0, 34);
+    ctx.restore();
+    ctx.fillStyle = '#e8dcc0'; ctx.font = 'bold 13px "Courier New", monospace'; ctx.textAlign = 'left';
+    ctx.fillText('PLAY >', 26, 34);
+    if (Math.sin(t * 2.2) > 0) { ctx.textAlign = 'right'; ctx.fillText('SP 0:0' + (Math.floor(t) % 10), CW - 26, 34); }
+    for (let y = 0; y < CH; y += 3) { ctx.fillStyle = 'rgba(0,0,0,0.12)'; ctx.fillRect(0, y, CW, 1); }
   };
 
   SC.labelStamp = function (ctx, t) {   // the diagnosis lands
@@ -722,6 +741,12 @@ const STORY = {
     { art: 'kindness', stamp: 'ONGOING', lines: ['You still have the chart. You keep it', 'in a drawer now, not in your chest.', '', 'Everybody\'s got somethin.', 'You have several. You are, somehow,', 'still entirely yourself.'] }
   ]
 };
+
+STORY.orientation = [
+  { art: 'vhs', stamp: 'PLAY', lines: ['(tracking...)', 'WELCOME to the WARD family!', 'You have made an excellent choice,', 'or a series of events has.', 'Either way: welcome.'] },
+  { art: 'vhs', stamp: '1987', lines: ['Our facility features hallways,', 'a policy regarding the hallways,', 'and the future of wellness:', 'a machine that bills while you sleep.', '', '(a chair is heard, offscreen)'] },
+  { art: 'vhs', stamp: 'FIN', lines: ['Remember: everybody has got', 'something. That is our founder\'s', 'promise, and legally his defense.', '', 'This tape will now rewind', 'for the next new friend. (it will not)'] }
+];
 
 /* chapter list for the STORY gallery (title → re-watch) */
 const STORY_CHAPTERS = [

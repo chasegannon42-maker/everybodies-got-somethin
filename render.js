@@ -1507,6 +1507,25 @@ const Render = {
     ctx.restore();
     this.drawHazardRoom(G, room);
 
+    // THE OPEN HOUSE: a family, touring, mid-symptom
+    if (G.tour && G.tour.active) {
+      G.tour.t = (G.tour.t || 0) + 1 / 60;
+      const tt = G.tour.t;
+      const path = u => ({ x: RX + 70 + ((tt * 34 + u * 46) % (RW - 140)), y: RY + 44 });
+      const tints = ['#8a7ab0', '#b08a7a', '#7ab08a'];
+      for (let i = 0; i < 3; i++) {
+        const pos = path(i);
+        this.shadow(pos.x, pos.y + 12, 8, 3, 0.18);
+        ctx.fillStyle = tints[i]; ctx.beginPath(); ctx.ellipse(pos.x, pos.y, 7, 9 - (i === 2 ? 3 : 0), 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#e8c9a6'; ctx.beginPath(); ctx.arc(pos.x, pos.y - 11 + (i === 2 ? 3 : 0), 5, 0, TAU); ctx.fill();
+        if (Math.sin(tt * 2 + i * 2) > 0.6) {   // pointing at things
+          ctx.strokeStyle = tints[i]; ctx.lineWidth = 2; ctx.lineCap = 'round';
+          ctx.beginPath(); ctx.moveTo(pos.x + 5, pos.y - 2); ctx.lineTo(pos.x + 13, pos.y - 7); ctx.stroke(); ctx.lineCap = 'butt';
+        }
+      }
+      ctx.fillStyle = 'rgba(200,184,216,0.85)'; ctx.font = this.font(10, true); ctx.textAlign = 'center';
+      ctx.fillText('THE OPEN HOUSE — look treated', CW / 2, RY + 20);
+    }
     // THE A/B TEST: the arena is a methodology
     if (G.boss && G.boss.id === 'abtest' && !G.boss.dead) {
       const flip = !!G.abFlip;

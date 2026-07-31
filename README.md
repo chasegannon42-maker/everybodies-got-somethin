@@ -250,6 +250,16 @@ keyboard and mouse.
 - **✊ THE STRIKE** — a rare floor event (3+): staff walked out, services shuttered, a picket
   circling one room. Walk a lap for solidarity boons — or cross the line for scab prices while
   every patient on the floor gains union morale and the intercom takes it personally.
+- **💊 REFILLS** — pharmacies sometimes stock a prescription you're already on, stamped REFILL:
+  buy the second course and it applies again. Once per item per run. Finally, continuity of care.
+- **👪 THE OPEN HOUSE** — admissions walks a prospective family through your room mid-combat.
+  Clear it untouched while they watch and reception pays you for the optics; take a hit in front
+  of them and the intercom starts doing damage control.
+- **📼 ORIENTATION (1987)** — a VHS tape at the front desk: WELCOME TO THE WARD, tracking-damaged,
+  corporate-voiced, skippable forever. Finish it once — be the first — for a permanent luck perk.
+- **🎓 THE GRADUATE (playable)** — the 14th patient file, unlocked by graduating your Intern:
+  scrubs, a laminated badge, boomerang chart-throws that hit going out AND coming back, and a
+  panic sprint when hurt. They still count the floors.
 - **🔧 STAFF ONLY** — a full Game Tester hub on the title screen, behind a secret code, organized
   into five tabs. **PLAY**: sandbox any patient at any ward with loadout presets (kitted, glass
   cannon, tank, or hand-picked meds) — the save is snapshot-frozen throughout. **BOSS LAB**:

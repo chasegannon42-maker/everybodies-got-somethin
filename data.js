@@ -306,6 +306,15 @@ DATA.DIAG = {
     mech: "THE SEASONS: every ward, your season turns — 🌱 SPRING regenerates you slowly, ☀️ SUMMER sets your tears burning, 🍂 FALL gives them gale-force knockback, ❄️ WINTER chills everything you hit (you idle 5% slower). You check in on whatever season it really is outside. TURN THE PAGE advances it on demand.",
     rx: "gratitude"
   },
+  graduate: {
+    name: "The Graduate",
+    short: "M.D. Candidate (Survived You)",
+    tag: "something to prove",
+    color: "#5a9a8a",
+    blurb: "Your old intern. Three floors, alive, because of you. Now they have scrubs, a laminated badge, and opinions about YOUR chart.",
+    mech: "THE CLIPBOARD: your shots are thrown charts that BOOMERANG — they hit on the way out and again on the way back, passing through everyone. PANIC SPRINT: taking a hit triggers a burst of terrified speed. They still count the floors.",
+    rx: null
+  },
   janitor: {
     name: "The Janitor",
     short: "Occupational Exposure (40 yrs)",
@@ -491,6 +500,8 @@ DATA.ACHIEVEMENTS = [
   { id: 'cutOut',     name: "Cut Out The Middleman", desc: "Pop the Pharmacy Benefits Manager.",            hint: "When prices spike 40% for no reason, the reason is in one of the rooms.", check: m => (m.pbmKills || 0) >= 1 },
   { id: 'wokeUp',     name: "Slept On It",          desc: "Wake from THE NIGHTMARE holding its prescription.", hint: "Sometimes the bed goes wrong. Go down anyway.", check: m => (m.nightmareRx || 0) >= 1 },
   { id: 'subStash',   name: "Another Basement",     desc: "Reach the Janitor's stash below the basement.",  hint: "He told you there's another basement. The hole is behind the shelves.", check: m => (m.subStash || 0) >= 1 },
+  { id: 'onboarded87', name: "Fully Oriented",      desc: "Watch WELCOME TO THE WARD (1987) to the end.",   hint: "The tape is at the front desk. Nobody has ever finished it. Be the first.", check: m => !!m.orientationDone },
+  { id: 'goodOptics', name: "Excellent Optics",     desc: "Clear a room untouched while the Open House tour watches.", hint: "Admissions brings families through sometimes. Look treated.", check: m => (m.optics || 0) >= 1 },
   { id: 'sugarPill',  name: "It Was Sugar",        desc: "Complete a Clinical Trial that turns out to be the placebo.", hint: "Enroll with the Drug Rep. Believe hard.", check: m => (m.placeboDone || 0) >= 1 },
   { id: 'reRead',     name: "Second Read",         desc: "Let THE SCANNER re-interpret a prescription.",    hint: "A rare imaging suite. It sees something different every time.", check: m => (m.scans || 0) >= 1 },
   { id: 'mopShift',   name: "Second Career",       desc: "Reach Ward 5 as The Janitor.",                    hint: "Finish THE HANDOFF first. Then work the shift you accepted.", check: m => !!m.mopShift },
@@ -1117,6 +1128,7 @@ DATA.ABILITIES = {
   fine:       { name: "Denial", cd: 11, blurb: "\"I'm FINE.\" Briefly refuse to take damage." },
   burnout:    { name: "Clock Out", cd: 9, blurb: "Boundaries, suddenly. The Battery refills to full and nothing can touch you for a breath." },
   janitor:    { name: "Mop Bucket", cd: 11, blurb: "Dunk and slosh: a wave of wet floor rolls out, washing nearby shots away and slowing everything it touches." },
+  graduate:   { name: "Pep Talk", cd: 10, blurb: "The thing you told them, back: heal half a heart and sprint like the third floor is watching." },
   seasonal:   { name: "Turn The Page", cd: 13, blurb: "Advance the season NOW — with a burst of the new one's weather." }
 };
 
