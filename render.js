@@ -83,6 +83,8 @@ const Render = {
       this.drawHUD(G);
     } else if (G.state === 'hub') {
       this.drawHub(G);
+    } else if (G.state === 'arcade2') {
+      this.drawArcade2(G);
     } else if (G.state === 'arcade') {
       this.drawArcade(G);
     } else if (G.state === 'stairs') {
@@ -1096,6 +1098,45 @@ const Render = {
     ctx.restore();
   },
 
+  /* ============ CABINET TWO — CLAIM DENIED! ============ */
+  drawArcade2(G) {
+    const ctx = this.ctx, A = G.arcade2;
+    if (!A) return;
+    ctx.fillStyle = '#0a1408'; ctx.fillRect(0, 0, CW, CH);   // the same haunted green phosphor
+    ctx.fillStyle = 'rgba(120,255,120,0.06)';
+    for (let y = 0; y < CH; y += 4) ctx.fillRect(0, y, CW, 1.4);
+    ctx.strokeStyle = 'rgba(143,208,138,0.5)'; ctx.lineWidth = 3;
+    this.rr(ctx, RX - 14, RY - 14, RW + 28, RH + 28, 10); ctx.stroke();
+    ctx.fillStyle = '#8fd08a'; ctx.font = this.font(22, true); ctx.textAlign = 'center';
+    ctx.fillText('CLAIM DENIED!', CW / 2, 60);
+    ctx.font = this.font(15, true);
+    ctx.fillText('FORMS FILED: ' + A.score, CW / 2, 92);
+    // the stamps
+    for (const s of A.stamps) {
+      ctx.fillStyle = s.deny ? 'rgba(224,90,90,0.85)' : 'rgba(143,208,138,0.75)';
+      this.rr(ctx, s.x - 30, RY, 60, s.gy - RY, 6); ctx.fill();
+      this.rr(ctx, s.x - 30, s.gy + s.gap, 60, RY + RH - (s.gy + s.gap), 6); ctx.fill();
+      ctx.fillStyle = '#0a1408'; ctx.font = 'bold 11px "Arial Black",sans-serif';
+      ctx.save(); ctx.translate(s.x, s.gy - 16); ctx.rotate(-0.1); ctx.fillText(s.deny ? 'DENIED' : 'APPROVED', 0, 0); ctx.restore();
+      ctx.save(); ctx.translate(s.x, s.gy + s.gap + 22); ctx.rotate(0.08); ctx.fillText(s.deny ? 'DENIED' : 'APPROVED', 0, 0); ctx.restore();
+    }
+    // the form (you)
+    ctx.save(); ctx.translate(CW / 2 - 60, A.y); ctx.rotate(U.clamp(A.vy / 500, -0.5, 0.6));
+    ctx.fillStyle = '#f4eee0'; this.rr(ctx, -12, -14, 24, 28, 2); ctx.fill();
+    ctx.strokeStyle = '#8fd08a'; ctx.lineWidth = 1.4;
+    for (let l = -8; l <= 8; l += 4) { ctx.beginPath(); ctx.moveTo(-8, l); ctx.lineTo(8, l); ctx.stroke(); }
+    ctx.restore();
+    ctx.fillStyle = 'rgba(143,208,138,0.8)'; ctx.font = this.font(12, true);
+    if (A.over) {
+      ctx.fillStyle = '#e05a5a'; ctx.font = this.font(30, true);
+      ctx.fillText('CLAIM DENIED', CW / 2, CH / 2 - 10);
+      ctx.fillStyle = '#8fd08a'; ctx.font = this.font(14, true);
+      ctx.fillText(A.score + ' filed · best ' + ((Meta.data.arcade2 || {}).best || 0) + ' · SPACE to walk away', CW / 2, CH / 2 + 24);
+    } else {
+      ctx.fillText('SPACE / tap: the form rises. gravity: the form does not.', CW / 2, CH - 20);
+    }
+  },
+
   /* ============ THE BREAKROOM CABINET — PILL CATCHER ============ */
   drawArcade(G) {
     const ctx = this.ctx, A = G.arcade;
@@ -1466,6 +1507,24 @@ const Render = {
     ctx.restore();
     this.drawHazardRoom(G, room);
 
+    // THE A/B TEST: the arena is a methodology
+    if (G.boss && G.boss.id === 'abtest' && !G.boss.dead) {
+      const flip = !!G.abFlip;
+      ctx.fillStyle = 'rgba(138,144,200,0.07)';
+      ctx.fillRect(flip ? CW / 2 : RX, RY, flip ? RX + RW - CW / 2 : CW / 2 - RX, RH);   // control side, faint blue
+      ctx.fillStyle = 'rgba(184,107,255,0.07)';
+      ctx.fillRect(flip ? RX : CW / 2, RY, flip ? CW / 2 - RX : RX + RW - CW / 2, RH);   // variant side, faint violet
+      ctx.strokeStyle = 'rgba(200,184,216,0.4)'; ctx.lineWidth = 2; ctx.setLineDash([8, 8]);
+      ctx.beginPath(); ctx.moveTo(CW / 2, RY); ctx.lineTo(CW / 2, RY + RH); ctx.stroke(); ctx.setLineDash([]);
+      ctx.font = this.font(22, true); ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(138,144,200,0.35)'; ctx.fillText(flip ? 'B' : 'A', RX + 60, RY + 44);
+      ctx.fillStyle = 'rgba(184,107,255,0.35)'; ctx.fillText(flip ? 'A' : 'B', RX + RW - 60, RY + 44);
+      if (G.abSweepX != null) {   // the re-randomization line
+        ctx.strokeStyle = 'rgba(232,200,120,0.9)'; ctx.lineWidth = 5;
+        ctx.beginPath(); ctx.moveTo(G.abSweepX, RY); ctx.lineTo(G.abSweepX, RY + RH); ctx.stroke();
+        ctx.fillStyle = 'rgba(232,200,120,0.25)'; ctx.fillRect(G.abSweepX - 10, RY, 20, RH);
+      }
+    }
     // THE HOLD's keypad: four numbered pads painted on the tile
     if (G.holdZones && G.boss && G.boss.id === 'thehold' && !G.boss.dead) {
       for (const hz of G.holdZones) {
@@ -2226,6 +2285,50 @@ const Render = {
         ctx.fillStyle = '#e8c05a'; ctx.font = this.font(10, true); ctx.textAlign = 'center';
         ctx.fillText('🧹 THE SECOND MOP', ped.x, ped.y - 50);
         if (U.dist(G.player.x, G.player.y, ped.x, ped.y) < 90) { ctx.fillStyle = '#e8c84c'; ctx.font = this.font(10, true); ctx.fillText('it\'s leaning like it\'s yours', ped.x, ped.y + 42); }
+        continue;
+      }
+      if (ped.kind === 'tube') {   // the 1962 mail system, still humming
+        this.shadow(ped.x, ped.y + 26, 16, 5, 0.22);
+        ctx.save(); ctx.translate(ped.x, ped.y);
+        ctx.fillStyle = '#a8b0b8'; this.rr(ctx, -13, -30, 26, 56, 12); ctx.fill();
+        ctx.strokeStyle = '#6a7278'; ctx.lineWidth = 2.5; this.rr(ctx, -13, -30, 26, 56, 12); ctx.stroke();
+        ctx.fillStyle = 'rgba(200,230,240,0.5)'; this.rr(ctx, -8, -24, 16, 22, 8); ctx.fill();   // the glass
+        const cap = Math.sin(G.t * 2.2) * 3;   // a canister, idling
+        ctx.fillStyle = '#c8a24a'; this.rr(ctx, -5, -14 + cap, 10, 14, 5); ctx.fill();
+        ctx.restore();
+        ctx.fillStyle = '#8fa8c8'; ctx.font = this.font(10, true); ctx.textAlign = 'center';
+        ctx.fillText('TUBE', ped.x, ped.y - 38);
+        if (U.dist(G.player.x, G.player.y, ped.x, ped.y) < 80) { ctx.fillStyle = '#e8c84c'; ctx.font = this.font(10, true); ctx.fillText('step in · get mailed', ped.x, ped.y + 42); }
+        continue;
+      }
+      if (ped.kind === 'picket') {   // the line. it circles.
+        for (let i = 0; i < 4; i++) {
+          const a = G.t * 0.9 + i * TAU / 4;
+          const px2 = ped.x + Math.cos(a) * 60, py2 = ped.y + Math.sin(a) * 34;
+          this.shadow(px2, py2 + 12, 9, 3.5, 0.2);
+          ctx.fillStyle = ['#c25a52', '#43b8a5', '#6c7ff0', '#e8c05a'][i];
+          ctx.beginPath(); ctx.ellipse(px2, py2, 8, 10, 0, 0, TAU); ctx.fill();
+          ctx.fillStyle = '#e8c9a6'; ctx.beginPath(); ctx.arc(px2, py2 - 12, 5.5, 0, TAU); ctx.fill();
+          ctx.strokeStyle = '#7a5a38'; ctx.lineWidth = 2;   // the sign
+          ctx.beginPath(); ctx.moveTo(px2 + 6, py2); ctx.lineTo(px2 + 6, py2 - 22); ctx.stroke();
+          ctx.fillStyle = '#f0ead8'; this.rr(ctx, px2 - 2, py2 - 32, 18, 11, 2); ctx.fill();
+        }
+        ctx.fillStyle = '#e0a05a'; ctx.font = this.font(10, true); ctx.textAlign = 'center';
+        ctx.fillText('THE PICKET', ped.x, ped.y - 52);
+        if (!ped._walked && U.dist(G.player.x, G.player.y, ped.x, ped.y) < 90) { ctx.fillStyle = '#e8c84c'; ctx.font = this.font(10, true); ctx.fillText('walk up · join the lap', ped.x, ped.y + 54); }
+        continue;
+      }
+      if (ped.kind === 'scabgate') {   // the shutter and the sign
+        ctx.save(); ctx.translate(ped.x, ped.y);
+        ctx.fillStyle = '#8a8e98'; this.rr(ctx, -60, -40, 120, 70, 5); ctx.fill();
+        ctx.strokeStyle = '#5a5e68'; ctx.lineWidth = 2.5; this.rr(ctx, -60, -40, 120, 70, 5); ctx.stroke();
+        for (let l = -32; l < 28; l += 9) { ctx.beginPath(); ctx.moveTo(-58, l); ctx.lineTo(58, l); ctx.stroke(); }
+        ctx.save(); ctx.rotate(-0.04);
+        ctx.fillStyle = '#f0ead8'; this.rr(ctx, -34, -14, 68, 26, 3); ctx.fill();
+        ctx.fillStyle = '#a03030'; ctx.font = 'bold 9px "Arial Black",sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText('ON STRIKE', 0, 0);
+        ctx.restore(); ctx.restore();
+        if (U.dist(G.player.x, G.player.y, ped.x, ped.y) < 90) { ctx.fillStyle = '#e8c84c'; ctx.font = this.font(10, true); ctx.textAlign = 'center'; ctx.fillText('walk up · the choice is the point', ped.x, ped.y + 48); }
         continue;
       }
       if (ped.kind === 'subhole') {   // the hole behind the shelves. it has always been there.
@@ -4075,6 +4178,21 @@ const Render = {
     const flash = b.hitFlash > 0;
 
     switch (b.id) {
+      case 'abtest': { // a clipboard with a methodology
+        const r = b.r || 40;
+        ctx.fillStyle = '#e8e2d4'; this.rr(ctx, -r * 0.8, -r, r * 0.8, r * 2, 6); ctx.fill();    // side A: the old form
+        ctx.fillStyle = '#4a3c66'; this.rr(ctx, 0, -r, r * 0.8, r * 2, 6); ctx.fill();           // side B: the new one
+        ctx.strokeStyle = '#2c2333'; ctx.lineWidth = 3; this.rr(ctx, -r * 0.8, -r, r * 1.6, r * 2, 6); ctx.stroke();
+        ctx.fillStyle = '#8a8070'; this.rr(ctx, -r * 0.3, -r - 8, r * 0.6, 12, 4); ctx.fill();   // the clip
+        ctx.font = 'bold ' + Math.round(r * 0.5) + 'px "Arial Black",sans-serif'; ctx.textAlign = 'center';
+        ctx.fillStyle = '#4a3c66'; ctx.fillText('A', -r * 0.4, r * 0.15);
+        ctx.fillStyle = '#e8e2d4'; ctx.fillText('B', r * 0.4, r * 0.15);
+        // one skeptical eye per cohort
+        ctx.fillStyle = '#2c2333'; ctx.beginPath(); ctx.arc(-r * 0.4, -r * 0.45, 3, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#e8e2d4'; ctx.beginPath(); ctx.arc(r * 0.4, -r * 0.45, 3, 0, TAU); ctx.fill();
+        if (flash) { ctx.fillStyle = 'rgba(255,255,255,0.5)'; this.rr(ctx, -r * 0.8, -r, r * 1.6, r * 2, 6); ctx.fill(); }
+        break;
+      }
       case 'thehold': { // the phone tree, grown to full height
         const r = b.r || 40;
         const conn = b.vulnerable;

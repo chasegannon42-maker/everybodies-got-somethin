@@ -847,6 +847,18 @@ const G = {
 
   /* ---- THE SCENARIO JUMPER: every special encounter, pre-armed ---- */
   TESTER_SCENARIOS: [
+    { icon: '📞', name: 'A/B TEST boss', sub: 'the methodology, ward 10 tuning', run(G) {
+      G.startBossLab({ boss: 'abtest', depth: 10, affix: '', shift2: false, joint: '' });
+    } },
+    { icon: '🚶', name: 'THE STRIKE', sub: 'picket armed, shutter down, this floor', run(G) {
+      G.ensureSandboxAt(4);
+      G.strike = true;
+      const norm = G.floorRooms.filter(r => r.type === 'normal' && r !== G.room);
+      if (norm[0]) norm[0]._picket = true;
+      const shop = G.floorRooms.find(r => r.type === 'shop');
+      if (shop) { shop.spawned = false; shop.stock = null; shop.peds = []; }
+      G.setBanner('THE STRIKE', 'scenario: services closed, lap available', 2.6);
+    } },
     { icon: '🌑', name: 'THE NIGHTMARE', sub: 'the bed went wrong, pedestal guarded', run(G) {
       G.ensureSandboxAt(4);
       const oc = U.chance; U.chance = () => true;   // force the 22% roll
@@ -1677,12 +1689,14 @@ const G = {
     SFX.setMusic('menu');
     this.overlay(`
       <div class="panel">
-        <h1 class="logo" style="font-size:26px">🕹 PILL CATCHER</h1>
-        <div class="tagline">the breakroom cabinet · catch the scripts · dodge the RECALLS</div>
+        <h1 class="logo" style="font-size:26px">🕹 THE BREAKROOM</h1>
+        <div class="tagline">two cabinets, one outlet · PILL CATCHER & CLAIM DENIED!</div>
         <div class="stats-line">your best: <b>${A.best || 0}</b> · plays: ${A.plays || 0}</div>
         <div class="stats-line" style="color:#d08a4a">${A.rivalBeaten ? '🏁 ' + R.name + ': ' + A.rivalBeaten + ' <s>(machine "broken," allegedly)</s>' : '🏁 taped to the screen: “' + R.name + ' — ' + this.arcadeRivalScore() + '. beat THAT.”'}</div>
         <div class="stats-line" style="opacity:.7">score 100 → +◆2 · 250 → +◆5 · new best → +◆3 (daily)</div>
-        <button class="btn" id="bArcGo">▶ INSERT 2¢ ${free ? '(the janitor slips you a token)' : '(from the Fund · balance ' + fund + '¢)'}</button>
+        <button class="btn" id="bArcGo">▶ PILL CATCHER · 2¢ ${free ? '(the janitor slips you a token)' : '(Fund: ' + fund + '¢)'}</button>
+        <div class="stats-line" style="margin-top:6px">CLAIM DENIED! · best: <b>${(Meta.data.arcade2 || {}).best || 0}</b> · pilot the form · avoid the stamps</div>
+        <button class="btn" id="bArc2Go">▶ CLAIM DENIED! · 2¢</button>
         <button class="btn minor" id="bArcBack">BACK</button>
         <div class="smallprint">move: WASD / left stick / drag. that's it. that's the machine.</div>
       </div>`);
@@ -1696,7 +1710,68 @@ const G = {
       SFX.play('coin');
       this.startArcade();
     };
+    document.getElementById('bArc2Go').onclick = () => {
+      const A2 = this._arcadeMeta();
+      if ((Meta.data.fund || 0) >= 2) { Meta.data.fund -= 2; }
+      else if (!A2.freeUsed) { A2.freeUsed = 1; this.toast('🧹 “On the house. Don\'t tell the jar.”', '#b8b0a0'); }
+      else { SFX.play('denied'); this.toast('The machine wants 2¢. The Fund has ' + (Meta.data.fund || 0) + '¢.', '#e08a8a'); return; }
+      Meta.save();
+      SFX.play('coin');
+      this.startArcade2();
+    };
     document.getElementById('bArcBack').onclick = () => { SFX.play('ui'); this.showHub(); };
+  },
+  /* ---------- CLAIM DENIED! (cabinet two: pilot the form through the stamps) ---------- */
+  startArcade2() {
+    this.arcade2 = { y: CH / 2, vy: 0, t: 0, score: 0, stamps: [], spawnT: 0, speed: 150, over: false, overT: 0 };
+    this.state = 'arcade2';
+    this.hideOverlay();
+    document.body.classList.add('inrun');
+    SFX.setMusic('overtime');
+    SFX.play('stamp');
+  },
+  arcade2Update(dt) {
+    const A = this.arcade2; if (!A) { this.showArcade(); return; }
+    if (Input.take('pause')) { this.endArcade2(); return; }
+    if (A.over) {
+      A.overT += dt;
+      if (A.overT > 1 && (Input.take('confirm') || Input.take('ability'))) this.endArcade2();
+      return;
+    }
+    A.t += dt;
+    A.speed = 150 + Math.min(140, A.t * 4);
+    if (Input.take('confirm') || Input.take('ability')) { A.vy = -240; SFX.play('shot'); }
+    A.vy += 560 * dt;
+    A.y += A.vy * dt;
+    A.spawnT -= dt;
+    if (A.spawnT <= 0) {
+      A.spawnT = Math.max(1.15, 1.9 - A.t * 0.02);
+      const gap = Math.max(120, 176 - A.t * 1.5);
+      const gy = U.rand(RY + 90, RY + RH - 90 - gap);
+      A.stamps.push({ x: CW + 60, gy, gap, passed: false, deny: U.chance(0.5) });
+    }
+    for (const s of A.stamps) {
+      s.x -= A.speed * dt;
+      if (!s.passed && s.x < CW / 2 - 60) { s.passed = true; A.score++; SFX.play('ui'); }
+      const hitX = Math.abs(s.x - (CW / 2 - 60)) < 34;
+      if (hitX && (A.y - 14 < s.gy || A.y + 14 > s.gy + s.gap)) { A.over = true; }
+    }
+    A.stamps = A.stamps.filter(s => s.x > -80);
+    if (A.y < RY + 20 || A.y > RY + RH - 12) A.over = true;
+    if (A.over) {
+      SFX.play('denied');
+      this.shake = 8;
+      const M = Meta.data.arcade2 || (Meta.data.arcade2 = { best: 0, plays: 0 });
+      M.plays = (M.plays || 0) + 1;
+      if (A.score > (M.best || 0)) { M.best = A.score; Meta.data.insight = (Meta.data.insight || 0) + 3; this.toast('NEW BEST: ' + A.score + ' · +◆3 · the form flew beautifully', '#8fd08a'); }
+      if (A.score >= 15 && !(M.paid15 && M.paid15 === this.todayKey())) { M.paid15 = this.todayKey(); Meta.data.insight = (Meta.data.insight || 0) + 4; }
+      Meta.save();
+    }
+  },
+  endArcade2() {
+    this.arcade2 = null;
+    document.body.classList.remove('inrun');
+    this.showArcade();
   },
   startArcade() {
     this.arcade = {
@@ -2367,6 +2442,69 @@ const G = {
     SFX.play('whoosh');
   },
 
+  /* ---------- PNEUMATIC TUBES (fast travel, 1962 edition) ---------- */
+  showTubes() {
+    this.state = 'tubes';
+    const here = this.room;
+    const dests = this.floorRooms.filter(r => r._tube && r !== here && r.visited);
+    const rows = dests.map((r, i) => {
+      const name = r.type === 'shop' ? 'THE PHARMACY' : r.type === 'dayroom' ? 'THE DAY ROOM' : 'WARD ROOM ' + r.gx + '-' + r.gy;
+      return `<button class="cmcard" data-tube="${i}"><div class="cmname" style="color:#3a5ac8">${name}</div><div class="cmdesc">${r.cleared ? 'quiet when you left it' : 'unresolved business'}</div></button>`;
+    }).join('');
+    this.overlay(`
+      <div class="panel">
+        <h1 class="logo" style="font-size:24px">PNEUMATIC TUBES</h1>
+        <div class="tagline">installed 1962 · inspected 1962 · the building is very proud</div>
+        <div class="cmgrid">${rows || '<div class="hbnote">the tube coughs politely. no other stations visited yet.</div>'}</div>
+        <button class="btn minor" id="bTubeBack">STEP OUT</button>
+      </div>`);
+    document.querySelectorAll('[data-tube]').forEach(b => b.onclick = () => {
+      const r = dests[+b.dataset.tube]; if (!r) return;
+      this.hideOverlay(); this.state = 'run';
+      this.enterRoom(r, null);
+      this.player.x = RX + 64; this.player.y = RY + 110;
+      this.toast('THUNK. You arrive folded in thirds, but you arrive.', '#8fd0e0');
+      SFX.play('whoosh');
+    });
+    document.getElementById('bTubeBack').onclick = () => { SFX.play('ui'); this.hideOverlay(); this.state = 'run'; };
+  },
+
+  /* ---------- THE SCAB GATE (the shutter, the sign, the choice) ---------- */
+  showScabGate(ped) {
+    this.state = 'scabgate';
+    this.overlay(`
+      <div class="panel">
+        <h1 class="logo" style="font-size:24px">THE SHUTTER IS DOWN</h1>
+        <div class="tagline">a sign, handwritten: "ON STRIKE — even the register. ESPECIALLY the register."</div>
+        <div class="rx">
+          <div class="stamp">CLOSED</div>
+          <h2>Force it open?</h2>
+          <div class="sub">a scab cart waits behind the shutter, at 40% off, because it knows what it is</div>
+          <div class="mech">Cross the line and the shop opens cheap — but every patient on this ward gains <b>union morale</b> (+12% health), and the intercom will be personally hurt about it.</div>
+        </div>
+        <button class="btn danger" id="bScabYes">CROSS THE LINE</button>
+        <button class="btn minor" id="bScabNo">RESPECT IT — walk away</button>
+      </div>`);
+    document.getElementById('bScabYes').onclick = () => {
+      ped.taken = true;
+      const room = this.room;
+      room._scab = true; room.spawned = false; room.stock = null; room.peds = [];
+      this.floorMods.hpMul = (this.floorMods.hpMul || 1) * 1.12;
+      Meta.data.linesCrossed = (Meta.data.linesCrossed || 0) + 1; Meta.save();
+      this.hideOverlay(); this.state = 'run';
+      this.enterRoom(room, null);
+      this.toast('The shutter screams up. The cart is cheap. The floor heard the scream.', '#e0a05a');
+      this.diaryNote('Crossed the picket line for a discount. The savings were real. So was the look.');
+      setTimeout(() => { if (this.state === 'run') this.pa('idle'); }, 2200);
+      SFX.play('error');
+    };
+    document.getElementById('bScabNo').onclick = () => {
+      this.hideOverlay(); this.state = 'run';
+      this.toast('You leave the shutter down. Somewhere, a mop-bucket drum approves.', '#8fd08a');
+      SFX.play('ui');
+    };
+  },
+
   /* ---------- THE FINANCING DESK (medical debt: the mechanic) ---------- */
   showFinance() {
     this.state = 'finance';
@@ -2817,7 +2955,7 @@ const G = {
      The complete in-fiction manual: every mechanic, symptom, ward, and
      service. Mostly generated from DATA so new content lists itself;
      the prose sections get a line whenever a feature ships. */
-  HB_REV: 33,
+  HB_REV: 34,
   showHandbook(returnTo) {
     this.state = 'handbook';
     if (!this._hbTab) this._hbTab = 'basics';
@@ -2908,7 +3046,7 @@ const G = {
 
       staff: () => H('WARD MANAGEMENT (bosses)')
         + Object.entries(DATA.BOSSES).map(([k, b]) => {
-          const when = { gatekeeper: 'rotation · ward 1+', larperking: 'rotation · ward 1+', adjuster: 'rotation · ward 2+', priorauth: 'rotation · ward 2+', stigma: 'rotation · ward 3+', dsm: 'rotation · ward 3+', algorithm: 'rotation · ward 3+', influencer: 'rotation · ward 3+', withdrawal: 'rotation · ward 4+', burnout: 'rotation · ward 4+', peerreview: 'rotation · ward 6+', thehold: 'rotation · ward 7+', merger: 'rotation · ward 30+', walrus: 'every 5th ward', thecure: 'ward 25', theboard: 'THE ROOF', founder: 'ward 50', thesystem: 'ward 100' }[k];
+          const when = { gatekeeper: 'rotation · ward 1+', larperking: 'rotation · ward 1+', adjuster: 'rotation · ward 2+', priorauth: 'rotation · ward 2+', stigma: 'rotation · ward 3+', dsm: 'rotation · ward 3+', algorithm: 'rotation · ward 3+', influencer: 'rotation · ward 3+', withdrawal: 'rotation · ward 4+', burnout: 'rotation · ward 4+', peerreview: 'rotation · ward 6+', thehold: 'rotation · ward 7+', abtest: 'rotation · ward 9+', merger: 'rotation · ward 30+', walrus: 'every 5th ward', thecure: 'ward 25', theboard: 'THE ROOF', founder: 'ward 50', thesystem: 'ward 100' }[k];
           return R('☠', `${b.name} <span class="hbtag">${b.sub}</span>`, BO[k] || '—', when);
         }).join('')
         + H('CHAMPION AFFIXES (ward 8+)')
@@ -3004,6 +3142,7 @@ const G = {
         + N('rev. 30 — new on the ward: THE HOLD (management, ward 7+, bring patience and footwork) · THE CLINICAL TRIAL (see TREATMENT) · THE SCANNER (see TREATMENT) · and a thirteenth patient file for whoever finished THE HANDOFF. The mop is in the closet where he left it.')
         + N('rev. 31 — the building learned finance and the calendar: THE FINANCING DESK and THE MIDDLEMAN (see TREATMENT) · THE DREAM WARD (see THE BUILDING) · AWARENESS MONTHS (see THE BUILDING). Also: Group Therapy recruitment now caps at three and no longer works on management, security, paperwork, or anyone mid-performance. The group apologizes to the charge nurse.')
         + N('rev. 32 — the Waiting Room was renovated (doors need an actual step, the nearest thing answers, the room remembers where you were standing) and Dr. Walrus attended a communication workshop. He speaks in full sentences now. He is very proud of this.')
+        + N('rev. 34 — a second cabinet hums in the breakroom (CLAIM DENIED!), some floors still have the 1962 PNEUMATIC TUBES (step in, get mailed to any visited station), THE A/B TEST is seeing patients on ward 9+ (stand in the better cohort; it will notice), and sometimes THE STRIKE closes every service on a floor — walk the picket lap, or cross it and live with the morale.')
         + N('rev. 33 — the bed is now a gamble (THE NIGHTMARE), the desk announces VISITING HOURS (see WARD LIFE events — pick your visitor), a sixth Emotional Support Animal has been acquiring things (see YOUR CARE), and there is another basement (THE SUB-BASEMENT, see THE BUILDING). The Janitor knew. The Janitor always knew.')
     };
 
@@ -4192,6 +4331,22 @@ const G = {
     p._rosaryUsed = false;   // the rosary recovers its one grace each floor
     p._wiseUsed = false;     // Wise Mind resets with the ward
     this.holdZones = null; this.holdPrompt = null;   // THE HOLD's keypad never follows you
+    this.abFlip = false; this.abSweepX = null;       // the A/B TEST's methodology stays in its room
+    // PNEUMATIC TUBES: some floors still have the 1962 mail system (ward 2+, 45%)
+    for (const r of this.floorRooms) r._tube = false;
+    if (this.depth >= 2 && !this.dreamFloor && !this.annexFloor && !this.overtime && !this.bossRush && U.chance(0.45)) {
+      const cands = this.floorRooms.filter(r => ['normal', 'shop', 'dayroom'].includes(r.type));
+      U.shuffle(cands).slice(0, Math.min(3, cands.length)).forEach(r => { r._tube = true; });
+      if (cands.length >= 2) this._tubeFloor = true;
+    } else this._tubeFloor = false;
+    // THE STRIKE: staff walked out (ward 3+, 12%, services closed)
+    this.strike = (this.depth >= 3 && !this.dreamFloor && !this.annexFloor && !this.overtime && !this.bossRush && !this.walkin && !this.ward13 && U.chance(0.12));
+    if (this.strike) {
+      const norm = this.floorRooms.filter(r => r.type === 'normal');
+      if (norm.length) U.choice(norm)._picket = true;
+      this.setBanner('THE STRIKE', 'staff walked out · services closed · a picket circles one room', 3.2);
+      this.toast('The pharmacy is dark. The clinic is empty. Somewhere, a drum made of a mop bucket.', '#e0a05a');
+    }
     if (p.diag === 'janitor' && this.depth >= 5 && !this.sandbox && !Meta.data.mopShift) { Meta.data.mopShift = 1; Meta.save(); this.checkUnlocks(); }   // Second Career
     this.trialFloorTick();   // the study observes every descent
     // SELF-CARE SEPTEMBER (and friends): some months tuck half a heart in at the door
@@ -4403,6 +4558,19 @@ const G = {
     if (room.type === 'secret' && !room.greeted) { room.greeted = true; this.toast(DATA.TOASTS.secret); }
     if (room.type === 'oon' && !room.greeted) { room.greeted = true; this.toast(DATA.TOASTS.oon, '#e08a8a'); }
     if (room.type === 'gym' && !room.greeted) { room.greeted = true; this.toast('🥊 The gym. Someone chalked a name on the board. It\'s yours, misspelled.', '#d08a4a'); }
+    // PNEUMATIC TUBES: the station hums in the corner
+    if (room._tube && !room._tubePed) {
+      room._tubePed = true;
+      this.peds.push({ x: RX + 64, y: RY + 80, kind: 'tube', taken: false });
+    }
+    // THE STRIKE: the picket circles this room
+    if (room._picket && !room._picketPed) {
+      room._picketPed = true;
+      room.cleared = true; room.spawned = true;
+      this.enemies.length = 0; this.eBullets.length = 0;
+      this.peds.push({ x: CW / 2, y: RY + RH / 2, kind: 'picket', taken: false });
+      this.toast('The picket line. Four mop buckets, one drum rhythm, zero pharmacists.', '#e0a05a');
+    }
     // THE FERRET: shoplifting, but make it healthcare (once per shop)
     if (room.type === 'shop' && !room._ferretHit && (p.pet && p.pet.type === 'ferret' || p.pet2 && p.pet2.type === 'ferret') && U.chance(0.25)) {
       room._ferretHit = true;
@@ -4517,7 +4685,11 @@ const G = {
       }
       case 'shop': {
         room.cleared = true;
-        const copayMul = (1 + (this.depth - 1) * 0.07) * (this.protocol === 'deductible' ? 2 : 1) * (this.plan === 'bronze' ? 1.5 : this.plan === 'gold' ? 0.6 : 1) * ((this.intensity || 0) >= 2 ? 1.25 : 1) * (this.hasRule('pricier') ? 1.3 : 1);   // copays climb with the ward (it's the healthcare system, baby)
+        if (this.strike && !room._scab) {   // the shutter is down. the shutter has a sign.
+          room.peds.push({ x: CW / 2, y: RY + RH / 2, kind: 'scabgate', taken: false });
+          break;
+        }
+        const copayMul = (1 + (this.depth - 1) * 0.07) * (this.protocol === 'deductible' ? 2 : 1) * (this.plan === 'bronze' ? 1.5 : this.plan === 'gold' ? 0.6 : 1) * ((this.intensity || 0) >= 2 ? 1.25 : 1) * (this.hasRule('pricier') ? 1.3 : 1) * (room._scab ? 0.6 : 1);   // copays climb with the ward (scab carts undercut)
         const disc = (p.flags.discount ? 0.5 : (this.wardPath === 'outpatient' ? 0.75 : 1)) * (p.trinket === 'expiredcoupon' ? 0.7 : 1) * (p.trinket === 'laminatedcard' ? 0.85 : 1) * (p._facShopMul || 1);
         const pbmMul = (this._pbmFloor && !this._pbmDead) ? 1.4 : (this._pbmDead ? 0.85 : 1);   // the Middleman skims; his absence is a sale
         const px = (n) => Math.max(1, Math.ceil(n * disc * copayMul * pbmMul));
@@ -5402,6 +5574,7 @@ const G = {
     }
     if (this.state === 'hub') { this.t += dt; this.hubUpdate(dt); return; }
     if (this.state === 'arcade') { this.t += dt; this.arcadeUpdate(dt); return; }
+    if (this.state === 'arcade2') { this.t += dt; this.arcade2Update(dt); return; }
     if (this.state === 'stairs') { this.t += dt; this.stairsUpdate(dt); return; }
     if (this.state === 'handoff') { this.t += dt; this.handoffUpdate(dt); return; }
     if (this.state === 'appeal') { this.t += dt; this.appealUpdate(dt); return; }
@@ -5782,6 +5955,19 @@ const G = {
         if (this.lockCd <= 0) { this.lockCd = 2.0; this.showHandoffOffer(ped); return; }
       } else if (ped.kind === 'payphone') {   // it takes exact change and one feeling at a time
         if (this.lockCd <= 0) { this.lockCd = 2.0; this.showPayphone(ped); return; }
+      } else if (ped.kind === 'tube') {   // the mail system predates OSHA
+        if (this.lockCd <= 0) { this.lockCd = 1.0; this.showTubes(); return; }
+      } else if (ped.kind === 'picket') {   // walk the lap
+        if (!ped._walked) {
+          ped._walked = true;
+          p.luck += 1; p.coins += 5; p.heal(2);
+          p._solidarity = true;
+          this.toast('You walk a lap with the picket. +1 luck, +5¢, someone shares their thermos. SOLIDARITY.', '#8fd08a');
+          this.diaryNote('Walked the picket lap. The drum was a mop bucket. The rhythm was correct.');
+          SFX.play('fanfare');
+        } else if (this.lockCd <= 0) { this.lockCd = 2.0; this.toast('“One lap per patient. It\'s about the OPTICS.”', '#e0a05a'); }
+      } else if (ped.kind === 'scabgate') {  // the shutter, the sign, the choice
+        if (this.lockCd <= 0) { this.lockCd = 1.2; this.showScabGate(ped); return; }
       } else if (ped.kind === 'subhole') {   // the hole behind the shelves
         if (p.hp <= 2) { if (this.lockCd <= 0) { this.lockCd = 1.5; this.toast('The pipes will take half a heart on the way through. You don\'t have it to spare.', '#9a90a8'); SFX.play('error'); } continue; }
         ped.taken = true;
@@ -7532,7 +7718,7 @@ const G = {
     if (G.state === 'cutscene' && typeof Story !== 'undefined' && Story.active) {
       try { Story.update(dt); Story.draw(); } catch (e) { Story.active = false; if (G.showTitle) G.showTitle(); }
     } else {
-      if (G.state === 'run' || G.state === 'descend' || G.state === 'hub' || G.state === 'appeal' || G.state === 'credits' || G.state === 'exit' || G.state === 'arcade' || G.state === 'stairs' || G.state === 'handoff') {
+      if (G.state === 'run' || G.state === 'descend' || G.state === 'hub' || G.state === 'appeal' || G.state === 'credits' || G.state === 'exit' || G.state === 'arcade' || G.state === 'arcade2' || G.state === 'stairs' || G.state === 'handoff') {
         // GAME TESTER time controls: ',' slower · '.' faster · '/' pause + frame-step
         const tester = Meta.data.tester;
         if (tester) {

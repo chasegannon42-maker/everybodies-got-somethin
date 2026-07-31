@@ -547,6 +547,51 @@ class Boss {
         this.clampPos();
         break;
       }
+      /* ---------- THE A/B TEST — half old protocol, half experimental, swapped on adaptation ---------- */
+      case 'abtest': {
+        if (!this._abInit) {
+          this._abInit = true;
+          G.abFlip = false;              // false: A=left control, B=right variant
+          this._swapT = 8; this._volT = 2.2; this._sweep = null;
+        }
+        // it paces the seam
+        this.x = CW / 2 + Math.sin(this.t * 0.8) * 40;
+        this.y = RY + 120 + Math.cos(this.t * 1.1) * 14;
+        // cohort swap: a stamp-line sweeps the room, then the rules flip
+        this._swapT -= dt;
+        if (this._swapT <= 0 && !this._sweep) {
+          this._sweep = { x: G.abFlip ? RX : RX + RW, dir: G.abFlip ? 1 : -1, t: 0 };
+          G.toast('“SWAPPING COHORTS. Please remain mid-treatment.”', '#c8b8d8');
+          SFX.play('voice');
+        }
+        if (this._sweep) {
+          this._sweep.x += this._sweep.dir * 340 * dt;
+          G.abSweepX = this._sweep.x;   // render draws the stamp-line here
+          if (Math.abs(p.x - this._sweep.x) < 12 && p.iframes <= 0) p.hurt(1, G, this.id);   // don't stand in the re-randomization
+          if (this._sweep.x < RX - 20 || this._sweep.x > RX + RW + 20) {
+            this._sweep = null; G.abSweepX = null;
+            G.abFlip = !G.abFlip;
+            this._swapT = P2 ? 6 : 8.5;
+          }
+        }
+        // which protocol is the PLAYER under? (left/right, flipped by the swap)
+        const leftSide = p.x < CW / 2;
+        const variant = (leftSide === G.abFlip);   // variant cohort gets the experimental treatment
+        this._volT -= dt;
+        if (this._volT <= 0 && !this._sweep) {
+          this._volT = (variant ? 1.6 : 2.4) / (P2 ? 1.25 : 1);
+          const a = this.aimP(G);
+          if (variant) {   // experimental: single homing dose, fast follow-up
+            const b = this.bullet(a, 200, '#b86bff', { life: 4 }); b.home = 1.1;
+            if (P2) { const b2 = this.bullet(a + 0.5, 200, '#b86bff', { life: 4 }); b2.home = 1.1; }
+          } else {         // control: the old reliable fan, dense and slow
+            for (let i = -2; i <= 2; i++) this.bullet(a + i * 0.17, 135, '#8a90c8');
+            if (P2) this.ring(10, 110, '#8a90c8', U.rand(0, TAU), a, 0.8);
+          }
+        }
+        this.clampPos();
+        break;
+      }
       /* ---------- THE HOLD — the phone tree, grown to full height ----------
          The floor is a keypad. It announces the menu; stand on the number
          by the deadline to be CONNECTED (vulnerable window) — or be told,

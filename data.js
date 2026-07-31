@@ -644,6 +644,7 @@ DATA.BOSSES = {
   theboard:   { name: "THE BOARD", sub: "“All in favor of denying coverage? Motion carries.”", hp: 470 },
   merger:     { name: "THE MERGER", sub: "“Synergy. Efficiencies. Your chart, our brand.”", hp: 430 },
   thehold:    { name: "THE HOLD", sub: "“Your call is important to us. Estimated wait: 40 minutes.”", hp: 240 },
+  abtest:     { name: "THE A/B TEST", sub: "“You are in the control group. You were always in the control group.”", hp: 260 },
   walrus:     { name: "DR. WALRUS, M.D.*", sub: "*mail-order", hp: 300 }
 };
 DATA.bossFor = function (depth, lastBoss) {
@@ -657,6 +658,7 @@ DATA.bossFor = function (depth, lastBoss) {
   if (depth >= 4) pool.push('withdrawal', 'burnout');
   if (depth >= 6) pool.push('peerreview');   // by now there's enough of you on file to copy
   if (depth >= 7) pool.push('thehold');      // deep enough that they stop pretending you'll be seen promptly
+  if (depth >= 9) pool.push('abtest');       // by now you've consented to the methodology (implicitly)
   if (depth >= 30) pool.push('merger', 'merger');   // deep wards: the acquisition closed (double weight)
   const filtered = pool.filter(b => b !== lastBoss);
   return U.choice(filtered.length ? filtered : pool);
@@ -1070,6 +1072,7 @@ DATA.CODEX_CHART = {
     thesystem: "Not a person. All of it at once — the denials, the pharmacy, the feed. Ward 100. The last argument.",
     theboard: "Three suits, one table, zero patients seen. Waits at the top of the elevator, voting on you.",
     peerreview: "Requested your full file 'for methodology reasons.' Now it moves like you, shoots like you, and cites you against yourself. The healthier you look, the harder it argues.",
+    abtest: "Half the room runs the old protocol, half runs the experimental one, and it swaps them the moment you adapt. The results will be published. You will not be cited.",
     thehold: "The phone tree, grown to full height. It announces the menu; you stand on the number or you get the consequences. Its options changed recently. They always have.",
     walrus: "Board-certified in Confidence. The doctor will see you now. Forever."
   }

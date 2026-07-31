@@ -240,6 +240,16 @@ keyboard and mouse.
   shelves costs half a heart to squeeze through and opens onto old dark, standing steam, and
   seven things that live under the basement — clear them and his stash opens: pick ONE of three
   finds. He counts them.
+- **🕹 CLAIM DENIED!** — a second breakroom cabinet: pilot a claim form through descending
+  APPROVED/DENIED stamps, Flappy-style, 2¢ a play, new-best pays Insight.
+- **📮 Pneumatic tubes** — some floors still have the 1962 mail system: step into a tube station
+  and get mailed to any other visited station with a THUNK. You arrive folded in thirds.
+- **🧪 THE A/B TEST** — a new deep-ward boss (9+): the arena splits into control and experimental
+  cohorts with different bullet protocols per side, and a stamp-line sweeps through to SWAP them
+  the moment you've adapted. You are in the control group. You were always in the control group.
+- **✊ THE STRIKE** — a rare floor event (3+): staff walked out, services shuttered, a picket
+  circling one room. Walk a lap for solidarity boons — or cross the line for scab prices while
+  every patient on the floor gains union morale and the intercom takes it personally.
 - **🔧 STAFF ONLY** — a full Game Tester hub on the title screen, behind a secret code, organized
   into five tabs. **PLAY**: sandbox any patient at any ward with loadout presets (kitted, glass
   cannon, tank, or hand-picked meds) — the save is snapshot-frozen throughout. **BOSS LAB**:

@@ -203,6 +203,8 @@ window.__bot = (function(){
       if(st==='trialdebrief'){ const b=document.getElementById('bTrialOk'); if(b){b.click(); this.rep.events.push('trial-debriefed');} return true; }
       if(st==='scanner'){ const b=document.getElementById('bScanBack'); if(b){b.click(); this.rep.events.push('scan-declined');} return true; }
       if(st==='finance'){ const b=document.getElementById('bFinBack'); if(b){b.click(); this.rep.events.push('loan-declined');} return true; }
+      if(st==='tubes'){ const b=document.getElementById('bTubeBack'); if(b){b.click(); this.rep.events.push('tube-declined');} return true; }
+      if(st==='scabgate'){ const b=document.getElementById('bScabNo'); if(b){b.click(); this.rep.events.push('line-respected');} return true; }
       if(st==='cutscene'){ Story.skipScene(); return true; }
       if(st==='event'){ const c=document.querySelector('.cmcard'); if(c){c.click(); this.rep.events.push('event');} else { G.hideOverlay(); G.state='run'; } return true; }
       if(st==='ending'){ const b=document.getElementById('bEndKeep'); if(b){b.click(); this.rep.events.push('ending-keep');} return true; }
