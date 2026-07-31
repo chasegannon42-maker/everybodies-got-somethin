@@ -534,7 +534,7 @@ class Player {
     }
   }
   effDmg() {
-    let d = this.dmg;
+    let d = this.dmg + (this.trinket === 'expiredmints' ? 0.3 : 0);
     if (this.diag === 'bipolar') {
       if (this.flags.stable) d *= 1.15;
       else if (this.variant) d *= this.mania ? 1.5 : 0.65;   // Ultradian: wilder weather
@@ -777,6 +777,7 @@ class Player {
         if (this.flags.pierceTears) tear._pierce = 3 + (this._pierceAdd || 0);           // Radical Honesty (+ Open Book)
         if (this.flags.boomTears) { tear._boom = true; tear._life0 = tear.life; }   // Boomerang Chart
         if (this.flags.mortarTears) { tear._mortar = true; tear.r += 2.5; }         // The Ugly Cry
+        if (this.flags.waveTears) { tear._wave = { a: sh.a, t: 0, amp: 46 }; }      // The Waiver Pen: signature loops
         G.tears.push(tear);
       }
       G.playerFired = true;
@@ -845,7 +846,7 @@ class Player {
 
   /* keystone prescriptions are exclusive — a new one replaces the old (your prescription changed) */
   clearKeystone() {
-    ['beam', 'spiralTears', 'pierceTears', 'quadShot', 'boomTears', 'mortarTears'].forEach(f => delete this.flags[f]);
+    ['beam', 'spiralTears', 'pierceTears', 'quadShot', 'boomTears', 'mortarTears', 'waveTears'].forEach(f => delete this.flags[f]);
     Meta.data.everKeystone = 1;   // Off-Label Use (every keystone apply routes through here)
   }
 
@@ -907,7 +908,7 @@ class Player {
     if (G.easy) n = Math.max(1, Math.ceil(n * 0.5));   // 'Second Opinion' easy mode
     if (src) this._lastSrc = src;   // cause-of-death tracking for run log
     this.hp -= n;
-    this.iframes = this.iframeTime;
+    this.iframes = this.iframeTime + (this.trinket === 'worrystone' ? 0.3 : 0);
     this.hurtFlash = 0.35;
     if (this.diag === 'ptsd') { this.lastHitT = 0; if (this.variant) this._scar = (this._scar || 0) + 1; else if (src !== 'flashback') G.darkTarget = Math.max(G.darkTarget || 0, 0.4); }   // a hit ends On Edge / hardens the Weathered
     if (this.diag === 'graduate') { this._sprintT = 1.3; G.texts.push(new FloatText(this.x, this.y - 30, 'PANIC SPRINT', '#5a9a8a')); }   // terror as cardio
@@ -977,6 +978,13 @@ class Tear {
       }
     }
     // Spiral Thoughts: the velocity vector corkscrews as it travels
+    if (this._wave) {   // the Waiver Pen: nothing you sign flies straight
+      this._wave.t += dt;
+      const perp = this._wave.a + Math.PI / 2;
+      const sway = Math.cos(this._wave.t * 11) * this._wave.amp;
+      this.x += Math.cos(perp) * sway * dt;
+      this.y += Math.sin(perp) * sway * dt;
+    }
     if (this._spiral) {
       const rot = this._spiral * dt, c = Math.cos(rot), s = Math.sin(rot);
       const nvx = this.vx * c - this.vy * s;
@@ -2125,6 +2133,7 @@ function spawnEnemiesForRoom(room, depth, G) {
     const e = new Enemy(id, s.x + U.rand(-8, 8), s.y + U.rand(-8, 8), depth, false, hpMult, elite);
     if (G.shadowWard) { e.hp *= 1.3; e.maxhp *= 1.3; e._shadow = true; }   // shadow patients: darker, tougher, better tippers
     if (G.annexFloor) { e.hp *= 1.25; e.maxhp *= 1.25; e._sheet = true; }  // the condemned wing: dust-sheeted and unhappy about visitors
+    if (p.flags.noise) e.spawnT += 0.4;   // the white noise machine: everything wakes up groggy
     if (G.dreamFloor) {   // THE DREAM: the symptoms are clouds here. usually they cannot hurt you.
       e._dream = true; e.noDrop = false;
       e.beh = ['chase', 'bounce', 'orbit'].includes(e.beh) ? e.beh : 'chase';   // nothing shoots in a dream

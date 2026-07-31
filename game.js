@@ -861,6 +861,14 @@ const G = {
 
   /* ---- THE SCENARIO JUMPER: every special encounter, pre-armed ---- */
   TESTER_SCENARIOS: [
+    { icon: '💳', name: 'THE DEDUCTIBLE', sub: 'the meter, ward 9 tuning', run(G) {
+      G.startBossLab({ boss: 'deductible', depth: 9, affix: '', shift2: false, joint: '' });
+    } },
+    { icon: '🍲', name: 'Cafeteria', sub: 'the tray line, three lids, one jello', run(G) {
+      G.ensureSandboxAt(3);
+      const r = G.floorRooms.find(x => x.type === 'normal' && x !== G.room); r.type = 'cafeteria'; r.spawned = false;
+      G.enterRoom(r, null);
+    } },
     { icon: '📞', name: 'A/B TEST boss', sub: 'the methodology, ward 10 tuning', run(G) {
       G.startBossLab({ boss: 'abtest', depth: 10, affix: '', shift2: false, joint: '' });
     } },
@@ -2456,6 +2464,51 @@ const G = {
     SFX.play('whoosh');
   },
 
+  /* ---------- WHEEL OF APPEALS (spin to overturn) ---------- */
+  showWheel() {
+    this.state = 'wheel';
+    const p = this.player;
+    const targets = [];
+    if (this.debt && this.debt.owed > this.debt.principal) targets.push({ id: 'debt', label: 'Debt interest (' + (this.debt.owed - this.debt.principal) + '¢ over principal)', fix: () => { this.debt.owed = this.debt.principal; return 'Interest OVERTURNED. You owe what you borrowed. Novel concept.'; } });
+    if ((p.sampleFx || []).length) {
+      const fxName = p.sampleFx[p.sampleFx.length - 1];
+      const fxDef = DATA.SAMPLE_FX.find(f => f.name === fxName);
+      if (fxDef && DATA.SAMPLE_UNDO[fxDef.id]) targets.push({ id: 'sample', label: 'Side effect: ' + fxName, fix: () => { DATA.SAMPLE_UNDO[fxDef.id](p); p.sampleFx = p.sampleFx.filter(n => n !== fxName); return 'Side effect OVERTURNED. The fine print blinks first.'; } });
+    }
+    if (this.sideEffect) { const se = DATA.SIDE_EFFECTS.find(s => s.id === this.sideEffect); targets.push({ id: 'floor', label: 'Ward condition: ' + (se ? se.name : this.sideEffect), fix: () => { this.sideEffect = null; return 'Ward condition OVERTURNED. The floor apologizes for the floor.'; } }); }
+    const rows = targets.map((t, i) => `<button class="cmcard" data-app="${i}"><div class="cmname" style="color:#3a5ac8">${t.label}</div><div class="cmdesc">spin: 6¢ · roughly even odds · DENIED locks the wheel until the next ward</div></button>`).join('');
+    this.overlay(`
+      <div class="panel">
+        <h1 class="logo" style="font-size:24px">WHEEL OF APPEALS</h1>
+        <div class="tagline">a bureaucratic slot machine · spin to overturn · the house is the house, always</div>
+        <div class="cmgrid">${rows || '<div class="hbnote">nothing currently appealable. congratulations or condolences.</div>'}</div>
+        ${this._wheelDenied ? '<div class="hbnote" style="color:#a05a5a">the wheel is sulking (DENIED earlier). it resets next ward.</div>' : ''}
+        <button class="btn minor" id="bWheelBack">WALK AWAY WITH DIGNITY</button>
+      </div>`);
+    document.querySelectorAll('[data-app]').forEach(b => b.onclick = () => {
+      if (this._wheelDenied) { SFX.play('error'); this.toast('The wheel is sulking. Next ward.', '#e8c84c'); return; }
+      const t = targets[+b.dataset.app];
+      if (!t) return;
+      if (p.coins < 6) { SFX.play('error'); this.toast('Spins are 6¢. The wheel does not do payment plans. The desk does.', '#e8c84c'); return; }
+      p.coins -= 6;
+      SFX.play('paper');
+      if (U.chance(0.5 + Math.min(0.15, (p.luck || 0) * 0.02))) {
+        const msg = t.fix();
+        Meta.data.appealsSpun = (Meta.data.appealsSpun || 0) + 1; Meta.save();
+        this.hideOverlay(); this.state = 'run';
+        this.toast(msg, '#8fd08a');
+        this.diaryNote('Spun the Wheel of Appeals and WON one. Framing the receipt.');
+        SFX.play('fanfare');
+      } else {
+        this._wheelDenied = true;
+        this.hideOverlay(); this.state = 'run';
+        this.toast('DENIED. The wheel prints a slip that just says "no." You may keep the slip.', '#e05a5a');
+        SFX.play('denied');
+      }
+    });
+    document.getElementById('bWheelBack').onclick = () => { SFX.play('ui'); this.hideOverlay(); this.state = 'run'; };
+  },
+
   /* ---------- THE ISOLATION WING (the door means it) ---------- */
   showIsolation(ped) {
     this.state = 'isolation';
@@ -3112,7 +3165,7 @@ const G = {
      The complete in-fiction manual: every mechanic, symptom, ward, and
      service. Mostly generated from DATA so new content lists itself;
      the prose sections get a line whenever a feature ships. */
-  HB_REV: 36,
+  HB_REV: 37,
   showHandbook(returnTo) {
     this.state = 'handbook';
     if (!this._hbTab) this._hbTab = 'basics';
@@ -3203,7 +3256,7 @@ const G = {
 
       staff: () => H('WARD MANAGEMENT (bosses)')
         + Object.entries(DATA.BOSSES).map(([k, b]) => {
-          const when = { gatekeeper: 'rotation · ward 1+', larperking: 'rotation · ward 1+', adjuster: 'rotation · ward 2+', priorauth: 'rotation · ward 2+', stigma: 'rotation · ward 3+', dsm: 'rotation · ward 3+', algorithm: 'rotation · ward 3+', influencer: 'rotation · ward 3+', withdrawal: 'rotation · ward 4+', burnout: 'rotation · ward 4+', peerreview: 'rotation · ward 6+', thehold: 'rotation · ward 7+', abtest: 'rotation · ward 9+', merger: 'rotation · ward 30+', walrus: 'every 5th ward', thecure: 'ward 25', theboard: 'THE ROOF', founder: 'ward 50', thesystem: 'ward 100' }[k];
+          const when = { gatekeeper: 'rotation · ward 1+', larperking: 'rotation · ward 1+', adjuster: 'rotation · ward 2+', priorauth: 'rotation · ward 2+', stigma: 'rotation · ward 3+', dsm: 'rotation · ward 3+', algorithm: 'rotation · ward 3+', influencer: 'rotation · ward 3+', withdrawal: 'rotation · ward 4+', burnout: 'rotation · ward 4+', peerreview: 'rotation · ward 6+', thehold: 'rotation · ward 7+', abtest: 'rotation · ward 9+', deductible: 'rotation · ward 8+', merger: 'rotation · ward 30+', walrus: 'every 5th ward', thecure: 'ward 25', theboard: 'THE ROOF', founder: 'ward 50', thesystem: 'ward 100' }[k];
           return R('☠', `${b.name} <span class="hbtag">${b.sub}</span>`, BO[k] || '—', when);
         }).join('')
         + H('CHAMPION AFFIXES (ward 8+)')
@@ -3299,6 +3352,7 @@ const G = {
         + N('rev. 30 — new on the ward: THE HOLD (management, ward 7+, bring patience and footwork) · THE CLINICAL TRIAL (see TREATMENT) · THE SCANNER (see TREATMENT) · and a thirteenth patient file for whoever finished THE HANDOFF. The mop is in the closet where he left it.')
         + N('rev. 31 — the building learned finance and the calendar: THE FINANCING DESK and THE MIDDLEMAN (see TREATMENT) · THE DREAM WARD (see THE BUILDING) · AWARENESS MONTHS (see THE BUILDING). Also: Group Therapy recruitment now caps at three and no longer works on management, security, paperwork, or anyone mid-performance. The group apologizes to the charge nurse.')
         + N('rev. 32 — the Waiting Room was renovated (doors need an actual step, the nearest thing answers, the room remembers where you were standing) and Dr. Walrus attended a communication workshop. He speaks in full sentences now. He is very proud of this.')
+        + N('rev. 37 — THE CAFETERIA opened a tray line (one tray per patient; the jello is always there), THE DEDUCTIBLE joined management on ward 8+ (your hits get billed until the meter is met — then it is mortal), the commissary got a WHEEL OF APPEALS (spin to overturn interest, side effects, or ward conditions), and the pharmacy shelves grew: six new prescriptions including the Waiver Pen (nothing you sign flies straight), two new personal effects, and one pill that is simply The Good One.')
         + N('rev. 36 — THE ISOLATION WING opens for anyone brave enough to read the sign (solo elites, good shelf after), the Day Room hosts SESSIONS where one ally has a permanent BREAKTHROUGH (harder, tougher, or unshakeably steady), a SPECIAL ENROLLMENT table lets you switch insurance mid-run (the form is one field, pre-filled), and there is a GOOSE. Administration is aware. Administration is hiding. Also: the portrait-mode deck now matches the Waiting Room — PRN reads OPEN in the hub and the pill/claim buttons wait outside.')
         + N('rev. 35 — pharmacies now stock REFILLS of what you\'re already on (buy the second course), admissions runs THE OPEN HOUSE mid-combat (clear the room untouched while the family watches and reception pays for the optics), the 1987 ORIENTATION tape surfaced at the front desk (finish it, be the first, keep the luck), and a fourteenth patient file checked in: THE GRADUATE, who throws boomerang charts and still counts the floors.')
         + N('rev. 34 — a second cabinet hums in the breakroom (CLAIM DENIED!), some floors still have the 1962 PNEUMATIC TUBES (step in, get mailed to any visited station), THE A/B TEST is seeing patients on ward 9+ (stand in the better cohort; it will notice), and sometimes THE STRIKE closes every service on a floor — walk the picket lap, or cross it and live with the morale.')
@@ -3774,7 +3828,7 @@ const G = {
     this.walkin = false; this._roofDone = false; this._phoneFloor = false;   // walk-in / roof / payphone, fresh per run
     this.inspection = null; this._inspectionDone = false; this._mixup = null; this._mixupDone = false;   // the tour + the chart mix-up
     this.annexFloor = false; this._alarmSeen = false; this._alarmPulled = false; this._soaked = false; this._ghostRec = {}; this._ghostT = 0;   // annex / alarm / ghost, fresh per run
-    this.dreamFloor = false; this.nightmare = false; this._dreamSeen = false; this._dreamItem = null; this.debt = null; this._collectorSpawned = false; this._pbmFloor = false; this._pbmDead = false; this._subDone = false; this._isoSeen = false; this._mktSeen = false; this._sessionDone = false; this._gooseFloor = false;   // dream / debt / middleman / sub-basement / iso / market / session / goose, fresh per run
+    this.dreamFloor = false; this.nightmare = false; this._dreamSeen = false; this._dreamItem = null; this.debt = null; this._collectorSpawned = false; this._pbmFloor = false; this._pbmDead = false; this._subDone = false; this._isoSeen = false; this._mktSeen = false; this._sessionDone = false; this._gooseFloor = false; this._wheelDenied = false;   // dream / debt / middleman / sub-basement / iso / market / session / goose, fresh per run
     // THE COMPLAINT DEPARTMENT: your grievance reports for duty
     this._complaint = (!daily && Meta.data.pendingComplaint) ? String(Meta.data.pendingComplaint).slice(0, 40) : null;
     this._complaintSpawned = false;
@@ -4513,12 +4567,17 @@ const G = {
     // SELF-CARE SEPTEMBER (and friends): some months tuck half a heart in at the door
     if (p.flags.monthHeal) p.heal(1);
     // THE FINANCING DESK: the balance compounds, and something is dispatched
-    this._collectorSpawned = false;
+    this._collectorSpawned = false; this._wheelDenied = false;
     if (this.debt && !this._resumeTick) {
       this.debt.owed += 5; this.debt.floors = (this.debt.floors || 0) + 1;
       this.toast('Your balance compounded: ' + this.debt.owed + '¢ outstanding. Something has been dispatched.', '#8a6a9a');
     }
     this._resumeTick = false;
+    // THE CAFETERIA: one ward in five smells like broth, allegedly (ward 2+)
+    if (this.depth >= 2 && !this.dreamFloor && !this.annexFloor && !this.overtime && !this.bossRush && !this.ward13 && U.chance(0.2)) {
+      const norm2 = this.floorRooms.filter(r => r.type === 'normal');
+      if (norm2.length > 2) U.choice(norm2).type = 'cafeteria';
+    }
     // THE GOOSE: some wards have one. no further explanation. (10%, ward 2+)
     this._gooseFloor = (this.depth >= 2 && !this.dreamFloor && !this.annexFloor && !this.overtime && !this.bossRush && U.chance(0.10));
     this._gooseSpawned = false;
@@ -4894,7 +4953,7 @@ const G = {
             room.peds.push({ x: RX + 700, y: yi, itemId: U.choice(owned), kind: 'shop', price: px(14), taken: false, variant: 'refill' });
           }
         }
-        if (U.chance(0.3)) room.peds.push({ x: RX + RW - 90, y: yi, kind: U.choice(['vending', 'horoscope']), taken: false, uses: 3 });   // commissary corner
+        if (U.chance(0.3)) room.peds.push({ x: RX + RW - 90, y: yi, kind: U.choice(['vending', 'horoscope', 'wheel']), taken: false, uses: 3 });   // commissary corner
         room.peds.push({ x: RX + RW - 90, y: yc + 40, kind: 'finance', taken: false });   // THE FINANCING DESK: 0% APR* (*today)
         // THE COMPOUNDING PHARMACIST: a back room, sometimes, if you look like the type
         if (this.depth >= 4 && U.chance(0.25)) {
@@ -4985,6 +5044,18 @@ const G = {
         };
         // the original file, top-right corner, in the glow of one desk lamp
         room.peds.push({ x: RX + 11 * TILE + TILE / 2, y: RY + 64, kind: 'origfile', taken: false });
+        break;
+      }
+      case 'cafeteria': {   // the tray line: three covered trays, one lunch lady, zero secrets kept
+        room.cleared = true;
+        const trays = U.shuffle(DATA.TRAYS.filter(t => t.id !== 'jello' && t.id !== 'taco')).slice(0, 2);
+        trays.push(DATA.TRAYS.find(t => t.id === 'jello'));   // the jello is always here
+        U.shuffle(trays).forEach((t, i) => {
+          room.peds.push({ x: CW / 2 - 150 + i * 150, y: RY + RH / 2 - 20, kind: 'tray', trayId: t.id, taken: false, repGroup: 'lunch' });
+        });
+        if (new Date().getDay() === 2) room.peds.push({ x: CW / 2, y: RY + RH / 2 + 90, kind: 'tray', trayId: 'taco', taken: false, repGroup: 'lunch' });   // Taco Tuesday honors the real calendar
+        room.peds.push({ x: RX + 90, y: RY + 100, kind: 'lunchlady', taken: false });
+        this.pickups.push(new Pickup('coin', RX + RW - 90, RY + RH - 90));
         break;
       }
       case 'wakehatch': {   // the way back up through the pillow
@@ -5268,6 +5339,7 @@ const G = {
     }
     if (p.flags.gym && p._gymAdd < 1.5) { p._gymAdd += 0.15; p.dmg += 0.15; }
     if (U.chance(0.03)) this.pickups.push(new Pickup('trinket', CW / 2 + U.rand(-50, 50), RY + RH / 2));
+    if (p.flags.roomCoin) { p.coins += 1; }   // Copay Assistance: it's not much, on purpose
     if (U.chance(((this.intensity || 0) >= 8 ? 0.2 : this.quietFloor ? 0.25 : 0.4) + (p.flags.otRoutine ? 0.12 : 0))) {   // Intensity 8+/quiet: less tipping · Daily Routine: more
       const type = U.choice(['coin', 'coin', 'half', 'pill', 'coin', 'key', 'bomb']);
       this.pickups.push(new Pickup(type, CW / 2 + U.rand(-40, 40), RY + RH / 2 + U.rand(-30, 30)));
@@ -5594,6 +5666,7 @@ const G = {
     this.stats.pills++;
     SFX.play('pill');
     pill.apply(p, this);
+    if (p.flags.doublePill) { try { pill.apply(p, this); } catch (e) { } this.texts.push(new FloatText(p.x, p.y - 34, 'both hatches', '#9db85a')); }
     const known = this.pillKnown.has(pillIdx) || p.flags.pillsKnown;
     this.pillKnown.add(pillIdx);
     Meta.see('pills', pillIdx);   // codex
@@ -6176,6 +6249,21 @@ const G = {
         if (this.lockCd <= 0) { this.lockCd = 2.0; this.showHandoffOffer(ped); return; }
       } else if (ped.kind === 'payphone') {   // it takes exact change and one feeling at a time
         if (this.lockCd <= 0) { this.lockCd = 2.0; this.showPayphone(ped); return; }
+      } else if (ped.kind === 'tray') {   // lift the lid
+        ped.taken = true;
+        const tr = DATA.TRAYS.find(t => t.id === ped.trayId);
+        if (tr) {
+          try { tr.apply(p, this); } catch (e) { }
+          this.toast('Under the lid: ' + tr.name + '. ' + tr.desc, '#c8b878');
+          this.diaryNote('Ate ' + tr.name + ' from the tray line. The lunch lady nodded like she knew I would.');
+        }
+        for (const o of this.peds) if (o !== ped && o.repGroup === 'lunch') o.taken = true;   // one tray per patient
+        this.bingoEvent && this.bingoEvent('meal');
+        SFX.play('heal');
+      } else if (ped.kind === 'lunchlady') {   // she has seen everything
+        if (this.lockCd <= 0) { this.lockCd = 2.4; this.toast('“' + U.choice(DATA.LUNCHLADY) + '”', '#c8b878'); SFX.play('voice'); }
+      } else if (ped.kind === 'wheel') {   // spin to overturn
+        if (this.lockCd <= 0) { this.lockCd = 1.2; this.showWheel(); return; }
       } else if (ped.kind === 'isodoor') {   // ENTER ALONE
         if (this.lockCd <= 0) { this.lockCd = 1.2; this.showIsolation(ped); return; }
       } else if (ped.kind === 'isoexit') {   // back to your people

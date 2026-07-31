@@ -374,6 +374,13 @@ DATA.ITEMS = {
   /* --- pharma cabinet --- */
   brand:     { name: "Focusium®", quote: "Ask your doctor. He'll say yes.", desc: "Fire rate way up. Name-brand. Your copay funded this tagline.", pools: ["special", "shop"], apply(p) { p.tearDelay *= 0.78; } },
   generic:   { name: "Focusium (Generic)", quote: "Same molecule, worse font.", desc: "Fire rate WAY up, accuracy down. It's fine. It's basically fine.", pools: ["special"], apply(p) { p.tearDelay *= 0.7; p.wobble += 0.13; } },
+  /* --- Content Pack II --- */
+  weightedblanket: { name: "Weighted Blanket", quote: "Fifteen pounds of okay.", desc: "+2 hearts, −5% speed. You are being gently held. You are also being gently slowed.", pools: ["special", "shop"], apply(p) { p.maxhp += 4; p.hp += 4; p.spd *= 0.95; } },
+  noisemachine: { name: "White Noise Machine", quote: "Shhhhhhhh.", desc: "Patients wake up groggy — everything spawns a beat slower.", pools: ["special", "shop"], apply(p) { p.flags.noise = true; } },
+  copaycard: { name: "Copay Assistance Card", quote: "Terms apply. Terms always apply.", desc: "+1¢ every time a room clears. It's not much. It's on purpose.", pools: ["shop", "boss"], apply(p) { p.flags.roomCoin = true; } },
+  wavepen: { name: "The Waiver Pen", quote: "Sign here, and here, and here—", desc: "KEYSTONE: your tears travel in signature loops. +0.5 damage. Nothing you sign flies straight.", pools: ["special", "boss"], apply(p) { p.clearKeystone(); p.flags.waveTears = true; p.dmg += 0.5; } },
+  secondstomach: { name: "Iron Stomach", quote: "Down the hatch. Both hatches.", desc: "Pills hit TWICE. The good ones and, yes, the other ones.", pools: ["special", "oon"], apply(p) { p.flags.doublePill = true; } },
+  outofoffice: { name: "Out-of-Office Reply", quote: "I am currently away from my body.", desc: "+12% speed, and your PRN grants a longer breath of invincibility.", pools: ["special", "shop"], apply(p) { p.spd *= 1.12; p.iframeTime += 0.15; } },
   ssri:      { name: "SSRIs", quote: "Feelings: buffering...", desc: "+1.5 damage, slower shots. The edges come off everything, including your tears.", pools: ["special"], apply(p) { p.dmg += 1.5; p.shotSpd *= 0.85; } },
   lithium:   { name: "Lithium", quote: "The original mood moderator.", desc: "Bipolar: stabilizes your cycle into permanent mild power. Everyone else: +damage, +half heart.", pools: ["special"], apply(p) { if (p.diag === 'bipolar') { p.flags.stable = true; } else { p.dmg += 0.5; p.maxhp += 1; p.hp += 1; } } },
   beta:      { name: "Beta Blockers", quote: "The hands. They're steady.", desc: "Removes shot wander. Panic becomes focus.", pools: ["special"], apply(p) { p.wobble = 0; p.flags.noWobble = true; } },
@@ -549,6 +556,7 @@ DATA.checkAchievements = function (m) {
 DATA.PILL_COLORS = ['#e05a5a', '#5a9de0', '#8fd05a', '#e0c95a', '#b06be0', '#e08f5a', '#5ad0c8', '#e06bb0', '#a0a0a0', '#f0f0e8'];
 DATA.PILLS = [
   { id: 'feelbetter', name: "Feel Better", msg: "You feel better!", bad: false, apply(p) { p.hp = Math.min(p.maxhp, p.hp + 4); SFX.play('heal'); } },
+  { id: 'thegoodone', name: "The Good One", msg: "Full heal, +1 luck. THE good one.", bad: false, apply(p) { p.hp = p.maxhp; p.luck += 1; SFX.play('heal'); } },
   { id: 'newscript', name: "New Prescription", msg: "+1 heart container!", bad: false, apply(p) { p.maxhp += 2; p.hp += 2; SFX.play('heal'); } },
   { id: 'gogo', name: "Go-Go Juice", msg: "Speed up!", bad: false, apply(p) { p.spd *= 1.12; } },
   { id: 'drowsy', name: "May Cause Drowsiness", msg: "So... sleepy...", bad: true, apply(p) { p.tempSlow = 12; } },
@@ -659,6 +667,7 @@ DATA.BOSSES = {
   theboard:   { name: "THE BOARD", sub: "“All in favor of denying coverage? Motion carries.”", hp: 470 },
   merger:     { name: "THE MERGER", sub: "“Synergy. Efficiencies. Your chart, our brand.”", hp: 430 },
   thehold:    { name: "THE HOLD", sub: "“Your call is important to us. Estimated wait: 40 minutes.”", hp: 240 },
+  deductible: { name: "THE DEDUCTIBLE", sub: "“Your plan covers this fight at 80%. After the deductible.”", hp: 250 },
   abtest:     { name: "THE A/B TEST", sub: "“You are in the control group. You were always in the control group.”", hp: 260 },
   walrus:     { name: "DR. WALRUS, M.D.*", sub: "*mail-order", hp: 300 }
 };
@@ -674,6 +683,7 @@ DATA.bossFor = function (depth, lastBoss) {
   if (depth >= 6) pool.push('peerreview');   // by now there's enough of you on file to copy
   if (depth >= 7) pool.push('thehold');      // deep enough that they stop pretending you'll be seen promptly
   if (depth >= 9) pool.push('abtest');       // by now you've consented to the methodology (implicitly)
+  if (depth >= 8) pool.push('deductible');   // the plan year reset mid-descent. of course it did.
   if (depth >= 30) pool.push('merger', 'merger');   // deep wards: the acquisition closed (double weight)
   const filtered = pool.filter(b => b !== lastBoss);
   return U.choice(filtered.length ? filtered : pool);
@@ -994,6 +1004,25 @@ DATA.CONTRACTS = [
   { id: 'boss1',     name: 'Speak To A Manager', desc: 'defeat the ward boss',       ev: 'boss',      n: 1,  reward: 'fund',    rtext: '+20¢ to the Fund, in YOUR name' }
 ];
 
+/* ============ THE CAFETERIA (the tray line) ============ */
+DATA.TRAYS = [
+  { id: 'jello',   name: 'the jello',          desc: 'it is always here. it is always red.', apply(p) { p.heal(2); p.luck += 0.5; } },
+  { id: 'mystery', name: 'salisbury something', desc: '+0.5 damage. do not ask what it was.', apply(p) { p.dmg += 0.5; } },
+  { id: 'soup',    name: 'broth, allegedly',    desc: 'warm. +1 heart container.', apply(p) { p.maxhp += 2; p.hp += 2; } },
+  { id: 'salad',   name: 'the wellness salad',  desc: '+8% speed. mostly water weight.', apply(p) { p.spd *= 1.08; } },
+  { id: 'fish',    name: 'fish on a friday',    desc: '+15% range. omega somethings.', apply(p) { p.range *= 1.15; } },
+  { id: 'coffee',  name: 'urn coffee',          desc: '+10% fire rate, +wobble. it has been on since 1987.', apply(p) { p.tearDelay *= 0.9; p.wobble += 0.04; } },
+  { id: 'toast',   name: 'toast, unbuttered',   desc: '+4 copays. somebody left them under it.', apply(p) { p.coins += 4; } },
+  { id: 'taco',    name: 'THE TACO (Tuesdays)', desc: '+0.8 damage. it is Tuesday somewhere. here.', apply(p) { p.dmg += 0.8; } }
+];
+DATA.LUNCHLADY = [
+  "Take a tray. The trays don't judge. I do, but the trays don't.",
+  "The jello is load-bearing. Take it or don't, it'll outlive us.",
+  "Hot food on the left, opinions on the right.",
+  "You look like the soup type. No offense meant. Some taken, probably.",
+  "Second helpings are a myth. Like discharge."
+];
+
 /* ============ THE DRUG REP (free samples, with strings) ============ */
 DATA.SAMPLE_FX = [
   { id: 'tremors',  name: 'hand tremors',        apply: (p) => { p.wobble += 0.055; } },
@@ -1020,6 +1049,18 @@ DATA.TRIAL_FX = [
   { id: 'tluck',   name: '+1.5 luck',              apply: p => { p.luck += 1.5; } },
   { id: 'tsteady', name: 'steadier hands',         apply: p => { p.wobble = Math.max(0, p.wobble - 0.07); } }
 ];
+
+/* ============ WHEEL OF APPEALS (spin to overturn) ============ */
+DATA.SAMPLE_UNDO = {
+  tremors: p => { p.wobble = Math.max(0, p.wobble - 0.055); },
+  drowsy: p => { p.spd /= 0.94; },
+  brainzap: p => { p.tearDelay /= 1.07; },
+  thin: p => { p.maxhp += 1; p.hp += 1; },
+  doom: p => { p.luck += 0.6; },
+  appetite: p => { p.shotSpd /= 0.9; },
+  fog: p => { p.range /= 0.9; },
+  jitters: p => { p.wobble = Math.max(0, p.wobble - 0.03); p.spd /= 1.03; }
+};
 
 /* ============ FACILITY IMPROVEMENTS (the Wellness Fund) ============
    Leftover run coins are "donated" on discharge. Spend the fund on the
@@ -1088,6 +1129,7 @@ DATA.CODEX_CHART = {
     thesystem: "Not a person. All of it at once — the denials, the pharmacy, the feed. Ward 100. The last argument.",
     theboard: "Three suits, one table, zero patients seen. Waits at the top of the elevator, voting on you.",
     peerreview: "Requested your full file 'for methodology reasons.' Now it moves like you, shoots like you, and cites you against yourself. The healthier you look, the harder it argues.",
+    deductible: "Every hit you land gets billed against the meter instead of hurting it. Meet the deductible and it becomes suddenly, satisfyingly mortal. The meter resets every plan year. The fight is the plan year.",
     abtest: "Half the room runs the old protocol, half runs the experimental one, and it swaps them the moment you adapt. The results will be published. You will not be cited.",
     thehold: "The phone tree, grown to full height. It announces the menu; you stand on the number or you get the consequences. Its options changed recently. They always have.",
     walrus: "Board-certified in Confidence. The doctor will see you now. Forever."
@@ -1248,7 +1290,7 @@ DATA.EVENTS = [
     ]
   },
   {
-    name: "3 A.M. Self-Diagnosis", prompt: "The search bar glows. \"my symptoms\" it waits. It's never good news.",
+    name: "3 A.M. Self-Diagnosis", prompt: "The search bar glows. You've already typed \"my symptoms\". It's never good news.",
     choices: [
       { label: "Trust the internet", note: "gamble: a boon… or a new symptom", apply(p) { if (U.chance(0.5)) { p.dmg += 1.2; } else { p.spd *= 0.9; p.tearDelay *= 1.08; } } },
       { label: "Close the laptop", note: "sleep, actually (heal 1)", apply(p) { p.heal(1); } }
@@ -1377,7 +1419,7 @@ DATA.RADIO_DJ = [
   "That was for the patient in bay 6, from the patient in bay 6.",
   "WWRD, where the hits keep coming and so does the billing.",
   "Requests go in the complaint box. The complaint box goes in the incinerator. The music plays on.",
-  "Up next: the sound of the building settling. Just kidding. Or are we. WWRD."
+  "Up next: the sound of the building settling. It's been settling since 1974. WWRD."
 ];
 
 /* ============ PERSONAL EFFECTS (trinkets) ============
@@ -1398,7 +1440,9 @@ DATA.TRINKETS = [
   { id: 'batteredwatch', name: "Battered Watch",   icon: '⌚', desc: "It runs slow, and so does everything else — slow-motion moments last twice as long." },
   { id: 'laminatedcard', name: "Laminated Card",   icon: '💳', desc: "An insurance card so pristine they just… believe it. Shop meds −15%, and the Copay Collector can't touch your change." },
   { id: 'spareglasses', name: "Spare Readers",     icon: '👓', desc: "From the lost & found. +15% range, and picked-up pills identify themselves 40% of the time." },
-  { id: 'masterkey',   name: "The Master Key",     icon: '🗝', desc: "The Janitor had a copy all along. Locked treatment rooms open free. Only found on the Thirteenth Ward." }
+  { id: 'masterkey',   name: "The Master Key",     icon: '🗝', desc: "The Janitor had a copy all along. Locked treatment rooms open free. Only found on the Thirteenth Ward." },
+  { id: 'worrystone',  name: "Worry Stone",        icon: '🪨', desc: "Thumb-polished by four decades of waiting rooms. Noticeably longer i-frames after a hit." },
+  { id: 'expiredmints', name: "Expired Mints",     icon: '🍬', desc: "From the bottom of a donated purse. +0.3 damage — your breath is now technically a symptom." }
 ];
 
 /* ============ CHALLENGE PROTOCOLS (curated rule-set runs) ============
@@ -1421,7 +1465,7 @@ DATA.PROTOCOLS = [
    Occasionally a whole ward goes into crisis: a temporary ruleset with hazard
    pay for surviving it. Rolled in newFloor (depth 4+); G.crisis holds the id. */
 DATA.CRISES = [
-  { id: 'lockdown',   name: "CODE GRAY: LOCKDOWN", icon: "🚨", desc: "Doors are sealing. Clear the whole ward before the timer runs out for a payout." },
+  { id: 'lockdown',   name: "CODE GRAY: LOCKDOWN", icon: "🚨", desc: "Doors are sealing. Clear the whole ward before the timer runs out — hazard pay if you do." },
   { id: 'firedrill',  name: "FIRE DRILL",          icon: "🔥", desc: "This is not a drill (it is). Rooms catch fire behind you — don't linger." },
   { id: 'inspection', name: "SURPRISE INSPECTION", icon: "📋", desc: "Contraband sweep. Any pill you're holding may be confiscated — reach the trapdoor with one to pass." },
   { id: 'outage',     name: "POWER OUTAGE",        icon: "🔦", desc: "The lights are out ward-wide. Maintenance has been notified. Maintenance is not coming." }
@@ -1430,15 +1474,15 @@ DATA.CRISES = [
 /* ============ THE COMMISSARY (machines) ============
    Horoscope fortunes: a printed slip that applies a real (small) blessing or curse. */
 DATA.HOROSCOPES = [
-  { text: "“Great fortune finds the well-hydrated.” +1 heart container? No. But heal up.", apply(p) { p.heal(2); } },
-  { text: "“Mercury is in retrograde. Your aim is not.”  Shots steady.", apply(p) { p.wobble = Math.max(0, p.wobble - 0.06); } },
+  { text: "“Great fortune finds the well-hydrated.” Heal a heart. The machine keeps its word.", apply(p) { p.heal(2); } },
+  { text: "“Mercury is in retrograde. Your aim is not.” Shots steady.", apply(p) { p.wobble = Math.max(0, p.wobble - 0.06); } },
   { text: "“A windfall approaches.” +5 copays.", apply(p) { p.coins += 5; } },
   { text: "“You will meet a tall, dark prescription.” +0.5 damage.", apply(p) { p.dmg += 0.5; } },
   { text: "“The stars recommend cardio.” +6% speed.", apply(p) { p.spd *= 1.06; } },
   { text: "“Luck is a skill. You are unskilled.” −1 luck, +4 copays.", apply(p) { p.luck -= 1; p.coins += 4; } },
   { text: "“Beware small print.” Your next med may bite. −0.5 luck.", apply(p) { p.luck -= 0.5; } },
   { text: "“The universe owes you nothing. Here's a pill.”", apply(p) { if (p.pill == null) p.pill = U.randi(0, 9); } },
-  { text: "“Today's energy: ✨chaotic✨.” Fire rate up, aim wanders.", apply(p) { p.tearDelay *= 0.92; p.wobble += 0.05; } }
+  { text: "“Today's energy: chaotic.” Fire rate up, aim wanders.", apply(p) { p.tearDelay *= 0.92; p.wobble += 0.05; } }
 ];
 
 /* ============ TREATMENT GOALS (per-run objectives) ============
@@ -1708,7 +1752,7 @@ DATA.VOICE_LINES = [
   "the voice says: the fake ones pop like bubbles."
 ];
 DATA.WALRUS_BOSS_LINES = [
-  "Ah, my favorite patient. Time for your co-pay.",
+  "Ah, my favorite patient. Time for your copay.",
   "I'm afraid your condition is... terminal-ish.",
   "This hurts me more than— no, wait. It hurts you more."
 ];
@@ -1719,7 +1763,7 @@ DATA.WALRUS_DEFEAT_LINES = [
 ];
 DATA.TOASTS = {
   larper: "The Larper dropped nothing. It was never real.",
-  overrx: "OVERPRESCRIBED! Random side effect!",
+  overrx: "OVERPRESCRIBED! One side effect, on the house.",
   referral: "You need a REFERRAL for the Specialist. (Find a key.)",
   oon: "The Out-of-Network Specialist accepts one payment: a piece of you.",
   secret: "A hidden room! It smells like unfiled complaints.",

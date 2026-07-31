@@ -208,6 +208,7 @@ window.__bot = (function(){
       if(st==='isolation'){ const b=document.getElementById('bIsoNo'); if(b){b.click(); this.rep.events.push('iso-declined');} return true; }
       if(st==='enrollwin'){ const b=document.getElementById('bMktBack'); if(b){b.click(); this.rep.events.push('plan-kept');} return true; }
       if(st==='session'){ const b=document.getElementById('bSessBack'); if(b){b.click(); this.rep.events.push('session-skipped');} return true; }
+      if(st==='wheel'){ const b=document.getElementById('bWheelBack'); if(b){b.click(); this.rep.events.push('appeal-walked');} return true; }
       if(st==='cutscene'){ Story.skipScene(); return true; }
       if(st==='event'){ const c=document.querySelector('.cmcard'); if(c){c.click(); this.rep.events.push('event');} else { G.hideOverlay(); G.state='run'; } return true; }
       if(st==='ending'){ const b=document.getElementById('bEndKeep'); if(b){b.click(); this.rep.events.push('ending-keep');} return true; }

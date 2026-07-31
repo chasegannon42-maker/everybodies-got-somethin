@@ -713,10 +713,10 @@ const STORY = {
     { art: 'copayRegister', stamp: 'WARD 15', lines: ['Ward 15. Every step has a copay.', 'They take a little piece of you at the', 'counter and call it your share.', 'You paid. You always pay.'] }
   ],
   ward20: [
-    { art: 'mirrorWard', stamp: 'WARD 20', lines: ['Ward 20. You\'ve been in here so long', 'you answer to the chart.', 'You look for your face and find a', 'stack of forms wearing it.', 'But there\'s still someone under the paper.'] }
+    { art: 'mirrorWard', stamp: 'WARD 20', lines: ['Ward 20. You\'ve been in here so long', 'you answer to the chart.', 'You look for your face and find a', 'stack of forms wearing it.', 'But there\'s someone under the paper.'] }
   ],
   ward50pre: [
-    { art: 'foundersTower', stamp: 'WARD 50', lines: ['Ward 50. The top of the ladder.', 'A tower built of copays and slogans,', 'and at the very top, the man who', 'turned every feeling into a product line.'] }
+    { art: 'foundersTower', stamp: 'WARD 50', lines: ['Ward 50. The top of the ladder.', 'A tower built of copays and slogans,', 'and at the very top, the man who', 'turned each feeling into a product line.'] }
   ],
   cure: [
     { art: 'cureCapsule', stamp: 'WARD 25', lines: ['They said there was a cure at the', 'bottom of all this.', 'Twenty-five wards. You reached it.', 'It glowed like it meant something.'] },

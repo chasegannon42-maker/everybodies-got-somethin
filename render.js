@@ -2306,6 +2306,51 @@ const Render = {
         if (U.dist(G.player.x, G.player.y, ped.x, ped.y) < 90) { ctx.fillStyle = '#e8c84c'; ctx.font = this.font(10, true); ctx.fillText('it\'s leaning like it\'s yours', ped.x, ped.y + 42); }
         continue;
       }
+      if (ped.kind === 'tray') {   // a covered tray. the lid keeps the secret.
+        this.shadow(ped.x, ped.y + 14, 20, 6, 0.2);
+        ctx.save(); ctx.translate(ped.x, ped.y);
+        ctx.fillStyle = '#c8ccd4'; this.rr(ctx, -24, 4, 48, 8, 3); ctx.fill();   // the tray
+        const lift = Math.sin(G.t * 2 + ped.x) * 1.5;
+        ctx.fillStyle = '#dfe4ea'; ctx.beginPath(); ctx.ellipse(0, -2 + lift * 0.3, 20, 12, 0, Math.PI, 0); ctx.fill();   // the dome
+        ctx.strokeStyle = '#9aa4b2'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(0, -2 + lift * 0.3, 20, 12, 0, Math.PI, 0); ctx.stroke();
+        ctx.fillStyle = '#9aa4b2'; ctx.beginPath(); ctx.arc(0, -14 + lift * 0.3, 3, 0, TAU); ctx.fill();   // the knob
+        if (ped.trayId === 'taco') { ctx.fillStyle = '#e8c05a'; ctx.font = this.font(9, true); ctx.textAlign = 'center'; ctx.fillText('TUESDAY', 0, 26); }
+        ctx.restore();
+        if (U.dist(G.player.x, G.player.y, ped.x, ped.y) < 70) { ctx.fillStyle = '#e8c84c'; ctx.font = this.font(10, true); ctx.textAlign = 'center'; ctx.fillText('lift the lid (one per patient)', ped.x, ped.y + 40); }
+        continue;
+      }
+      if (ped.kind === 'lunchlady') {   // she predates the building
+        this.shadow(ped.x, ped.y + 16, 12, 4, 0.2);
+        ctx.save(); ctx.translate(ped.x, ped.y);
+        ctx.fillStyle = '#b8788a'; ctx.beginPath(); ctx.ellipse(0, 2, 11, 14, 0, 0, TAU); ctx.fill();   // apron era
+        ctx.fillStyle = '#e8c9a6'; ctx.beginPath(); ctx.arc(0, -14, 7.5, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#d8d2c4'; ctx.beginPath(); ctx.arc(0, -18.5, 7.5, Math.PI, 0); ctx.fill();   // the net
+        ctx.strokeStyle = 'rgba(90,70,80,0.5)'; ctx.lineWidth = 1; for (let hx = -5; hx <= 5; hx += 3) { ctx.beginPath(); ctx.moveTo(hx, -24); ctx.lineTo(hx, -18); ctx.stroke(); }
+        ctx.fillStyle = '#2c2333'; ctx.beginPath(); ctx.arc(-2.5, -14, 1, 0, TAU); ctx.arc(2.5, -14, 1, 0, TAU); ctx.fill();
+        ctx.strokeStyle = '#8a8e98'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';   // the ladle, at rest, ready
+        ctx.beginPath(); ctx.moveTo(9, -4); ctx.lineTo(16, 8); ctx.stroke(); ctx.lineCap = 'butt';
+        ctx.fillStyle = '#8a8e98'; ctx.beginPath(); ctx.arc(17, 10, 3.5, 0, TAU); ctx.fill();
+        ctx.restore();
+        ctx.fillStyle = '#c8b878'; ctx.font = this.font(10, true); ctx.textAlign = 'center';
+        ctx.fillText('THE LUNCH LADY', ped.x, ped.y - 34);
+        continue;
+      }
+      if (ped.kind === 'wheel') {   // the appeals wheel: justice, radial
+        this.shadow(ped.x, ped.y + 24, 18, 6, 0.2);
+        ctx.save(); ctx.translate(ped.x, ped.y);
+        ctx.fillStyle = '#4a4454'; this.rr(ctx, -18, -2, 36, 28, 4); ctx.fill();   // the housing
+        const spin = G.t * (0.4 + Math.sin(G.t * 0.7) * 0.3);
+        ctx.save(); ctx.translate(0, -14); ctx.rotate(spin);
+        for (let i = 0; i < 6; i++) { ctx.fillStyle = i % 2 ? '#8fd08a' : '#e05a5a'; ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, 15, i * TAU / 6, (i + 1) * TAU / 6); ctx.closePath(); ctx.fill(); }
+        ctx.restore();
+        ctx.strokeStyle = '#2c2333'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, -14, 15, 0, TAU); ctx.stroke();
+        ctx.fillStyle = '#e8c84c'; ctx.beginPath(); ctx.moveTo(0, -32); ctx.lineTo(-3, -27); ctx.lineTo(3, -27); ctx.closePath(); ctx.fill();   // the pointer of fate
+        ctx.restore();
+        ctx.fillStyle = '#8fd0e0'; ctx.font = this.font(10, true); ctx.textAlign = 'center';
+        ctx.fillText('WHEEL OF APPEALS', ped.x, ped.y - 42);
+        if (U.dist(G.player.x, G.player.y, ped.x, ped.y) < 80) { ctx.fillStyle = '#e8c84c'; ctx.font = this.font(10, true); ctx.fillText('walk up · 6¢ a spin', ped.x, ped.y + 44); }
+        continue;
+      }
       if (ped.kind === 'isodoor' || ped.kind === 'isoexit') {   // the honest door
         this.shadow(ped.x, ped.y + 26, 20, 6, 0.24);
         ctx.save(); ctx.translate(ped.x, ped.y);
@@ -4253,6 +4298,31 @@ const Render = {
     const flash = b.hitFlash > 0;
 
     switch (b.id) {
+      case 'deductible': { // an insurance card the size of a grievance
+        const r = b.r || 40;
+        ctx.fillStyle = '#e8e0cc'; this.rr(ctx, -r * 1.1, -r * 0.7, r * 2.2, r * 1.4, 8); ctx.fill();
+        ctx.strokeStyle = '#8a7a58'; ctx.lineWidth = 3; this.rr(ctx, -r * 1.1, -r * 0.7, r * 2.2, r * 1.4, 8); ctx.stroke();
+        ctx.fillStyle = '#c8a24a'; this.rr(ctx, -r * 1.1, -r * 0.7, r * 2.2, r * 0.35, 8); ctx.fill();   // the gold band
+        ctx.fillStyle = '#5a4a2a'; ctx.font = 'bold ' + Math.round(r * 0.22) + 'px "Arial Black",sans-serif'; ctx.textAlign = 'left';
+        ctx.fillText('HEALTHCORP™', -r * 0.98, -r * 0.42);
+        // member id: a row of grouchy digits
+        ctx.fillStyle = '#6a5a3a'; ctx.font = 'bold ' + Math.round(r * 0.26) + 'px "Courier New",monospace';
+        ctx.fillText('0000 0000 U 0WE', -r * 0.98, r * 0.1);
+        // the eyes live in the chip
+        ctx.fillStyle = '#c8a24a'; this.rr(ctx, r * 0.45, -r * 0.15, r * 0.5, r * 0.42, 4); ctx.fill();
+        ctx.fillStyle = '#2c2333';
+        ctx.beginPath(); ctx.arc(r * 0.58, 0, 2.6, 0, TAU); ctx.arc(r * 0.8, 0, 2.6, 0, TAU); ctx.fill();
+        // deductible meter under the card
+        if (b._dedShield && b.dedMax) {
+          const frac = U.clamp(b.dedRemaining / b.dedMax, 0, 1);
+          ctx.fillStyle = 'rgba(20,14,24,0.8)'; this.rr(ctx, -r, r * 0.85, r * 2, 12, 5); ctx.fill();
+          ctx.fillStyle = '#e8c84c'; this.rr(ctx, -r, r * 0.85, r * 2 * frac, 12, 5); ctx.fill();
+          ctx.fillStyle = '#f0e8d8'; ctx.font = this.font(9, true); ctx.textAlign = 'center';
+          ctx.fillText('DEDUCTIBLE: ' + Math.max(0, Math.ceil(b.dedRemaining)) + ' TO GO', 0, r * 0.85 + 9.5);
+        }
+        if (flash) { ctx.fillStyle = 'rgba(255,255,255,0.45)'; this.rr(ctx, -r * 1.1, -r * 0.7, r * 2.2, r * 1.4, 8); ctx.fill(); }
+        break;
+      }
       case 'abtest': { // a clipboard with a methodology
         const r = b.r || 40;
         ctx.fillStyle = '#e8e2d4'; this.rr(ctx, -r * 0.8, -r, r * 0.8, r * 2, 6); ctx.fill();    // side A: the old form

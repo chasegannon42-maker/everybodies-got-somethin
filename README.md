@@ -272,6 +272,17 @@ keyboard and mouse.
 - **📋 SPECIAL ENROLLMENT** — a folding table appears mid-run: switch insurance plans for 8¢
   (qualifying Life Event: "everything"). Joining Gold still costs a heart container, as is
   tradition. No refunds on hearts previously surrendered.
+- **🍲 THE CAFETERIA** — a tray line on some wards: three covered trays, hidden effects, one per
+  patient, and the jello is always there. The lunch lady has seen everything. Taco Tuesday
+  honors the real calendar.
+- **💳 THE DEDUCTIBLE** — a boss (Ward 8+) whose shield is your deductible: every hit gets billed
+  against a running meter instead of hurting it. Meet the meter and it becomes suddenly,
+  satisfyingly mortal for the rest of the fight.
+- **🎡 WHEEL OF APPEALS** — a commissary machine: 6¢ a spin to appeal one active negative — debt
+  interest, a sample side effect, a ward condition. Lands on OVERTURNED or DENIED (the wheel
+  sulks until the next ward). A bureaucratic slot machine.
+- **💊 Content Pack II** — six new prescriptions (including the Waiver Pen keystone: nothing you
+  sign flies straight), two new Personal Effects, and one pill that is simply The Good One.
 - **🔧 STAFF ONLY** — a full Game Tester hub on the title screen, behind a secret code, organized
   into five tabs. **PLAY**: sandbox any patient at any ward with loadout presets (kitted, glass
   cannon, tank, or hand-picked meds) — the save is snapshot-frozen throughout. **BOSS LAB**:

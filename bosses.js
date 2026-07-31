@@ -547,6 +547,36 @@ class Boss {
         this.clampPos();
         break;
       }
+      /* ---------- THE DEDUCTIBLE — meet it, then it's mortal ---------- */
+      case 'deductible': {
+        if (!this._dedInit) {
+          this._dedInit = true;
+          this.dedRemaining = this.dedMax = 55 + this.depth * 4;
+          this._dedShield = true;
+          this._cycleT = 3;
+        }
+        // it drifts like a statement in the mail
+        this.x += Math.cos(this.t * 0.9) * 40 * dt;
+        this.y = RY + 130 + Math.sin(this.t * 1.3) * 22;
+        this.clampPos();
+        this._cycleT -= dt;
+        if (this._cycleT <= 0) {
+          const met = !this._dedShield;
+          this._cycleT = (met ? 1.7 : 2.5) / (P2 ? 1.2 : 1);
+          const a = this.aimP(G);
+          const roll = Math.random();
+          if (roll < 0.4) {          // "cost sharing": a fan, split with you
+            for (let i = -2; i <= 2; i++) this.bullet(a + i * 0.16, met ? 190 : 150, '#e8c84c');
+          } else if (roll < 0.7) {   // "billing cycle": a slow ring with a gap
+            this.ring(met ? 20 : 14, 130, '#c8a24a', U.rand(0, TAU), a, 0.8);
+          } else {                   // "surprise bill": two fast ones from odd angles
+            this.bullet(a + 1.2, 260, '#e05a5a');
+            this.bullet(a - 1.2, 260, '#e05a5a');
+            if (met) { const b = this.bullet(a, 210, '#e05a5a', { life: 4 }); b.home = 0.9; }
+          }
+        }
+        break;
+      }
       /* ---------- THE A/B TEST — half old protocol, half experimental, swapped on adaptation ---------- */
       case 'abtest': {
         if (!this._abInit) {
@@ -1169,6 +1199,20 @@ class Boss {
 
   hurt(d, G) {
     if (this.dead || this.introT > 0) return;
+    // THE DEDUCTIBLE: damage is billed against the meter until you've met it
+    if (this._dedShield && this.dedRemaining > 0) {
+      this.dedRemaining -= d;
+      this.hitFlash = 0.1;
+      G.texts.push(new FloatText(this.x + U.rand(-20, 20), this.y - this.r - 8, 'billed', '#e8c84c'));
+      if (this.dedRemaining <= 0) {
+        this._dedShield = false;
+        this.vulnerable = true;
+        G.toast('DEDUCTIBLE MET. It is suddenly, satisfyingly mortal.', '#8fd08a');
+        G.shake = Math.max(G.shake, 8);
+        SFX.play('fanfare');
+      }
+      return;
+    }
     if (!this.vulnerable) {
       G.texts.push(new FloatText(this.x, this.y - this.r - 10, 'DENIED', '#e05a5a'));
       SFX.play('error');
