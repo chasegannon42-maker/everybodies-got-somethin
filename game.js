@@ -867,6 +867,22 @@ const G = {
 
   /* ---- THE SCENARIO JUMPER: every special encounter, pre-armed ---- */
   TESTER_SCENARIOS: [
+    { icon: '📣', name: 'WELLNESS SEMINAR', sub: 'mandatory attendance, ward 11 tuning', run(G) {
+      G.startBossLab({ boss: 'seminar', depth: 11, affix: '', shift2: false, joint: '' });
+    } },
+    { icon: '👑', name: 'Champion pack II', sub: 'itemized, re-admitted, lingering, out-of-network', run(G) {
+      G.ensureSandboxAt(10);
+      const r = G.room; r.cleared = false;
+      G.enemies.length = 0; G.eBullets.length = 0;
+      const picks = [['secondop', 'itemized'], ['orderly', 'readmitted'], ['comparison', 'lingering'], ['waitlist', 'outofnetwork']];
+      const spots = [[RX + 130, RY + 120], [RX + RW - 140, RY + 130], [RX + 140, RY + RH - 130], [RX + RW - 150, RY + RH - 140]];
+      picks.forEach(([id, aff], i) => {
+        const e = new Enemy(id, spots[i][0], spots[i][1], 10, false, 1, aff);
+        e.spawnT = 0.5 + i * 0.15;
+        G.enemies.push(e);
+      });
+      G.toast('Four crowns on the floor. The OUT-OF-NETWORK one goes LAST, if you can help it.', '#e07ab8');
+    } },
     { icon: '👥', name: 'Deep roster', sub: 'twins, billing error, the wait, second notice — ward 12', run(G) {
       G.ensureSandboxAt(12);
       const r = G.room; r.cleared = false;
@@ -2572,7 +2588,7 @@ const G = {
     this.enterRoom(ir, null);
     p.x = CW / 2; p.y = RY + RH - 70;
     for (let i = 0; i < 5; i++) {
-      const e = new Enemy(DATA.pickEnemy(Math.max(4, this.depth), null), U.clamp(CW / 2 + U.rand(-240, 240), RX + 50, RX + RW - 50), U.clamp(RY + 150 + U.rand(-50, 150), RY + 50, RY + RH - 110), this.depth, false, 1.4, U.choice(DATA.ELITES).id);
+      const e = new Enemy(DATA.pickEnemy(Math.max(4, this.depth), null), U.clamp(CW / 2 + U.rand(-240, 240), RX + 50, RX + RW - 50), U.clamp(RY + 150 + U.rand(-50, 150), RY + 50, RY + RH - 110), this.depth, false, 1.4, DATA.pickElite(this.depth));
       e.spawnT = 0.6 + i * 0.15; e.noDrop = i > 1;
       this.enemies.push(e);
     }
@@ -2901,7 +2917,7 @@ const G = {
       p.dmg += 0.5; p.luck -= 0.5;
       this.diaryNote('Heckled ' + pname + ' at open mic. Felt powerful for nine seconds. The room took notes.');
       if (U.chance(0.25) && DATA.ENEMIES[ped.performer]) {
-        const e = new Enemy(ped.performer, ped.x, ped.y, this.depth, false, 1.4, U.choice(DATA.ELITES).id);
+        const e = new Enemy(ped.performer, ped.x, ped.y, this.depth, false, 1.4, DATA.pickElite(this.depth));
         e.spawnT = 0.7;
         this.enemies.push(e);
         this.room.cleared = false;
@@ -3194,7 +3210,7 @@ const G = {
      The complete in-fiction manual: every mechanic, symptom, ward, and
      service. Mostly generated from DATA so new content lists itself;
      the prose sections get a line whenever a feature ships. */
-  HB_REV: 41,
+  HB_REV: 42,
   showHandbook(returnTo) {
     this.state = 'handbook';
     if (!this._hbTab) this._hbTab = 'basics';
@@ -3283,12 +3299,12 @@ const G = {
         + R('', DATA.ENEMIES.casemanager.name, EN.casemanager, 'clinic miniboss · ward 7+')
         + R('', DATA.ENEMIES.decimal.name, EN.decimal, 'billing fallout')
         + H('CHAMPIONS (elite cases, ward 6+)')
-        + DATA.ELITES.map(e => R('👑', e.name, `${Math.round(e.hp * 100)}% health${e.dmg > 1 ? ', hits double' : ''}${e.spd > 1 ? ', faster' : e.spd < 1 ? ', slower' : ''} — drops better loot`)).join('')
+        + DATA.ELITES.map(e => R('👑', e.name, `${Math.round(e.hp * 100)}% health${e.dmg > 1 ? ', hits double' : ''}${e.spd > 1 ? ', faster' : e.spd < 1 ? ', slower' : ''}${e.note ? ' — ' + e.note : ''} — drops better loot`, e.d ? 'ward ' + e.d + '+' : '')).join('')
         + N('Hallucinations: some diagnoses see patients who aren\'t there. Fakes pop in one hit and can\'t hurt you. Foam Earplugs make them shimmer.'),
 
       staff: () => H('WARD MANAGEMENT (bosses)')
         + Object.entries(DATA.BOSSES).map(([k, b]) => {
-          const when = { gatekeeper: 'rotation · ward 1+', larperking: 'rotation · ward 1+', adjuster: 'rotation · ward 2+', priorauth: 'rotation · ward 2+', stigma: 'rotation · ward 3+', dsm: 'rotation · ward 3+', algorithm: 'rotation · ward 3+', influencer: 'rotation · ward 3+', withdrawal: 'rotation · ward 4+', burnout: 'rotation · ward 4+', peerreview: 'rotation · ward 6+', thehold: 'rotation · ward 7+', abtest: 'rotation · ward 9+', deductible: 'rotation · ward 8+', merger: 'rotation · ward 30+', walrus: 'every 5th ward', thecure: 'ward 25', theboard: 'THE ROOF', founder: 'ward 50', thesystem: 'ward 100' }[k];
+          const when = { gatekeeper: 'rotation · ward 1+', larperking: 'rotation · ward 1+', adjuster: 'rotation · ward 2+', priorauth: 'rotation · ward 2+', stigma: 'rotation · ward 3+', dsm: 'rotation · ward 3+', algorithm: 'rotation · ward 3+', influencer: 'rotation · ward 3+', withdrawal: 'rotation · ward 4+', burnout: 'rotation · ward 4+', peerreview: 'rotation · ward 6+', thehold: 'rotation · ward 7+', abtest: 'rotation · ward 9+', deductible: 'rotation · ward 8+', seminar: 'rotation · ward 10+', merger: 'rotation · ward 30+', walrus: 'every 5th ward', thecure: 'ward 25', theboard: 'THE ROOF', founder: 'ward 50', thesystem: 'ward 100' }[k];
           return R('☠', `${b.name} <span class="hbtag">${b.sub}</span>`, BO[k] || '—', when);
         }).join('')
         + H('CHAMPION AFFIXES (ward 8+)')
@@ -3380,6 +3396,7 @@ const G = {
         + R('🚶', 'Day Room patients', 'The Veteran, The Optimist, The Oversharer, and friends — one boon each')
         + H('REVISION HISTORY')
         + N('This handbook is updated with every patch. If a feature exists, it\'s in here — that\'s the policy. Spot something missing? The Complaint Department is thataway.')
+        + N('rev. 42 — MANDATORY ENRICHMENT: THE WELLNESS SEMINAR is now presenting on wards 10+ (folding-chair cover, participation zones, an AUDIENCE MOOD meter, enforced attendance, and — at the end of its rope — a timeshare; see STAFF), and four new champion crowns joined the deep rotation: ITEMIZED, RE-ADMITTED, LINGERING, and OUT-OF-NETWORK (see the CHAMPIONS list — kill order matters now). The chairs are not load-bearing. The pitch is.')
         + N('rev. 41 — INTAKE, EXPANDED: the deep wards admitted four new cases (the PREAUTH TWINS and their load-bearing co-signature line, THE BILLING ERROR and its decimals, THE WAIT and its thickened time, THE SECOND NOTICE and its follow-ups — see SYMPTOMS), and two new offices opened in the Clinic: THE SPECIALIST (ward 6+, blinks, refers you mid-fight) and THE CASE MANAGER (ward 7+, shields everyone but herself; management priority: her). The general population thanks management for the company.')
         + N('rev. 29 — the crayons were confiscated: every pictograph in the building replaced with proper inked signage, hand-drawn by the same tired hand as everything else here.')
         + N('rev. 30 — new on the ward: THE HOLD (management, ward 7+, bring patience and footwork) · THE CLINICAL TRIAL (see TREATMENT) · THE SCANNER (see TREATMENT) · and a thirteenth patient file for whoever finished THE HANDOFF. The mop is in the closet where he left it.')
@@ -3864,7 +3881,7 @@ const G = {
     this.walkin = false; this._roofDone = false; this._phoneFloor = false;   // walk-in / roof / payphone, fresh per run
     this.inspection = null; this._inspectionDone = false; this._mixup = null; this._mixupDone = false;   // the tour + the chart mix-up
     this.annexFloor = false; this._alarmSeen = false; this._alarmPulled = false; this._soaked = false; this._ghostRec = {}; this._ghostT = 0;   // annex / alarm / ghost, fresh per run
-    this.dreamFloor = false; this.nightmare = false; this._dreamSeen = false; this._dreamItem = null; this.debt = null; this._collectorSpawned = false; this._pbmFloor = false; this._pbmDead = false; this._subDone = false; this._isoSeen = false; this._mktSeen = false; this._sessionDone = false; this._gooseFloor = false; this._wheelDenied = false;   // dream / debt / middleman / sub-basement / iso / market / session / goose, fresh per run
+    this.dreamFloor = false; this.nightmare = false; this._dreamSeen = false; this._dreamItem = null; this.debt = null; this._collectorSpawned = false; this._pbmFloor = false; this._pbmDead = false; this._subDone = false; this._isoSeen = false; this._mktSeen = false; this._sessionDone = false; this._gooseFloor = false; this._wheelDenied = false; this.semFee = null; this.semChairs = null; this.semZones = null;   // dream / debt / middleman / sub-basement / iso / market / session / goose / timeshare, fresh per run
     // THE COMPLAINT DEPARTMENT: your grievance reports for duty
     this._complaint = (!daily && Meta.data.pendingComplaint) ? String(Meta.data.pendingComplaint).slice(0, 40) : null;
     this._complaintSpawned = false;
@@ -4126,7 +4143,8 @@ const G = {
         allies: p.allies.map(a => a.id),
         goals: this.goals, stats: this.stats, goalInsight: this._goalInsight || 0,
         trial: this.trial || null, trialNo: this._trialDeclined ? 1 : 0, scans: this._scans || 0,
-        debt: this.debt || null, dreamItem: this._dreamItem || null, dreamSeen: this._dreamSeen ? 1 : 0
+        debt: this.debt || null, dreamItem: this._dreamItem || null, dreamSeen: this._dreamSeen ? 1 : 0,
+        semFee: this.semFee || null
       };
       for (const f of this.SAVE_FIELDS) S[f] = p[f];
       localStorage.setItem(this.SAVE_KEY, JSON.stringify(S));
@@ -4165,6 +4183,7 @@ const G = {
     this.contracts = (S.contracts || []).map(sc => { const def = DATA.CONTRACTS.find(c => c.id === sc.id); return def ? { id: sc.id, def, prog: sc.prog || 0, done: !!sc.done } : null; }).filter(Boolean);
     this.trial = S.trial || null; this._trialDeclined = !!S.trialNo; this._scans = S.scans || 0;   // trial effects live in the restored numbers
     this.debt = S.debt || null; this._dreamItem = S.dreamItem || null; this._dreamSeen = !!S.dreamSeen;
+    this.semFee = S.semFee || null;   // the timeshare survives the checkpoint. of course it does.
     this._resumeTick = true;   // reopening the chart isn't a descent — no interest, no findings
     this.newFloor();
     this.toast('📂 Chart reopened — ward ' + this.depth + '. Welcome back.', '#8fd0e0');
@@ -4583,6 +4602,21 @@ const G = {
     p._wiseUsed = false;     // Wise Mind resets with the ward
     this.holdZones = null; this.holdPrompt = null;   // THE HOLD's keypad never follows you
     this.abFlip = false; this.abSweepX = null;       // the A/B TEST's methodology stays in its room
+    this.semChairs = null; this.semZones = null; this.semMeter = 0;   // the SEMINAR's chairs get stacked at close
+    // THE WELLNESS SEMINAR's timeshare: the membership fee bills at each new ward (not on chart-reopen)
+    if (this.semFee && this.semFee.left > 0 && !this.dreamFloor && !this.annexFloor && !this.sandbox && !this._resumeTick) {
+      const p2 = this.player;
+      this.semFee.left--;
+      if (p2.coins >= this.semFee.amt) {
+        p2.coins -= this.semFee.amt;
+        this.toast('Timeshare membership fee: -' + this.semFee.amt + '¢. (' + (this.semFee.left ? this.semFee.left + ' payments remain.)' : 'Paid in full. You are now an ALUMNUS.)'), '#e0a95a');
+        SFX.play('coin');
+      } else {
+        p2.hurt(1, this, 'timeshare');
+        this.toast('Timeshare fee unpaid — collected as a SERVICE CHARGE. (' + (this.semFee.left ? this.semFee.left + ' payments remain.)' : 'Final notice. Congratulations?)'), '#e05a5a');
+      }
+      if (this.semFee.left <= 0) this.semFee = null;
+    }
     // PNEUMATIC TUBES: some floors still have the 1962 mail system (ward 2+, 45%)
     for (const r of this.floorRooms) r._tube = false;
     if (this.depth >= 2 && !this.dreamFloor && !this.annexFloor && !this.overtime && !this.bossRush && U.chance(0.45)) {
@@ -4736,7 +4770,7 @@ const G = {
     if (room._incident && !room._resolvedInc && room.spawned && !this.enemies.some(e => e._incGuard)) {
       const inc = Meta.data.incident || {};
       const gid = DATA.ENEMIES[inc.cause] ? inc.cause : 'orderly';
-      const guard = new Enemy(gid, CW / 2, RY + RH / 2 - 40, this.depth, false, 2.0, U.choice(DATA.ELITES).id);
+      const guard = new Enemy(gid, CW / 2, RY + RH / 2 - 40, this.depth, false, 2.0, DATA.pickElite(this.depth));
       guard._asleep = true; guard._incGuard = true; guard.spawnT = 0;
       this.enemies.push(guard);
       room.cleared = true;
@@ -5117,7 +5151,7 @@ const G = {
         room.cleared = true;   // quiet until the guard notices you
         const inc = Meta.data.incident || {};
         const gid = DATA.ENEMIES[inc.cause] ? inc.cause : 'orderly';
-        const guard = new Enemy(gid, CW / 2, RY + RH / 2 - 40, this.depth, false, 2.0, U.choice(DATA.ELITES).id);
+        const guard = new Enemy(gid, CW / 2, RY + RH / 2 - 40, this.depth, false, 2.0, DATA.pickElite(this.depth));
         guard._asleep = true; guard._incGuard = true; guard.spawnT = 0;
         this.enemies.push(guard);
         room._incident = true;
@@ -5447,6 +5481,15 @@ const G = {
       if (this.bossId === 'thehold' && !this.practice && !this.sandbox) {
         Meta.data.holdKills = (Meta.data.holdKills || 0) + 1; Meta.save();
         this.toast('“If you are satisfied with your care, hang u—” CLICK.', '#8fd08a');
+        this.checkUnlocks();
+      }
+    }
+    // THE WELLNESS SEMINAR: the chairs get stacked, the flip chart forgets you
+    if (this.semChairs) {
+      this.semChairs = null; this.semZones = null; this.semMeter = 0;
+      if (this.bossId === 'seminar' && !this.practice && !this.sandbox) {
+        Meta.data.seminarKills = (Meta.data.seminarKills || 0) + 1; Meta.save();
+        this.toast('The seminar concludes. Feedback forms will not be provided.', '#8fd08a');
         this.checkUnlocks();
       }
     }
@@ -7092,7 +7135,7 @@ const G = {
       for (let i = 0; i < n; i++) {
         const a = (i / n) * TAU + Math.random();
         const id = (w % 3 === 0 && i === 0) ? U.choice(w >= 9 ? ['chargenurse', 'resident', 'orderly', 'specialist', 'casemanager'] : ['chargenurse', 'resident', 'orderly']) : DATA.pickEnemy(depth, null);
-        const e = new Enemy(id, U.clamp(CW / 2 + Math.cos(a) * U.rand(150, 300), RX + 36, RX + RW - 36), U.clamp(RY + RH / 2 + Math.sin(a) * U.rand(90, 200), RY + 36, RY + RH - 36), depth, false, 1, (w >= 5 && U.chance(Math.min(0.5, w * 0.03))) ? U.choice(DATA.ELITES).id : null);
+        const e = new Enemy(id, U.clamp(CW / 2 + Math.cos(a) * U.rand(150, 300), RX + 36, RX + RW - 36), U.clamp(RY + RH / 2 + Math.sin(a) * U.rand(90, 200), RY + 36, RY + RH - 36), depth, false, 1, (w >= 5 && U.chance(Math.min(0.5, w * 0.03))) ? DATA.pickElite(depth) : null);
         e.spawnT = 0.6 + i * 0.1;
         this.enemies.push(e);
       }

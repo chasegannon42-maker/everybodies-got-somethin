@@ -1576,6 +1576,63 @@ const Render = {
         ctx.restore();
       }
     }
+    // THE WELLNESS SEMINAR's furniture: chairs, participation zones, the mood of the room
+    if (G.semChairs && G.boss && G.boss.id === 'seminar' && !G.boss.dead) {
+      // participation zones (during the pitch)
+      if (G.semZones) for (const z of G.semZones) {
+        const inside = U.dist(G.player.x, G.player.y, z.x, z.y) < z.r;
+        const pl = 0.3 + Math.sin(G.t * 6) * 0.14;
+        ctx.fillStyle = inside ? 'rgba(232,200,76,' + (pl * 0.5) + ')' : 'rgba(232,200,76,0.10)';
+        ctx.beginPath(); ctx.arc(z.x, z.y, z.r, 0, TAU); ctx.fill();
+        ctx.strokeStyle = inside ? '#e8c84c' : 'rgba(232,200,76,0.55)'; ctx.lineWidth = inside ? 4 : 2.5;
+        ctx.setLineDash([9, 7]); ctx.beginPath(); ctx.arc(z.x, z.y, z.r, G.t * 0.6, G.t * 0.6 + TAU); ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle = inside ? '#f4e6a0' : 'rgba(232,200,76,0.7)';
+        ctx.font = this.font(12, true); ctx.textAlign = 'center';
+        ctx.fillText('PARTICIPATE', z.x, z.y + 4);
+      }
+      // folding chairs (cover, until they fold)
+      for (const ch of G.semChairs) {
+        ctx.save(); ctx.translate(ch.x, ch.y);
+        if (ch.dead) {   // folded flat, defeated
+          ctx.globalAlpha = 0.45;
+          ctx.strokeStyle = '#8a7c68'; ctx.lineWidth = 3;
+          ctx.beginPath(); ctx.moveTo(-14, 6); ctx.lineTo(14, 2); ctx.moveTo(-12, 9); ctx.lineTo(13, 6); ctx.stroke();
+        } else {
+          const bent = ch.hp === 1;
+          this.shadow(0, 12, 16, 6, 0.22);
+          ctx.rotate(bent ? 0.12 : 0);
+          ctx.strokeStyle = '#9a8c74'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+          ctx.beginPath(); ctx.moveTo(-9, 12); ctx.lineTo(-6, 1); ctx.moveTo(9, 12); ctx.lineTo(6, 1); ctx.stroke();   // legs
+          ctx.fillStyle = ch.hp === 3 ? '#c8b898' : '#b8a684';
+          this.rr(ctx, -11, -3, 22, 6, 2); ctx.fill();                        // seat
+          this.rr(ctx, -10, -20, 20, 5, 2); ctx.fill();                       // back slat
+          ctx.strokeStyle = '#9a8c74'; ctx.lineWidth = 2.5;
+          ctx.beginPath(); ctx.moveTo(-8, -15); ctx.lineTo(-8, -3); ctx.moveTo(8, -15); ctx.lineTo(8, -3); ctx.stroke();   // back posts
+          ctx.lineCap = 'butt';
+          if (bent) { ctx.strokeStyle = 'rgba(90,80,66,0.7)'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(-4, -1); ctx.lineTo(3, -5); ctx.stroke(); }   // stress crease
+        }
+        ctx.restore();
+      }
+      // AUDIENCE MOOD meter, projected at the front of the room
+      const mx = CW / 2, my = RY + 54, mw = 190;
+      ctx.fillStyle = 'rgba(20,16,24,0.55)'; this.rr(ctx, mx - mw / 2 - 4, my - 9, mw + 8, 18, 5); ctx.fill();
+      ctx.fillStyle = 'rgba(232,200,76,0.22)'; this.rr(ctx, mx - mw / 2, my - 5, mw, 10, 4); ctx.fill();
+      const fill = U.clamp(G.semMeter || 0, 0, 1);
+      ctx.fillStyle = fill >= 0.5 ? '#8fd08a' : '#e0a95a';
+      if (fill > 0.02) { this.rr(ctx, mx - mw / 2, my - 5, mw * fill, 10, 4); ctx.fill(); }
+      ctx.strokeStyle = 'rgba(244,238,224,0.75)'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(mx, my - 8); ctx.lineTo(mx, my + 8); ctx.stroke();   // the bar to clear
+      ctx.fillStyle = 'rgba(244,238,224,0.85)'; ctx.font = this.font(9, true); ctx.textAlign = 'center';
+      ctx.fillText('AUDIENCE MOOD', mx, my - 13);
+      // enforced attendance: the retrieval beam
+      if (G.boss._dragT > 0) {
+        const bp = G.boss;
+        ctx.strokeStyle = 'rgba(224,169,90,' + (0.4 + Math.sin(G.t * 18) * 0.2) + ')'; ctx.lineWidth = 3.5;
+        ctx.setLineDash([12, 8]);
+        ctx.beginPath(); ctx.moveTo(bp.x, bp.y); ctx.lineTo(G.player.x, G.player.y); ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    }
 
     // zones under everything
     for (const z of G.zones) {
@@ -4557,6 +4614,64 @@ const Render = {
         ctx.fillStyle = conn ? '#8fd08a' : (Math.sin(b.t * 5) > 0 ? '#e05a5a' : '#7a4040');
         ctx.beginPath(); ctx.arc(r * 0.56, -r * 0.62, 5, 0, TAU); ctx.fill();
         if (flash) { ctx.fillStyle = 'rgba(255,255,255,0.5)'; this.rr(ctx, -r * 0.78, -r * 0.95, r * 1.56, r * 1.9, 10); ctx.fill(); }
+        break;
+      }
+      case 'seminar': { // the facilitator: polo, headset, unbreakable eye contact
+        const r = b.r || 40;
+        const pitching = b._semMode === 'pitch';
+        // the flip-chart easel, always at his left
+        ctx.save(); ctx.translate(-r * 1.5, -6);
+        ctx.strokeStyle = '#8a7a5e'; ctx.lineWidth = 3.5; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(-14, 34); ctx.lineTo(0, -26); ctx.lineTo(14, 34); ctx.moveTo(-8, 16); ctx.lineTo(8, 16); ctx.stroke(); ctx.lineCap = 'butt';
+        ctx.fillStyle = '#f4eee0'; this.rr(ctx, -20, -30, 40, 30, 2); ctx.fill();
+        ctx.strokeStyle = '#b0a080'; ctx.lineWidth = 1.5; this.rr(ctx, -20, -30, 40, 30, 2); ctx.stroke();
+        // the one chart: a line going up (it is always the same chart)
+        ctx.strokeStyle = '#c04030'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(-15, -8); ctx.lineTo(-6, -14); ctx.lineTo(1, -10); ctx.lineTo(14, -24); ctx.stroke();
+        ctx.fillStyle = '#c04030'; ctx.beginPath(); ctx.moveTo(14, -24); ctx.lineTo(14.5, -18.5); ctx.lineTo(9, -21); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = 'rgba(90,80,70,0.5)'; ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.moveTo(-15, -5); ctx.lineTo(8, -5); ctx.moveTo(-15, -2); ctx.lineTo(4, -2); ctx.stroke();
+        ctx.restore();
+        // presenter body — polo energy
+        this.orb(ctx, 0, 2, r * 0.92, flash ? '#ffffff' : '#e8d0a8', flash);
+        ctx.strokeStyle = '#7a5a9a'; ctx.lineWidth = 4;   // polo collar
+        ctx.beginPath(); ctx.moveTo(-r * 0.5, r * 0.42); ctx.lineTo(0, r * 0.72); ctx.lineTo(r * 0.5, r * 0.42); ctx.stroke();
+        // the grin. constant. load-bearing.
+        ctx.strokeStyle = '#2c2333'; ctx.lineWidth = 2.6; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.arc(0, r * 0.02, r * 0.34, 0.25, Math.PI - 0.25); ctx.stroke(); ctx.lineCap = 'butt';
+        ctx.fillStyle = '#2c2333';
+        const blink = Math.sin(b.t * 0.9) > 0.97;   // he rarely blinks. noted in reviews.
+        if (blink) { ctx.fillRect(-r * 0.34, -r * 0.24, r * 0.2, 2.5); ctx.fillRect(r * 0.14, -r * 0.24, r * 0.2, 2.5); }
+        else { ctx.beginPath(); ctx.ellipse(-r * 0.24, -r * 0.22, 3.4, 4.2, 0, 0, TAU); ctx.ellipse(r * 0.24, -r * 0.22, 3.4, 4.2, 0, 0, TAU); ctx.fill(); }
+        // headset: band + boom mic
+        ctx.strokeStyle = '#3a3844'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(0, -r * 0.3, r * 0.72, Math.PI + 0.35, TAU - 0.35); ctx.stroke();
+        ctx.fillStyle = '#3a3844'; ctx.beginPath(); ctx.arc(r * 0.66, -r * 0.28, 5, 0, TAU); ctx.fill();
+        ctx.strokeStyle = '#3a3844'; ctx.lineWidth = 2.2;
+        ctx.beginPath(); ctx.moveTo(r * 0.62, -r * 0.16); ctx.quadraticCurveTo(r * 0.5, r * 0.12, r * 0.22, r * 0.2); ctx.stroke();
+        ctx.fillStyle = '#3a3844'; ctx.beginPath(); ctx.arc(r * 0.2, r * 0.22, 3, 0, TAU); ctx.fill();
+        // HELLO name tag
+        ctx.fillStyle = '#f4eee0'; this.rr(ctx, -r * 0.72, r * 0.18, 30, 15, 2); ctx.fill();
+        ctx.strokeStyle = '#c04030'; ctx.lineWidth = 1.4; this.rr(ctx, -r * 0.72, r * 0.18, 30, 15, 2); ctx.stroke();
+        ctx.fillStyle = '#c04030'; ctx.font = this.font(5.5, true); ctx.textAlign = 'center';
+        ctx.fillText('HELLO I\'M', -r * 0.72 + 15, r * 0.18 + 6);
+        ctx.strokeStyle = '#5a5048'; ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.moveTo(-r * 0.72 + 5, r * 0.18 + 11.5); ctx.lineTo(-r * 0.72 + 25, r * 0.18 + 11.5); ctx.stroke();
+        if (pitching) {
+          // arms UP — presenting the concept of everything
+          ctx.strokeStyle = '#e8d0a8'; ctx.lineWidth = 6; ctx.lineCap = 'round';
+          const wave = Math.sin(b.t * 5) * 0.15;
+          ctx.beginPath(); ctx.moveTo(-r * 0.7, r * 0.1); ctx.lineTo(-r * 1.15, -r * 0.5 + wave * 20); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(r * 0.7, r * 0.1); ctx.lineTo(r * 1.15, -r * 0.5 - wave * 20); ctx.stroke();
+          ctx.lineCap = 'butt';
+        } else if (G && G.player) {
+          // laser pointer: a red academic dot, aimed at YOU
+          const pa = Math.atan2(G.player.y - b.y, G.player.x - b.x);
+          ctx.strokeStyle = 'rgba(224,64,64,0.4)'; ctx.lineWidth = 1.4;
+          ctx.beginPath(); ctx.moveTo(Math.cos(pa) * r * 0.9, Math.sin(pa) * r * 0.9); ctx.lineTo(Math.cos(pa) * r * 2.6, Math.sin(pa) * r * 2.6); ctx.stroke();
+          ctx.fillStyle = '#e04040'; ctx.beginPath(); ctx.arc(Math.cos(pa) * r * 2.6, Math.sin(pa) * r * 2.6, 3, 0, TAU); ctx.fill();
+        }
+        if (flash) { ctx.fillStyle = 'rgba(255,255,255,0.45)'; ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fill(); }
         break;
       }
       case 'merger': { // two managements stitched into one org chart
