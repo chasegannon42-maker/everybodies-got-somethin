@@ -289,6 +289,11 @@ const SFX = {
   play(name) {
     if (!this.ctx || this.muted) return;
     const t = this.ctx.currentTime, v = this.v.bind(this), n = this.n.bind(this);
+    // anti-abrasion: rapid-fire repeats of the same effect get swallowed (contact sounds especially)
+    this._lastPlay = this._lastPlay || {};
+    const TH = { hit: 0.05, pop: 0.055, error: 0.38, denied: 0.55, shot: 0.03, coin: 0.04, swat: 0.06 };
+    if (TH[name] != null && t - (this._lastPlay[name] || -9) < TH[name]) return;
+    this._lastPlay[name] = t;
     switch (name) {
       case 'ui': v(620, t, 0.06, { type: 'square', vol: 0.05, attack: 0.002, slide: 700 }); break;
       case 'shot': {
@@ -297,8 +302,8 @@ const SFX = {
         n(t, 0.02, { filter: 'highpass', freq: 4200, vol: 0.03 });
         break;
       }
-      case 'hit': v(300, t, 0.07, { type: 'square', vol: 0.11, slide: 170 }); n(t, 0.025, { filter: 'bandpass', freq: 1100, vol: 0.05, q: 1 }); break;
-      case 'pop': v(520, t, 0.08, { type: 'triangle', vol: 0.095, slide: 1040, attack: 0.002, wet: 0.1 }); break;
+      case 'hit': { const hf = 230 + Math.random() * 50; v(hf, t, 0.055, { type: 'triangle', vol: 0.06, slide: 110, filter: 'lowpass', cutoff: 1300 }); n(t, 0.02, { filter: 'lowpass', freq: 850, vol: 0.03 }); break; }
+      case 'pop': v(500, t, 0.07, { type: 'triangle', vol: 0.07, slide: 900, attack: 0.002, wet: 0.1 }); break;
       case 'hurt': v(180, t, 0.26, { type: 'sawtooth', vol: 0.13, slide: 52, filter: 'lowpass', cutoff: 1200 }); n(t, 0.16, { filter: 'lowpass', freq: 900, vol: 0.08, decay: 1.6 }); break;
       case 'die': {
         [415, 311, 247, 185].forEach((f, i) => v(f, t + i * 0.11, 0.32, { type: 'sawtooth', vol: 0.11, wet: 0.25, filter: 'lowpass', cutoff: 1600 }));
@@ -329,7 +334,7 @@ const SFX = {
         break;
       }
       case 'heal': [523, 659, 784].forEach((f, i) => v(f, t + i * 0.07, 0.3, { type: 'sine', vol: 0.09, wet: 0.35, attack: 0.01 })); break;
-      case 'error': v(160, t, 0.14, { type: 'square', vol: 0.07 }); v(150, t + 0.13, 0.16, { type: 'square', vol: 0.07 }); break;
+      case 'error': v(165, t, 0.12, { type: 'triangle', vol: 0.055, filter: 'lowpass', cutoff: 900 }); v(150, t + 0.12, 0.14, { type: 'triangle', vol: 0.05, filter: 'lowpass', cutoff: 800 }); break;
       case 'stamp': n(t, 0.07, { filter: 'lowpass', freq: 620, vol: 0.2, decay: 1.2 }); v(95, t, 0.13, { type: 'sine', vol: 0.16, slide: 46 }); break;
       case 'squeak': v(900, t, 0.1, { type: 'sine', vol: 0.07, slide: 1650, wet: 0.1 }); break;
       case 'whoosh': n(t, 0.26, { filter: 'bandpass', freq: 1400, vol: 0.06, q: 1.2, decay: 0.4 }); break;

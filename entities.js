@@ -563,7 +563,7 @@ class Player {
     if (G && G.tearsAura) t *= 1.3;
     if (G && G.rapidMods) t *= G.rapidMods.tears;   // Rapid Cycling (tears>1 = slower)
     if (this.flags.beam) t = Math.min(t, 0.075);   // Crying It Out: a continuous stream
-    return Math.max(this.flags.beam ? 0.055 : 0.09, t);
+    return Math.max(this.flags.beam ? 0.06 : 0.105, t);   // the trigger finger has a contract
   }
 
   update(dt, G) {

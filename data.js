@@ -372,8 +372,8 @@ DATA.ITEMS = {
   tinfoil:   { name: "Tin Foil Hat", quote: "They can't read what doesn't parse.", desc: "Enemy marksmen miss 25% more. Stylish. Crinkly.", pools: ["special"], apply(p) { p.flags.tinfoil = true; } },
 
   /* --- pharma cabinet --- */
-  brand:     { name: "Focusium®", quote: "Ask your doctor. He'll say yes.", desc: "Fire rate way up. Name-brand. Your copay funded this tagline.", pools: ["special", "shop"], apply(p) { p.tearDelay *= 0.78; } },
-  generic:   { name: "Focusium (Generic)", quote: "Same molecule, worse font.", desc: "Fire rate WAY up, accuracy down. It's fine. It's basically fine.", pools: ["special"], apply(p) { p.tearDelay *= 0.7; p.wobble += 0.13; } },
+  brand:     { name: "Focusium®", quote: "Ask your doctor. He'll say yes.", desc: "Fire rate way up. Name-brand. Your copay funded this tagline.", pools: ["special", "shop"], apply(p) { p.tearDelay *= 0.82; } },
+  generic:   { name: "Focusium (Generic)", quote: "Same molecule, worse font.", desc: "Fire rate WAY up, accuracy down. It's fine. It's basically fine.", pools: ["special"], apply(p) { p.tearDelay *= 0.76; p.wobble += 0.13; } },
   /* --- Content Pack II --- */
   weightedblanket: { name: "Weighted Blanket", quote: "Fifteen pounds of okay.", desc: "+2 hearts, −5% speed. You are being gently held. You are also being gently slowed.", pools: ["special", "shop"], apply(p) { p.maxhp += 4; p.hp += 4; p.spd *= 0.95; } },
   noisemachine: { name: "White Noise Machine", quote: "Shhhhhhhh.", desc: "Patients wake up groggy — everything spawns a beat slower.", pools: ["special", "shop"], apply(p) { p.flags.noise = true; } },
@@ -389,7 +389,7 @@ DATA.ITEMS = {
   melatonin: { name: "Melatonin Gummies", quote: "Bear-shaped unconsciousness.", desc: "+1 luck (better drops). Slightly sleepier shots.", pools: ["special", "shop"], apply(p) { p.luck += 1; p.tearDelay *= 1.04; } },
   coffee13:  { name: "The Thirteenth Coffee", quote: "It stopped working at the ninth. You kept going.", desc: "+5% speed. The Battery drains a little slower. Your hands are FINE.", pools: [], apply(p) { p.spd *= 1.05; p._battSaver = true; } },
   sampler:   { name: "Trial Sample Pack", quote: "The first one's free. So are the rest, legally speaking.", desc: "A free pill, and all pills this run come pre-identified.", pools: ["special", "shop"], apply(p, G) { p.flags.pillsKnown = true; if (p.pill == null) p.pill = U.randi(0, 9); } },
-  sideeffects: { name: "Side Effects May Include", quote: "*reads fast* +2 damage and— everything else.", desc: "+2 damage. Every new floor: one random minor side effect. Worth it?", pools: ["special", "oon"], apply(p) { p.dmg += 2; p.flags.sideEffects = true; } },
+  sideeffects: { name: "Side Effects May Include", quote: "*reads fast* +2 damage and— everything else.", desc: "+1.5 damage. Every new floor: one random minor side effect. Worth it?", pools: ["special", "oon"], apply(p) { p.dmg += 1.5; p.flags.sideEffects = true; } },
   secondwind: { name: "Second Wind", quote: "Filed under: not done yet.", desc: "+1 heart container. The first hit you take in every room simply doesn't count.", pools: ["special", "boss"], apply(p) { p.maxhp += 2; p.hp += 2; p.flags.roomShield = true; } },
   overtimeform: { name: "Overtime Authorization", quote: "Approved. Reluctantly. In triplicate.", desc: "Below half health, your tears hit +25% harder. Desperation, notarized.", pools: ["special", "shop"], apply(p) { p.flags.otForm = true; } },
   grouprates: { name: "Group Rates", quote: "Bulk billing for bulk feelings.", desc: "Your whole Support Group hits +35% harder — current members and future recruits.", pools: ["special", "shop"], apply(p) { p.flags.allyBoost = true; for (const a of p.allies) a.dmgMul = (a.dmgMul || 1) * 1.35; } },
@@ -405,7 +405,7 @@ DATA.ITEMS = {
   oils:      { name: "Essential Oils", quote: "+0 to all stats. You feel AMAZING.", desc: "Does nothing. (Secretly +1 luck, but if you tell anyone it stops working.)", pools: ["special", "shop"], apply(p) { p.luck += 1; } },
   crystals:  { name: "Healing Crystals", quote: "The vibes are load-bearing.", desc: "A random small stat up every floor. The crystals decide. Do not question the crystals.", pools: ["special", "shop"], apply(p) { p.flags.crystals = true; } },
   bluelight: { name: "Blue Light Glasses", quote: "Now you can doomscroll FOREVER.", desc: "+30% range. See further into the abyss.", pools: ["special", "shop"], apply(p) { p.range *= 1.3; } },
-  detox:     { name: "Dopamine Detox", quote: "No fun allowed. Massive gains.", desc: "Fire rate down 25%, damage up 80%. Boredom is a weapon now.", pools: ["special", "oon"], apply(p) { p.tearDelay *= 1.33; p.dmg *= 1.8; } },
+  detox:     { name: "Dopamine Detox", quote: "No fun allowed. Massive gains.", desc: "Fire rate down 25%, damage up 80%. Boredom is a weapon now.", pools: ["special", "oon"], apply(p) { p.tearDelay *= 1.33; p.dmg *= 1.55; } },
   juice:     { name: "FOCUS JUICE™", quote: "Legally distinct from every energy drink.", desc: "+speed, +fire rate, -half heart. Your heart says stop. Ignore it. That's the juice talking.", pools: ["special", "shop"], apply(p) { p.spd *= 1.12; p.tearDelay *= 0.88; p.hp = Math.max(1, p.hp - 1); } },
   inscard:   { name: "Gold-Tier Insurance Card", quote: "Congratulations on your premiums.", desc: "Everything at the Pharmacy is 50% off. The card is heavier than it should be.", pools: ["special", "shop"], apply(p) { p.flags.discount = true; } },
   refchain:  { name: "Referral Chain", quote: "See a guy who knows a guy.", desc: "+2 Referrals, and Specialist offices offer a CHOICE of two items.", pools: ["special"], apply(p) { p.keys += 2; p.flags.twoChoice = true; } },
@@ -1510,13 +1510,13 @@ DATA.GOALS = [
 DATA.difficulty = function (depth) {
   const d = depth - 1;
   return {
-    enemyHp: 1 + 0.30 * d + 0.005 * d * d,             // spongier, uncapped
+    enemyHp: 1 + 0.30 * d + 0.0065 * d * d,            // spongier, uncapped — keeps pace with a stacked build
     enemySpd: 1 + Math.min(0.55, 0.02 * d),            // soft cap ~+55%
     enemyDmg: 1 + Math.floor(depth / 13),              // hits get heavier past ward 13, 25...
     shotRate: Math.max(0.5, 1 - 0.018 * d),            // shooters fire faster deep (x on cooldown)
     count: U.clamp(3 + Math.floor(0.8 * depth), 3, 12),// more bodies per room, cap 12
-    champChance: U.clamp(0.05 * (depth - 5), 0, 0.55), // elites from ward 6, up to 55%
-    bossHp: 1 + 0.20 * d + 0.004 * d * d,
+    champChance: U.clamp(0.05 * (depth - 5), 0, 0.62), // elites from ward 6, up to 62%
+    bossHp: 1 + 0.20 * d + 0.0052 * d * d,
     bossDmg: 1 + Math.floor(depth / 9),                // boss hits heavier past ward 9, 18...
     bossAggr: 1 + Math.min(0.6, 0.022 * d)             // bosses move & attack faster deep
   };
