@@ -101,6 +101,21 @@ const Render = {
       this.drawMenuAmbient(G);   // atmospheric backdrop behind the menus (esp. the title)
     }
     ctx.restore();
+    // impact rings: the frame where it counted, drawn outward
+    if (G.rings && G.rings.length) {
+      for (const rg of G.rings) {
+        const f = rg.t / 0.28;
+        ctx.strokeStyle = rg.clr; ctx.globalAlpha = (1 - f) * 0.8; ctx.lineWidth = 3 - f * 2;
+        ctx.beginPath(); ctx.arc(rg.x, rg.y, 6 + f * rg.max, 0, TAU); ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    }
+    // hurt vignette: the edges go red for a beat
+    if (G.hurtVig > 0) {
+      const vg = ctx.createRadialGradient(CW / 2, CH / 2, CH * 0.36, CW / 2, CH / 2, CH * 0.72);
+      vg.addColorStop(0, 'rgba(180,40,40,0)'); vg.addColorStop(1, 'rgba(180,40,40,' + (0.34 * Math.min(1, G.hurtVig / 0.55)) + ')');
+      ctx.fillStyle = vg; ctx.fillRect(0, 0, CW, CH);
+    }
     if (G.banner) this.drawBanner(G);
     if (G.toasts.length) this.drawToasts(G);
     if (G.state === 'descend') this.drawDescend(G);

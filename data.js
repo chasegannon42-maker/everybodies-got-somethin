@@ -1040,7 +1040,7 @@ DATA.SAMPLE_FX = [
    revealed one per descent; the debrief 3 floors in pays out and unblinds.
    35% of enrollments receive the placebo. The placebo also gets paid. */
 DATA.TRIAL_FX = [
-  { id: 'tdmg',    name: '+22% damage',            apply: p => { p.dmg *= 1.22; } },
+  { id: 'tdmg',    name: '+0.9 damage',            apply: p => { p.dmg += 0.9; } },
   { id: 'ttears',  name: '+15% fire rate',         apply: p => { p.tearDelay *= 0.85; } },
   { id: 'tspd',    name: '+12% movement',          apply: p => { p.spd *= 1.12; } },
   { id: 'thp',     name: '+1 heart',               apply: p => { p.maxhp += 2; p.hp += 2; } },
@@ -1154,7 +1154,7 @@ DATA.COMORBIDITIES = [
    condition with a bonus. Checked whenever a new comorbidity is acquired. */
 DATA.COMORBID_SYNERGY = [
   { need: ['racing', 'insomnia'], name: "Manic Episode", note: "+ speed & a burst of fire rate", apply(p) { p.spd *= 1.12; p.tearDelay *= 0.85; } },
-  { need: ['hyperfix', 'catastro'], name: "Obsessive Focus", note: "+ big damage vs full-health foes", apply(p) { p.dmg *= 1.2; } },
+  { need: ['hyperfix', 'catastro'], name: "Obsessive Focus", note: "+ big damage vs full-health foes", apply(p) { p.dmg *= 1.12; } },
   { need: ['rumination', 'rsd'], name: "Spiral", note: "+ homing damage restored and then some", apply(p) { p.dmg *= 1.25; } },
   { need: ['paralysis', 'executive'], name: "Shutdown", note: "+ 1 heart for slowing to cope", apply(p) { p.maxhp += 2; p.hp += 2; } },
   { need: ['sensory', 'oversharing'], name: "Meltdown", note: "+ a grounding nova when hit", apply(p) { p.flags.hurtNova = true; } }
@@ -1543,7 +1543,10 @@ DATA.COMPLICATIONS = [
 DATA.rollComplications = function (depth) {
   if (depth < 4) return [];
   const n = depth < 8 ? (U.chance(0.55) ? 1 : 0) : depth < 14 ? U.randi(1, 2) : U.randi(1, 3);
-  return U.shuffle(DATA.COMPLICATIONS).slice(0, n);
+  const picked = U.shuffle(DATA.COMPLICATIONS).slice(0, n);
+  // fairness: 'more bodies' and 'tougher bodies' never stack on the same ward
+  if (picked.some(c => c.id === 'juiced') && picked.some(c => c.id === 'overcrowded')) picked.splice(picked.findIndex(c => c.id === 'juiced'), 1);
+  return picked;
 };
 
 /* Flavor tier shown as you go deeper — the "meds" narrative of escalation. */

@@ -1242,6 +1242,8 @@ class Boss {
 
   die(G) {
     this.dead = true;
+    (G.rings || (G.rings = [])).push({ x: this.x, y: this.y, t: 0, max: 90, clr: '#e8c84c' });
+    G.hitstop = Math.max(G.hitstop || 0, 0.16);   // management goes down and the room feels it
     this.deathT = 0;
     G.tearsAura = false;
     G.darkTarget = 0;

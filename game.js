@@ -3165,7 +3165,7 @@ const G = {
      The complete in-fiction manual: every mechanic, symptom, ward, and
      service. Mostly generated from DATA so new content lists itself;
      the prose sections get a line whenever a feature ships. */
-  HB_REV: 38,
+  HB_REV: 39,
   showHandbook(returnTo) {
     this.state = 'handbook';
     if (!this._hbTab) this._hbTab = 'basics';
@@ -3352,8 +3352,9 @@ const G = {
         + N('rev. 30 — new on the ward: THE HOLD (management, ward 7+, bring patience and footwork) · THE CLINICAL TRIAL (see TREATMENT) · THE SCANNER (see TREATMENT) · and a thirteenth patient file for whoever finished THE HANDOFF. The mop is in the closet where he left it.')
         + N('rev. 31 — the building learned finance and the calendar: THE FINANCING DESK and THE MIDDLEMAN (see TREATMENT) · THE DREAM WARD (see THE BUILDING) · AWARENESS MONTHS (see THE BUILDING). Also: Group Therapy recruitment now caps at three and no longer works on management, security, paperwork, or anyone mid-performance. The group apologizes to the charge nurse.')
         + N('rev. 32 — the Waiting Room was renovated (doors need an actual step, the nearest thing answers, the room remembers where you were standing) and Dr. Walrus attended a communication workshop. He speaks in full sentences now. He is very proud of this.')
-        + N('rev. 38 — THE GREAT REBALANCE: the Drug Rep visits less and brings one sample (it was a flood), REFILLS now stock only the flat-effect meds (no doubling the multiplicative ones — pharmacy noticed), Dopamine Detox and a few friends were re-titrated, fire rate has a hard floor (the trigger finger has a contract), and the deep wards push back harder — spongier patients, heavier managers, more champions past 20. Also the building turned the contact sounds DOWN; blocked shots no longer machine-gun the womp.')
-        + N('rev. 37 — THE CAFETERIA opened a tray line (one tray per patient; the jello is always there), THE DEDUCTIBLE joined management on ward 8+ (your hits get billed until the meter is met — then it is mortal), the commissary got a WHEEL OF APPEALS (spin to overturn interest, side effects, or ward conditions), and the pharmacy shelves grew: six new prescriptions including the Waiver Pen (nothing you sign flies straight), two new personal effects, and one pill that is simply The Good One.')
+        + N('rev. 39 — THE FEEL PASS: the frame where it counts now holds its breath (hitstop on kills, elites, and every hit you take), impacts ring outward, taking damage reddens the edges for a beat, cleared rooms exhale a soft two-note chime, elites close like a case file, and the deep wards can no longer roll MORE bodies and TOUGHER bodies on the same floor. The Clinical Trial\'s damage arm was also converted to a flat dose. The building feels better. Clinically.')
+        + N('rev. 38 — THE GREAT REBALANCE: the Drug Rep visits less and brings one sample (it was a flood), REFILLS now stock only the flat-effect meds (no doubling the multiplicative ones — pharmacy noticed), Dopamine Detox and a few friends were re-titrated, fire rate has a hard floor (the trigger finger has a contract), and the deep wards push back harder — spongier patients, heavier managers, more champions past 20. Also the building turned the contact sounds DOWN; blocked shots no longer machine-gun the womp.')
+        + N('rev. 37 — THE CAFETERIA opened a tray line (one tray per patient; the jello is always there), THE DEDUCTIBLE joined management on ward 8+ (your hits get billed until the meter is met — then it is mortal), the commissary got a WHEEL OF APPEALS (spin to overturn interest, side effects, or ward conditions), and the pharmacy shelves grew: six new prescriptions including the Waiver Pen (nothing you sign flies straight), two new personal effects, and one pill that is simply The Good One.')
         + N('rev. 36 — THE ISOLATION WING opens for anyone brave enough to read the sign (solo elites, good shelf after), the Day Room hosts SESSIONS where one ally has a permanent BREAKTHROUGH (harder, tougher, or unshakeably steady), a SPECIAL ENROLLMENT table lets you switch insurance mid-run (the form is one field, pre-filled), and there is a GOOSE. Administration is aware. Administration is hiding. Also: the portrait-mode deck now matches the Waiting Room — PRN reads OPEN in the hub and the pill/claim buttons wait outside.')
         + N('rev. 35 — pharmacies now stock REFILLS of what you\'re already on (buy the second course), admissions runs THE OPEN HOUSE mid-combat (clear the room untouched while the family watches and reception pays for the optics), the 1987 ORIENTATION tape surfaced at the front desk (finish it, be the first, keep the luck), and a fourteenth patient file checked in: THE GRADUATE, who throws boomerang charts and still counts the floors.')
         + N('rev. 34 — a second cabinet hums in the breakroom (CLAIM DENIED!), some floors still have the 1962 PNEUMATIC TUBES (step in, get mailed to any visited station), THE A/B TEST is seeing patients on ward 9+ (stand in the better cohort; it will notice), and sometimes THE STRIKE closes every service on a floor — walk the picket lap, or cross it and live with the morale.')
@@ -5181,6 +5182,7 @@ const G = {
     }
     room.cleared = true;
     this.doorsOpen = true;
+    SFX.play('clear');   // the soft two-note exhale of a managed room
     this.stats.rooms++;
     this.goalEvent('room');
     if (room._subbase && !room._stashed) { room._stashed = true; this.subBaseCleared(); }   // the stash reveals itself
@@ -5850,6 +5852,8 @@ const G = {
       for (const t of this.toasts) t.t += dt;
       this.toasts = this.toasts.filter(t => t.t < t.dur);
     }
+    // HITSTOP: the frame where it counts holds its breath (kills, big hits)
+    if (this.state === 'run' && this.hitstop > 0) { this.hitstop -= dt; return; }
     if (this.state === 'descend') {
       this.descendT += dt;
       if (this.descendT >= 0.55 && !this._descended) {
@@ -5924,6 +5928,9 @@ const G = {
     this.zones = this.zones.filter(z => !z.dead);
     for (const pt of this.parts) pt.update(dt);
     this.parts = this.parts.filter(pt => !pt.dead);
+    if (this.parts.length > 420) this.parts.splice(0, this.parts.length - 420);   // celebration has a budget
+    this.rings = (this.rings || []).filter(rg => (rg.t += dt) < 0.28);   // impact rings
+    if (this.hurtVig > 0) this.hurtVig -= dt * 1.6;   // the red at the edges fades
     for (const tx of this.texts) tx.update(dt);
     this.texts = this.texts.filter(tx => !tx.dead);
     for (const pk of this.pickups) pk.update(dt, this);

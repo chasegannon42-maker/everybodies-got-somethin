@@ -908,6 +908,8 @@ class Player {
     if (G.easy) n = Math.max(1, Math.ceil(n * 0.5));   // 'Second Opinion' easy mode
     if (src) this._lastSrc = src;   // cause-of-death tracking for run log
     this.hp -= n;
+    G.hitstop = Math.max(G.hitstop || 0, 0.055);   // getting hit lands
+    G.hurtVig = 0.55;                              // the edges go red for a beat
     this.iframes = this.iframeTime + (this.trinket === 'worrystone' ? 0.3 : 0);
     this.hurtFlash = 0.35;
     if (this.diag === 'ptsd') { this.lastHitT = 0; if (this.variant) this._scar = (this._scar || 0) + 1; else if (src !== 'flashback') G.darkTarget = Math.max(G.darkTarget || 0, 0.4); }   // a hit ends On Edge / hardens the Weathered
@@ -1790,6 +1792,9 @@ class Enemy {
 
   die(G) {
     this.dying = true; this.deadDone = true;
+    (G.rings || (G.rings = [])).push({ x: this.x, y: this.y, t: 0, max: this.elite ? 40 : 26, clr: this.elite ? '#e8c84c' : 'rgba(240,232,216,0.8)' });
+    G.hitstop = Math.max(G.hitstop || 0, this.elite ? 0.055 : 0.028);
+    if (this.elite) SFX.play('stamp');   // an elite closes like a case file
     Meta.data.kills++;
     G.stats.kills++;
     if (G.goalEvent) G.goalEvent('kill');

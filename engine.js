@@ -333,6 +333,7 @@ const SFX = {
         n(t, 0.5, { filter: 'bandpass', freq: 500, vol: 0.07, decay: 0.6, q: 0.7, wet: 0.2 });
         break;
       }
+      case 'clear': v(523, t, 0.16, { type: 'sine', vol: 0.05, wet: 0.3, attack: 0.004 }); v(784, t + 0.07, 0.2, { type: 'sine', vol: 0.045, wet: 0.35, attack: 0.004 }); break;
       case 'heal': [523, 659, 784].forEach((f, i) => v(f, t + i * 0.07, 0.3, { type: 'sine', vol: 0.09, wet: 0.35, attack: 0.01 })); break;
       case 'error': v(165, t, 0.12, { type: 'triangle', vol: 0.055, filter: 'lowpass', cutoff: 900 }); v(150, t + 0.12, 0.14, { type: 'triangle', vol: 0.05, filter: 'lowpass', cutoff: 800 }); break;
       case 'stamp': n(t, 0.07, { filter: 'lowpass', freq: 620, vol: 0.2, decay: 1.2 }); v(95, t, 0.13, { type: 'sine', vol: 0.16, slide: 46 }); break;
