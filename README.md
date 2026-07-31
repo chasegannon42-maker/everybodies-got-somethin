@@ -199,6 +199,20 @@ keyboard and mouse.
   janitor finally sits down.
 - **💾 Your save keeps itself** — automatically, on-device, mirrored twice. Back it up or move it
   between devices with a save code from **Settings → SAVE DATA**.
+- **📞 THE HOLD** — a phone-tree boss (Ward 7+): the arena floor becomes a keypad, it announces
+  "for refills, press 3," and you fight from the number it asked for or get told — at volume —
+  that your selection was invalid. In phase two the menu options have changed. They always have.
+- **🧪 The Clinical Trial** — the Drug Rep offers enrollment once a run: an unknown experimental
+  compound, effects hidden and revealed one per ward ("WEEK 2 FINDINGS: +22% damage — confirmed,
+  n=you"), debrief and full payment after three wards. 35% of enrollments are the placebo. The
+  placebo group is paid the same, told at debrief, and awarded +1 luck for believing.
+- **🧹 The Janitor (playable)** — the 13th patient file, unlocked by finishing THE HANDOFF: you
+  took the mop, now work the shift. No tears — sweeping melee arcs that wipe enemy shots out of
+  the air and leave WET FLOOR that slows whatever walks it, plus a Mop Bucket ability and forty
+  years of knowing which walls hide something.
+- **🩻 THE SCANNER** — a rare imaging suite (Ward 3+, once a run): pay to have one prescription
+  completely re-read into a different one. Fees escalate per scan, and repeat imaging risks an
+  artifact from the out-of-network pool. "It sees something different every time."
 - **🔧 STAFF ONLY** — a full Game Tester hub on the title screen, behind a secret code, organized
   into five tabs. **PLAY**: sandbox any patient at any ward with loadout presets (kitted, glass
   cannon, tank, or hand-picked meds) — the save is snapshot-frozen throughout. **BOSS LAB**:

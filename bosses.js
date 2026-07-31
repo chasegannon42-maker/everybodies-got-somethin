@@ -547,6 +547,94 @@ class Boss {
         this.clampPos();
         break;
       }
+      /* ---------- THE HOLD — the phone tree, grown to full height ----------
+         The floor is a keypad. It announces the menu; stand on the number
+         by the deadline to be CONNECTED (vulnerable window) — or be told,
+         at volume, that your selection was invalid. */
+      case 'thehold': {
+        if (!this._holdInit) {
+          this._holdInit = true;
+          const zx = [CW / 2 - 150, CW / 2 + 150], zy = [RY + RH / 2 + 10, RY + RH / 2 + 135];
+          G.holdZones = [
+            { n: 1, x: zx[0], y: zy[0], r: 58 }, { n: 2, x: zx[1], y: zy[0], r: 58 },
+            { n: 3, x: zx[0], y: zy[1], r: 58 }, { n: 4, x: zx[1], y: zy[1], r: 58 }
+          ];
+          this._promptT = 3.0; this._prompt = null; this._muzakT = 2.0; this._waveT = 8;
+          this.vulnerable = false;   // calls only connect when routed correctly
+        }
+        // receiver bob: it paces the top of the room like someone reading a script
+        this.x += Math.cos(this.t * 0.7) * 30 * dt;
+        this.y = RY + 118 + Math.sin(this.t * 1.15) * 12;
+        this.clampPos();
+        // hold music: lazy spiral notes, always
+        this._muzakT -= dt;
+        if (this._muzakT <= 0) {
+          this._muzakT = P2 ? 1.05 : 1.55;
+          this.spiralA += 0.85;
+          const arms = P2 ? 3 : 2;
+          for (let i = 0; i < arms; i++) this.bullet(this.spiralA + i * TAU / arms, 118, '#b8a8d8', { life: 6.5 });
+        }
+        // "please continue to hold" — a full ring with one safe gap
+        this._waveT -= dt;
+        if (this._waveT <= 0) {
+          this._waveT = P2 ? 5.5 : 7.5;
+          this.ring(P2 ? 26 : 20, 150, '#8a90c8', U.rand(0, TAU), this.aimP(G), 0.7);
+          G.toast('“Please continue to hold. Your call will be answered in the order it was abandoned.”', '#8a90c8');
+          SFX.play('voice');
+        }
+        // the menu
+        if (!this._prompt && this._connT == null) {
+          this._promptT -= dt;
+          if (this._promptT <= 0) {
+            if (P2 && !this._renumbered) {   // phase 2 opener: the keypad reshuffles
+              this._renumbered = true;
+              const ns = U.shuffle([1, 2, 3, 4]);
+              G.holdZones.forEach((z, i) => z.n = ns[i]);
+              G.toast('“Please listen carefully, as our menu options have CHANGED.”', '#e0a95a');
+              SFX.play('voice');
+              this._promptT = 1.6;
+            } else {
+              const n = U.randi(1, 4);
+              const FOR = { 1: 'refills', 2: 'billing disputes', 3: 'to speak to a nurse', 4: 'if you know your party\'s extension' };
+              this._prompt = { n, t: P2 ? 2.7 : 3.7 };
+              G.holdPrompt = this._prompt;
+              G.toast('“For ' + FOR[n] + ', press ' + n + '.”', '#e8dcc0');
+              SFX.play('voice');
+            }
+          }
+        }
+        if (this._prompt) {
+          this._prompt.t -= dt;
+          if (this._prompt.t <= 0) {
+            const z = G.holdZones.find(z2 => z2.n === this._prompt.n);
+            const inZone = z && U.dist(p.x, p.y, z.x, z.y) < z.r;
+            this._prompt = null; G.holdPrompt = null;
+            if (inZone) {   // CONNECTED — briefly, gloriously, a real person
+              this.vulnerable = true; this._connT = P2 ? 3.4 : 4.4;
+              G.toast('“…connecting you now.”', '#8fd08a');
+              SFX.play('goalJingle');
+            } else {        // invalid selection
+              G.toast('“Invalid selection. Returning you to the main menu.”', '#e05a5a');
+              SFX.play('error');
+              const a = this.aimP(G);
+              for (let i = -2; i <= 2; i++) this.bullet(a + i * 0.15, 245, '#e05a5a');
+              if (P2) this.ring(10, 130, '#e05a5a', a + Math.PI, a, 0.9);
+              this._promptT = P2 ? 1.7 : 2.5;
+            }
+          }
+        }
+        if (this._connT != null) {
+          this._connT -= dt;
+          if (this._connT <= 0) {
+            this._connT = null;
+            this.vulnerable = false;
+            this._promptT = P2 ? 1.5 : 2.3;
+            G.toast('“…transferring. Your position in the queue: 7.”', '#8a90c8');
+            SFX.play('voice');
+          }
+        }
+        break;
+      }
       /* ---------- THE INFLUENCER ---------- */
       /* ---------- THE PEER REVIEW — your chart, weaponized ---------- */
       case 'peerreview': {

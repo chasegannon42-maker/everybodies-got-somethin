@@ -299,6 +299,13 @@ class Player {
       this.season = mo >= 2 && mo <= 4 ? 0 : mo >= 5 && mo <= 7 ? 1 : mo >= 8 && mo <= 10 ? 2 : 3;   // 0 spring 1 summer 2 fall 3 winter
       this._regenT = 0;
     }
+    if (diagId === 'janitor') {   // THE MOP: forty years, zero tears
+      this.maxhp = 8; this.hp = 8;
+      this.spd *= 0.9; this.dmg = 4.2; this.tearDelay = 0.52;
+      this.keys += 1;
+      this.flags.melee = true; this.flags.noWobble = true;
+      this._swing = null; this._swingFlip = false;
+    }
     this.baseDiag = diagId;   // the Undiagnosed keeps 'undiag' here while p.diag swaps per floor
     // Second Opinion overrides — one strong rule-flip each, applied over the base kit
     if (this.variant) {
@@ -429,6 +436,20 @@ class Player {
         this.iframes = Math.max(this.iframes, 0.4);
         for (let i = 0; i < 4; i++) { const a = (i / 4) * TAU + 0.4; G.parts.push(new Particle(this.x, this.y, Math.cos(a) * 150, Math.sin(a) * 150, 0.35, '#6c7ff0', 3)); }
         G.toast('checked. everything\'s fine.', '#6c7ff0'); SFX.play('ui');
+        break;
+      }
+      case 'janitor': {   // Mop Bucket — a wave of wet floor rolls out; nearby shots are simply mopped up
+        for (const b of G.eBullets) if (U.dist(this.x, this.y, b.x, b.y) < 175) b.fizzle(G);
+        for (let i = 0; i < 6; i++) {
+          const a = (i / 6) * TAU + 0.3;
+          G.zones.push(new Zone(this.x + Math.cos(a) * 70, this.y + Math.sin(a) * 70, 34, 6, 'wet'));
+        }
+        G.zones.push(new Zone(this.x, this.y, 40, 6, 'wet'));
+        for (const e of G.enemies) { if (e.dying) continue; if (U.dist(this.x, this.y, e.x, e.y) < 150) e.hurt(Math.max(2, this.effDmg() * 0.6), G, true); }
+        this.iframes = Math.max(this.iframes, 0.4);
+        G.shake = Math.max(G.shake, 6);
+        G.toast('CAUTION — WET FLOOR. (that\'s not a warning, it\'s a promise)', '#8fd0e0');
+        SFX.play('whoosh');
         break;
       }
       case 'ptsd': {   // 5-4-3-2-1 — ground yourself: wipe nearby danger, slow the room, come back to now
@@ -694,7 +715,17 @@ class Player {
       if (best) { const na = U.ang(this.x, this.y, best.x, best.y); aim = { x: Math.cos(na), y: Math.sin(na) }; }
     }
     if (aim) this.aimAng = Math.atan2(aim.y, aim.x);
-    if (aim && this.tearTimer <= 0 && this.itemHold <= 0.6 && this.napActive <= 0 && !this.flags.pacifist) {   // Pacifist: no tears — familiars & Claim Forms only
+    if (this._swing) { this._swing.t -= dt; if (this._swing.t <= 0) this._swing = null; }
+    if (aim && this.tearTimer <= 0 && this.itemHold <= 0.6 && this.napActive <= 0 && this.flags.melee && !this.flags.pacifist) {
+      // THE MOP: no tears. An arc of honest work.
+      this.tearTimer = this.effTearDelay() * 1.3;
+      const a = Math.atan2(aim.y, aim.x);
+      this._swingFlip = !this._swingFlip;
+      this._swing = { a, t: 0.2, dir: this._swingFlip ? 1 : -1 };
+      this.mopSwing(G, a, 1, 1);
+      G.playerFired = true;
+      SFX.play('whoosh');
+    } else if (aim && this.tearTimer <= 0 && this.itemHold <= 0.6 && this.napActive <= 0 && !this.flags.pacifist) {   // Pacifist: no tears — familiars & Claim Forms only
       this.tearTimer = this.effTearDelay();
       if (this.diag === 'burnout') this.battery = U.clamp(this.battery - 2.2 * (this._battSaver ? 0.75 : 1), 0, 100);   // every shot bills the tank
       let a = Math.atan2(aim.y, aim.x);
@@ -732,6 +763,41 @@ class Player {
     for (const a of this.allies) a.update(dt, G);
     if (this.pet) this.pet.update(dt, G);
     if (this.pet2) this.pet2.update(dt, G);   // playdates: the daycare expanded
+  }
+
+  /* THE MOP — melee arc: hits hard, wipes shots out of the air, leaves wet floor */
+  mopSwing(G, a, dmgMul, reachMul) {
+    const reach = 62 * (reachMul || 1) * Math.min(1.5, Math.max(0.85, this.range));
+    const dmg = this.effDmg() * 1.75 * (dmgMul || 1);
+    const arc = 1.35;
+    const inArc = (tx, ty, tr) => {
+      const d = U.dist(this.x, this.y, tx, ty);
+      if (d > reach + (tr || 14)) return false;
+      const da = Math.atan2(Math.sin(U.ang(this.x, this.y, tx, ty) - a), Math.cos(U.ang(this.x, this.y, tx, ty) - a));
+      return Math.abs(da) < arc;
+    };
+    let hitAny = false;
+    for (const e of G.enemies) {
+      if (e.dying || e.dead) continue;
+      if (!inArc(e.x, e.y, e.r)) continue;
+      e.hurt(dmg, G);
+      hitAny = true;
+      const ka = U.ang(this.x, this.y, e.x, e.y);   // the mop moves people
+      e.x = U.clamp(e.x + Math.cos(ka) * 14, RX + 20, RX + RW - 20);
+      e.y = U.clamp(e.y + Math.sin(ka) * 14, RY + 20, RY + RH - 20);
+    }
+    for (const B of [G.boss, G.boss2]) {
+      if (B && !B.dead && B.vulnerable !== false && inArc(B.x, B.y, B.r)) { B.hurt(dmg, G); hitAny = true; }
+    }
+    let wiped = 0;
+    for (const b of G.eBullets) if (!b.dead && inArc(b.x, b.y, b.r || 6)) { b.fizzle ? b.fizzle(G) : (b.dead = true); wiped++; }
+    G.zones.push(new Zone(this.x + Math.cos(a) * reach * 0.7, this.y + Math.sin(a) * reach * 0.7, 30, 4.5, 'wet'));
+    if (hitAny) { SFX.play('pop'); Haptics.buzz([12], 0); }
+    for (let i = 0; i < 5; i++) {
+      const pa = a + U.rand(-0.9, 0.9);
+      G.parts.push(new Particle(this.x + Math.cos(pa) * reach * 0.8, this.y + Math.sin(pa) * reach * 0.8, Math.cos(pa) * 60, Math.sin(pa) * 60, 0.25, '#a8d0e8', 2.5));
+    }
+    return { hitAny, wiped };
   }
 
   /* The Undiagnosed: Dr. Walrus changes his mind — swap the whole mechanical identity */
@@ -1155,7 +1221,9 @@ class Enemy {
       if (Math.random() < dt * 9) G.parts.push(new Particle(this.x + U.rand(-6, 6), this.y + U.rand(-8, 2), U.rand(-20, 20), U.rand(-70, -30), 0.35, U.chance(0.5) ? '#e8944a' : '#e0c050', 3));
       if (this.hp <= 0 && !this.dying) { this.hurt(0.01, G, true); }
     }
-    const slowF = (G.enemySlow > 0 ? 0.55 : 1) * (p.flags.slowField ? 0.88 : 1) * (1 - 0.12 * (this._chill || 0));   // Analysis Paralysis + Cold Compress slow the room
+    let wetSlow = 1;   // the Janitor's wet floor: everyone respects the sign eventually
+    for (const z of G.zones) if (z.kind === 'wet' && U.dist(this.x, this.y, z.x, z.y) < z.r + this.r * 0.5) { wetSlow = 0.6; break; }
+    const slowF = wetSlow * (G.enemySlow > 0 ? 0.55 : 1) * (p.flags.slowField ? 0.88 : 1) * (1 - 0.12 * (this._chill || 0));   // Analysis Paralysis + Cold Compress slow the room
     const S = this.spd * slowF * (this._enraged > 0 ? 1.45 : 1);
 
     // the last patient standing gets impatient — evasive types stop playing keep-away and come to you

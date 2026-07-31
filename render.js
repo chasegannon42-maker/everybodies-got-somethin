@@ -1461,6 +1461,24 @@ const Render = {
     ctx.restore();
     this.drawHazardRoom(G, room);
 
+    // THE HOLD's keypad: four numbered pads painted on the tile
+    if (G.holdZones && G.boss && G.boss.id === 'thehold' && !G.boss.dead) {
+      for (const hz of G.holdZones) {
+        const active = G.holdPrompt && G.holdPrompt.n === hz.n;
+        const urgency = active ? Math.max(0, Math.min(1, G.holdPrompt.t / 2)) : 1;
+        ctx.save();
+        ctx.translate(hz.x, hz.y);
+        ctx.fillStyle = active ? 'rgba(143,208,138,' + (0.28 + Math.sin(G.t * (10 - urgency * 6)) * 0.12) + ')' : 'rgba(200,190,220,0.10)';
+        ctx.beginPath(); ctx.arc(0, 0, hz.r, 0, TAU); ctx.fill();
+        ctx.strokeStyle = active ? '#8fd08a' : 'rgba(200,190,220,0.4)'; ctx.lineWidth = active ? 4 : 2.5;
+        this.rr(ctx, -hz.r * 0.72, -hz.r * 0.72, hz.r * 1.44, hz.r * 1.44, 12); ctx.stroke();
+        ctx.fillStyle = active ? '#bfe8b8' : 'rgba(220,212,236,0.5)';
+        ctx.font = this.font(34, true); ctx.textAlign = 'center';
+        ctx.fillText(String(hz.n), 0, 12);
+        ctx.restore();
+      }
+    }
+
     // zones under everything
     for (const z of G.zones) {
       if (z.kind === 'trigger') {   // PTSD flashback trigger — a pulsing danger marker, not a solid patch
@@ -1471,6 +1489,16 @@ const Render = {
         ctx.beginPath(); ctx.arc(z.x, z.y, z.r * 0.92, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
         ctx.strokeStyle = 'rgba(222,120,110,' + pulse + ')'; ctx.lineWidth = 1.6;
         ctx.beginPath(); ctx.moveTo(z.x - 6, z.y - 5); ctx.lineTo(z.x + 2, z.y + 1); ctx.lineTo(z.x - 3, z.y + 6); ctx.stroke();
+        continue;
+      }
+      if (z.kind === 'wet') {   // the Janitor's signature: honest, glistening, recently mopped
+        const a2 = U.clamp(z.life / 1.2, 0, 1) * 0.55;
+        ctx.globalAlpha = a2;
+        ctx.fillStyle = 'rgba(120,180,220,0.5)';
+        ctx.beginPath(); ctx.ellipse(z.x, z.y, z.r, z.r * 0.72, 0, 0, TAU); ctx.fill();
+        ctx.strokeStyle = 'rgba(200,230,250,0.55)'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.ellipse(z.x - z.r * 0.25, z.y - z.r * 0.2, z.r * 0.32, z.r * 0.14, -0.5, 0, TAU); ctx.stroke();
+        ctx.globalAlpha = 1;
         continue;
       }
       ctx.globalAlpha = U.clamp(z.life, 0, 1) * 0.9;
@@ -2193,6 +2221,25 @@ const Render = {
         ctx.fillStyle = '#e8c05a'; ctx.font = this.font(10, true); ctx.textAlign = 'center';
         ctx.fillText('🧹 THE SECOND MOP', ped.x, ped.y - 50);
         if (U.dist(G.player.x, G.player.y, ped.x, ped.y) < 90) { ctx.fillStyle = '#e8c84c'; ctx.font = this.font(10, true); ctx.fillText('it\'s leaning like it\'s yours', ped.x, ped.y + 42); }
+        continue;
+      }
+      if (ped.kind === 'scanner') {   // the imaging suite: a donut that bills like a bakery doesn't
+        this.shadow(ped.x, ped.y + 30, 34, 8, 0.22);
+        ctx.save(); ctx.translate(ped.x, ped.y);
+        const hum = Math.sin(G.t * 2.2) * 1.5;
+        ctx.fillStyle = '#dfe4ea'; ctx.beginPath(); ctx.ellipse(0, -6 + hum * 0.3, 34, 30, 0, 0, TAU); ctx.fill();   // the bore housing
+        ctx.strokeStyle = '#9aa4b2'; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(0, -6 + hum * 0.3, 34, 30, 0, 0, TAU); ctx.stroke();
+        ctx.fillStyle = '#232833'; ctx.beginPath(); ctx.ellipse(0, -6 + hum * 0.3, 17, 15, 0, 0, TAU); ctx.fill();   // the bore
+        const scanA = (G.t * 1.4) % TAU;   // something rotates in there. it never stops.
+        ctx.strokeStyle = 'rgba(122,200,232,0.8)'; ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.arc(0, -6 + hum * 0.3, 12, scanA, scanA + 1.2); ctx.stroke();
+        ctx.fillStyle = '#c8d0da'; this.rr(ctx, -9, 18, 52, 9, 4); ctx.fill();   // the sliding table
+        ctx.strokeStyle = '#9aa4b2'; ctx.lineWidth = 2; this.rr(ctx, -9, 18, 52, 9, 4); ctx.stroke();
+        ctx.fillStyle = '#8fd0e0'; ctx.beginPath(); ctx.arc(26, -26, 3 + Math.sin(G.t * 5) * 1, 0, TAU); ctx.fill();   // status light: always "almost ready"
+        ctx.restore();
+        ctx.fillStyle = '#8fd0e0'; ctx.font = this.font(10, true); ctx.textAlign = 'center';
+        ctx.fillText('THE SCANNER', ped.x, ped.y - 48);
+        if (U.dist(G.player.x, G.player.y, ped.x, ped.y) < 90) { ctx.fillStyle = '#e8c84c'; ctx.font = this.font(10, true); ctx.fillText((8 * ((G._scans || 0) + 1)) + '¢ · re-read one prescription', ped.x, ped.y + 44); }
         continue;
       }
       if (ped.kind === 'payphone') {   // exact change, one feeling at a time
@@ -3012,6 +3059,31 @@ const Render = {
           ctx.beginPath(); ctx.moveTo(-6 + w * 12, -22 - wt * 10); ctx.quadraticCurveTo(-2 + w * 12 + Math.sin(wt * 9) * 3, -27 - wt * 10, -4 + w * 12, -32 - wt * 12); ctx.stroke();
           ctx.lineCap = 'butt';
         }
+      }
+    } else if (p.diag === 'janitor') {
+      // the flat gray work cap of a man with no unread messages
+      ctx.fillStyle = '#7a7268';
+      ctx.beginPath(); ctx.arc(0, -15, 12.5, Math.PI, TAU); ctx.fill();
+      this.rr(ctx, -13.5, -16, 27, 4.5, 2); ctx.fill();
+      ctx.fillStyle = '#8a8278'; this.rr(ctx, -5, -16, 10, 3, 1.5);
+      ctx.fill();
+      // THE MOP — held, always; swung, often
+      const swing = p._swing;
+      const base = p.aimAng;
+      const prog = swing ? 1 - swing.t / 0.2 : 0;
+      const ma = swing ? base + swing.dir * (-1.2 + prog * 2.4) : base + 0.55;
+      ctx.save();
+      ctx.rotate(ma);
+      ctx.strokeStyle = '#7a5a38'; ctx.lineWidth = 3.5; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(6, 0); ctx.lineTo(40, 0); ctx.stroke();
+      ctx.strokeStyle = '#d8d0b8'; ctx.lineWidth = 2.2;
+      for (let m = -2; m <= 2; m++) { ctx.beginPath(); ctx.moveTo(40, 0); ctx.lineTo(48 + Math.abs(m), m * 3.2); ctx.stroke(); }
+      ctx.lineCap = 'butt';
+      ctx.restore();
+      if (swing) {   // the arc of the swing, briefly visible like all honest work
+        ctx.strokeStyle = 'rgba(168,208,232,' + (0.5 * (1 - prog)) + ')'; ctx.lineWidth = 10; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.arc(0, 0, 44, base - 1.1, base + 1.1); ctx.stroke();
+        ctx.lineCap = 'butt';
       }
     }
 
@@ -3877,6 +3949,50 @@ const Render = {
     const flash = b.hitFlash > 0;
 
     switch (b.id) {
+      case 'thehold': { // the phone tree, grown to full height
+        const r = b.r || 40;
+        const conn = b.vulnerable;
+        // wall-phone body: institutional beige, rounded, faintly smug
+        ctx.fillStyle = '#d8cfb8'; this.rr(ctx, -r * 0.78, -r * 0.95, r * 1.56, r * 1.9, 10); ctx.fill();
+        ctx.strokeStyle = '#8a8070'; ctx.lineWidth = 3; this.rr(ctx, -r * 0.78, -r * 0.95, r * 1.56, r * 1.9, 10); ctx.stroke();
+        // speaker grille (it talks. it never stops talking.)
+        ctx.strokeStyle = '#8a8070'; ctx.lineWidth = 2;
+        for (let g = 0; g < 4; g++) { ctx.beginPath(); ctx.moveTo(-r * 0.4, -r * 0.62 + g * 5); ctx.lineTo(r * 0.4, -r * 0.62 + g * 5); ctx.stroke(); }
+        // chest keypad — 3×4, one key lit when a prompt is live
+        const kp = (typeof G !== 'undefined' && G.holdPrompt) ? G.holdPrompt.n : 0;
+        for (let kr = 0; kr < 4; kr++) for (let kc = 0; kc < 3; kc++) {
+          const num = kr * 3 + kc + 1;
+          const kx = -r * 0.42 + kc * r * 0.42, ky = -r * 0.28 + kr * r * 0.34;
+          ctx.fillStyle = (num === kp && Math.sin(b.t * 10) > 0) ? '#8fd08a' : '#efe8d6';
+          this.rr(ctx, kx - 6.5, ky - 5.5, 13, 11, 3); ctx.fill();
+          ctx.strokeStyle = '#8a8070'; ctx.lineWidth = 1.2; this.rr(ctx, kx - 6.5, ky - 5.5, 13, 11, 3); ctx.stroke();
+        }
+        // the receiver: its head, held just off the hook
+        const lift = conn ? -12 : Math.sin(b.t * 1.6) * 3;
+        ctx.save();
+        ctx.translate(0, -r * 1.12 + lift);
+        ctx.rotate(conn ? -0.18 : Math.sin(b.t * 0.9) * 0.08);
+        ctx.fillStyle = conn ? '#5a8a5a' : '#4a4454';
+        this.rr(ctx, -r * 0.62, -9, r * 1.24, 18, 9); ctx.fill();
+        ctx.fillStyle = conn ? '#7ab87a' : '#615a6e';
+        ctx.beginPath(); ctx.arc(-r * 0.52, 0, 10, 0, TAU); ctx.arc(r * 0.52, 0, 10, 0, TAU); ctx.fill();
+        ctx.restore();
+        // coiled cord, trailing off to somewhere that never answers
+        ctx.strokeStyle = '#8a8070'; ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        for (let cc = 0; cc <= 20; cc++) {
+          const u = cc / 20;
+          const cxx = r * 0.7 + u * r * 0.75 + Math.sin(u * 22 + b.t * 3) * 5;
+          const cyy = -r * 0.4 + u * r * 1.3;
+          cc === 0 ? ctx.moveTo(cxx, cyy) : ctx.lineTo(cxx, cyy);
+        }
+        ctx.stroke();
+        // hold light: blinks red while you wait, green when connected
+        ctx.fillStyle = conn ? '#8fd08a' : (Math.sin(b.t * 5) > 0 ? '#e05a5a' : '#7a4040');
+        ctx.beginPath(); ctx.arc(r * 0.56, -r * 0.62, 5, 0, TAU); ctx.fill();
+        if (flash) { ctx.fillStyle = 'rgba(255,255,255,0.5)'; this.rr(ctx, -r * 0.78, -r * 0.95, r * 1.56, r * 1.9, 10); ctx.fill(); }
+        break;
+      }
       case 'merger': { // two managements stitched into one org chart
         const r = b.r || 34;
         // the split suit: left gray, right navy, one seam

@@ -665,7 +665,7 @@ const G = {
   _tabPlay() {
     this._sbWard = this._sbWard || 1;
     const L = this._sbLoadout || (this._sbLoadout = { preset: 'standard', items: [] });
-    const order = ['adhd', 'bipolar', 'depression', 'anxiety', 'schizo', 'ocd', 'ptsd', 'insomnia', 'fine', 'undiag', 'burnout', 'seasonal'];
+    const order = ['adhd', 'bipolar', 'depression', 'anxiety', 'schizo', 'ocd', 'ptsd', 'insomnia', 'fine', 'undiag', 'burnout', 'seasonal', 'janitor'];
     const chips = order.map(id => `<button class="btn minor" data-sb="${id}" style="font-size:11px;padding:5px 7px;${(this._sbDiag || 'adhd') === id ? 'outline:2px solid #e8c84c' : ''}">${DATA.DIAG[id] ? DATA.DIAG[id].name : id}</button>`).join('');
     const presets = [['standard', 'STANDARD', 'as checked in'], ['kitted', 'KITTED', '+3 meds, +2 hearts, +20¢'], ['glass', 'GLASS CANNON', 'dmg ×3, two hearts'], ['tank', 'TANK', '+4 hearts, dmg ×0.8'], ['custom', 'CUSTOM', 'hand-pick meds below']];
     const pBtns = presets.map(([id, name, sub]) => `<button class="btn minor" data-lp="${id}" style="font-size:11px;${L.preset === id ? 'outline:2px solid #e8c84c' : ''}" title="${sub}">${name}</button>`).join('');
@@ -689,7 +689,7 @@ const G = {
   /* ---- BOSS LAB tab: any boss, any conditions ---- */
   _tabBossLab() {
     const B = this._labCfg || (this._labCfg = { boss: 'gatekeeper', depth: 5, affix: '', shift2: false, joint: '' });
-    const bossIds = ['gatekeeper', 'larperking', 'adjuster', 'priorauth', 'stigma', 'dsm', 'algorithm', 'influencer', 'peerreview', 'withdrawal', 'burnout', 'merger', 'walrus', 'thecure', 'founder', 'thesystem', 'theboard'];
+    const bossIds = Object.keys(DATA.BOSSES);   // every manager on the roster, present and future
     const bossOpts = bossIds.map(id => `<option value="${id}" ${B.boss === id ? 'selected' : ''}>${(DATA.BOSSES[id] || { name: id }).name}</option>`).join('');
     const affixOpts = ['', ...DATA.BOSS_AFFIXES.map(a => a.id)].map(id => `<option value="${id}" ${B.affix === id ? 'selected' : ''}>${id ? id.toUpperCase() : '— no affix —'}</option>`).join('');
     const jointPool = ['', 'gatekeeper', 'larperking', 'adjuster', 'priorauth', 'stigma', 'dsm', 'algorithm', 'influencer', 'withdrawal', 'burnout', 'peerreview'];
@@ -847,6 +847,23 @@ const G = {
 
   /* ---- THE SCENARIO JUMPER: every special encounter, pre-armed ---- */
   TESTER_SCENARIOS: [
+    { icon: '📞', name: 'THE HOLD', sub: 'the phone tree, keypad live, ward 8 tuning', run(G) {
+      G.startBossLab({ boss: 'thehold', depth: 8, affix: '', shift2: false, joint: '' });
+    } },
+    { icon: '🩻', name: 'THE SCANNER', sub: 'the imaging suite, parked in this room', run(G) {
+      G.ensureSandboxAt(4);
+      const p = G.player;
+      if (p.items.length < 3) { p.addItem(U.choice(DATA.POOLS.special), G, true); p.addItem(U.choice(DATA.POOLS.shop), G, true); }
+      p.coins = Math.max(p.coins, 40);
+      G.peds.push({ x: RX + RW - 92, y: RY + 92, kind: 'scanner', taken: false });
+      G.setBanner('THE SCANNER', 'scenario: walk up, re-read something', 2.4);
+    } },
+    { icon: '🧪', name: 'Clinical Trial', sub: 'enrolled, week 1, findings pending', run(G) {
+      G.ensureSandboxAt(3);
+      G.trial = null; G._trialDeclined = false;
+      G.peds.push({ x: G.player.x + 70, y: G.player.y - 30, kind: 'drugrep', taken: false });
+      G.setBanner('CLINICAL TRIAL', 'scenario: the rep has a clipboard and a dream', 2.4);
+    } },
     { icon: '🏁', name: 'Rival race', sub: 'an item room with the race already armed', run(G) {
       G.ensureSandboxAt(3);
       const r = G.floorRooms.find(x => x.type === 'normal' && x !== G.room); r.type = 'item'; r.lockOpen = true; r.spawned = false;
@@ -2549,14 +2566,14 @@ const G = {
   showFiles() {
     this.state = 'files';
     const fineOpen = Meta.data.fineSeen || Meta.data.walrusKills > 0;
-    const order = ['adhd', 'bipolar', 'depression', 'anxiety', 'schizo', 'ocd', 'ptsd', 'insomnia', 'fine', 'undiag', 'burnout', 'seasonal'];
+    const order = ['adhd', 'bipolar', 'depression', 'anxiety', 'schizo', 'ocd', 'ptsd', 'insomnia', 'fine', 'undiag', 'burnout', 'seasonal', 'janitor'];
     this._fvar = this._fvar || {};   // which cards are flipped to their Second Opinion
     const burnoutOpen = Object.values(Meta.data.diagBest || {}).filter(v => v >= 10).length >= 3;
     const seasonalOpen2 = Object.keys(Meta.data.calDays || {}).length >= 4;
     const cards = order.map(id => {
       const D = DATA.DIAG[id];
       const nineDone = ['adhd','bipolar','depression','anxiety','schizo','ocd','ptsd','insomnia','fine'].filter(d => (Meta.data.diagsPlayed||{})[d]).length >= 9;
-      const locked = (id === 'fine' && !fineOpen) || (id === 'undiag' && !nineDone) || (id === 'burnout' && !burnoutOpen) || (id === 'seasonal' && !seasonalOpen2);
+      const locked = (id === 'fine' && !fineOpen) || (id === 'undiag' && !nineDone) || (id === 'burnout' && !burnoutOpen) || (id === 'seasonal' && !seasonalOpen2) || (id === 'janitor' && !Meta.data.handoffDone);
       const best = (Meta.data.diagBest || {})[id];
       const soOpen = !locked && (best || 0) >= 6 && DATA.DIAG2 && DATA.DIAG2[id];   // beat the Ward-5 Walrus with the base
       const flipped = soOpen && this._fvar[id];
@@ -2565,8 +2582,8 @@ const G = {
         ${soOpen ? `<span class="soflip" data-f="${id}" title="Second Opinion" style="position:absolute;top:4px;right:6px;font-size:13px;cursor:pointer">⇄${flipped ? 'Ⅱ' : ''}</span>` : ''}
         <canvas width="84" height="84" data-cd="${id}" data-cv="${flipped ? 1 : 0}"></canvas>
         <div class="cname" style="color:${locked ? '#8a8078' : D.color}">${locked ? '?????' : (flipped ? D2.name : D.name)}</div>
-        <div class="cline">${locked ? (id === 'undiag' ? 'play all nine diagnoses' : id === 'burnout' ? 'reach Ward 10 three ways' : id === 'seasonal' ? 'check in on 4 different weekdays' : 'tell the truth at a checkup') : (flipped ? D2.tag : D.tag)}</div>
-        <div class="cbest">${locked ? (id === 'undiag' ? 'every chart, once' : id === 'burnout' ? 'three diagnoses, ward 10 each' : id === 'seasonal' ? 'the calendar is watching back' : 'or defeat Dr. Walrus') : (flipped ? 'Ⅱ · second opinion' : (best ? 'best: ward ' + best : 'no chart yet'))}</div>
+        <div class="cline">${locked ? (id === 'undiag' ? 'play all nine diagnoses' : id === 'burnout' ? 'reach Ward 10 three ways' : id === 'seasonal' ? 'check in on 4 different weekdays' : id === 'janitor' ? 'finish THE HANDOFF' : 'tell the truth at a checkup') : (flipped ? D2.tag : D.tag)}</div>
+        <div class="cbest">${locked ? (id === 'undiag' ? 'every chart, once' : id === 'burnout' ? 'three diagnoses, ward 10 each' : id === 'seasonal' ? 'the calendar is watching back' : id === 'janitor' ? 'someone has to take the mop' : 'or defeat Dr. Walrus') : (flipped ? 'Ⅱ · second opinion' : (best ? 'best: ward ' + best : 'no chart yet'))}</div>
       </button>`;
     }).join('');
     this.overlay(`
@@ -2623,7 +2640,7 @@ const G = {
      The complete in-fiction manual: every mechanic, symptom, ward, and
      service. Mostly generated from DATA so new content lists itself;
      the prose sections get a line whenever a feature ships. */
-  HB_REV: 29,
+  HB_REV: 30,
   showHandbook(returnTo) {
     this.state = 'handbook';
     if (!this._hbTab) this._hbTab = 'basics';
@@ -2707,7 +2724,7 @@ const G = {
 
       staff: () => H('WARD MANAGEMENT (bosses)')
         + Object.entries(DATA.BOSSES).map(([k, b]) => {
-          const when = { gatekeeper: 'rotation · ward 1+', larperking: 'rotation · ward 1+', adjuster: 'rotation · ward 2+', priorauth: 'rotation · ward 2+', stigma: 'rotation · ward 3+', dsm: 'rotation · ward 3+', algorithm: 'rotation · ward 3+', influencer: 'rotation · ward 3+', withdrawal: 'rotation · ward 4+', burnout: 'rotation · ward 4+', peerreview: 'rotation · ward 6+', merger: 'rotation · ward 30+', walrus: 'every 5th ward', thecure: 'ward 25', theboard: 'THE ROOF', founder: 'ward 50', thesystem: 'ward 100' }[k];
+          const when = { gatekeeper: 'rotation · ward 1+', larperking: 'rotation · ward 1+', adjuster: 'rotation · ward 2+', priorauth: 'rotation · ward 2+', stigma: 'rotation · ward 3+', dsm: 'rotation · ward 3+', algorithm: 'rotation · ward 3+', influencer: 'rotation · ward 3+', withdrawal: 'rotation · ward 4+', burnout: 'rotation · ward 4+', peerreview: 'rotation · ward 6+', thehold: 'rotation · ward 7+', merger: 'rotation · ward 30+', walrus: 'every 5th ward', thecure: 'ward 25', theboard: 'THE ROOF', founder: 'ward 50', thesystem: 'ward 100' }[k];
           return R('☠', `${b.name} <span class="hbtag">${b.sub}</span>`, BO[k] || '—', when);
         }).join('')
         + H('CHAMPION AFFIXES (ward 8+)')
@@ -2734,6 +2751,8 @@ const G = {
         + R('🧹', 'The Janitor', 'a secret shop in the walls. Cash only. Don\'t ask where it\'s been')
         + R('💼', 'The Drug Rep', 'free samples — real stats, plus a lingering side effect from the fine print')
         + R('⚗️', 'The Compounding Pharmacist', 'feed him two meds, get one custom compound back')
+        + R('🩻', 'THE SCANNER', 'a rare imaging suite (ward 3+, once a run): pay to have one prescription RE-READ into a different one. Fees escalate per scan; repeat imaging risks an artifact from the out-of-network pool. Samples, boons, and handshake deals don\'t survive re-imaging')
+        + R('🧪', 'THE CLINICAL TRIAL', 'the Drug Rep offers enrollment once a run: an unknown compound, effects revealed one per ward, debrief + full payment after 3 wards. 35% of enrollments are the placebo. The placebo also gets paid')
         + R('🍫', 'Commissary machines', 'vending (snacks & sundries) and the horoscope printer (a real, small blessing or curse)')
         + R('🎁', 'Care Packages', 'gift codes — mail an item to a friend\'s next run from the DAILY WARD screen'),
 
@@ -2796,6 +2815,7 @@ const G = {
         + H('REVISION HISTORY')
         + N('This handbook is updated with every patch. If a feature exists, it\'s in here — that\'s the policy. Spot something missing? The Complaint Department is thataway.')
         + N('rev. 29 — the crayons were confiscated: every pictograph in the building replaced with proper inked signage, hand-drawn by the same tired hand as everything else here.')
+        + N('rev. 30 — new on the ward: THE HOLD (management, ward 7+, bring patience and footwork) · THE CLINICAL TRIAL (see TREATMENT) · THE SCANNER (see TREATMENT) · and a thirteenth patient file for whoever finished THE HANDOFF. The mop is in the closet where he left it.')
     };
 
     const tabs = [
@@ -3100,6 +3120,8 @@ const G = {
     this.protoT = this.protocol === 'timeslot' ? 1200 : null;   // the 20-minute slot
     this.ascent = false; this.ascentBase = 0;
     this.rapidMods = { dmg: 1, spd: 1, tears: 1, def: 1 };
+    this.trial = null; this._trialDeclined = false;   // the Clinical Trial: one enrollment per run
+    this._scans = 0; this._scannerSeen = false;       // THE SCANNER: once per run, escalating fees
     this.easy = !!(Meta.data.a11y && Meta.data.a11y.easy);
     this.wardPath = 'day';   // set by the Treatment Plan each descent
     this._cureBeaten = false;
@@ -3289,12 +3311,12 @@ const G = {
     this.hideOverlay();
     document.body.classList.add('inrun');   // phones need the move stick in here
     SFX.setMusic((Meta.data.hubTrack && (Meta.data.tracksHeard || {})[Meta.data.hubTrack]) ? Meta.data.hubTrack : 'dayroom');   // WWRD picks the room's music
-    const order = ['adhd', 'bipolar', 'depression', 'anxiety', 'schizo', 'ocd', 'ptsd', 'insomnia', 'fine', 'undiag', 'burnout', 'seasonal'];
+    const order = ['adhd', 'bipolar', 'depression', 'anxiety', 'schizo', 'ocd', 'ptsd', 'insomnia', 'fine', 'undiag', 'burnout', 'seasonal', 'janitor'];
     const fineOpen = Meta.data.fineSeen || Meta.data.walrusKills > 0;
     const nineDone = order.slice(0, 9).filter(d => (Meta.data.diagsPlayed || {})[d]).length >= 9;
     const burnoutOpen = Object.values(Meta.data.diagBest || {}).filter(v => v >= 10).length >= 3;
     const seasonalOpen = Object.keys(Meta.data.calDays || {}).length >= 4;
-    const unlocked = order.filter(id => !(id === 'fine' && !fineOpen) && !(id === 'undiag' && !nineDone) && !(id === 'burnout' && !burnoutOpen) && !(id === 'seasonal' && !seasonalOpen));
+    const unlocked = order.filter(id => !(id === 'fine' && !fineOpen) && !(id === 'undiag' && !nineDone) && !(id === 'burnout' && !burnoutOpen) && !(id === 'seasonal' && !seasonalOpen) && !(id === 'janitor' && !Meta.data.handoffDone));
     const hp = new Player(Meta.data.lastDiag && DATA.DIAG[Meta.data.lastDiag] ? Meta.data.lastDiag : 'adhd');
     hp.x = CW / 2; hp.y = 470;
     const seats = unlocked.map((id, i) => {
@@ -3504,7 +3526,8 @@ const G = {
         transforms: p._transforms || [], transformTint: p.transformTint || null,
         familiars: p.familiars.map(f => f.type),
         allies: p.allies.map(a => a.id),
-        goals: this.goals, stats: this.stats, goalInsight: this._goalInsight || 0
+        goals: this.goals, stats: this.stats, goalInsight: this._goalInsight || 0,
+        trial: this.trial || null, trialNo: this._trialDeclined ? 1 : 0, scans: this._scans || 0
       };
       for (const f of this.SAVE_FIELDS) S[f] = p[f];
       localStorage.setItem(this.SAVE_KEY, JSON.stringify(S));
@@ -3541,6 +3564,7 @@ const G = {
     this._appealUsed = !!S.apl;
     this.plan = S.plan || 'silver';
     this.contracts = (S.contracts || []).map(sc => { const def = DATA.CONTRACTS.find(c => c.id === sc.id); return def ? { id: sc.id, def, prog: sc.prog || 0, done: !!sc.done } : null; }).filter(Boolean);
+    this.trial = S.trial || null; this._trialDeclined = !!S.trialNo; this._scans = S.scans || 0;   // trial effects live in the restored numbers
     this.newFloor();
     this.toast('📂 Chart reopened — ward ' + this.depth + '. Welcome back.', '#8fd0e0');
   },
@@ -3932,6 +3956,9 @@ const G = {
     if (p.variant && p.diag === 'ptsd') p._scar = 0;               // Weathered: the scars fade between floors
     p._rosaryUsed = false;   // the rosary recovers its one grace each floor
     p._wiseUsed = false;     // Wise Mind resets with the ward
+    this.holdZones = null; this.holdPrompt = null;   // THE HOLD's keypad never follows you
+    if (p.diag === 'janitor' && this.depth >= 5 && !this.sandbox && !Meta.data.mopShift) { Meta.data.mopShift = 1; Meta.save(); this.checkUnlocks(); }   // Second Career
+    this.trialFloorTick();   // the study observes every descent
     if (p._gymAdd) { p.dmg -= p._gymAdd; }
     p._gymAdd = 0;
     if (p.flags.pillowHeal) p.heal(p.flags.synRested ? 4 : 2);
@@ -4432,6 +4459,12 @@ const G = {
     if (this.shadowWard) for (let i = 0; i < 2; i++) this.pickups.push(new Pickup(U.choice(['coin', 'coin', 'nickel', 'half']), CW / 2 + U.rand(-60, 60), RY + RH / 2 + U.rand(-40, 40)));
     // THE ANNEX pays double too — nobody's swept the valuables in years
     if (this.annexFloor) for (let i = 0; i < 2; i++) this.pickups.push(new Pickup(U.choice(['coin', 'nickel', 'half', 'pill']), CW / 2 + U.rand(-60, 60), RY + RH / 2 + U.rand(-40, 40)));
+    // THE SCANNER: an imaging suite nobody scheduled, once a run (6%, ward 3+)
+    if (!this._scannerSeen && this.depth >= 3 && !this.annexFloor && !this.overtime && (room.type === 'normal' || room.type === 'padded') && p.items.length > 1 && U.chance(0.06)) {
+      this._scannerSeen = true;
+      this.peds.push({ x: RX + RW - 92, y: RY + 92, kind: 'scanner', taken: false });
+      this.toast('An IMAGING SUITE hums behind a curtain. It was not on the schedule.', '#8fd0e0');
+    }
     // THE FIRE ALARM: a red box on some wall, once a run (5%)
     if (!this._alarmSeen && !this.annexFloor && !this.overtime && (room.type === 'normal' || room.type === 'padded') && U.chance(0.05)) {
       this._alarmSeen = true;
@@ -4602,6 +4635,15 @@ const G = {
 
   onBossDead() {
     const room = this.room, p = this.player;
+    // THE HOLD: the line goes dead, the keypad goes dark
+    if (this.holdZones) {
+      this.holdZones = null; this.holdPrompt = null;
+      if (this.bossId === 'thehold' && !this.practice && !this.sandbox) {
+        Meta.data.holdKills = (Meta.data.holdKills || 0) + 1; Meta.save();
+        this.toast('“If you are satisfied with your care, hang u—” CLICK.', '#8fd08a');
+        this.checkUnlocks();
+      }
+    }
     // JOINT COMMISSION: one manager down, the other one saw that
     if (this.boss2 || (this.boss && this.boss.dead && this.boss._joint && this._jointSurvivor())) {
       const survivor = this._jointSurvivor();
@@ -5482,8 +5524,11 @@ const G = {
         ped.taken = true;
         this.finishAma();
         return;
+      } else if (ped.kind === 'scanner') {   // the MRI: it sees something different every time
+        if (this.lockCd <= 0) { this.lockCd = 1.0; this.showScanner(); }
       } else if (ped.kind === 'drugrep') {   // the rep himself: all smile, no collision
-        if (this.lockCd <= 0) { this.lockCd = 2.0; this.toast('“No pressure! The samples are FREE. Completely free.”', '#8fd08a'); SFX.play('voice'); }
+        if (!this.trial && !this._trialDeclined && !this.dailyKind && !this.sandbox) { this.showTrialOffer(); }
+        else if (this.lockCd <= 0) { this.lockCd = 2.0; this.toast('“No pressure! The samples are FREE. Completely free.”', '#8fd08a'); SFX.play('voice'); }
       } else if (ped.kind === 'sample') {    // free sample — the string attaches immediately
         ped.taken = true;
         p.addItem(ped.itemId, this);
@@ -5692,6 +5737,205 @@ const G = {
     };
   },
 
+  /* ---------- THE SCANNER (imaging suite: re-reads one prescription) ---------- */
+  showScanner() {
+    this.state = 'scanner';
+    const p = this.player;
+    const cost = 8 * ((this._scans || 0) + 1);
+    const rx = DATA.DIAG[p.baseDiag] && DATA.DIAG[p.baseDiag].rx;
+    const scannable = [];
+    const seenRx = { [rx]: 1 };   // the starting prescription is load-bearing — never re-imaged
+    p.items.forEach((id, i) => {
+      if (rx && seenRx[id]) { delete seenRx[id]; return; }
+      if (DATA.ITEMS[id]) scannable.push({ id, i });
+    });
+    const rows = scannable.map((s, k) => {
+      const it = DATA.ITEMS[s.id];
+      return `<button class="cmcard" data-scan="${k}"><div class="cmname" style="color:#3a5ac8">${it.name}</div><div class="cmdesc">${it.desc || ''}</div></button>`;
+    }).join('');
+    const blurry = (this._scans || 0) >= 1;
+    this.overlay(`
+      <div class="panel wide">
+        <h1 class="logo" style="font-size:24px">THE SCANNER</h1>
+        <div class="tagline">radiology re-reads one prescription · fee: <b>${cost}¢</b> (you have ${p.coins}¢)${blurry ? ' · <span style="color:#a05a5a">repeat imaging: 20% artifact risk</span>' : ''}</div>
+        <div class="smallprint" style="margin-bottom:8px">The machine can't see everything: samples, boons, and handshake deals don't survive re-imaging. The picture it CAN see, it redraws completely.</div>
+        <div class="cmgrid" style="max-height:46vh;overflow-y:auto">${rows || '<div class="hbnote">nothing here scans — collect a prescription or two first</div>'}</div>
+        <button class="btn minor" id="bScanBack">LEAVE — trust the first opinion</button>
+      </div>`);
+    document.querySelectorAll('[data-scan]').forEach(b => b.onclick = () => {
+      const pick = scannable[+b.dataset.scan];
+      if (!pick) return;
+      if (p.coins < cost) { SFX.play('error'); this.toast('The machine takes exact change. ' + cost + '¢.', '#e8c84c'); return; }
+      p.coins -= cost;
+      const misread = (this._scans || 0) >= 1 && U.chance(0.2);
+      let pool = misread ? DATA.POOLS.oon.slice() : DATA.pickPool('special', p.items).filter(id => id !== pick.id);
+      if (!pool.length) pool = DATA.POOLS.special.filter(id => id !== pick.id);
+      const newId = U.choice(pool);
+      const newItems = p.items.slice();
+      newItems.splice(pick.i, 1, newId);
+      const oldName = (DATA.ITEMS[pick.id] || {}).name || pick.id;
+      this.rebuildPlayer(newItems);
+      this._scans = (this._scans || 0) + 1;
+      Meta.data.scans = (Meta.data.scans || 0) + 1; Meta.save();
+      DATA.checkAchievements(Meta.data); Meta.save();
+      this.checkUnlocks();
+      this.stats.items++;
+      this.diaryNote('The Scanner re-read ' + oldName + ' as ' + ((DATA.ITEMS[newId] || {}).name || newId) + '. ' + (misread ? 'There was an artifact on the image. There is an artifact on ME now.' : 'The radiologist sounded very confident both times.'));
+      this.hideOverlay(); this.state = 'run';
+      this.toast((misread ? 'ARTIFACT ON THE IMAGE — additional findings: ' : 'RE-READ: ') + ((DATA.ITEMS[newId] || {}).name || newId), misread ? '#e0a95a' : '#8fd0e0');
+      SFX.play('evolve');
+      this.player.itemHold = 1.4; this.player.itemHoldName = (DATA.ITEMS[newId] || {}).name || newId; this.player.itemHoldQuote = misread ? 'the machine sees what it sees' : 'a completely different picture of the same you';
+    });
+    document.getElementById('bScanBack').onclick = () => { SFX.play('ui'); this.hideOverlay(); this.state = 'run'; };
+  },
+  /* Full re-intake: fresh chart, same person. Mirrors beginRun's pipeline exactly,
+     with the item list swapped. Temporal effects (samples, boons, deals) don't re-image. */
+  rebuildPlayer(newItems) {
+    const o = this.player;
+    const np = new Player(o.baseDiag, o.variant);
+    np.x = o.x; np.y = o.y; np.aimAng = o.aimAng;
+    if (o.baseDiag === 'undiag' && o.diag !== np.diag) { try { np.rediagnose(o.diag); } catch (e) { } }
+    this.applyCodexPerks(np);
+    this.applyPrognosis(np);
+    if (this.protocol === 'waitingroom') { np.maxhp = 2; np.hp = 2; np.flags.noHeal = true; }
+    this.applyTalents(np);
+    this.applyFacility(np);
+    // carries land AFTER intake so talent grants (random trinket, floor pill) can't overwrite them
+    np.coins = o.coins; np.keys = o.keys; np.bombs = o.bombs; np.coupons = o.coupons;
+    np.pill = o.pill; np.trinket = o.trinket;
+    np._rosaryUsed = o._rosaryUsed; np._wiseUsed = o._wiseUsed;
+    np.pet = o.pet; np.pet2 = o.pet2;
+    np.pillsThisFloor = o.pillsThisFloor;
+    np.sampleFx = o.sampleFx;
+    np.sleep = o.sleep; np.battery = o.battery; np.compulsion = o.compulsion;
+    np._scar = o._scar; np._recRooms = o._recRooms; np.season = o.season;
+    const preGranted = np.items.slice();   // whatever intake already applied (base rx, talent grants)
+    for (const id of newItems) {
+      const ix = preGranted.indexOf(id);
+      if (ix >= 0) { preGranted.splice(ix, 1); continue; }
+      np.addItem(id, this, true);
+    }
+    np.comorbidities = [];
+    for (const cid of (o.comorbidities || [])) {
+      const c = DATA.COMORBIDITIES.find(x => x.id === cid);
+      if (c) { np.comorbidities.push(cid); try { c.apply(np); } catch (e) { } }
+    }
+    for (const s of DATA.COMORBID_SYNERGY) if (s.need.every(n => np.comorbidities.includes(n))) { try { s.apply(np); } catch (e) { } }
+    this.applyTrialFx(np);   // the compound is in your blood, not your chart
+    np.allies = [];
+    for (const a of (o.allies || [])) { try { np.recruitAlly(null, a.id); } catch (e) { } }
+    np.hp = Math.min(o.hp, np.maxhp);
+    this.player = np;
+  },
+
+  /* ---------- THE CLINICAL TRIAL (double-blind; the blind part is you) ---------- */
+  showTrialOffer() {
+    this.state = 'trialoffer';
+    const code = 'EGS-' + (1000 + U.randi(0, 8999));
+    this._trialCode = code;
+    this.overlay(`
+      <div class="panel">
+        <h1 class="logo" style="font-size:24px">CLINICAL TRIAL ${code}</h1>
+        <div class="tagline">“a once-in-a-run opportunity to advance science (mine)” — the Drug Rep</div>
+        <div class="rx">
+          <div class="stamp">CONSENT</div>
+          <h2>The Experimental Compound</h2>
+          <div class="sub">phase II · randomized · double-blind · catered (there was a sandwich, once)</div>
+          <div class="mech">Enroll and receive <b>an unknown investigational compound</b>, effective immediately. Its effects — if any — are <b>revealed one per ward</b> as the data comes in. Debrief and full payment after <b>3 wards</b> of observation.</div>
+          <div class="presc">Enrollment stipend: +5¢ now · debrief pays +15¢ and +8 ◆ Insight, results regardless</div>
+        </div>
+        <div class="smallprint">Some participants receive the placebo. The placebo group is paid the same and told at debrief. Side effects may include: a side effect. Temporal findings (samples, boons, handshake deals) are not the study's problem.</div>
+        <button class="btn" id="bTrialYes">SIGN — “what's the worst it could confirm”</button>
+        <button class="btn minor" id="bTrialNo">DECLINE — just browse the free samples</button>
+      </div>`);
+    document.getElementById('bTrialYes').onclick = () => {
+      const real = !U.chance(0.35);
+      const buffs = U.shuffle(DATA.TRIAL_FX.slice()).slice(0, 2).map(f => f.id);
+      const side = U.choice(DATA.SAMPLE_FX).id;
+      this.trial = { code, real, fx: buffs.concat([side]), revealed: 0, startDepth: this.depth, doneAt: this.depth + 3, done: false };
+      const p = this.player;
+      p.coins += 5;
+      if (real) this.applyTrialFx(p);
+      Meta.data.trialsJoined = (Meta.data.trialsJoined || 0) + 1; Meta.save();
+      this.diaryNote('Enrolled in trial ' + code + '. Signed everything. Felt something immediately, or believed I did — the study says those are the same thing for now.');
+      this.hideOverlay(); this.state = 'run';
+      this.toast('ENROLLED — ' + code + '. The compound is in. The data begins.', '#8fd08a');
+      SFX.play('item');
+    };
+    document.getElementById('bTrialNo').onclick = () => {
+      this._trialDeclined = true;
+      this.hideOverlay(); this.state = 'run';
+      this.toast('“Totally fine! The control group also gets a mug. There is no mug.”', '#8fd08a');
+      SFX.play('ui');
+    };
+  },
+  applyTrialFx(p) {   // idempotent per call site: used at enrollment and by THE SCANNER's rebuild
+    if (!this.trial || !this.trial.real) return;
+    for (const id of this.trial.fx) {
+      const f = DATA.TRIAL_FX.find(x => x.id === id) || DATA.SAMPLE_FX.find(x => x.id === id);
+      if (f) { try { f.apply(p, this); } catch (e) { } }
+    }
+  },
+  trialFloorTick() {   // called from newFloor: weekly findings, then the debrief
+    const T = this.trial;
+    if (!T || T.done) return;
+    const week = this.depth - T.startDepth;
+    if (week <= 0 || week === T.lastWeek) return;   // one finding per ward, even if the ward gets rebuilt
+    T.lastWeek = week;
+    if (this.depth >= T.doneAt) { this.showTrialDebrief(); return; }
+    if (T.revealed < T.fx.length) {
+      const id = T.fx[T.revealed]; T.revealed++;
+      const f = DATA.TRIAL_FX.find(x => x.id === id) || DATA.SAMPLE_FX.find(x => x.id === id);
+      const line = T.real
+        ? '“WEEK ' + week + ' FINDINGS (' + T.code + '): ' + (f ? f.name : '?') + ' — confirmed (n=you).”'
+        : U.choice(['“WEEK ' + week + ' (' + T.code + '): subjects report feeling different. The control group also reports this.”',
+                    '“WEEK ' + week + ' (' + T.code + '): no adverse events. No events at all, really.”',
+                    '“WEEK ' + week + ' (' + T.code + '): results within expected margins. The margins are generous.”']);
+      this.toast(line, T.real ? '#8fd08a' : '#c8b8d8');
+      SFX.play('paper');
+    }
+  },
+  showTrialDebrief() {
+    const T = this.trial; if (!T) return;
+    T.done = true;
+    this.state = 'trialdebrief';
+    const p = this.player;
+    p.coins += 15;
+    Meta.data.insight = (Meta.data.insight || 0) + 8;
+    let unblind;
+    if (T.real) {
+      const names = T.fx.map(id => ((DATA.TRIAL_FX.find(x => x.id === id) || DATA.SAMPLE_FX.find(x => x.id === id)) || {}).name || id);
+      unblind = `<div class="mech"><b>You received the ACTIVE COMPOUND.</b> Confirmed effects, yours to keep:<br>· ${names.join('<br>· ')}</div>`;
+      this.diaryNote('Trial ' + T.code + ' debrief: it was REAL. I am measurably different and it is on file.');
+    } else {
+      p.luck += 1;
+      Meta.data.placeboDone = (Meta.data.placeboDone || 0) + 1;
+      unblind = `<div class="mech"><b>You received the PLACEBO.</b> Every effect you felt, you supplied personally.<br><br>The study finds this <i>fascinating</i>. +1 luck — belief is apparently a stat.</div>`;
+      this.diaryNote('Trial ' + T.code + ' debrief: it was sugar. I fought three wards on sugar and vibes. Framing this.');
+    }
+    Meta.save();
+    DATA.checkAchievements(Meta.data); Meta.save();
+    this.checkUnlocks();
+    this.overlay(`
+      <div class="panel">
+        <h1 class="logo" style="font-size:24px">TRIAL DEBRIEF — ${T.code}</h1>
+        <div class="tagline">the data is in. you were the data.</div>
+        <div class="rx">
+          <div class="stamp">${T.real ? 'ACTIVE' : 'PLACEBO'}</div>
+          <h2>${T.real ? 'The Compound Was Real' : 'It Was Sugar'}</h2>
+          <div class="sub">observation period complete · 3 wards · compliance: reluctant but total</div>
+          ${unblind}
+          <div class="presc">payment rendered: +15¢ · +8 ◆ Insight · a firm handshake</div>
+        </div>
+        <button class="btn" id="bTrialOk">ACCEPT THE FINDINGS</button>
+      </div>`);
+    document.getElementById('bTrialOk').onclick = () => {
+      this.trial = null;
+      this.hideOverlay(); this.state = 'run';
+      SFX.play('fanfare');
+    };
+  },
+
   /* ---------- THE INTERN (keep them alive three floors and they graduate) ---------- */
   internUpdate(dt) {
     const I = this.intern, p = this.player;
@@ -5878,12 +6122,12 @@ const G = {
   /* ---------- OVERTIME (one room; the ward sends everything; you clock out when you drop) ---------- */
   showOvertime() {
     this.state = 'overtimepick';
-    const order = ['adhd', 'bipolar', 'depression', 'anxiety', 'schizo', 'ocd', 'ptsd', 'insomnia', 'fine', 'undiag', 'burnout', 'seasonal'];
+    const order = ['adhd', 'bipolar', 'depression', 'anxiety', 'schizo', 'ocd', 'ptsd', 'insomnia', 'fine', 'undiag', 'burnout', 'seasonal', 'janitor'];
     const fineOpen = Meta.data.fineSeen || Meta.data.walrusKills > 0;
     const nineDone = order.slice(0, 9).filter(d => (Meta.data.diagsPlayed || {})[d]).length >= 9;
     const burnoutOpen = Object.values(Meta.data.diagBest || {}).filter(v => v >= 10).length >= 3;
     const seasonalOpen = Object.keys(Meta.data.calDays || {}).length >= 4;
-    const unlocked = order.filter(id => !(id === 'fine' && !fineOpen) && !(id === 'undiag' && !nineDone) && !(id === 'burnout' && !burnoutOpen) && !(id === 'seasonal' && !seasonalOpen));
+    const unlocked = order.filter(id => !(id === 'fine' && !fineOpen) && !(id === 'undiag' && !nineDone) && !(id === 'burnout' && !burnoutOpen) && !(id === 'seasonal' && !seasonalOpen) && !(id === 'janitor' && !Meta.data.handoffDone));
     const cards = unlocked.map(id => {
       const D = DATA.DIAG[id];
       return `<button class="cmcard" data-otdiag="${id}"><div class="cmname" style="color:${D.color}">${D.name}</div><div class="cmdesc">${D.short}</div></button>`;
@@ -5948,12 +6192,12 @@ const G = {
   /* ---------- PATIENT TWO (couch co-op: the pad is theirs now) ---------- */
   showP2Pick() {
     this.state = 'p2pick';
-    const order = ['adhd', 'bipolar', 'depression', 'anxiety', 'schizo', 'ocd', 'ptsd', 'insomnia', 'fine', 'undiag', 'burnout', 'seasonal'];
+    const order = ['adhd', 'bipolar', 'depression', 'anxiety', 'schizo', 'ocd', 'ptsd', 'insomnia', 'fine', 'undiag', 'burnout', 'seasonal', 'janitor'];
     const fineOpen = Meta.data.fineSeen || Meta.data.walrusKills > 0;
     const nineDone = order.slice(0, 9).filter(d => (Meta.data.diagsPlayed || {})[d]).length >= 9;
     const burnoutOpen = Object.values(Meta.data.diagBest || {}).filter(v => v >= 10).length >= 3;
     const seasonalOpen = Object.keys(Meta.data.calDays || {}).length >= 4;
-    const unlocked = order.filter(id => !(id === 'fine' && !fineOpen) && !(id === 'undiag' && !nineDone) && !(id === 'burnout' && !burnoutOpen) && !(id === 'seasonal' && !seasonalOpen));
+    const unlocked = order.filter(id => !(id === 'fine' && !fineOpen) && !(id === 'undiag' && !nineDone) && !(id === 'burnout' && !burnoutOpen) && !(id === 'seasonal' && !seasonalOpen) && !(id === 'janitor' && !Meta.data.handoffDone));
     const cards = unlocked.map(id => {
       const D = DATA.DIAG[id];
       return `<button class="cmcard" data-p2diag="${id}"><div class="cmname" style="color:${D.color}">${D.name}</div><div class="cmdesc">${D.short}</div></button>`;
@@ -6536,7 +6780,7 @@ const G = {
   showBestiary(returnTo) {
     this.state = 'bestiary';
     const seen = (Meta.data.seen && Meta.data.seen.bosses) || {};
-    const order = ['gatekeeper', 'larperking', 'adjuster', 'priorauth', 'stigma', 'dsm', 'algorithm', 'influencer', 'peerreview', 'withdrawal', 'burnout', 'merger', 'walrus', 'thecure', 'founder', 'thesystem', 'theboard'];
+    const order = Object.keys(DATA.BOSSES);   // the whole roster, present and future
     const got = order.filter(id => seen[id]).length;
     const cards = order.map(id => {
       const B = DATA.BOSSES[id];

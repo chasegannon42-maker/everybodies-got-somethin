@@ -199,6 +199,9 @@ window.__bot = (function(){
       if(st==='actuary'){ const b=document.getElementById('bActNo'); if(b){b.click(); this.rep.events.push('odds-declined');} return true; }
       if(st==='comorbid'){ const c=document.querySelector('.cmcard'); if(c){c.click(); this.rep.events.push('comorbid');} return true; }
       if(st==='handbook'){ const b=document.getElementById('bHbBack'); if(b){b.click(); this.rep.events.push('handbook-closed');} return true; }
+      if(st==='trialoffer'){ const b=document.getElementById('bTrialYes'); if(b){b.click(); this.rep.events.push('trial-enrolled');} return true; }
+      if(st==='trialdebrief'){ const b=document.getElementById('bTrialOk'); if(b){b.click(); this.rep.events.push('trial-debriefed');} return true; }
+      if(st==='scanner'){ const b=document.getElementById('bScanBack'); if(b){b.click(); this.rep.events.push('scan-declined');} return true; }
       if(st==='cutscene'){ Story.skipScene(); return true; }
       if(st==='event'){ const c=document.querySelector('.cmcard'); if(c){c.click(); this.rep.events.push('event');} else { G.hideOverlay(); G.state='run'; } return true; }
       if(st==='ending'){ const b=document.getElementById('bEndKeep'); if(b){b.click(); this.rep.events.push('ending-keep');} return true; }

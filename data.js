@@ -306,6 +306,15 @@ DATA.DIAG = {
     mech: "THE SEASONS: every ward, your season turns — 🌱 SPRING regenerates you slowly, ☀️ SUMMER sets your tears burning, 🍂 FALL gives them gale-force knockback, ❄️ WINTER chills everything you hit (you idle 5% slower). You check in on whatever season it really is outside. TURN THE PAGE advances it on demand.",
     rx: "gratitude"
   },
+  janitor: {
+    name: "The Janitor",
+    short: "Occupational Exposure (40 yrs)",
+    tag: "the mop knows",
+    color: "#8a7460",
+    blurb: "You took the mop. The intake form has no box for this, so Dr. Walrus wrote 'STAFF?' and billed facilities.",
+    mech: "THE MOP: no tears — hold fire to SWING. Arcs hit hard, wipe enemy shots out of the air, and leave WET FLOOR that slows anyone who walks it. Forty years on shift: +1 heart, +1 Referral, and walls that hide something look… off to you. You walk like a man who has never once run.",
+    rx: null
+  },
   undiag: {
     name: "Undifferentiated",
     short: "Diagnosis Pending (Forever)",
@@ -476,6 +485,10 @@ DATA.ACHIEVEMENTS = [
   { id: 'mentor',     name: "The Mentor",          desc: "Graduate an Intern — three floors, alive.",       hint: "Someone new is checking in on Ward 2. They're terrified.", check: m => !!m.internGrad },
   { id: 'goodFaith',  name: "Bargained in Good Faith", desc: "Settle a union action with severance.",       hint: "When they unionize, you don't HAVE to fight.", check: m => (m.unionsSettled || 0) >= 1 },
   { id: 'volunteer',  name: "Back On Purpose",     desc: "Clear a floor wearing the Volunteer Badge.",      hint: "Your file is closed. Theirs aren't.",       check: m => !!m.everVolunteer },
+  { id: 'holdHung',   name: "Thank You For Holding", desc: "Hang up on THE HOLD.",                          hint: "Ward 7+. Press the number it asks for. Then press harder.", check: m => (m.holdKills || 0) >= 1 },
+  { id: 'sugarPill',  name: "It Was Sugar",        desc: "Complete a Clinical Trial that turns out to be the placebo.", hint: "Enroll with the Drug Rep. Believe hard.", check: m => (m.placeboDone || 0) >= 1 },
+  { id: 'reRead',     name: "Second Read",         desc: "Let THE SCANNER re-interpret a prescription.",    hint: "A rare imaging suite. It sees something different every time.", check: m => (m.scans || 0) >= 1 },
+  { id: 'mopShift',   name: "Second Career",       desc: "Reach Ward 5 as The Janitor.",                    hint: "Finish THE HANDOFF first. Then work the shift you accepted.", check: m => !!m.mopShift },
   { id: 'archivist',  name: "The Archivist",       desc: "Recover all 12 misfiled documents.",              hint: "The building's paperwork surfaces where the mess was.", check: m => Object.keys(m.docs || {}).length >= 12 },
   { id: 'biographer', name: "An Unreliable Narrator", desc: "Fill 10 pages of the Patient Diary.",          hint: "The journal on the coffee table writes itself. About you.", check: m => (m.dayCount || 0) >= 10 },
   { id: 'architect',  name: "Prior Authorization", desc: "Take a Custom Care Plan to ward 5.",              hint: "Design your own complications. Get them approved. Survive them.", check: m => !!m.carePlanDeep },
@@ -621,6 +634,7 @@ DATA.BOSSES = {
   thesystem:  { name: "THE SYSTEM", sub: "“Your call is important to us. Estimated wait: forever.”", hp: 620 },
   theboard:   { name: "THE BOARD", sub: "“All in favor of denying coverage? Motion carries.”", hp: 470 },
   merger:     { name: "THE MERGER", sub: "“Synergy. Efficiencies. Your chart, our brand.”", hp: 430 },
+  thehold:    { name: "THE HOLD", sub: "“Your call is important to us. Estimated wait: 40 minutes.”", hp: 240 },
   walrus:     { name: "DR. WALRUS, M.D.*", sub: "*mail-order", hp: 300 }
 };
 DATA.bossFor = function (depth, lastBoss) {
@@ -633,6 +647,7 @@ DATA.bossFor = function (depth, lastBoss) {
   if (depth >= 3) pool.push('stigma', 'dsm', 'algorithm', 'influencer');
   if (depth >= 4) pool.push('withdrawal', 'burnout');
   if (depth >= 6) pool.push('peerreview');   // by now there's enough of you on file to copy
+  if (depth >= 7) pool.push('thehold');      // deep enough that they stop pretending you'll be seen promptly
   if (depth >= 30) pool.push('merger', 'merger');   // deep wards: the acquisition closed (double weight)
   const filtered = pool.filter(b => b !== lastBoss);
   return U.choice(filtered.length ? filtered : pool);
@@ -964,6 +979,21 @@ DATA.SAMPLE_FX = [
   { id: 'jitters',  name: 'the jitters',         apply: (p) => { p.wobble += 0.03; p.spd *= 1.03; } }
 ];
 
+/* ============ THE CLINICAL TRIAL (experimental compound, double-blind) ============
+   Enroll via the Drug Rep. 3 hidden effects (2 benefits + 1 from SAMPLE_FX),
+   revealed one per descent; the debrief 3 floors in pays out and unblinds.
+   35% of enrollments receive the placebo. The placebo also gets paid. */
+DATA.TRIAL_FX = [
+  { id: 'tdmg',    name: '+22% damage',            apply: p => { p.dmg *= 1.22; } },
+  { id: 'ttears',  name: '+15% fire rate',         apply: p => { p.tearDelay *= 0.85; } },
+  { id: 'tspd',    name: '+12% movement',          apply: p => { p.spd *= 1.12; } },
+  { id: 'thp',     name: '+1 heart',               apply: p => { p.maxhp += 2; p.hp += 2; } },
+  { id: 'trange',  name: '+18% range',             apply: p => { p.range *= 1.18; } },
+  { id: 'tshot',   name: '+15% shot speed',        apply: p => { p.shotSpd *= 1.15; } },
+  { id: 'tluck',   name: '+1.5 luck',              apply: p => { p.luck += 1.5; } },
+  { id: 'tsteady', name: 'steadier hands',         apply: p => { p.wobble = Math.max(0, p.wobble - 0.07); } }
+];
+
 /* ============ FACILITY IMPROVEMENTS (the Wellness Fund) ============
    Leftover run coins are "donated" on discharge. Spend the fund on the
    Waiting Room itself — visible furniture, each with a small standing perk. */
@@ -1028,6 +1058,7 @@ DATA.CODEX_CHART = {
     thesystem: "Not a person. All of it at once — the denials, the pharmacy, the feed. Ward 100. The last argument.",
     theboard: "Three suits, one table, zero patients seen. Waits at the top of the elevator, voting on you.",
     peerreview: "Requested your full file 'for methodology reasons.' Now it moves like you, shoots like you, and cites you against yourself. The healthier you look, the harder it argues.",
+    thehold: "The phone tree, grown to full height. It announces the menu; you stand on the number or you get the consequences. Its options changed recently. They always have.",
     walrus: "Board-certified in Confidence. The doctor will see you now. Forever."
   }
 };
@@ -1070,6 +1101,7 @@ DATA.ABILITIES = {
   insomnia:   { name: "Power Nap", cd: 13, blurb: "Steal forty winks: refill Sleep, heal, and phase out untouchable — but you can't move or fire while you're out." },
   fine:       { name: "Denial", cd: 11, blurb: "\"I'm FINE.\" Briefly refuse to take damage." },
   burnout:    { name: "Clock Out", cd: 9, blurb: "Boundaries, suddenly. The Battery refills to full and nothing can touch you for a breath." },
+  janitor:    { name: "Mop Bucket", cd: 11, blurb: "Dunk and slosh: a wave of wet floor rolls out, washing nearby shots away and slowing everything it touches." },
   seasonal:   { name: "Turn The Page", cd: 13, blurb: "Advance the season NOW — with a burst of the new one's weather." }
 };
 
