@@ -1243,6 +1243,13 @@ class Enemy {
       if (Math.random() < dt * 0.12) G.texts.push(new FloatText(this.x, this.y - this.r - 8, U.choice(['🙂', 'thriving!', 'so well', 'namaste', '(waves)']), '#a8d0a0'));
       return;   // no shooting. no biting. we have a GUEST.
     }
+    // GROUP SESSION: seated, present, working on it — sways gently, harms no one
+    if (this._inSession) {
+      this.x += Math.sin(this.t * 0.9) * 2.4 * dt;
+      this.y += Math.sin(this.t * 1.3 + 1) * 1.8 * dt;
+      if (Math.random() < dt * 0.05) G.texts.push(new FloatText(this.x, this.y - this.r - 8, U.choice(['…', 'mm.', '(nods)', 'same.']), '#a8d0a0'));
+      return;   // no shooting. no biting. the circle is sacred.
+    }
     // INCIDENT SITE guard: dozing at the scene until you get too close
     if (this._asleep) {
       if (U.dist(this.x, this.y, p.x, p.y) < 135) {
@@ -1829,6 +1836,7 @@ class Enemy {
 
   hurt(d, G, quiet) {
     if (this.dying || this.spawnT > 0.3) return;
+    if (this._inSession && G.breakSession) { G.breakSession(); }   // you attacked the CIRCLE
     if (this._asleep) { this._asleep = false; if (G.room) G.room.cleared = false; G.toast('“Oh, we\'re DOING this at a scene.”', '#e0a05a'); SFX.play('boss'); }   // rude awakening
     // THE UNION: an injury to one is routed to the rep (solidarity, structurally)
     if (this._union && !this._unionRep && G._union && G._union.rep && !G._union.rep.dying && d < 9999) {
@@ -1994,17 +2002,28 @@ class Enemy {
       G.texts.push(new FloatText(this.x, this.y - 22, 'it was nothing', '#e8e0f0'));
       SFX.play('pop');
     }
-    // IT REMEMBERS YOU: revenge pays
+    // IT REMEMBERS YOU: revenge pays (settled NAMED grudges pay interest and pass the title to you)
     if (this._nemesis) {
       G.pickups.push(new Pickup('nickel', this.x - 14, this.y));
       G.pickups.push(new Pickup('full', this.x + 14, this.y));
       G.pickups.push(new Pickup('trinket', this.x, this.y - 18));
-      Meta.data.insight = (Meta.data.insight || 0) + 5;
+      const bounty = 5 + Math.min(10, ((this._nemKills || 1) - 1) * 3);   // repeat offenders carry bigger bounties
+      Meta.data.insight = (Meta.data.insight || 0) + bounty;
       Meta.data.revenges = (Meta.data.revenges || 0) + 1;
-      G._goalInsight += 5;
+      G._goalInsight += bounty;
+      if (this._nemName) {
+        for (let i = 0; i < Math.min(4, (this._nemKills || 1)); i++) G.pickups.push(new Pickup('coin', this.x + U.rand(-24, 24), this.y + U.rand(-18, 18)));
+        const hist = Meta.data.nemHistory || (Meta.data.nemHistory = []);
+        hist.push({ name: this._nemName, ward: G.depth });
+        while (hist.length > 6) hist.shift();
+        Meta.data.nemRec = null;   // the ledger closes. a new grudge needs a new death.
+        if (G.diaryNote) G.diaryNote('Settled it with ' + this._nemName + '. The title is mine now. I will not be using it.');
+        G.toast('🩸 GRUDGE SETTLED — ' + this._nemName + ' drops everything, including the title. +◆' + bounty + '.', '#8fd08a');
+      } else {
+        if (G.diaryNote) G.diaryNote('Settled the score with the thing that got me last time. It dropped everything, including the attitude.');
+        G.toast('🩸 GRUDGE SETTLED — +◆' + bounty + ', and it dropped everything.', '#e05a5a');
+      }
       Meta.save();
-      if (G.diaryNote) G.diaryNote('Settled the score with the thing that got me last time. It dropped everything, including the attitude.');
-      G.toast('🩸 GRUDGE SETTLED — +◆5, and it dropped everything.', '#e05a5a');
       SFX.play('fanfare');
       if (G.checkUnlocks) G.checkUnlocks();
     }
@@ -2264,8 +2283,9 @@ function spawnEnemiesForRoom(room, depth, G) {
     const s = U.shuffle(spots).find(sp => !chosen.includes(sp)) || spots[0];
     const ne = new Enemy(G.nemesisId, s.x, s.y, depth, false, hpMult * 2.2, DATA.pickElite(depth));
     ne._nemesis = true; ne.spawnT = 0.8;
+    if (G.nemRec) { ne._nemName = DATA.nemesisDisplay(G.nemRec); ne._nemKills = G.nemRec.kills; }
     G.enemies.push(ne);
-    G.toast('🩸 It remembers you.', '#e05a5a');
+    G.toast(ne._nemName ? ('🩸 ' + ne._nemName + ' has entered the ward. It remembers you.') : '🩸 It remembers you.', '#e05a5a');
     SFX.play('sting');
   }
   // THE COMPLAINT DEPARTMENT: your grievance has been assigned a body

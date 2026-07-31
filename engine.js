@@ -569,6 +569,7 @@ const Input = {
       if (e.repeat) { if (['Space', 'Enter'].includes(e.code)) e.preventDefault(); return; }
       this.keys[e.code] = true;
       if (e.code === 'KeyQ') this._edge.pill = true;
+      if (e.code === 'KeyT') this._edge.portal = true;
       if (e.code === 'KeyE') this._edge.bomb = true;
       if (e.code === 'KeyP' || e.code === 'Escape') this._edge.pause = true;
       if (e.code === 'Enter' || e.code === 'Space') this._edge.confirm = true;

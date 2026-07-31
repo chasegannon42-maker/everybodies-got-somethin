@@ -702,6 +702,80 @@ DATA.bossFor = function (depth, lastBoss) {
   return U.choice(filtered.length ? filtered : pool);
 };
 
+/* ============ GROUP SESSION (the circle room — the symptoms sit down) ============ */
+DATA.SESSION2 = {
+  facIntro: [
+    '“Welcome. Chairs are for everyone. That is the entire rulebook.”',
+    '“Take a seat. We were just getting to the hard part. It is all the hard part.”',
+    '“Nobody fixes anybody today. We sit in it together. That is the treatment.”'
+  ],
+  shares: {
+    doubt: '“I don\'t think I\'m a real symptom. But doubting that is also a symptom. There\'s no way out of this chart.”',
+    redflag: '“Everyone says they saw me coming. Nobody ever says they stayed.”',
+    scroller: '“I was present for four hundred things today. I felt none of them. I have the screenshots.”',
+    notif: '“I just want to be acknowledged. Marked as read, even. Even that.”',
+    spiral: '“It starts as one small thought. Three laps later it has furniture and a lease.”',
+    fog: '“I lost my train of— I had something for this. It was… no. It\'s gone. It was about being gone.”',
+    enabler: '“I tell everyone they\'re doing amazing. Nobody has ever once asked how I\'m doing. Which is fine. Which is what I would say either way.”',
+    larper: '“I read one article and built a whole personality on it. I\'m afraid to break character. There is no understudy.”',
+    deadline: '“I was due yesterday. I am always due yesterday. I have never once been due tomorrow.”',
+    comparison: '“Every time one of you gets better, I get worse. I\'m so proud of you. It\'s ruining me.”',
+    generic: '“Mine doesn\'t have a name. It\'s not trending. It\'s just mine. I didn\'t want to be the empty chair.”'
+  },
+  responses: [
+    { id: 'validate', label: 'VALIDATE — “That sounds really hard.”' },
+    { id: 'deflect', label: 'DEFLECT — “Anyway. Weather\'s been weird.”' },
+    { id: 'overshare', label: 'OVERSHARE — “That actually reminds me of me.”' }
+  ],
+  reactValidate: ['The circle nods. Something in the room unclenches.', 'A long exhale from a creature with no visible lungs.', 'Someone whispers “same.” It helps. It always helps.'],
+  reactDeflect: ['A pause. A folding chair creaks in the exact key of disappointment.', 'The facilitator writes something down without looking away from you.', 'The weather has, in fairness, been weird.'],
+  reactOvershare: ['You talk for a while. The room listens, because that is the rule.', 'Halfway through, you realize you are crying. Nobody minds. That is also the rule.', 'The original sharer pats your arm. This was their moment. They gave it to you.'],
+  outcomes: {
+    validate: 'The one who shared waits for you by the door. “Nobody ever just… believed me before.” THEY JOIN YOU.',
+    deflect: 'You kept every wall intact. The facilitator calls it “boundaries” with professional generosity. +damage: the walls are load-bearing.',
+    overshare: 'The group spends the whole session on you. You leave heavier and lighter at once. +1 heart container. The others file out without making eye contact.',
+    mixed: 'Nobody is fixed. Everybody was heard. The facilitator marks it a success, because it was. +◆ Insight.'
+  },
+  breakLine: '“We do NOT do that in the circle,” the facilitator says, already leaving. The circle stands up.'
+};
+
+/* ============ THE PATIENT PORTAL (in-run phone; 2 logins per ward) ============ */
+DATA.PORTAL = {
+  loginLines: [
+    'Welcome back. Password requirements changed while you were typing.',
+    'Your session expired while this page was loading.',
+    'For your security, we no longer recognize you.',
+    'Two-factor authentication: factor two is a feeling.'
+  ],
+  lockedLine: 'SESSION LIMIT REACHED — the portal allows two logins per ward. Checking more is a symptom.',
+  resultsReady: 'Your results are ready.',
+  resultsPending: 'Results pending. Results have been pending. Results will have been pending.',
+  messages: [
+    { id: 'sleep', label: '“I still can\'t sleep.”', reply: 'Care team: “Thank you for reaching out. Have you tried resting? A comfort measure has been applied to your chart.”', boon: 'heal' },
+    { id: 'bills', label: '“These bills are wrong.”', reply: 'Billing: “Upon review, a courtesy adjustment has been issued. The bills were correct. The adjustment is also correct.”', boon: 'coins' },
+    { id: 'goose', label: '“There is a goose in the building.”', reply: 'Facilities: “We are aware of the goose. The goose predates this office. Do not engage the goose. Enclosed: something it dropped.”', boon: 'luck' }
+  ],
+  replyLeadIn: 'PORTAL — one (1) new message:',
+  refillBlurb: 'Mail-order refill: 6¢, arrives in two rooms, crushed but functional.',
+  disputeWin: 'DISPUTE RESOLVED IN YOUR FAVOR. This has never happened before. Enclosed: 5¢ and our confusion.',
+  disputeLose: 'DISPUTE DENIED. The charge stands. The charge has always stood. The charge will outlive us all.'
+};
+
+/* ============ THE NEMESIS LEDGER (champions who got you earn a name) ============ */
+DATA.NEMESIS_NAMES = ['GREGORY', 'DEBORAH', 'TODD', 'MARGARET', 'KEVIN', 'LINDA', 'DUANE', 'PATRICIA', 'BRENT', 'CAROL', 'DENNIS', 'JANICE', 'EUGENE', 'GLENDA', 'MARVIN', 'SHIRLEY', 'CLIFFORD', 'PAULA', 'VERNON', 'RHONDA', 'STANLEY', 'DOREEN', 'GARY', 'PHYLLIS'];
+DATA.NEMESIS_TITLES = [
+  'Who Waited', 'Of Ward {W}', 'Who Was Almost Discharged', 'The Twice-Filed',
+  'Who Never Got A Room', 'Whose Claim Is Still Open', 'Who Read The Whole Handbook',
+  'The Pre-Existing', 'Who Signed Nothing', 'Of The Night Shift',
+  'Who Was Told To Breathe', 'The Formerly Fine', 'Who Kept The Receipt', 'Who Saw You First'
+];
+DATA.NEMESIS_RANKS = ['', 'THE RECURRING ', 'CHRONIC ', 'THE DOCUMENTED ', 'TENURED '];   // prefix by repeat kills (capped)
+DATA.nemesisDisplay = function (rec) {
+  if (!rec) return '';
+  const rank = DATA.NEMESIS_RANKS[Math.min(rec.kills - 1, DATA.NEMESIS_RANKS.length - 1)] || '';
+  return rank + rec.name + ', ' + rec.title.replace('{W}', String(rec.ward || '?'));
+};
+
 /* ============ DAILY HOUSE RULES (same rules for everyone, posted at the door) ============ */
 DATA.HOUSE_RULES = [
   { id: 'brokenCoolers', icon: '🚱', name: 'Coolers out of order', desc: 'Day Room water coolers heal nothing today' },

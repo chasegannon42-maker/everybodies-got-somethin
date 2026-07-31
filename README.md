@@ -281,6 +281,21 @@ keyboard and mouse.
 - **🎡 WHEEL OF APPEALS** — a commissary machine: 6¢ a spin to appeal one active negative — debt
   interest, a sample side effect, a ward condition. Lands on OVERTURNED or DENIED (the wheel
   sulks until the next ward). A bureaucratic slot machine.
+- **🩸 THE NEMESIS LEDGER** — whatever kills you gets a NAME ("GREGORY, Who Waited") and
+  comes back next run wearing a champion's aura, hunting you specifically. Repeat offenders earn
+  ranks — THE RECURRING, CHRONIC, TENURED — and bigger bounties. Settle it and the title is yours.
+- **🛗 THE ELEVATOR** — some trapdoors have a CAR in them today: ride free to the next ward,
+  pay 4¢ for THE MEZZANINE (a between-floors shelf and a working cooler), or 10¢ for EXPRESS
+  past an entire ward. Sometimes the doors open mid-ride and someone gets on — a patient, a
+  vendor, the goose. Nobody talks. The muzak is load-bearing.
+- **📱 THE PATIENT PORTAL** — your phone works in here (T, two logins per ward): RESULTS
+  reveals ward intel, MESSAGES reach your care team (replies arrive one room later, with
+  enclosures), BILLING shows the running statement and takes one dispute per admission, and
+  REFILLS mail-orders a med you already own. Password requirements have changed.
+- **🪑 GROUP SESSION** — some wards circle the folding chairs and the symptoms SIT DOWN.
+  Take the open chair; VALIDATE, DEFLECT, or OVERSHARE across three rounds of sharing. Someone
+  might leave with you. You might just leave heavier and lighter at once. Attacking the circle
+  is remembered.
 - **📣 THE WELLNESS SEMINAR** — a boss (Ward 10+): mandatory attendance. The arena fills
   with folding chairs (cover — they block its fire for three hits, then fold), it pitches from
   a flip chart while an AUDIENCE MOOD meter watches, participation zones demand your literal
@@ -304,7 +319,7 @@ keyboard and mouse.
   into five tabs. **PLAY**: sandbox any patient at any ward with loadout presets (kitted, glass
   cannon, tank, or hand-picked meds) — the save is snapshot-frozen throughout. **BOSS LAB**:
   rehearse any boss at any depth with any champion affix, SECOND SHIFT, or a Joint-Commission
-  partner. **TRIGGERS**: a 41-scenario jumper that drops you straight into any special encounter
+  partner. **TRIGGERS**: a 45-scenario jumper that drops you straight into any special encounter
   (rival races, the INSPECTION, heists, the Annex, Casual Friday…) pre-armed, no RNG. **DESIGNER**:
   the room editor with templates, undo, mirror, flood-fill, boss placement, playtest conditions
   (night/heat/wing), a named room library, and `EGSROOM` share codes. **TOOLS**: god mode, debug
