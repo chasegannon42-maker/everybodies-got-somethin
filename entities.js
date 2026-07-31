@@ -290,6 +290,11 @@ class Player {
     if (diagId === 'ptsd') { this.maxhp = 6; this.hp = 6; this.iframeTime = 1.4; }   // hypervigilant; a hit lingers longer
     if (diagId === 'insomnia') { this.maxhp = 6; this.hp = 6; }   // you don't run on hearts, you run on Sleep
     if (diagId === 'fine') { this.flags.fineMode = true; }
+    if (diagId === 'seasonal') {   // THE SEASONS: start on whatever it really is outside
+      const mo = new Date().getMonth();
+      this.season = mo >= 2 && mo <= 4 ? 0 : mo >= 5 && mo <= 7 ? 1 : mo >= 8 && mo <= 10 ? 2 : 3;   // 0 spring 1 summer 2 fall 3 winter
+      this._regenT = 0;
+    }
     this.baseDiag = diagId;   // the Undiagnosed keeps 'undiag' here while p.diag swaps per floor
     // Second Opinion overrides — one strong rule-flip each, applied over the base kit
     if (this.variant) {
@@ -300,6 +305,7 @@ class Player {
       if (diagId === 'ptsd') { this._scar = 0; }                                               // SCAR TISSUE
       if (diagId === 'insomnia') { this.sleep = 0; this.wired = true; this.espT = 0; this.abil = { name: 'Espresso', cd: 9, blurb: 'Knock one back: a hard burst of speed and every nearby shot fizzles. Sleep remains cancelled.' }; this.abilMax = 9; }   // ALL-NIGHTER
       if (diagId === 'fine') { this._recRooms = 0; this.flags.recovery = true; }               // IN RECOVERY
+      if (diagId === 'seasonal') { this._seasonLock = true; }                                  // CLIMATE CONTROLLED: sealed in, at 150%
     }
     const D = DATA.DIAG[diagId];
     if (D && D.rx) this.addItem(D.rx, null, true);
@@ -364,6 +370,7 @@ class Player {
     if (this.tempSlow > 0) s *= 0.6;
     if (this.inZoneSlow) s *= 0.62;
     if (this.cocoonT > 0) s *= 0.4;   // Under The Covers
+    if (this.diag === 'seasonal' && this.season === 3) s *= 0.95;   // ❄️ winter: the joints know
     if (G && G.rapidMods) s *= G.rapidMods.spd;   // Rapid Cycling
     return s;
   }
@@ -444,6 +451,23 @@ class Player {
         for (let i = 0; i < 6; i++) G.parts.push(new Particle(this.x + U.rand(-14, 14), this.y - 8 - i * 5, U.rand(-8, 8), -26, 1.0, '#7fd4c8', 3));
         break;
       }
+      case 'seasonal': {   // Turn The Page — the season advances NOW, with weather
+        if (!this._seasonLock) this.season = (this.season + 1) % 4;
+        const SN = ['🌱 SPRING', '☀️ SUMMER', '🍂 FALL', '❄️ WINTER'][this.season];
+        const mul = this._seasonLock ? 1.5 : 1;
+        if (this.season === 0) { this.heal(2 * mul); }
+        else if (this.season === 1) {   // a burning nova
+          for (let i = 0; i < 8; i++) { const a = (i / 8) * TAU; const t = new Tear(this.x, this.y, Math.cos(a) * 360, Math.sin(a) * 360, this.effDmg() * 0.8 * mul, 0.55, false); t._season = 1; G.tears.push(t); }
+        } else if (this.season === 2) {   // gale: shove the whole room
+          for (const e of G.enemies) { if (e.dying || e.fake) continue; const a = U.ang(this.x, this.y, e.x, e.y); const push = 130 * mul; e.x = U.clamp(e.x + Math.cos(a) * push, RX + e.r, RX + RW - e.r); e.y = U.clamp(e.y + Math.sin(a) * push, RY + e.r, RY + RH - e.r); }
+          for (const b of G.eBullets) if (!b.dead && U.dist(this.x, this.y, b.x, b.y) < 180) b.dead = true;
+        } else {   // deep chill
+          for (const e of G.enemies) { if (e.dying || e.fake) continue; if (U.dist(this.x, this.y, e.x, e.y) < 200) { e._chill = 3; e._chillT = 1.2; } }
+        }
+        G.toast(SN + (this._seasonLock ? ' intensifies. The thermostat obeys.' : ' arrives, on demand.'), '#7ab86a');
+        SFX.play('whoosh');
+        break;
+      }
       case 'burnout': {   // Clock Out — boundaries, suddenly
         this.battery = 100;
         this.iframes = Math.max(this.iframes, 1.0);
@@ -477,6 +501,7 @@ class Player {
     if (this.diag === 'insomnia' && this.wired) d *= 1.4;   // WIRED: sleep-deprived and dangerous
     if (this.diag === 'burnout') d *= this.battery > 75 ? 1.3 : this.battery < 25 ? 0.55 : 1;   // OVERDRIVE or fumes
     if (this.flags.otForm && this.hp <= this.maxhp / 2) d *= 1.25;   // Overtime Authorization: desperation, notarized
+    if (this.diag === 'seasonal' && this.season === 1) d *= this._seasonLock ? 1.3 : 1.15;   // ☀️ summer runs hot
     if (G && G.rapidMods) d *= G.rapidMods.dmg;   // Rapid Cycling
     return d;
   }
@@ -496,6 +521,11 @@ class Player {
     this.iframes -= dt; this.hurtFlash -= dt; this.itemHold -= dt;
     this.tempSlow -= dt; this.tearTimer -= dt;
     if (this._courageT > 0) { this._courageT -= dt; if (this._courageT <= 0) { this.dmg = Math.max(0.5, this.dmg - 0.8); if (G.toast) G.toast('The courage wears off. The grape lingers.', '#b8a0c8'); } }
+    // 🌱 SPRING: things grow back (Seasonal Affective)
+    if (this.diag === 'seasonal' && this.season === 0 && this.hp < this.maxhp) {
+      this._regenT = (this._regenT || 0) + dt;
+      if (this._regenT >= (this._seasonLock ? 7 : 11)) { this._regenT = 0; this.heal(1); if (G.texts) G.texts.push(new FloatText(this.x, this.y - 24, '🌱 +♥', '#8fd08a')); }
+    }
     if (this.abilCd > 0) this.abilCd -= dt * (this.trinket === 'fidgetcube' ? 1.25 : 1);   // the cube keeps your hands busy
     // Burnout: THE BATTERY — moving drains, stillness restores
     if (this.diag === 'burnout') {
@@ -681,6 +711,7 @@ class Player {
         const svx = Math.cos(sh.a) * this.shotSpd * spdMul + mv.x * this.effSpd() * mvBoost;
         const svy = Math.sin(sh.a) * this.shotSpd * spdMul + mv.y * this.effSpd() * mvBoost;
         const tear = new Tear(this.x + Math.cos(sh.a) * 12, this.y + Math.sin(sh.a) * 12 - 6, svx, svy, this.effDmg() * sh.s, this.range * (this.trinket === 'spareglasses' ? 1.15 : 1), big);
+        if (this.diag === 'seasonal') { tear._season = this.season; tear._seasonMul = this._seasonLock ? 1.5 : 1; }   // the weather rides along
         if (this.flags.homingTears) tear.home = 2.2;   // rumination: the tears can't let go
         if (this.flags.spiralTears) tear._spiral = 2.7;         // Spiral Thoughts
         if (this.flags.pierceTears) tear._pierce = 3 + (this._pierceAdd || 0);           // Radical Honesty (+ Open Book)
@@ -889,6 +920,13 @@ class Tear {
         // status effects — the compress, the report, the thought
         if (G.player.flags.chillTears && !e.fake) { e._chill = Math.min(4, (e._chill || 0) + 1); e._chillT = 1.4; }
         if (G.player.flags.burnTears && !e.fake && U.chance(G.player.flags.synArson ? 0.45 : 0.25)) { e._burn = 3; e._burnDps = Math.max(0.6, G.player.dmg * 0.5) * (G.player.flags.synShock && e._chill > 0 ? 1.5 : 1); }
+        // SEASONAL AFFECTIVE: the weather rides every tear
+        if (this._season != null && !e.fake) {
+          const sm = this._seasonMul || 1;
+          if (this._season === 1 && U.chance(0.25 * sm)) { e._burn = 2.5; e._burnDps = Math.max(0.6, G.player.dmg * 0.4) * sm; }         // ☀️
+          else if (this._season === 2) { const ka = Math.atan2(this.vy, this.vx); const push = 34 * sm; e.x = U.clamp(e.x + Math.cos(ka) * push, RX + e.r, RX + RW - e.r); e.y = U.clamp(e.y + Math.sin(ka) * push, RY + e.r, RY + RH - e.r); }   // 🍂
+          else if (this._season === 3 && U.chance(0.5 * sm)) { e._chill = Math.min(3, (e._chill || 0) + 1); e._chillT = 1.2; }           // ❄️
+        }
         // Peer Support: a chance the shot recruits them to the group instead of just hurting (the Auditor is unrecruitable)
         if (G.player.flags.charm && !e.fake && !e.dying && e.hp > 0 && e.id !== 'auditor' && U.chance(G.player.flags.synHouse ? 0.26 : 0.16)) {
           e.charmed = true; e.charmIdleT = 0; e.hp = Math.max(e.hp, e.maxhp * 0.5);

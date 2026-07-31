@@ -95,6 +95,17 @@ keyboard and mouse.
 - **📋 Patient Chart** — a codex of every patient, boss, med, and pill you've met; completing a
   tab pays out a permanent perk. **📊 Run History** keeps your real win-rate receipts, and a
   **speedrun timer with splits** is one Settings toggle away.
+- **🚑 The Walk-In Clinic** — a 5-minute appointment mode: one compact ward, one manager,
+  automatic discharge with an itemized bill and a best-time board. Under 4:00 earns *In And Out*.
+- **🍂 SEASONAL AFFECTIVE** — a 12th playable character whose kit rotates with the seasons every
+  ward: Spring regenerates, Summer burns, Fall blows everything backward, Winter chills what you
+  hit. Starts on whatever season it really is outside; TURN THE PAGE advances it on demand. The
+  Second Opinion locks your real season in at 150%. Unlocked by checking in on 4 different weekdays.
+- **🌤 The Roof** — a service ladder appears rarely past Ward 6: up top is actual sky, the
+  janitor's tomato garden, the pigeon's nest (bring your pigeon), and a railing where you can see
+  your house from here. Full heal. No combat. Nobody bills the sun.
+- **📞 The Payphone** — 1¢ a call: MOM (heal + guilt-fueled damage), WORK (why did you call work),
+  YOUR SPONSOR (lifts a ward side-effect), or MISDIAL (genuinely anything).
 - **🗄 The Records Room** — a stealth heist: three patrols sweep flashlight cones through the
   filing stacks. Slip the aisles unseen and steal your ORIGINAL intake file (page one says
   "trouble sleeping" — that was the whole complaint), or get FLAGGED and fight the records

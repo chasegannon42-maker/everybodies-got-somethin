@@ -1500,6 +1500,42 @@ const Render = {
       ctx.fillStyle = lg; ctx.beginPath(); ctx.arc(cx, cy - 40, 260, 0, TAU); ctx.fill();
     }
 
+    // THE ROOF: actual sky, the garden, the nest — the one serene place
+    if (G.room && G.room._roof) {
+      // sky where the wall would be
+      const sky = ctx.createLinearGradient(0, 40, 0, RY + 30);
+      sky.addColorStop(0, '#8fc4e8'); sky.addColorStop(1, '#cfe4ee');
+      ctx.fillStyle = sky; ctx.fillRect(0, 36, CW, RY - 20);
+      ctx.fillStyle = 'rgba(255,244,200,0.95)'; ctx.beginPath(); ctx.arc(CW * 0.8, 74, 26, 0, TAU); ctx.fill();   // the sun, unbilled
+      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      for (let i = 0; i < 3; i++) {
+        const cx2 = ((G.t * (8 + i * 4) + i * 320) % (CW + 160)) - 80, cy2 = 62 + i * 20;
+        ctx.beginPath(); ctx.ellipse(cx2, cy2, 34, 10, 0, 0, TAU); ctx.ellipse(cx2 + 24, cy2 + 4, 24, 8, 0, 0, TAU); ctx.fill();
+      }
+      // skyline silhouette (your house is in there somewhere)
+      ctx.fillStyle = 'rgba(90,100,120,0.55)';
+      for (let b = 0; b < 12; b++) { const bx = b * 84, bh = 24 + ((b * 37) % 42); ctx.fillRect(bx, RY + 10 - bh, 64, bh); }
+      ctx.fillStyle = 'rgba(232,200,76,0.5)';
+      for (let b = 0; b < 12; b++) for (let w = 0; w < 3; w++) if ((b * 7 + w) % 3 === 0) ctx.fillRect(b * 84 + 10 + w * 16, RY - 10 - ((b * 37) % 30), 6, 7);
+      // AC units + duct
+      for (const [ax, ay] of [[RX + 60, RY + 60], [RX + RW - 160, RY + RH - 120]]) {
+        ctx.fillStyle = '#9aa2ac'; this.rr(ctx, ax, ay, 74, 46, 5); ctx.fill();
+        ctx.strokeStyle = '#6a727c'; ctx.lineWidth = 2; this.rr(ctx, ax, ay, 74, 46, 5); ctx.stroke();
+        ctx.save(); ctx.translate(ax + 37, ay + 23); ctx.rotate(G.t * 3.5);
+        ctx.strokeStyle = '#4a525c'; ctx.lineWidth = 3;
+        for (let f = 0; f < 3; f++) { ctx.rotate(TAU / 3); ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(12, 0); ctx.stroke(); }
+        ctx.restore();
+      }
+      // the tomato planter
+      ctx.fillStyle = '#7a5a38'; this.rr(ctx, RX + 96, RY + RH - 96, 180, 34, 5); ctx.fill();
+      ctx.fillStyle = '#4a3a26'; this.rr(ctx, RX + 100, RY + RH - 92, 172, 12, 4); ctx.fill();
+      ctx.strokeStyle = '#4a7a42'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+      for (let v = 0; v < 4; v++) {
+        const vx = RX + 118 + v * 46;
+        ctx.beginPath(); ctx.moveTo(vx, RY + RH - 88); ctx.quadraticCurveTo(vx + Math.sin(G.t + v) * 4, RY + RH - 116, vx + 6, RY + RH - 132); ctx.stroke();
+      }
+      ctx.lineCap = 'butt';
+    }
     // THE RECORDS ROOM: patrols with flashlight cones (until it goes loud)
     if (G.room && G.room.type === 'records' && G.room._heist && !G.room._heist.alertedFight && !G.room._heist.stolen) {
       for (const g of G.room._heist.guards) {
@@ -1885,6 +1921,64 @@ const Render = {
         ctx.fillText('FREE SAMPLES', ped.x, ped.y - 34);
         continue;
       }
+      if (ped.kind === 'payphone') {   // exact change, one feeling at a time
+        this.shadow(ped.x, ped.y + 24, 16, 5, 0.22);
+        ctx.save(); ctx.translate(ped.x, ped.y);
+        ctx.fillStyle = '#3a5a8a'; this.rr(ctx, -16, -30, 32, 52, 5); ctx.fill();   // the housing
+        ctx.strokeStyle = '#243a5c'; ctx.lineWidth = 2.5; this.rr(ctx, -16, -30, 32, 52, 5); ctx.stroke();
+        ctx.fillStyle = '#1c1822'; this.rr(ctx, -10, -24, 20, 14, 2); ctx.fill();   // instruction card, unreadable
+        ctx.fillStyle = '#8a929c'; this.rr(ctx, -12, -6, 10, 22, 3); ctx.fill();    // the handset
+        ctx.strokeStyle = '#4a525c'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(-7, 16); ctx.quadraticCurveTo(-2 + Math.sin(G.t * 2) * 2, 24, 4, 18); ctx.stroke();   // the cord
+        ctx.fillStyle = '#c8ccd4';   // keypad
+        for (let r2 = 0; r2 < 3; r2++) for (let c2 = 0; c2 < 3; c2++) this.rr(ctx, 1 + c2 * 5, -4 + r2 * 5.5, 4, 4, 1), ctx.fill();
+        ctx.fillStyle = '#e8c84c'; this.rr(ctx, 4, 14, 9, 3.5, 1.5); ctx.fill();    // coin slot
+        ctx.restore();
+        ctx.fillStyle = '#8fa8c8'; ctx.font = this.font(10, true); ctx.textAlign = 'center';
+        ctx.fillText('📞 PAYPHONE', ped.x, ped.y - 40);
+        if (U.dist(G.player.x, G.player.y, ped.x, ped.y) < 80) { ctx.fillStyle = '#e8c84c'; ctx.font = this.font(10, true); ctx.fillText('1¢ · it still works', ped.x, ped.y + 40); }
+        continue;
+      }
+      if (ped.kind === 'roofladder') {   // it goes UP. nothing here goes up.
+        const gl3 = ctx.createRadialGradient(ped.x, ped.y - 20, 6, ped.x, ped.y - 20, 60);
+        gl3.addColorStop(0, 'rgba(143,208,224,0.3)'); gl3.addColorStop(1, 'rgba(143,208,224,0)');
+        ctx.fillStyle = gl3; ctx.beginPath(); ctx.arc(ped.x, ped.y - 20, 60, 0, TAU); ctx.fill();
+        ctx.strokeStyle = '#8a8e96'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(ped.x - 12, ped.y + 26); ctx.lineTo(ped.x - 12, ped.y - 46); ctx.moveTo(ped.x + 12, ped.y + 26); ctx.lineTo(ped.x + 12, ped.y - 46); ctx.stroke();
+        ctx.lineWidth = 3;
+        for (let rr2 = 0; rr2 < 5; rr2++) { ctx.beginPath(); ctx.moveTo(ped.x - 12, ped.y + 16 - rr2 * 15); ctx.lineTo(ped.x + 12, ped.y + 16 - rr2 * 15); ctx.stroke(); }
+        ctx.lineCap = 'butt';
+        ctx.fillStyle = '#8fd0e0'; ctx.font = this.font(10, true); ctx.textAlign = 'center';
+        ctx.fillText('🪜 THE ROOF', ped.x, ped.y - 56);
+        continue;
+      }
+      if (ped.kind === 'roofexit') {   // the ladder down, hatch open
+        ctx.fillStyle = '#3a3844'; ctx.beginPath(); ctx.ellipse(ped.x, ped.y + 8, 26, 14, 0, 0, TAU); ctx.fill();
+        ctx.strokeStyle = '#8a8e96'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(ped.x - 10, ped.y + 8); ctx.lineTo(ped.x - 10, ped.y - 26); ctx.moveTo(ped.x + 10, ped.y + 8); ctx.lineTo(ped.x + 10, ped.y - 26); ctx.stroke(); ctx.lineCap = 'butt';
+        ctx.fillStyle = '#c8c0b8'; ctx.font = this.font(10, true); ctx.textAlign = 'center';
+        ctx.fillText('⬇ BACK DOWN', ped.x, ped.y - 36);
+        continue;
+      }
+      if (ped.kind === 'roofview') {   // the railing, and everything past it
+        ctx.strokeStyle = '#7a828c'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(ped.x - 70, ped.y); ctx.lineTo(ped.x + 70, ped.y); ctx.stroke();
+        ctx.lineWidth = 3;
+        for (let rl = -60; rl <= 60; rl += 20) { ctx.beginPath(); ctx.moveTo(ped.x + rl, ped.y); ctx.lineTo(ped.x + rl, ped.y + 22); ctx.stroke(); }
+        ctx.lineCap = 'butt';
+        if (U.dist(G.player.x, G.player.y, ped.x, ped.y) < 90) { ctx.fillStyle = '#e8c05a'; ctx.font = this.font(10, true); ctx.textAlign = 'center'; ctx.fillText('🌇 lean on the railing', ped.x, ped.y + 40); }
+        continue;
+      }
+      if (ped.kind === 'roofnest') {   // so THIS is where the pigeon goes
+        this.shadow(ped.x, ped.y + 10, 16, 5, 0.2);
+        ctx.strokeStyle = '#8a6a3a'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+        for (let n2 = 0; n2 < 7; n2++) { const na = (n2 / 7) * Math.PI; ctx.beginPath(); ctx.moveTo(ped.x - Math.cos(na) * 16, ped.y + 4); ctx.quadraticCurveTo(ped.x, ped.y - 6 + (n2 % 2) * 3, ped.x + Math.cos(na) * 14, ped.y + 5); ctx.stroke(); }
+        ctx.lineCap = 'butt';
+        ctx.fillStyle = '#e8c84c'; ctx.beginPath(); ctx.arc(ped.x - 5, ped.y + 1, 3, 0, TAU); ctx.arc(ped.x + 4, ped.y + 2, 3, 0, TAU); ctx.fill();   // the coin hoard
+        ctx.fillStyle = '#c8c0b8'; ctx.font = this.font(10, true); ctx.textAlign = 'center';
+        ctx.fillText('🕊 the nest', ped.x, ped.y - 18);
+        continue;
+      }
       if (ped.kind === 'actuary') {   // gray suit, briefcase, your odds at one decimal place
         const ab = Math.sin(G.t * 1.4 + 1) * 1.2;
         this.shadow(ped.x, ped.y + 16, 14, 5, 0.24);
@@ -2020,6 +2114,14 @@ const Render = {
         ctx.stroke();
       }
       if (pk.type === 'coin' || pk.type === 'nickel') this.drawCoin(pk.x, pk.y + bob, pk.type === 'nickel');
+      else if (pk.type === 'half' && pk._tomato) {   // the janitor's tomatoes, ripe
+        this.shadow(pk.x, pk.y + 10, 8, 3, 0.2);
+        ctx.fillStyle = '#d84a3a'; ctx.beginPath(); ctx.arc(pk.x, pk.y + bob, 8, 0, TAU); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.beginPath(); ctx.ellipse(pk.x - 2.5, pk.y + bob - 2.5, 2.5, 3, -0.4, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#4a7a42'; ctx.beginPath();
+        for (let l = 0; l < 4; l++) { const la = -Math.PI / 2 + (l - 1.5) * 0.7; ctx.ellipse(pk.x + Math.cos(la) * 3, pk.y + bob - 7, 3, 1.4, la, 0, TAU); }
+        ctx.fill();
+      }
       else if (pk.type === 'half') this.drawHeart(pk.x, pk.y + bob, 8, '#e05a5a', true);
       else if (pk.type === 'full') this.drawHeart(pk.x, pk.y + bob, 10, '#e05a5a', false);
       else if (pk.type === 'pill') this.drawPillIcon(pk.x, pk.y + bob, DATA.PILL_COLORS[pk.colorIdx]);
@@ -2702,6 +2804,21 @@ const Render = {
       ctx.fillText('Ⅱ', 15, -15.5);
     }
 
+    // SEASONAL AFFECTIVE: wear the weather
+    if (p.diag === 'seasonal' && p.season != null) {
+      const SC = ['#8fd08a', '#e8a04a', '#c87a3a', '#8fc4e8'][p.season];
+      ctx.fillStyle = SC;   // the scarf changes with the season
+      this.rr(ctx, -9, 3, 18, 5, 2.5); ctx.fill();
+      ctx.save(); ctx.rotate(0.2);
+      this.rr(ctx, 4, 6, 5, 11, 2); ctx.fill();   // scarf tail
+      ctx.restore();
+      const t2 = (G && G.t) || 0;
+      const icon = ['🌱', '☀️', '🍂', '❄️'][p.season];
+      ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+      ctx.globalAlpha = 0.9;
+      ctx.fillText(icon, 14 + Math.sin(t2 * 1.8) * 2, -26 + Math.sin(t2 * 2.4) * 2);
+      ctx.globalAlpha = 1;
+    }
     // GET WELL balloon (gift shop) — it follows. it believes.
     if (p._balloon) {
       const t = (G && G.t) || 0;
@@ -4373,8 +4490,8 @@ const Render = {
       ctx.fillStyle = '#e08a5a'; ctx.font = this.font(11, true);
       ctx.fillText('🔥 ' + G.intensity, CW - 18, Meta.data.speedrun ? 92 : 64);
     }
-    // speedrun clock (top-right, under the ward name)
-    if (Meta.data.speedrun && G.runTime != null && !G.overtime) {
+    // speedrun clock (top-right, under the ward name) — the walk-in clinic is always timed
+    if ((Meta.data.speedrun || G.walkin) && G.runTime != null && !G.overtime) {
       const t = G.runTime, fmt = Math.floor(t / 60) + ':' + ('0' + Math.floor(t % 60)).slice(-2) + '.' + Math.floor((t % 1) * 10);
       ctx.textAlign = 'right';
       ctx.fillStyle = '#f0e8d8'; ctx.font = this.font(13, true);

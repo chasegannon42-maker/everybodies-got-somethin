@@ -297,6 +297,15 @@ DATA.DIAG = {
     mech: "THE BATTERY: everything you do drains it — every shot, every step. Stand still and it recharges. Above 75% you're in OVERDRIVE (+30% damage). Under 25% you fire fumes. CLOCK OUT refills it instantly, because boundaries.",
     rx: "coffee13"
   },
+  seasonal: {
+    name: "Seasonal Affective",
+    short: "The Weather, Internalized",
+    tag: "four kits, rotating",
+    color: "#7ab86a",
+    blurb: "You told him it comes and goes with the light. He nodded, opened the blinds, closed them, opened them again, and billed for four consultations.",
+    mech: "THE SEASONS: every ward, your season turns — 🌱 SPRING regenerates you slowly, ☀️ SUMMER sets your tears burning, 🍂 FALL gives them gale-force knockback, ❄️ WINTER chills everything you hit (you idle 5% slower). You check in on whatever season it really is outside. TURN THE PAGE advances it on demand.",
+    rx: "gratitude"
+  },
   undiag: {
     name: "Undifferentiated",
     short: "Diagnosis Pending (Forever)",
@@ -330,7 +339,8 @@ DATA.DIAG2 = {
   ocd:        { name: "OCD (Ritualist)",             tag: "all four corners",             mech: "THE RITUAL: every trigger fires a perfect CROSS — four tears in four directions, always, regardless of where you're aiming. The pattern must complete." },
   ptsd:       { name: "PTSD (Weathered)",            tag: "what doesn't kill you",        mech: "SCAR TISSUE: no more On Edge, no flashback zones. Instead every hit you take this floor hardens you: +12% damage per hit (up to +60%). It resets when you descend." },
   insomnia:   { name: "Insomnia (All-Nighter)",      tag: "sleep is for the discharged",  mech: "ALL-NIGHTER: permanently WIRED (+40% damage, +fire rate), the ward is always dim, and sleep never comes — no microsleeps, no naps. Descending burns half a heart. ☕ ESPRESSO replaces the nap." },
-  fine:       { name: "Fine (In Recovery)",          tag: "doing the work",               mech: "THE WORK: you heal a half-heart every 2 rooms you clear — actual recovery. But staying well is work: everything trying to stop you has +25% health." }
+  fine:       { name: "Fine (In Recovery)",          tag: "doing the work",               mech: "THE WORK: you heal a half-heart every 2 rooms you clear — actual recovery. But staying well is work: everything trying to stop you has +25% health." },
+  seasonal:   { name: "Seasonal (Climate Controlled)", tag: "one season, sealed in",      mech: "CLIMATE CONTROL: the season never turns — you keep your real-world starting season all run, at 150% strength. The thermostat is yours. The thermostat is EVERYTHING." }
 };
 
 /* ============ ITEMS ============ */
@@ -483,7 +493,11 @@ DATA.ACHIEVEMENTS = [
   { id: 'audiophile', name: "Heavy Rotation",       desc: "Unlock every track on WWRD Ward Radio.",          hint: "The building has nine songs. Hear them all.",   check: m => Object.keys(m.tracksHeard || {}).length >= 9 },
   { id: 'ownRecords', name: "It's My File",         desc: "Steal your original intake file from the Records Room.", hint: "They keep the originals behind the stacks. Don't be seen.", check: m => !!m.fileStolen },
   { id: 'mergerDown', name: "Hostile Takeover, Reversed", desc: "Defeat THE MERGER.",                       hint: "Past Ward 30, the acquisition closes. Object to it.", check: m => (m.mergerKills || 0) >= 1 },
-  { id: 'fullWeek',   name: "Regular Programming",  desc: "Check in on all 7 days of the week.",             hint: "The building runs on a real calendar. So do you.", check: m => Object.keys(m.calDays || {}).length >= 7 }
+  { id: 'fullWeek',   name: "Regular Programming",  desc: "Check in on all 7 days of the week.",             hint: "The building runs on a real calendar. So do you.", check: m => Object.keys(m.calDays || {}).length >= 7 },
+  { id: 'walkinFast', name: "In And Out",           desc: "Finish a Walk-In Clinic visit in under 4 minutes.", hint: "Six-ish rooms, one manager, no dawdling.",     check: m => !!(m.walkinBest && m.walkinBest.secs <= 240) },
+  { id: 'freshAir',   name: "Fresh Air",            desc: "Find the roof.",                                  hint: "A service ladder, sometimes, past Ward 6. Up, for once.", check: m => (m.roofVisits || 0) >= 1 },
+  { id: 'phoneHome',  name: "Called Home",          desc: "Call MOM from the payphone 3 times.",             hint: "She worries. It's 1¢. Come on.",               check: m => (m.momCalls || 0) >= 3 },
+  { id: 'fourSeasons', name: "A Year Indoors",      desc: "Clear a ward in all four seasons as Seasonal Affective.", hint: "Spring, summer, fall, winter — the building has no windows, but you'd know.", check: m => Object.keys(m.seasonsSeen || {}).length >= 4 }
 ];
 DATA.checkAchievements = function (m) {
   if (!m.unlocks) m.unlocks = {};
@@ -1026,7 +1040,8 @@ DATA.ABILITIES = {
   ptsd:       { name: "5-4-3-2-1", cd: 10, blurb: "Ground yourself: wipe nearby danger, slow the room to a crawl, and come back to now." },
   insomnia:   { name: "Power Nap", cd: 13, blurb: "Steal forty winks: refill Sleep, heal, and phase out untouchable — but you can't move or fire while you're out." },
   fine:       { name: "Denial", cd: 11, blurb: "\"I'm FINE.\" Briefly refuse to take damage." },
-  burnout:    { name: "Clock Out", cd: 9, blurb: "Boundaries, suddenly. The Battery refills to full and nothing can touch you for a breath." }
+  burnout:    { name: "Clock Out", cd: 9, blurb: "Boundaries, suddenly. The Battery refills to full and nothing can touch you for a breath." },
+  seasonal:   { name: "Turn The Page", cd: 13, blurb: "Advance the season NOW — with a burst of the new one's weather." }
 };
 
 /* ============ PRESCRIPTION TRANSFORMATIONS ============
