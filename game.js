@@ -65,10 +65,10 @@ const G = {
     }
   },
   toast(txt, clr) {
-    this.toasts.push({ txt, t: 0, dur: 2.8, clr });
+    this.toasts.push({ txt: Icons.txt(txt), t: 0, dur: 2.8, clr });
     if (this.toasts.length > 3) this.toasts.shift();
   },
-  setBanner(text, sub, dur) { this.banner = { text, sub, t: 0, dur: dur || 2.2 }; },
+  setBanner(text, sub, dur) { this.banner = { text: Icons.txt(text), sub: sub ? Icons.txt(sub) : sub, t: 0, dur: dur || 2.2 }; },
   checkUnlocks() {
     if (this.sandbox) return;   // sandbox shifts earn nothing but experience
     const fresh = DATA.checkAchievements(Meta.data);
@@ -2623,7 +2623,7 @@ const G = {
      The complete in-fiction manual: every mechanic, symptom, ward, and
      service. Mostly generated from DATA so new content lists itself;
      the prose sections get a line whenever a feature ships. */
-  HB_REV: 28,
+  HB_REV: 29,
   showHandbook(returnTo) {
     this.state = 'handbook';
     if (!this._hbTab) this._hbTab = 'basics';
@@ -2795,6 +2795,7 @@ const G = {
         + R('🚶', 'Day Room patients', 'The Veteran, The Optimist, The Oversharer, and friends — one boon each')
         + H('REVISION HISTORY')
         + N('This handbook is updated with every patch. If a feature exists, it\'s in here — that\'s the policy. Spot something missing? The Complaint Department is thataway.')
+        + N('rev. 29 — the crayons were confiscated: every pictograph in the building replaced with proper inked signage, hand-drawn by the same tired hand as everything else here.')
     };
 
     const tabs = [
@@ -2812,7 +2813,7 @@ const G = {
         <div class="hbfoot">KEEP THIS DOCUMENT WITH YOUR CHART · THE CHART IS EVERYWHERE · YOU ARE THE CHART</div>
         <button class="btn minor" id="bHbBack">BACK</button>
       </div>`);
-    const paint = () => { document.getElementById('hbBody').innerHTML = TABS[this._hbTab](); };
+    const paint = () => { document.getElementById('hbBody').innerHTML = Icons.html(TABS[this._hbTab]()); };
     paint();
     document.querySelectorAll('[data-hb]').forEach(b => b.onclick = () => {
       SFX.play('paper');
@@ -2863,13 +2864,13 @@ const G = {
   showQuestion() {
     const q = this.quiz.qs[this.quiz.idx];
     document.getElementById('quizBubble').innerHTML =
-      `<div class="qcount">QUESTION ${this.quiz.idx + 1} OF 5</div>${q.q}`;
+      Icons.html(`<div class="qcount">QUESTION ${this.quiz.idx + 1} OF 5</div>${q.q}`);
     const area = document.getElementById('quizArea');
     area.innerHTML = '';
     U.shuffle(q.a).forEach(ans => {
       const b = document.createElement('button');
       b.className = 'btn answer';
-      b.textContent = ans.t;
+      b.innerHTML = Icons.html(ans.t);
       b.onclick = () => this.answer(ans);
       area.appendChild(b);
     });
@@ -2878,7 +2879,7 @@ const G = {
   answer(ans) {
     SFX.play('ui');
     for (const k in ans.w) this.quiz.scores[k] += ans.w[k];
-    document.getElementById('quizBubble').innerHTML = `<i>${ans.quip || 'Mm. Noted.'}</i>`;
+    document.getElementById('quizBubble').innerHTML = Icons.html(`<i>${ans.quip || 'Mm. Noted.'}</i>`);
     document.getElementById('quizArea').innerHTML = '';
     this.quiz.idx++;
     setTimeout(() => {
@@ -6797,7 +6798,7 @@ const G = {
   overlay(html) {
     this._bestiary = null;   // stop animating any bestiary portraits from a prior screen
     const o = document.getElementById('overlay');
-    o.innerHTML = html;
+    o.innerHTML = Icons.html(html);   // the crayon-confiscation layer: emoji in, inked SVG out
     o.classList.remove('lightbg');   // screens default to the dark scrim; the title opts into the lighter one
     o.classList.add('show');
   },

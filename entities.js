@@ -1902,7 +1902,7 @@ function makeGibs(G, x, y, clr, n) {
   if (Render && Render.splat) Render.splat(G.room, x, y, clr);
 }
 class FloatText {
-  constructor(x, y, txt, clr) { this.x = x; this.y = y; this.txt = txt; this.clr = clr || '#fff'; this.life = 1.1; this.dead = false; }
+  constructor(x, y, txt, clr) { this.x = x; this.y = y; this.txt = typeof Icons !== 'undefined' ? Icons.txt(txt) : txt; this.clr = clr || '#fff'; this.life = 1.1; this.dead = false; }
   update(dt) { this.y -= 28 * dt; this.life -= dt; if (this.life <= 0) this.dead = true; }
 }
 

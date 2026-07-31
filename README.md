@@ -239,4 +239,8 @@ adversary reveals itself as you meet it. **[▶ Play now.](https://chasegannon42
 Plain HTML5 canvas + vanilla JS. No frameworks, no build step, no assets — all art is procedural
 and all audio is synthesized in WebAudio. Works offline once loaded.
 
+No emoji, either: every icon in the UI is a hand-drawn monochrome SVG or canvas doodle from the
+game's own icon set (`icons.js`), which also quietly translates any pictograph that tries to reach
+a menu or the canvas. The crayons were confiscated in rev. 29.
+
 Made with Claude Code.

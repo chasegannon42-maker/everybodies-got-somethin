@@ -104,7 +104,7 @@ const Render = {
     if (G.state === 'descend') this.drawDescend(G);
     // GAME TESTER: time-dial badge when time isn't normal
     if (typeof Meta !== 'undefined' && Meta.data.tester && ((G.timeScale && G.timeScale !== 1) || G.timePaused)) {
-      const tl = G.timePaused ? '⏸ PAUSED (/ steps)' : '⏱ ' + G.timeScale + '×';
+      const tl = G.timePaused ? '❚❚ PAUSED (/ steps)' : '▸ ' + G.timeScale + '×';
       ctx.font = 'bold 12px monospace'; ctx.textAlign = 'left';
       const tw2 = ctx.measureText(tl).width + 12;
       ctx.fillStyle = 'rgba(10,8,14,0.78)'; ctx.fillRect(4, 46, tw2, 20);
@@ -351,7 +351,7 @@ const Render = {
       ctx.restore();
     } else {
       ctx.fillStyle = '#6a6272'; ctx.font = 'bold 13px "Trebuchet MS","Segoe UI",sans-serif';
-      ctx.fillText('stamp it in the green — SPACE / ⚡ / tap', 0, 92);
+      ctx.fillText('stamp it in the green — SPACE / tap', 0, 92);
       ctx.font = 'italic 10px "Trebuchet MS",sans-serif'; ctx.fillStyle = '#9a8a92';
       ctx.fillText('(the fee was ' + (G._appealFee || 0) + '¢. the fee is non-refundable. the fee was everything.)', 0, 112);
     }
@@ -506,7 +506,7 @@ const Render = {
           ctx.fillStyle = '#d04040'; ctx.beginPath(); ctx.arc(0, -7, 2.2, 0, TAU); ctx.fill();
           ctx.restore();
         });
-        ctx.fillStyle = '#f4eee0'; ctx.font = this.font(13, true); ctx.textAlign = 'center'; ctx.fillText('🏆', 24, 20);
+        Icons.paint(ctx, 'trophy', 24, 15, 13, '#f4eee0');
         ctx.restore();
       } else if (s.label.includes('PROGNOSIS')) {   // a card table with dice
         this.shadow(s.x, s.y + 36, 34, 9, 0.2);
@@ -546,8 +546,7 @@ const Render = {
         const gl2 = ctx.createRadialGradient(s.x, s.y - 8, 4, s.x, s.y - 8, 34);
         gl2.addColorStop(0, 'rgba(200,176,224,0.3)'); gl2.addColorStop(1, 'rgba(200,176,224,0)');
         ctx.fillStyle = gl2; ctx.fillRect(s.x - 26, s.y - 40, 52, 70);
-        ctx.fillStyle = '#e8e0d0'; ctx.font = this.font(24, true); ctx.textAlign = 'center';
-        ctx.fillText('☠', s.x, s.y + 2);
+        Icons.paint(ctx, 'skull', s.x, s.y - 2, 20, '#e8e0d0');
         ctx.fillStyle = '#c8a24a'; this.rr(ctx, s.x - 18, s.y + 24, 36, 8, 2); ctx.fill();
       } else if (s.label.includes('SETTINGS')) {   // the janitor's closet
         ctx.fillStyle = '#8a8a92'; this.rr(ctx, s.x - 26, s.y - 46, 52, 92, 5); ctx.fill();
@@ -561,7 +560,7 @@ const Render = {
         ctx.strokeStyle = '#d8d0b8'; ctx.lineWidth = 2; ctx.lineCap = 'round';
         for (let m = 0; m < 5; m++) { ctx.beginPath(); ctx.moveTo(s.x - 38, s.y + 42); ctx.lineTo(s.x - 44 + m * 3, s.y + 54); ctx.stroke(); }
         ctx.lineCap = 'butt';
-        ctx.fillStyle = '#f4eee0'; ctx.font = this.font(13); ctx.textAlign = 'center'; ctx.fillText('⚙', s.x, s.y + 34);
+        Icons.paint(ctx, 'gear', s.x, s.y + 32, 12, '#f4eee0');
       } else if (s.label.includes('FRONT DOOR')) {   // the way out. it was always right there.
         const ready = !s.label.includes('🔒');
         ctx.save(); ctx.translate(s.x, Math.min(s.y, CH - 26));
@@ -605,7 +604,7 @@ const Render = {
         }
         ctx.fillStyle = '#f0ead8'; this.rr(ctx, s.x - 15, s.y - 14, 30, 11, 2); ctx.fill();   // taped label
         ctx.fillStyle = '#7a5a3a'; ctx.font = this.font(7, true); ctx.textAlign = 'center'; ctx.fillText('WELLNESS', s.x, s.y - 6);
-        ctx.fillStyle = '#f4eee0'; ctx.font = this.font(12); ctx.fillText('🫙', s.x, s.y + 46);
+        Icons.paint(ctx, 'jar', s.x, s.y + 44, 12, '#f4eee0');
       } else if (s.label.includes('WWRD')) {   // the radio on the reception counter
         this.shadow(s.x, s.y + 18, 22, 6, 0.2);
         ctx.fillStyle = '#8a5a3a'; this.rr(ctx, s.x - 24, s.y - 12, 48, 26, 5); ctx.fill();   // wood-grain body
@@ -624,7 +623,7 @@ const Render = {
             ctx.fillRect(s.x - 30 - eq * 5, s.y + 8 - hh, 3.4, hh);
           }
         }
-        ctx.fillStyle = '#f4eee0'; ctx.font = this.font(10); ctx.textAlign = 'center'; ctx.fillText('📻', s.x, s.y + 30);
+        Icons.paint(ctx, 'radio', s.x, s.y + 28, 11, '#f4eee0');
       } else if (s.label.includes('BREAKROOM')) {   // the cabinet: PILL CATCHER, 2¢, no refunds
         this.shadow(s.x, s.y + 40, 26, 8, 0.22);
         ctx.fillStyle = '#7a3a8a'; this.rr(ctx, s.x - 24, s.y - 46, 48, 86, 6); ctx.fill();   // cabinet body
@@ -645,7 +644,7 @@ const Render = {
         ctx.fillStyle = '#f4eee0'; this.rr(ctx, s.x - 10, s.y + 24, 20, 8, 2); ctx.fill();    // the rival's taped score
         ctx.fillStyle = '#a03030'; ctx.font = 'bold 5px "Arial Black",sans-serif';
         ctx.fillText((typeof Meta !== 'undefined' && Meta.data.rival ? Meta.data.rival.name.slice(0, 6) : 'RIVAL') + ': ' + (G.arcadeRivalScore ? G.arcadeRivalScore() : '???'), s.x, s.y + 29.5);
-        ctx.fillStyle = '#f4eee0'; ctx.font = this.font(11); ctx.fillText('🕹', s.x, s.y + 52);
+        Icons.paint(ctx, 'joystick', s.x, s.y + 50, 11, '#f4eee0');
       } else if (s.label.includes('GIFT')) {   // the gift shop cart — the markup funds the aquarium
         this.shadow(s.x, s.y + 34, 34, 9, 0.2);
         ctx.fillStyle = '#a05a6a'; this.rr(ctx, s.x - 30, s.y - 6, 60, 34, 6); ctx.fill();   // cart body
@@ -685,7 +684,7 @@ const Render = {
         ctx.restore();
         ctx.strokeStyle = '#3a3040'; ctx.lineWidth = 2; ctx.lineCap = 'round';   // a pen, mid-thought
         ctx.beginPath(); ctx.moveTo(s.x + 18, s.y - 8); ctx.lineTo(s.x + 28, s.y - 14); ctx.stroke(); ctx.lineCap = 'butt';
-        ctx.fillStyle = '#f4eee0'; ctx.font = this.font(11); ctx.textAlign = 'center'; ctx.fillText('📔', s.x, s.y + 38);
+        Icons.paint(ctx, 'book', s.x, s.y + 36, 11, '#f4eee0');
       } else {   // PATIENT CHART: filing cabinet
         ctx.fillStyle = '#9aa0aa'; this.rr(ctx, s.x - 26, s.y - 46, 52, 92, 5); ctx.fill();
         ctx.strokeStyle = 'rgba(60,64,74,0.5)'; ctx.lineWidth = 2; this.rr(ctx, s.x - 26, s.y - 46, 52, 92, 5); ctx.stroke();
@@ -694,7 +693,7 @@ const Render = {
           this.rr(ctx, s.x - 20, s.y - 40 + d * 29, 40, 24, 3); ctx.stroke();
           ctx.fillStyle = '#5a606a'; this.rr(ctx, s.x - 8, s.y - 31 + d * 29, 16, 4, 2); ctx.fill();
         }
-        ctx.fillStyle = '#f4eee0'; ctx.font = this.font(11, true); ctx.textAlign = 'center'; ctx.fillText('📋', s.x, s.y + 40);
+        Icons.paint(ctx, 'clipboard', s.x, s.y + 38, 11, '#f4eee0');
       }
     }
     // ---- the chairs + seated patients ----
@@ -764,7 +763,7 @@ const Render = {
       this.shadow(0, 34, 22, 7, 0.2);
       ctx.fillStyle = '#4a4454'; this.rr(ctx, -18, -34, 36, 64, 5); ctx.fill();
       ctx.fillStyle = '#2c2836'; this.rr(ctx, -13, -28, 26, 20, 3); ctx.fill();
-      ctx.fillStyle = '#e8c84c'; ctx.font = this.font(9, true); ctx.textAlign = 'center'; ctx.fillText('☕', 0, -14);
+      Icons.paint(ctx, 'coffee', 0, -16, 10, '#e8c84c');
       ctx.fillStyle = '#6a6474'; this.rr(ctx, -10, -2, 20, 12, 2); ctx.fill();
       ctx.fillStyle = '#f0ead8'; this.rr(ctx, -4, 2, 8, 8, 1); ctx.fill();   // cup
       const stm = Math.sin(G.t * 3) * 2;
@@ -787,7 +786,7 @@ const Render = {
       ctx.fillStyle = '#d8dde0'; this.rr(ctx, -9, -8, 18, 30, 3); ctx.fill();
       ctx.fillStyle = '#7ec8e8'; this.rr(ctx, -7, -22, 14, 16, 4); ctx.fill();
       ctx.fillStyle = 'rgba(255,255,255,0.45)'; this.rr(ctx, -5, -20, 4, 10, 2); ctx.fill();
-      ctx.fillStyle = '#8fd0e0'; ctx.font = this.font(7, true); ctx.textAlign = 'center'; ctx.fillText('✨', 0, -26);
+      Icons.paint(ctx, 'sparkle', 0, -27, 8, '#8fd0e0');
       ctx.restore();
     }
     if (fac.toybox) {   // the toy corner. for "the children."
@@ -821,7 +820,7 @@ const Render = {
           const bob = Math.sin(G.t * 1.6 + v.x) * 1.5;
           ctx.drawImage(v._cv, v.x - 24, v.y - 36 + bob);
           ctx.fillStyle = '#8fd0e0'; ctx.font = this.font(8, true); ctx.textAlign = 'center';
-          ctx.fillText('✌ ' + ((DATA.BOSSES[v.id] || { name: v.id }).name || '').replace(/^THE /, '').slice(0, 14), v.x, v.y + 40);
+          ctx.fillText('♡ ' + ((DATA.BOSSES[v.id] || { name: v.id }).name || '').replace(/^THE /, '').slice(0, 14), v.x, v.y + 40);
         } else if (v.kind === 'grad') {   // The Graduate, working the desk they once hid behind
           const bob = Math.sin(G.t * 2 + 1) * 1.2;
           this.shadow(v.x, v.y + 14, 11, 4, 0.2);
@@ -885,7 +884,7 @@ const Render = {
         ctx.strokeStyle = '#6a5232'; ctx.lineWidth = 2.2;   // the mop, leaning on the wall, off duty
         ctx.beginPath(); ctx.moveTo(jx - 34, jy + 14); ctx.lineTo(jx - 28, jy - 34); ctx.stroke();
         ctx.fillStyle = 'rgba(200,190,220,0.55)'; ctx.font = this.font(10, true); ctx.textAlign = 'center';
-        ctx.fillText('🌙 off the clock. finally. the floor can wait.', CW / 2, 286);
+        ctx.fillText('☾ off the clock. finally. the floor can wait.', CW / 2, 286);
       } else if (Meta.data.handoffDone) {
         // THE HANDOFF holds: the one mopping by lamplight now is YOU
         const jx = CW / 2 - 130 + Math.sin(G.t * 0.4) * 60, jy = 240;
@@ -899,7 +898,7 @@ const Render = {
         ctx.beginPath(); ctx.moveTo(10, 12); ctx.lineTo(14, -18); ctx.stroke();
         ctx.restore();
         ctx.fillStyle = 'rgba(200,190,220,0.55)'; ctx.font = this.font(10, true); ctx.textAlign = 'center';
-        ctx.fillText('🌙 your shift now. mind the wet floor.', CW / 2, 246 + 40);
+        ctx.fillText('☾ your shift now. mind the wet floor.', CW / 2, 246 + 40);
       } else {
         // the janitor, mopping by lamplight
         const jx = CW / 2 - 130 + Math.sin(G.t * 0.4) * 60, jy = 240;
@@ -912,7 +911,7 @@ const Render = {
         ctx.beginPath(); ctx.moveTo(10, 12); ctx.lineTo(14, -18); ctx.stroke();
         ctx.restore();
         ctx.fillStyle = 'rgba(200,190,220,0.55)'; ctx.font = this.font(10, true); ctx.textAlign = 'center';
-        ctx.fillText('🌙 night shift — mind the wet floor', CW / 2, 246 + 40);
+        ctx.fillText('☾ night shift — mind the wet floor', CW / 2, 246 + 40);
       }
     }
     // ---- you ----
@@ -1107,7 +1106,7 @@ const Render = {
     // marquee
     ctx.fillStyle = '#e8c84c'; this.rr(ctx, RX - 20, 52, RW + 40, 40, 8); ctx.fill();
     ctx.fillStyle = '#7a3a2a'; ctx.font = 'bold 24px Impact,"Arial Black",sans-serif'; ctx.textAlign = 'center';
-    ctx.fillText('💊 PILL CATCHER 💊', CW / 2, 80);
+    ctx.fillText('PILL CATCHER', CW / 2, 80); Icons.paint(ctx, 'pill', CW / 2 - 96, 74, 13, '#8fd05a'); Icons.paint(ctx, 'pill', CW / 2 + 96, 74, 13, '#e05a6a');
     // screen
     const sy = 104, sh = CH - 200;
     ctx.fillStyle = '#0a1408'; this.rr(ctx, RX - 8, sy, RW + 16, sh, 8); ctx.fill();
@@ -1123,7 +1122,7 @@ const Render = {
       else if (it.kind === 'recall') {
         ctx.fillStyle = '#c04040'; ctx.beginPath(); ctx.arc(0, 0, 11, 0, TAU); ctx.fill();
         ctx.strokeStyle = '#7a1a1a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, 11, 0, TAU); ctx.stroke();
-        ctx.fillStyle = '#fff'; ctx.font = this.font(10, true); ctx.textAlign = 'center'; ctx.fillText('☠', 0, 3.5);
+        Icons.paint(ctx, 'skull', 0, 0.5, 9, '#fff', 1.8);
       }
       ctx.restore();
     }
@@ -1595,7 +1594,7 @@ const Render = {
       ctx.fillStyle = '#e8dfc8';
       ctx.font = this.font(17, true);
       ctx.textAlign = 'center';
-      if (ntype === 'boss') ctx.fillText('💀', 0, -24);
+      if (ntype === 'boss') Icons.paint(ctx, 'skull', 0, -25, 13, '#e8dfc8', 1.8);
       if (ntype === 'item') ctx.fillText('✚', 0, -24);
       if (ntype === 'shop') ctx.fillText('$', 0, -24);
       if (ntype === 'oon') ctx.fillText('❥', 0, -24);
@@ -1607,7 +1606,7 @@ const Render = {
       if (ntype === 'item' && G.doorsOpen) { // locked specialist door
         ctx.fillStyle = '#e8c84c';
         ctx.font = this.font(16, true); ctx.textAlign = 'center';
-        ctx.fillText('🔑', 0, 8);
+        Icons.paint(ctx, 'key', 0, 6, 13, '#e8c84c', 1.8);
       }
     }
     ctx.restore();
@@ -1838,7 +1837,7 @@ const Render = {
         const pg2 = ctx.createLinearGradient(ped.x, ped.y - 12, ped.x, ped.y + 14);
         pg2.addColorStop(0, '#c4bccc'); pg2.addColorStop(1, '#8a8296'); ctx.fillStyle = pg2;
         this.rr(ctx, ped.x - 16, ped.y - 4, 32, 18, 5); ctx.fill();
-        ctx.fillStyle = '#9db85a'; ctx.font = this.font(20, true); ctx.textAlign = 'center'; ctx.fillText('🔄', ped.x, ped.y - 18 + rb);
+        ctx.fillStyle = '#9db85a'; ctx.font = this.font(20, true); ctx.textAlign = 'center'; ctx.fillText('↻', ped.x, ped.y - 18 + rb);
         ctx.fillStyle = '#e8c84c'; ctx.font = this.font(13, true); ctx.fillText(ped.price + '¢', ped.x, ped.y + 30);
         ctx.fillStyle = '#9db85a'; ctx.font = this.font(9, true); ctx.fillText('RESTOCK', ped.x, ped.y + 42);
         continue;

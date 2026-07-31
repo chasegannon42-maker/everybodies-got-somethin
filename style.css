@@ -52,6 +52,15 @@ html, body {
   transform: rotate(-0.4deg);
 }
 .panel.wide { max-width: 720px; width: min(96vw, 720px); }
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes panelIn { from { translate: 0 12px; opacity: 0; } to { translate: 0 0; opacity: 1; } }
+  .panel { animation: panelIn 0.16s ease-out; }
+}
+
+/* inked icons (icons.js symbol sheet) */
+.ic { width: 1.06em; height: 1.06em; display: inline-block; vertical-align: -0.16em; margin-right: 1px; flex: 0 0 auto; }
+.deckbtn .ic { width: 22px; height: 22px; }
+.tbtn .ic { width: 17px; height: 17px; display: block; margin: 0 auto 1px; }
 /* paper-toned scrollbars inside panels (WebKit) */
 .panel::-webkit-scrollbar, .achlist::-webkit-scrollbar, .bgrid::-webkit-scrollbar, .talgrid::-webkit-scrollbar { width: 10px; height: 10px; }
 .panel::-webkit-scrollbar-track, .achlist::-webkit-scrollbar-track, .bgrid::-webkit-scrollbar-track, .talgrid::-webkit-scrollbar-track { background: rgba(120, 100, 70, 0.12); border-radius: 8px; }
@@ -99,12 +108,12 @@ h1.logo {
   color: #2c2333;
   border: 3px solid #2c2333;
   border-radius: 10px;
-  box-shadow: 0 4px 0 #2c2333;
+  box-shadow: 0 4px 0 #2c2333, inset 0 2px 0 rgba(255, 255, 255, 0.25);
   cursor: pointer;
   transition: transform .06s;
   text-align: center;
 }
-.btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #2c2333; }
+.btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #2c2333, inset 0 2px 0 rgba(255, 255, 255, 0.18); }
 @media (hover: hover) { .btn:hover { filter: brightness(1.06); } }
 .btn:focus-visible, .talnode:focus-visible, .charCard:focus-visible { outline: 3px solid #3a5ac8; outline-offset: 2px; }
 .btn.answer { background: #fff; text-align: left; }
