@@ -695,7 +695,7 @@ class Player {
     this.allies.push(ally);
     if (this.allies.length >= 3 && !Meta.data.everFullGroup) { Meta.data.everFullGroup = 1; Meta.save(); if (G && G.checkUnlocks) G.checkUnlocks(); }   // Group Session
     if (G && G.goalEvent) G.goalEvent('ally');
-    if (G) { G.toast('🤝 ' + ally.name + ' joined the group!', ally.tint); SFX.play('item'); }
+    if (G) { G.toast('🤝 ' + ally.name + ' joined the group!', ally.tint); SFX.play('item'); if (G.bingoEvent) G.bingoEvent('ally'); }
     return true;
   }
 
@@ -730,6 +730,16 @@ class Player {
     G.floorHits = (G.floorHits || 0) + 1;
     G._roomHits = (G._roomHits || 0) + 1;
     G.shake = Math.max(G.shake, 9);
+    // GET WELL balloon: it can only take so much (the luck it brought stays)
+    if (this._balloon) {
+      this._balloonHits = (this._balloonHits || 0) + 1;
+      if (this._balloonHits >= 3) {
+        this._balloon = false;
+        for (let i = 0; i < 14; i++) G.parts.push(new Particle(this.x + U.rand(-8, 8), this.y - 34, U.rand(-120, 120), U.rand(-160, -20), U.rand(0.4, 0.8), U.choice(['#e05a6a', '#e8c84c', '#8fd0e0']), 2.5));
+        G.toast('🎈 The balloon popped. It believed in you to the end.', '#e08a8a');
+        SFX.play('pop');
+      }
+    }
     // Stress Ball: squeezed on impact — clears the air around you
     if (this.trinket === 'stressball') {
       for (const b of G.eBullets) if (U.dist(this.x, this.y, b.x, b.y) < 130) b.fizzle(G);
@@ -1245,6 +1255,49 @@ class Enemy {
         }
         break;
       }
+      case 'rival': {   // THE RIVAL: your mirror, with a grudge and a gym membership
+        if (this._dashT > 0) {   // mid-dash: committed, like everything they do
+          this._dashT -= dt;
+          this.x += this._dvx * dt; this.y += this._dvy * dt;
+        } else {
+          const rd = U.dist(this.x, this.y, p.x, p.y);
+          const want = rd > 240 ? 1 : rd < 150 ? -0.4 : 0;   // keeps your distance like they keep score
+          const a = U.ang(this.x, this.y, p.x, p.y);
+          const strafe = a + Math.PI / 2 * (Math.sin(this.t * 1.1) > 0 ? 1 : -1);
+          this.x += (Math.cos(a) * want + Math.cos(strafe) * 0.85) * S * dt;
+          this.y += (Math.sin(a) * want + Math.sin(strafe) * 0.85) * S * dt;
+          if (rd > 130 && Math.random() < dt * 0.25) {
+            const da = U.ang(this.x, this.y, p.x, p.y);
+            this._dashT = 0.28; this._dvx = Math.cos(da) * 380; this._dvy = Math.sin(da) * 380;
+            G.texts.push(new FloatText(this.x, this.y - this.r - 8, '“MINE”', '#d08a4a'));
+          }
+        }
+        this.shotT -= dt;
+        if (this.shotT <= 0 && !this.fake) { this.shotT = this.shotCd; this._volley = 3; }
+        if (this._volley > 0) {
+          this._volT = (this._volT || 0) - dt;
+          if (this._volT <= 0) { this._volT = 0.12; this._volley--; this.fireAt(G, p.x, p.y, this.bulSpd, '#d08a4a', U.rand(-0.06, 0.06)); }
+        }
+        break;
+      }
+      case 'nightnurse': {   // THE NIGHT NURSE: glides. never runs. never needed to.
+        this._loT = (this._loT == null ? -U.rand(1, 3) : this._loT) - dt;
+        if (this._loT <= -this.shotCd && !this.fake) {   // "lights out. it's policy."
+          this._loT = 1.1;
+          G.texts.push(new FloatText(this.x, this.y - this.r - 10, '“lights out.”', '#8a90c8'));
+          SFX.play('sting');
+          const da = U.ang(this.x, this.y, p.x, p.y);
+          this._dvx = Math.cos(da) * 225; this._dvy = Math.sin(da) * 225;
+        }
+        if (this._loT > 0) {   // the dark closes in, and so does she
+          G.dark = Math.max(G.dark, 0.66 * Math.min(1, this._loT / 0.35));
+          this.x += this._dvx * dt; this.y += this._dvy * dt;
+        } else {
+          const a = U.ang(this.x, this.y, p.x, p.y);
+          this.x += Math.cos(a) * S * dt; this.y += Math.sin(a) * S * dt;
+        }
+        break;
+      }
       case 'nursey': {   // THE CHARGE NURSE: if you're moving, you're a problem
         // slow authoritative drift to mid-room
         const tx = RX + RW / 2 + Math.sin(this.t * 0.8) * 120, ty = RY + 120 + Math.sin(this.t * 1.3) * 30;
@@ -1468,6 +1521,18 @@ class Enemy {
       G.toast('📋 “' + this._complaint + '” — RESOLVED. +◆6. Thank you for your feedback.', '#8fd08a');
       SFX.play('bell');
     }
+    // THE RIVAL concedes the duel (loudly, with an asterisk)
+    if (this._isRival && !this.fake) {
+      const R = Meta.data.rival;
+      if (R) { R.duelW = (R.duelW || 0) + 1; Meta.save(); }
+      G.toast('🥊 ' + (R ? R.name : 'THE RIVAL') + ': ' + U.choice(DATA.RIVAL_TAUNTS.duelWin), '#8fd08a');
+      if (G.diaryNote) G.diaryNote('Beat ' + (R ? R.name : 'the rival') + ' in the gym. Officially: growth. Practically: revenge.');
+      const pool = DATA.pickPool('special', G.player.items);
+      G.peds.push({ x: U.clamp(this.x, RX + 40, RX + RW - 40), y: U.clamp(this.y - 30, RY + 40, RY + RH - 40), itemId: U.choice(pool.length ? pool : DATA.POOLS.special), kind: 'item', taken: false });
+      for (let i = 0; i < 3; i++) G.pickups.push(new Pickup('coin', this.x + U.rand(-20, 20), this.y + U.rand(-14, 14)));
+      if (G.checkUnlocks) G.checkUnlocks();
+      SFX.play('fanfare');
+    }
     // THE UNION: the rep falls, the drive dissolves — everyone takes the loss hard
     if (this._unionRep && G._union) {
       G._union = null;
@@ -1633,6 +1698,7 @@ class Pickup {
           break;
         }
         case 'trinket': {   // Personal Effects: one slot — swap what you're holding
+          if (G.bingoEvent) G.bingoEvent('trinket');
           const T2 = DATA.TRINKETS.find(t2 => t2.id === this.trinketId) || DATA.TRINKETS[0];
           if (p.trinket) {
             const old = new Pickup('trinket', this.x + 24, this.y + 8);
@@ -1715,6 +1781,7 @@ function spawnEnemiesForRoom(room, depth, G) {
   if (mods.countMul) count = Math.round(count * mods.countMul);
   if (G.chronic) count = Math.round(count * 1.2);
   if (wp) count += (wp.countAdd || 0);
+  if (G.nightShift) count += 1;   // night shift: short-staffed, overcrowded
   count = U.clamp(count + U.randi(-1, 1), 3, G.chronic ? 18 : 16);
   const champChance = G.protocol === 'allelites' ? 1 : U.clamp(dif.champChance + (mods.champAdd || 0) + ((G.intensity || 0) >= 5 ? 0.15 : 0), 0, 0.75);   // Grand Rounds: everyone's a champion
   const spots = [];
@@ -1751,6 +1818,7 @@ function spawnEnemiesForRoom(room, depth, G) {
     const elite = (id !== 'redflag' && U.chance(champChance)) ? U.choice(DATA.ELITES).id : null;
     const e = new Enemy(id, s.x + U.rand(-8, 8), s.y + U.rand(-8, 8), depth, false, hpMult, elite);
     if (G.shadowWard) { e.hp *= 1.3; e.maxhp *= 1.3; e._shadow = true; }   // shadow patients: darker, tougher, better tippers
+    if (G.nightShift) { e.spd *= 0.92; e.hp *= 0.95; e.maxhp *= 0.95; }    // sleepy, but there are more of them
     if (mods.spdMul) e.spd *= mods.spdMul;
     if (G.hasRule && G.hasRule('fastCrowd')) e.spd *= 1.1;   // house rules: fire drill (ongoing)
     if (G.sideEffect === 'restless') e.spd *= 1.15;   // ward side-effect: Restlessness

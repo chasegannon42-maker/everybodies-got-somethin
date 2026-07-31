@@ -95,6 +95,19 @@ keyboard and mouse.
 - **📋 Patient Chart** — a codex of every patient, boss, med, and pill you've met; completing a
   tab pays out a permanent perk. **📊 Run History** keeps your real win-rate receipts, and a
   **speedrun timer with splits** is one Settings toggle away.
+- **🏁 THE RIVAL** — someone checked in the same day as you, and the building keeps score. They
+  burst into item rooms to race you to the pedestal, steal your prescription if they win, gloat
+  over the intercom, and book the gym for a proper 1v1 — your mirror, with a grudge. Career
+  records tracked forever.
+- **🎁 The Gift Shop** — a hub cart that spends the Wellness Fund on your next check-in: flowers
+  (+1 heart), a GET WELL balloon that follows you (+luck, pops after 3 hits), get-well cards
+  (+damage, preprinted sentiment), a plush walrus, contraband chocolate, and a Visitor Pass that
+  brings an armed guest.
+- **🌙 The Night Shift** — the building keeps hours. Play 9pm–6am local and wards run dark:
+  short-staffed but overcrowded, night differential pay on every room, whispered intercom
+  announcements, and clinics staffed by the exclusive **NIGHT NURSE** ("lights out. it's policy.").
+- **🎱 Ward Bingo** — a daily-seeded 5×5 card of small feats shared by every player, tracked
+  automatically all day (dailies included). Lines pay ◆6, BLACKOUT pays ◆40 + 25¢ to the Fund.
 - **📋 Custom Care Plans** — stack the house rules yourself (blackouts, fire drills, rate hikes…),
   name the protocol, dial the intensity, and export it as an `EGSCARE` code to dare a friend.
   Insight pays +8% per stacked rule; the building respects ambition.

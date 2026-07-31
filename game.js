@@ -191,6 +191,7 @@ const G = {
           </div>`;
         })()}
         <button class="btn" id="bDailyPlay">▶ PLAY TODAY'S WARD</button>
+        ${(() => { const B = this.bingoCard(); const got = Object.keys(B.marks).length; return `<button class="btn minor" id="bDailyBingo">🎱 WARD BINGO — ${got}/24 squares · ${B.linesPaid.length} lines paid</button>`; })()}
         <div class="btnrow">
           ${rec ? `<button class="btn minor" id="bDailyShare">📤 SHARE</button>` : ''}
           <button class="btn minor" id="bDailyChallenge">🔗 CHALLENGE</button>
@@ -208,6 +209,8 @@ const G = {
     if (sh) sh.onclick = () => { SFX.play('ui'); Render.shareCard({ diag: info.diag, depth: rec.best, daily: true, key: info.key, win: rec.win, stats: rec.stats, code: this.seedCode(info.seed) }); };
     document.getElementById('bDailyChallenge').onclick = () => { SFX.play('ui'); this.showChallenge(() => this.showDaily()); };
     document.getElementById('bDailyCp').onclick = () => { SFX.play('ui'); this.showCarePackage(() => this.showDaily()); };
+    const bbg = document.getElementById('bDailyBingo');
+    if (bbg) bbg.onclick = () => { SFX.play('paper'); this.showBingo(() => this.showDaily()); };
     document.getElementById('bDailyBack').onclick = () => { SFX.play('ui'); this.showTitle(); };
   },
 
@@ -547,6 +550,7 @@ const G = {
       docs[id] = 1;
       Meta.save();
       this.diaryNote('Found misfiled paperwork: “' + D.title + '.” Reading it felt like trespassing. Kept it.');
+      this.bingoEvent('doc');
     }
     const got = Object.keys(docs).length, total = (DATA.DOCUMENTS || []).length;
     const body = D.body.map(l => `<div style="margin:8px 0;line-height:1.45">${l}</div>`).join('');
@@ -914,6 +918,232 @@ const G = {
     document.getElementById('ttResume').onclick = () => { SFX.play('ui'); this.hideOverlay(); this.state = 'run'; };
   },
 
+  /* ============================================================
+     WARD BINGO (the activities coordinator finally did something)
+     One daily-seeded 5×5 card for everyone; progress is cumulative
+     across the whole day; lines pay ◆, blackout pays big.
+     ============================================================ */
+  bingoCard() {
+    const key = this.todayKey();
+    let B = Meta.data.bingo;
+    if (!B || B.key !== key) {
+      B = Meta.data.bingo = { key, prog: {}, marks: {}, linesPaid: [], blackout: 0 };
+      Meta.save();
+    }
+    if (!this._bingoIds || this._bingoKey !== key) {
+      this._bingoKey = key;
+      this._bingoIds = withSeed(hashSeed(this.seedFromKey(key), ['bingo']), () => U.shuffle(DATA.BINGO_POOL.slice()).slice(0, 24).map(s => s.id));
+    }
+    return B;
+  },
+  bingoEvent(ev, amt) {
+    if (this.practice || this.sandbox || this.overtime) return;
+    try {
+      const B = this.bingoCard();
+      B.prog[ev] = (B.prog[ev] || 0) + (amt || 1);
+      let fresh = false;
+      for (const id of this._bingoIds) {
+        const S = DATA.BINGO_POOL.find(s => s.id === id);
+        if (S && S.ev === ev && !B.marks[id] && (B.prog[ev] || 0) >= S.n) {
+          B.marks[id] = 1;
+          fresh = true;
+          this.toast('🎱 CARD: ' + S.icon + ' ' + S.name + ' ✓', '#8fd0e0');
+          SFX.play('tick');
+        }
+      }
+      if (fresh) this._bingoLines();
+    } catch (e) { }
+  },
+  _bingoLines() {
+    const B = this.bingoCard(), ids = this._bingoIds;
+    const marked = (i) => i === 12 || !!B.marks[ids[i > 12 ? i - 1 : i]];   // center is FREE (nurse's discretion)
+    const LINES = [];
+    for (let r = 0; r < 5; r++) LINES.push([0, 1, 2, 3, 4].map(c => r * 5 + c));
+    for (let c = 0; c < 5; c++) LINES.push([0, 1, 2, 3, 4].map(r => r * 5 + c));
+    LINES.push([0, 6, 12, 18, 24]);
+    LINES.push([4, 8, 12, 16, 20]);
+    LINES.forEach((line, li) => {
+      if (B.linesPaid.includes(li)) return;
+      if (line.every(marked)) {
+        B.linesPaid.push(li);
+        Meta.data.insight = (Meta.data.insight || 0) + 6;
+        Meta.data.bingoLines = (Meta.data.bingoLines || 0) + 1;
+        this.toast('🎱 B-I-N-G-O! Line complete — +◆6 Insight', '#e8c84c');
+        SFX.play('fanfare');
+      }
+    });
+    if (Object.keys(B.marks).length >= 24 && !B.blackout) {
+      B.blackout = 1;
+      Meta.data.bingoBlackouts = (Meta.data.bingoBlackouts || 0) + 1;
+      Meta.data.insight = (Meta.data.insight || 0) + 40;
+      Meta.data.fund = (Meta.data.fund || 0) + 25;
+      this.setBanner('🎱 BLACKOUT', 'the whole card — +◆40, +25¢ to the Fund. the coordinator WEPT.', 3.4);
+      SFX.play('fanfare');
+    }
+    Meta.save();
+    this.checkUnlocks();
+  },
+  showBingo(returnTo) {
+    this.state = 'bingo';
+    const B = this.bingoCard(), ids = this._bingoIds;
+    const cells = [];
+    for (let i = 0; i < 25; i++) {
+      if (i === 12) { cells.push(`<div class="bingoc free">☕<span>FREE<br>(nurse's<br>discretion)</span></div>`); continue; }
+      const id = ids[i > 12 ? i - 1 : i];
+      const S = DATA.BINGO_POOL.find(s => s.id === id);
+      const done = !!B.marks[id];
+      const prog = Math.min(B.prog[S.ev] || 0, S.n);
+      cells.push(`<div class="bingoc${done ? ' done' : ''}" title="${S.name}">${S.icon}<span>${S.name}${S.n > 1 ? `<br>${prog}/${S.n}` : ''}</span>${done ? '<i class="bstamp">✓</i>' : ''}</div>`);
+    }
+    const got = Object.keys(B.marks).length;
+    this.overlay(`
+      <div class="panel wide">
+        <h1 class="logo" style="font-size:26px">🎱 WARD BINGO</h1>
+        <div class="tagline">${B.key} · one card for the whole building · ${got}/24 squares · ${B.linesPaid.length}/12 lines paid</div>
+        <div class="bingogrid">${cells.join('')}</div>
+        <div class="tagline" style="opacity:.7">every line +◆6 · BLACKOUT +◆40 and +25¢ to the Fund · progress counts all day, dailies included · new card at midnight</div>
+        <button class="btn" id="bBingoBack">BACK</button>
+      </div>`);
+    document.getElementById('bBingoBack').onclick = () => { SFX.play('ui'); (returnTo || (() => this.showTitle()))(); };
+  },
+
+  /* ============================================================
+     THE RIVAL (same intake day. identical files. one of you is
+     "thriving," and they have opinions about which.)
+     ============================================================ */
+  ensureRival() {
+    if (!Meta.data.rival) {
+      Meta.data.rival = { name: U.choice(DATA.RIVAL_NAMES), duelW: 0, duelL: 0, raceW: 0, raceL: 0 };
+      Meta.save();
+    }
+    return Meta.data.rival;
+  },
+  raceUpdate(dt) {
+    const RC = this.race;
+    if (!RC) return;
+    const R = this.ensureRival();
+    RC.t += dt;
+    if (RC.done) {   // storming off is also cardio
+      RC.x += RC.exitVx * dt; RC.y += RC.exitVy * dt;
+      if (RC.x < RX - 50 || RC.x > RX + RW + 50 || RC.y < RY - 50 || RC.y > RY + RH + 50 || RC.t > RC.doneAt + 3.5) this.race = null;
+      return;
+    }
+    const ped = RC.ped;
+    if (ped.taken) {   // you got there first
+      RC.done = true; RC.doneAt = RC.t;
+      R.raceW = (R.raceW || 0) + 1; Meta.save();
+      this.toast('🏁 ' + R.name + ': ' + U.choice(DATA.RIVAL_TAUNTS.raceLose), '#8fd08a');
+      this.diaryNote('Outran ' + R.name + ' to a prescription. They said they let me win. The sweat disagreed.');
+      this.bingoEvent('race');
+      this.checkUnlocks();
+      this.pickups.push(new Pickup('coin', RC.x - 8, RC.y));
+      this.pickups.push(new Pickup('coin', RC.x + 8, RC.y));
+      if (U.chance(0.5)) this.pa('rivalLost', R.name);
+      const ea = RC.x < CW / 2 ? Math.PI : 0;
+      RC.exitVx = Math.cos(ea) * 270; RC.exitVy = 0;
+      SFX.play('spare');
+      return;
+    }
+    const a = U.ang(RC.x, RC.y, ped.x, ped.y) + Math.sin(RC.t * 6) * 0.1;
+    RC.x += Math.cos(a) * RC.spd * dt;
+    RC.y += Math.sin(a) * RC.spd * dt;
+    if (U.dist(RC.x, RC.y, ped.x, ped.y) < 26) {   // they took it. they will bring it up forever.
+      ped.taken = true;
+      RC.done = true; RC.doneAt = RC.t;
+      RC.stole = (DATA.ITEMS[ped.itemId] || {}).name || 'your prescription';
+      R.raceL = (R.raceL || 0) + 1; Meta.save();
+      this._raceLostThisRun = true;
+      this.toast('🏁 ' + R.name + ' took ' + RC.stole + ' — ' + U.choice(DATA.RIVAL_TAUNTS.raceWin), '#e08a8a');
+      this.diaryNote(R.name + ' beat me to ' + RC.stole + '. I let them. (I did not let them.)');
+      SFX.play('denied');
+      if (U.chance(0.6)) this.pa('rival', R.name);
+      const ea = RC.x < CW / 2 ? Math.PI : 0;
+      RC.exitVx = Math.cos(ea) * 240; RC.exitVy = 0;
+    }
+  },
+  showRivalDuel(ped) {
+    const R = this.ensureRival();
+    this.state = 'rivalduel';
+    SFX.play('voice');
+    this.overlay(`
+      <div class="panel">
+        <h1 class="logo" style="font-size:26px">🥊 ${R.name} IS HERE</h1>
+        <div class="tagline">${DATA.RIVAL_TAUNTS.duelOffer}</div>
+        <div class="stats-line">career vs ${R.name}: duels ${R.duelW || 0}–${R.duelL || 0} · pedestal races ${R.raceW || 0}–${R.raceL || 0}</div>
+        <div class="cmgrid">
+          <button class="cmcard" id="bDuelGo"><div class="cmname" style="color:#d08a4a">🥊 GLOVE UP</div><div class="cmdesc">Winner takes a prescription off the loser's dignity.</div><div class="cmtag">they fight like your mirror. with a grudge.</div></button>
+          <button class="cmcard" id="bDuelNo"><div class="cmname">walk away</div><div class="cmdesc">Recovery is not a competition.</div><div class="cmtag">they will absolutely log this as a forfeit</div></button>
+        </div>
+      </div>`);
+    document.getElementById('bDuelGo').onclick = () => {
+      SFX.play('boss');
+      ped.taken = true;
+      this.hideOverlay(); this.state = 'run';
+      const room = this.room;
+      room.cleared = false; room.spawned = true;
+      const e = new Enemy('rival', CW / 2, RY + 130, this.depth, false, 1 + this.depth * 0.05);
+      e._isRival = true; e.noDrop = true; e.spawnT = 0.9;
+      this.enemies.push(e);
+      this.setBanner('🥊 ' + R.name, '“loser admits their coping is a lifestyle”', 2.6);
+    };
+    document.getElementById('bDuelNo').onclick = () => {
+      SFX.play('ui');
+      ped.taken = true;
+      this.hideOverlay(); this.state = 'run';
+      this.toast('🥊 ' + R.name + ' marks it as a forfeit. Out loud. To the room.', '#c8b0a0');
+    };
+  },
+
+  /* ============================================================
+     THE GIFT SHOP (a real fund sink — gifts deliver at check-in)
+     ============================================================ */
+  showGiftShop(returnTo) {
+    this.state = 'giftshop';
+    const fund = Meta.data.fund || 0;
+    const cart = Meta.data.giftCart || (Meta.data.giftCart = {});
+    const cards = DATA.GIFTS.map(g => {
+      const owned = !!cart[g.id], can = fund >= g.cost;
+      return `<button class="cmcard" data-gift="${g.id}" ${owned ? 'disabled' : ''} style="${owned ? 'opacity:.55' : can ? '' : 'opacity:.75'}">
+        <div class="cmname">${g.icon} ${g.name} ${owned ? '· IN CART' : `· ${g.cost}¢`}</div>
+        <div class="cmdesc">${g.desc}</div>
+        <div class="cmtag">${owned ? '✓ ' : ''}${g.fx}</div>
+      </button>`;
+    }).join('');
+    const inCart = Object.keys(cart).map(id => (DATA.GIFTS.find(g => g.id === id) || {}).icon || '').join(' ');
+    this.overlay(`
+      <div class="panel wide">
+        <h1 class="logo" style="font-size:26px">🎁 THE GIFT SHOP</h1>
+        <div class="tagline">spend the Wellness Fund on someone you love (you) — balance: <b style="color:#e8c84c">${fund}¢</b></div>
+        ${inCart ? `<div class="stats-line">cart, delivering at your next check-in: ${inCart}</div>` : '<div class="stats-line" style="opacity:.7">the cart is empty. the cashier is judging gently.</div>'}
+        <div class="cmgrid">${cards}</div>
+        ${inCart ? '<button class="btn minor" id="bGiftRefund">↩ EMPTY CART (full refund, light judgment)</button>' : ''}
+        <div class="tagline" style="opacity:.65">gifts deliver at the start of your next regular run. the markup funds the aquarium.</div>
+        <button class="btn" id="bGiftBack">BACK</button>
+      </div>`);
+    document.querySelectorAll('[data-gift]').forEach(b => b.onclick = () => {
+      const g = DATA.GIFTS.find(x => x.id === b.dataset.gift);
+      if (!g || cart[g.id] || (Meta.data.fund || 0) < g.cost) { SFX.play('error'); return; }
+      Meta.data.fund -= g.cost;
+      cart[g.id] = 1;
+      Meta.data.giftBuys = (Meta.data.giftBuys || 0) + 1;
+      Meta.save();
+      SFX.play('coin');
+      this.toast('🎁 ' + g.quip, '#e8a0c8');
+      this.checkUnlocks();
+      this.showGiftShop(returnTo);
+    });
+    const br = document.getElementById('bGiftRefund');
+    if (br) br.onclick = () => {
+      for (const id of Object.keys(cart)) { const g = DATA.GIFTS.find(x => x.id === id); if (g) Meta.data.fund += g.cost; }
+      Meta.data.giftCart = {};
+      Meta.save();
+      SFX.play('paper');
+      this.toast('↩ Refunded in full. The cashier says nothing. Loudly.', '#c8b0a0');
+      this.showGiftShop(returnTo);
+    };
+    document.getElementById('bGiftBack').onclick = () => { SFX.play('ui'); (returnTo || (() => this.showTitle()))(); };
+  },
+
   /* ---------- THE CREDITS (roll them. you earned them. someone will be billed.) ---------- */
   showCredits() {
     this.state = 'credits';
@@ -956,6 +1186,7 @@ const G = {
       boss._spared = true;
       boss._dealHold = false;
       this.diaryNote('Spared ' + B.name + ' on ward ' + this.depth + '. We shook on it. Their hand was mostly clipboard.');
+      this.bingoEvent('spare');
       this.hideOverlay(); this.state = 'run';
       boss.die(this);
     };
@@ -1486,6 +1717,8 @@ const G = {
       Meta.save();
       this.checkUnlocks();
     }
+    // the daily itself is a bingo square (play it and it counts)
+    if (daily && daily.isDaily) this.bingoEvent('daily');
     // insurance plan (dailies & seeded runs are assigned SILVER — no marketplace for you)
     this.plan = (!daily && this._startPlan) ? this._startPlan : 'silver';
     this._startPlan = null;
@@ -1524,6 +1757,33 @@ const G = {
     this._appealUsed = false; this._appealOffered = false;   // one appeal per run
     this.pillAssign = this.genSeed(['pills'], () => U.shuffle(DATA.PILLS.map((_, i) => i)).slice(0, 10));
     this.pillKnown = new Set();
+    // THE GIFT SHOP: the cart delivers at check-in (regular runs only)
+    if (!daily && !this.sandbox && Meta.data.giftCart && Object.keys(Meta.data.giftCart).length) {
+      const cart = Meta.data.giftCart, names = [];
+      const CARD_MSGS = ['“Get well soon. Or at least billable.” — Mom', '“We miss you at work. Your tasks don\'t.” — the team', '“You got this. Whatever they said it is.” — Gran', '“Feel better! I need my casserole dish back.” — Deb'];
+      for (const gid of Object.keys(cart)) {
+        const gd = DATA.GIFTS.find(g => g.id === gid);
+        if (!gd) continue;
+        names.push(gd.icon + ' ' + gd.name);
+        if (gid === 'flowers') { this.player.maxhp += 2; this.player.heal(2); }
+        if (gid === 'balloon') { this.player.luck += 1; this.player._balloon = true; this.player._balloonHits = 0; }
+        if (gid === 'card') { this.player.dmg += 0.4; this.toast('💌 ' + U.choice(CARD_MSGS), '#e8a0c8'); }
+        if (gid === 'plush') this.player.familiars.push(new Familiar('plush'));
+        if (gid === 'visitor') {
+          const pool = DATA.ALLIES.filter(a => !a.locked || (a.id === 'intern' && Meta.data.internGrad));
+          try { this.player.recruitAlly(this, U.choice(pool).id); } catch (e) { }
+        }
+        if (gid === 'chocolate') { this.player.coins += 2; if (this.player.pill == null) this.player.pill = U.randi(0, 9); this.pillKnown.add(this.player.pill); }
+      }
+      Meta.data.giftCart = {};
+      Meta.save();
+      if (names.length) {
+        this.toast('🎀 Delivered at check-in: ' + names.join(' · '), '#e8a0c8');
+        SFX.play('fanfare');
+        this.bingoEvent('gift');
+        this.diaryNote('Checked in carrying gifts: ' + names.join(', ') + '. Staff inspected the chocolate. Twice.');
+      }
+    }
     this.depth = 1;
     this.lastBoss = null;
     this.stats = { kills: 0, rooms: 0, items: 0, bosses: 0, pills: 0 };
@@ -1545,6 +1805,7 @@ const G = {
     this._basementOffered = false; this._basementReturn = null; this._diplomaSeen = false;
     this._billMul = 1; this._preApproved = 0; this._routeMod = null; this.practice = false;
     this.intern = null; this._internOffered = false; this._union = null;
+    this.race = null; this._races = 0; this._raceLostThisRun = false; this._icNight = false;   // THE RIVAL + night shift, fresh per run
     // THE COMPLAINT DEPARTMENT: your grievance reports for duty
     this._complaint = (!daily && Meta.data.pendingComplaint) ? String(Meta.data.pendingComplaint).slice(0, 40) : null;
     this._complaintSpawned = false;
@@ -1604,6 +1865,7 @@ const G = {
         { x: 330, y: 565, r: 46, door: false, label: '🫙 WELLNESS FUND', hint: 'balance: ' + (Meta.data.fund || 0) + '¢', act: () => this.showFacility(() => this.showHub()) },
         { x: 480, y: 565, r: 44, door: false, label: '📋 COMPLAINTS', hint: Meta.data.pendingComplaint ? 'one pending' : 'file a grievance', act: () => this.showComplaints(() => this.showHub()) },
         { x: 660, y: 330, r: 46, door: false, label: '📔 PATIENT DIARY', hint: (Meta.data.diary || []).length ? (Meta.data.diary.length + ' entries · it kept writing') : 'it writes itself. about you.', act: () => this.showJournal(() => this.showHub()) },
+        { x: 170, y: 218, r: 46, door: false, label: '🎁 GIFT SHOP', hint: 'fund: ' + (Meta.data.fund || 0) + '¢ · gifts deliver at check-in', act: () => this.showGiftShop(() => this.showHub()) },
         { x: 480, y: 628, r: 40, door: this.exitReady(), label: this.exitReady() ? '🚪 THE FRONT DOOR' : '🔒 FRONT DOOR', hint: this.exitReady() ? 'it\'s open. it\'s actually open.' : 'locked since intake', act: () => this.tryExit() }
       ]
     };
@@ -1829,6 +2091,7 @@ const G = {
   // Treatment Goals: advance any active objective listening for this event
   goalEvent(ev, amt) {
     if (this.sandbox) return;   // nothing counts on an imaginary shift
+    this.bingoEvent(ev, amt);   // the daily card hears everything (it guards itself)
     this.contractEvent(ev, amt);
     if (!this.goals) return;
     for (const g of this.goals) {
@@ -1841,6 +2104,7 @@ const G = {
         Meta.save();
         this.toast('🎯 GOAL: ' + g.name + ' — +◆' + g.insight + ' Insight', '#8fd0e0');
         SFX.play('goalJingle');
+        this.bingoEvent('goal');
       }
     }
   },
@@ -1862,6 +2126,7 @@ const G = {
   },
   applyContractReward(def) {
     const p = this.player; if (!p) return;
+    this.bingoEvent('contract');
     const say = (s) => { this.toast('📝 CONTRACT PAID: ' + def.name + ' — ' + s, '#8fd08a'); SFX.play('bell'); };
     switch (def.reward) {
       case 'coins': { const n = def.id === 'secret1' ? 12 : 9; p.coins += n; say('+' + n + '¢'); break; }
@@ -1929,6 +2194,8 @@ const G = {
     const cured = !!this._runCured || out === 'cured';
     const walrus = (Meta.data.walrusKills || 0) > (this._startWalrusKills || 0);
     const cause = out === 'dead' ? (p._lastSrc || 'unknown') : out;
+    // THE RIVAL logs the duel you lost (they will bring it up)
+    if (out === 'dead' && cause === 'rival' && Meta.data.rival) { Meta.data.rival.duelL = (Meta.data.rival.duelL || 0) + 1; }
     const secs = Math.max(0, Math.round((Date.now() - (this._runStart || Date.now())) / 1000));
     const rec = { t: this.todayKey(), diag: p.baseDiag === 'undiag' ? 'undiag' : p.diag, mode, ward: this.depth, out, cause, cured: cured ? 1 : 0, walrus: walrus ? 1 : 0, kills: this.stats.kills, bosses: this.stats.bosses, items: this.stats.items, pills: this.stats.pills, secs, variant: p.variant ? 1 : 0, bill: this.runBill().total };
     const log = Meta.data.runlog || (Meta.data.runlog = []);
@@ -2066,6 +2333,25 @@ const G = {
     this.wingPal = wingDef ? wingDef.pal : null;
     if (wingDef && wingDef.dark) this.floorDark = Math.max(this.floorDark, wingDef.dark);
     if (this.protocol === 'nightshift') this.floorDark = Math.max(this.floorDark, 0.55);   // the lights never come on
+    // THE NIGHT SHIFT: the building keeps hours (local clock, unseeded runs only)
+    const hrN = new Date().getHours();
+    const nightNow = (this.seed == null && !this.overtime && !this.bossRush && (hrN >= 21 || hrN < 6));
+    if (nightNow && !this.nightShift) {
+      this.setBanner('🌙 THE NIGHT SHIFT', 'skeleton crew · extra crowding · differential pay', 2.8);
+      SFX.play('sting');
+      if (!this._icNight) { this._icNight = true; setTimeout(() => { if (this.state === 'run') this.pa('night'); }, 1800); }
+    }
+    this.nightShift = nightNow;
+    if (this.nightShift) this.floorDark = Math.max(this.floorDark, 0.26);
+    // THE RIVAL books the gym (depth 3+, likelier if they robbed you at a pedestal)
+    this.gymSet = false;
+    if (this.seed == null && !this.practice && !this.sandbox && !this.overtime && !this.bossRush && this.depth >= 3 && U.chance(this._raceLostThisRun ? 0.5 : 0.2)) {
+      const normalsG = this.floorRooms.filter(r => r.type === 'normal');
+      if (normalsG.length > 3) { U.choice(normalsG).type = 'gym'; this.gymSet = true; }
+    }
+    // bingo depth squares
+    if (this.depth === 5) this.bingoEvent('depth5');
+    if (this.depth === 8) this.bingoEvent('depth8');
     if (this.shadowWard) {   // the shadow swallows whatever wing this was
       this.wingPal = { floor: '#2e2440', line: '#241c34', wall: '#3c2c52', trim: '#161020' };
       this.floorDark = Math.max(this.floorDark, 0.35);
@@ -2256,6 +2542,23 @@ const G = {
     if (room.type === 'clinic' && !room.cleared && room._minibossName && !room.greeted) { room.greeted = true; this.setBanner('⚕ ' + room._minibossName, 'office hours', 2.2); SFX.play('boss'); }
     if (room.type === 'secret' && !room.greeted) { room.greeted = true; this.toast(DATA.TOASTS.secret); }
     if (room.type === 'oon' && !room.greeted) { room.greeted = true; this.toast(DATA.TOASTS.oon, '#e08a8a'); }
+    if (room.type === 'gym' && !room.greeted) { room.greeted = true; this.toast('🥊 The gym. Someone chalked a name on the board. It\'s yours, misspelled.', '#d08a4a'); }
+    // THE RIVAL heard there's a pedestal in here
+    if (room.type === 'item' && !room._raced && this.seed == null && !this.practice && !this.sandbox && !this.overtime && !this.bossRush && this.depth >= 2 && (this._races || 0) < 2 && !this.race) {
+      const rped = this.peds.find(pd => pd.kind === 'item' && !pd.taken && !pd.price);
+      if (rped && U.chance(0.4)) {
+        room._raced = true;
+        this._races = (this._races || 0) + 1;
+        const R = this.ensureRival();
+        const d0 = U.dist(p.x, p.y, rped.x, rped.y);
+        const a0 = U.ang(p.x, p.y, rped.x, rped.y);
+        const rx = U.clamp(rped.x + Math.cos(a0) * d0, RX + 30, RX + RW - 30);
+        const ry = U.clamp(rped.y + Math.sin(a0) * d0, RY + 30, RY + RH - 30);
+        this.race = { x: rx, y: ry, ped: rped, done: false, spd: Math.max(172, (p.spd || 200) * 0.96), t: 0 };
+        this.setBanner('🏁 ' + R.name + ' WANTS IT', 'beat them to the pedestal', 2.2);
+        SFX.play('sting');
+      }
+    }
   },
 
   populateRoom(room) {
@@ -2366,9 +2669,15 @@ const G = {
         if (this.depth >= 8) room.peds.push({ x: RX + RW - 90, y: RY + 96, kind: 'ama', taken: false });
         break;
       }
+      case 'gym': {   // THE GYM — your rival booked it. there is a sign-up sheet with one name.
+        room.cleared = true;
+        if (!room._dueled) { room._dueled = true; room.peds.push({ x: CW / 2, y: RY + RH / 2 - 20, kind: 'rivalduel', taken: false }); }
+        room.pickups.push(new Pickup('half', RX + 90, RY + RH - 90));   // the water fountain works, at least
+        break;
+      }
       case 'clinic': {   // The Clinic — a miniboss is holding office hours
         room.cleared = false;
-        const mb = new Enemy(U.choice(['chargenurse', 'resident', 'orderly']), CW / 2, RY + 120, this.depth, false, 1);
+        const mb = new Enemy(this.nightShift ? 'nightnurse' : U.choice(['chargenurse', 'resident', 'orderly']), CW / 2, RY + 120, this.depth, false, 1);
         mb.noDrop = true; mb._miniboss = true;
         this.enemies.push(mb);
         room._minibossName = DATA.ENEMIES[mb.id].name;
@@ -2461,6 +2770,11 @@ const G = {
     if (this._ic && !(this._ic.cds.fast > 0) && this.t - (this._roomT0 || 0) < 5) { this._ic.cds.fast = 110; this.pa('fast'); }
     // Shadow Ward: the dark pays double
     if (this.shadowWard) for (let i = 0; i < 2; i++) this.pickups.push(new Pickup(U.choice(['coin', 'coin', 'nickel', 'half']), CW / 2 + U.rand(-60, 60), RY + RH / 2 + U.rand(-40, 40)));
+    // NIGHT SHIFT: differential pay (the coins apologize for the hour)
+    if (this.nightShift && U.chance(0.6)) {
+      this.pickups.push(new Pickup('coin', CW / 2 + U.rand(-50, 50), RY + RH / 2 + U.rand(-30, 30)));
+      if (U.chance(0.3)) this.texts.push(new FloatText(CW / 2, RY + RH / 2 - 24, 'night differential +1¢', '#8a90c8'));
+    }
     // pet XP: 40 rooms together changes an animal
     if (p.pet) {
       const xp = Meta.data.petXp || (Meta.data.petXp = {});
@@ -2611,6 +2925,7 @@ const G = {
       this.stats.bosses++;
       const BN = (DATA.BOSSES[this.bossId] || { name: this.bossId }).name;
       this.diaryNote('Put down ' + BN + (this.boss && this.boss._shift2 ? ' (working a double, no less)' : '') + ' on ward ' + this.depth + '. Management will send a replacement.');
+      if (this.bossId === 'walrus') this.bingoEvent('walrus');
     }
     else {
       (Meta.data.sparedBosses || (Meta.data.sparedBosses = {}))[this.bossId] = 1;
@@ -2822,6 +3137,13 @@ const G = {
   /* ---------- comorbidity choice on descent ---------- */
   doDescend() {
     if (this.floorHits === 0) this.goalEvent('floorclean');   // Clean Bill
+    // NIGHT SHIFT: another floor on the clock nobody wants
+    if (this.nightShift && !this.sandbox && !this.practice && !this.dailyKind) {
+      Meta.data.nightFloors = (Meta.data.nightFloors || 0) + 1;
+      Meta.save();
+      this.checkUnlocks();
+      this.bingoEvent('night');
+    }
     if (this.p2 && !Meta.data.everCoop) { Meta.data.everCoop = 1; Meta.save(); this.checkUnlocks(); }   // Group Rate
     if (this.volunteer && !Meta.data.everVolunteer) { Meta.data.everVolunteer = 1; Meta.save(); this.checkUnlocks(); }   // Back On Purpose
     // the intern survives another floor
@@ -3106,7 +3428,7 @@ const G = {
       if (this._loneT > 14) for (const e of liveNow) e._impatient = true;   // even the symptoms get bored
     } else this._loneT = 0;
     const hostiles = this.enemies.some(e => !e.charmed && e.id !== 'auditor');   // the Auditor never blocks the doors — run if you want
-    if (!room.cleared && (room.type === 'normal' || room.type === 'padded' || room.type === 'clinic') && room.spawned && !hostiles) this.onRoomCleared();
+    if (!room.cleared && (room.type === 'normal' || room.type === 'padded' || room.type === 'clinic' || room.type === 'gym') && room.spawned && !hostiles) this.onRoomCleared();
     if (!room.cleared && room.type === 'boss' && this.boss && this.boss.dead && this.enemies.length === 0 && !room.cleared) {
       // onBossDead already ran via boss.die
     }
@@ -3255,6 +3577,7 @@ const G = {
             this.goalEvent('buy');
             if (ped._lost) { Meta.data.lostItem = null; }   // reclaimed
             this.diaryNote(ped._lost ? 'Bought back something I lost from the man with the bucket. He knew it was mine. He always knows.' : 'Bought contraband off a mop cart. No receipt. No regrets.');
+            this.bingoEvent('janitor');
             Meta.data.janitorBuys = (Meta.data.janitorBuys || 0) + 1; Meta.save();
             this.toast('🧹 ' + (ped._lost ? '“Welcome back to it. No questions. Well — one: how?”' : U.choice(DATA.JANITOR.buy)), '#b8b0a0');
             if (U.chance(0.35)) setTimeout(() => { if (this.state === 'run') this.toast('🧹 ' + U.choice(DATA.JANITOR.wisdom), '#b8b0a0'); }, 2600);
@@ -3286,6 +3609,8 @@ const G = {
         this.diaryNote('Someone with a brand-new badge asked to follow me. I said the wrong thing: "sure."');
         this.toast('🪪 THE INTERN is shadowing you. Keep them alive for 3 floors. They panic. A lot.', '#e8c05a');
         SFX.play('voice');
+      } else if (ped.kind === 'rivalduel') {   // they've been stretching. audibly.
+        if (this.lockCd <= 0) { this.lockCd = 2.0; this.showRivalDuel(ped); return; }
       } else if (ped.kind === 'designexit') {   // back to the drawing board (literally)
         ped.taken = true;
         this.showDesigner();
@@ -3326,6 +3651,7 @@ const G = {
         try { fx.apply(p, this); } catch (e) { }
         (p.sampleFx || (p.sampleFx = [])).push(fx.name);
         for (const o of this.peds) if (o !== ped && (o.repGroup === ped.repGroup || o.kind === 'drugrep')) o.taken = true;   // his time is valuable
+        this.bingoEvent('sample');
         this.toast('FREE SAMPLE! Side effects include: ' + fx.name + '.', '#8fd08a');
         SFX.play('item');
       } else {
@@ -3398,6 +3724,8 @@ const G = {
       const live = this.enemies.filter(e => !e.dying && !e.fake && !e.charmed && e.spawnT <= 0 && e.id !== 'auditor').length;
       if (live >= 4 && Math.random() < 0.12) this.unionize();
     }
+    // THE RIVAL: pedestal race in progress
+    if (this.race) this.raceUpdate(dt);
     // Patient Two (couch co-op)
     if (Input.take('p2join')) { this.p2 ? this.p2Leave() : this.showP2Pick(); if (this.state !== 'run') return; }
     if (this.p2) this.p2Update(dt);
@@ -3568,6 +3896,7 @@ const G = {
         Meta.data.unionsSettled = (Meta.data.unionsSettled || 0) + 1; Meta.save();
         this.checkUnlocks();
         this.diaryNote('A union formed. I paid the severance. Everyone clocked out singing. Worth every cent.');
+        this.bingoEvent('union');
         this.toast('🤝 Severance paid. They filed out singing. The room is yours.', '#8fd05a');
         SFX.play('spare');
       }
@@ -3755,7 +4084,7 @@ const G = {
     if (Meta.data.paOff) return;
     const pool = DATA.INTERCOM[key]; if (!pool || !pool.length) return;
     let line = U.choice(pool);
-    if (sub) line = line.replace('{X}', String(sub).replace(/^the /i, ''));
+    if (sub) line = line.replace(/\{X\}/g, String(sub).replace(/^the /i, ''));
     this.toast('📢 ' + line, '#c8b8d8');
     SFX.play('voice');
   },
@@ -4465,6 +4794,8 @@ const G = {
         ${row('Beat Dr. Walrus', tWalrus + ' (' + pct(tWalrus, tRuns) + ')')}
         ${row('Reached THE CURE', tCured + ' (' + pct(tCured, tRuns) + ')')}
         ${Meta.data.founderKills ? row('👑 Toppled THE FOUNDER', Meta.data.founderKills) : ''}
+        ${Meta.data.rival ? row('🏁 vs ' + Meta.data.rival.name, 'races ' + (Meta.data.rival.raceW || 0) + '–' + (Meta.data.rival.raceL || 0) + ' · gym duels ' + (Meta.data.rival.duelW || 0) + '–' + (Meta.data.rival.duelL || 0)) : ''}
+        ${Meta.data.bingoLines ? row('🎱 Bingo lines paid', Meta.data.bingoLines + (Meta.data.bingoBlackouts ? ' · ' + Meta.data.bingoBlackouts + ' BLACKOUT' : '')) : ''}
       </div>`;
       const diagRows = Object.keys(DATA.DIAG).map(id => {
         const a = A[id]; if (!a || !a.runs) return '';

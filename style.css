@@ -422,3 +422,13 @@ body.touch.inrun #padLand { display: block; }
 .dgc { width: 27px; height: 27px; padding: 0; margin: 0; border: 1px solid rgba(44,35,51,0.4); background: #d8cfc0; font-size: 13px; line-height: 1; cursor: pointer; font-family: inherit; user-select: none; }
 .dgc:active { outline: 2px solid #e8c84c; }
 @media (max-width: 520px) { .dgc { width: 22px; height: 22px; font-size: 11px; } }
+
+/* ============ WARD BINGO ============ */
+.bingogrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin: 12px auto; max-width: 480px; }
+.bingoc { position: relative; background: #fffef2; border: 2.5px solid #2c2333; border-radius: 8px; box-shadow: 0 3px 0 #2c2333; min-height: 66px; padding: 6px 3px 4px; font-size: 17px; text-align: center; color: #3a3040; }
+.bingoc span { display: block; font-size: 8.5px; line-height: 1.15; margin-top: 3px; color: #55445e; font-weight: bold; }
+.bingoc.free { background: #efe4d0; }
+.bingoc.done { background: #e6f3e0; border-color: #3a7a3a; box-shadow: 0 3px 0 #3a7a3a; }
+.bingoc.done span { color: #2c5a2c; }
+.bingoc .bstamp { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 34px; font-style: normal; color: rgba(58,122,58,0.55); transform: rotate(-12deg); pointer-events: none; }
+@media (max-width: 480px) { .bingoc { min-height: 58px; font-size: 14px; } .bingoc span { font-size: 7.5px; } }

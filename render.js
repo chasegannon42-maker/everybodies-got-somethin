@@ -511,6 +511,30 @@ const Render = {
         ctx.fillStyle = '#f0ead8'; this.rr(ctx, s.x - 15, s.y - 14, 30, 11, 2); ctx.fill();   // taped label
         ctx.fillStyle = '#7a5a3a'; ctx.font = this.font(7, true); ctx.textAlign = 'center'; ctx.fillText('WELLNESS', s.x, s.y - 6);
         ctx.fillStyle = '#f4eee0'; ctx.font = this.font(12); ctx.fillText('🫙', s.x, s.y + 46);
+      } else if (s.label.includes('GIFT')) {   // the gift shop cart — the markup funds the aquarium
+        this.shadow(s.x, s.y + 34, 34, 9, 0.2);
+        ctx.fillStyle = '#a05a6a'; this.rr(ctx, s.x - 30, s.y - 6, 60, 34, 6); ctx.fill();   // cart body
+        ctx.strokeStyle = '#7a3a4a'; ctx.lineWidth = 2; this.rr(ctx, s.x - 30, s.y - 6, 60, 34, 6); ctx.stroke();
+        ctx.fillStyle = '#f0ead8'; this.rr(ctx, s.x - 26, s.y - 2, 52, 12, 3); ctx.fill();   // shelf of cards
+        for (let c2 = 0; c2 < 4; c2++) { ctx.fillStyle = ['#e8a0c8', '#8fd0e0', '#e8c84c', '#b8e0a0'][c2]; this.rr(ctx, s.x - 23 + c2 * 13, s.y - 1, 10, 10, 1.5); ctx.fill(); }
+        ctx.fillStyle = '#4a3038'; ctx.beginPath(); ctx.arc(s.x - 18, s.y + 32, 5, 0, TAU); ctx.arc(s.x + 18, s.y + 32, 5, 0, TAU); ctx.fill();   // wheels
+        for (let b2 = 0; b2 < 3; b2++) {   // the balloon bundle
+          const ba = -0.5 + b2 * 0.5, bl = 34 + (b2 % 2) * 7;
+          const bx2 = s.x + 20 + Math.sin(ba) * 14 + Math.sin(G.t * 1.4 + b2) * 2;
+          const by2 = s.y - 6 - bl + Math.sin(G.t * 1.8 + b2 * 2) * 2;
+          ctx.strokeStyle = 'rgba(120,100,120,0.6)'; ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(s.x + 22, s.y - 4); ctx.quadraticCurveTo(bx2, by2 + 20, bx2, by2 + 9); ctx.stroke();
+          ctx.fillStyle = ['#e05a6a', '#e8c84c', '#8fd0e0'][b2];
+          ctx.beginPath(); ctx.ellipse(bx2, by2, 7, 8.5, 0, 0, TAU); ctx.fill();
+          ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.beginPath(); ctx.ellipse(bx2 - 2, by2 - 2.5, 2, 2.8, -0.4, 0, TAU); ctx.fill();
+        }
+        ctx.fillStyle = '#b8a0a8';   // a small plush walrus on duty
+        ctx.beginPath(); ctx.ellipse(s.x - 16, s.y - 11, 8, 6, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#f0ead8'; ctx.fillRect(s.x - 19, s.y - 9, 1.6, 4); ctx.fillRect(s.x - 16, s.y - 9, 1.6, 4);
+        ctx.fillStyle = '#efe6cc'; this.rr(ctx, s.x - 32, s.y - 30, 64, 14, 4); ctx.fill();   // sign
+        ctx.strokeStyle = '#a8926a'; ctx.lineWidth = 1.5; this.rr(ctx, s.x - 32, s.y - 30, 64, 14, 4); ctx.stroke();
+        ctx.fillStyle = '#7a6a4a'; ctx.font = 'bold 9px Impact,"Arial Black",sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText('GIFT SHOPPE', s.x, s.y - 20);
       } else if (s.label.includes('DIARY')) {   // the coffee table, and the journal that lives there
         this.shadow(s.x, s.y + 26, 40, 10, 0.2);
         ctx.fillStyle = '#7d5a38'; ctx.beginPath(); ctx.ellipse(s.x, s.y + 8, 46, 19, 0, 0, TAU); ctx.fill();   // table top
@@ -1447,6 +1471,28 @@ const Render = {
         if (U.dist(G.player.x, G.player.y, ped.x, ped.y) < 80) { ctx.fillStyle = '#c8b0e0'; ctx.font = this.font(10, true); ctx.textAlign = 'center'; ctx.fillText('🎓 squint at it', ped.x, ped.y + 34); }
         continue;
       }
+      if (ped.kind === 'rivalduel') {   // they've been here a while. warming up. loudly.
+        const RN = (typeof Meta !== 'undefined' && Meta.data.rival) ? Meta.data.rival.name : 'THE RIVAL';
+        const hop = Math.abs(Math.sin(G.t * 5)) * 3;   // bouncing on their toes
+        this.shadow(ped.x, ped.y + 16, 13, 5, 0.22);
+        ctx.save(); ctx.translate(ped.x, ped.y - hop);
+        ctx.fillStyle = '#d08a4a'; ctx.beginPath(); ctx.ellipse(0, 0, 12, 14, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#e05a5a'; this.rr(ctx, -11, -10, 22, 4.5, 2); ctx.fill();
+        ctx.fillStyle = '#2c2333';
+        ctx.beginPath(); ctx.ellipse(-4.5, -3, 2.2, 1.5, -0.2, 0, TAU); ctx.ellipse(4.5, -3, 2.2, 1.5, 0.2, 0, TAU); ctx.fill();
+        ctx.strokeStyle = '#2c2333'; ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.moveTo(-3.5, 5); ctx.quadraticCurveTo(0, 3.4, 3.5, 5.4); ctx.stroke();
+        ctx.fillStyle = '#c05050';   // little boxing gloves
+        ctx.beginPath(); ctx.arc(-13, 2 - hop * 0.4, 4.5, 0, TAU); ctx.arc(13, 2 + hop * 0.4, 4.5, 0, TAU); ctx.fill();
+        ctx.restore();
+        ctx.fillStyle = '#d08a4a'; ctx.font = this.font(10, true); ctx.textAlign = 'center';
+        ctx.fillText('🥊 ' + RN, ped.x, ped.y - 32);
+        if (U.dist(G.player.x, G.player.y, ped.x, ped.y) < 90) {
+          ctx.fillStyle = '#e8c84c'; ctx.font = this.font(10, true);
+          ctx.fillText('“one round. c\'mon.”', ped.x, ped.y + 34);
+        }
+        continue;
+      }
       if (ped.kind === 'designexit') {   // the blueprint back to the drafting table
         const bob2 = Math.sin(G.t * 2.2) * 2;
         this.shadow(ped.x, ped.y + 14, 22, 7, 0.22);
@@ -1705,6 +1751,7 @@ const Render = {
     if (G.player.pet) this.drawPet(G.player.pet, G);
     if (G.p2) this.drawP2(G.p2, G);
     if (G.intern) this.drawIntern(G.intern, G);
+    if (G.race) this.drawRaceRival(G.race, G);
     this.drawPlayer(G.player, G);
 
     // tears — glossy droplets with shadow
@@ -1873,6 +1920,38 @@ const Render = {
   },
 
   /* ============ emotional support animals ============ */
+  /* THE RIVAL, mid-race: elbows out, ethics optional */
+  drawRaceRival(RC, G) {
+    const ctx = this.ctx;
+    const bob = Math.abs(Math.sin(RC.t * 11)) * 3.5;   // a committed sprint
+    const lean = RC.done ? 0 : 0.14;
+    this.shadow(RC.x, RC.y + 15, 12, 4.5, 0.24);
+    ctx.save();
+    ctx.translate(RC.x, RC.y - bob);
+    ctx.rotate((RC.exitVx < 0 ? -1 : 1) * lean);
+    ctx.fillStyle = '#d08a4a';
+    ctx.beginPath(); ctx.ellipse(0, 0, 11, 13, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#e05a5a'; this.rr(ctx, -10, -9, 20, 4, 2); ctx.fill();   // the sweatband
+    ctx.fillStyle = '#2c2333';
+    ctx.beginPath(); ctx.ellipse(-4, -2, 2, 1.4, -0.2, 0, TAU); ctx.ellipse(4, -2, 2, 1.4, 0.2, 0, TAU); ctx.fill();
+    ctx.strokeStyle = '#2c2333'; ctx.lineWidth = 1.3;
+    ctx.beginPath(); ctx.moveTo(-3, 4.5); ctx.quadraticCurveTo(0, 3.2, 3, 4.8); ctx.stroke();
+    ctx.strokeStyle = '#b06a34'; ctx.lineWidth = 3; ctx.lineCap = 'round';   // pumping arms
+    const sw = Math.sin(RC.t * 11) * 7;
+    ctx.beginPath(); ctx.moveTo(-9, 3); ctx.lineTo(-13, 3 + sw); ctx.moveTo(9, 3); ctx.lineTo(13, 3 - sw); ctx.stroke();
+    ctx.lineCap = 'butt';
+    ctx.restore();
+    const RN = (typeof Meta !== 'undefined' && Meta.data.rival) ? Meta.data.rival.name : 'RIVAL';
+    ctx.fillStyle = '#d08a4a'; ctx.font = this.font(9, true); ctx.textAlign = 'center';
+    ctx.fillText(RC.done ? RN : '🏁 ' + RN, RC.x, RC.y - 24);
+    if (!RC.done) {   // dust of pure competition
+      for (let i = 0; i < 2; i++) {
+        ctx.fillStyle = 'rgba(160,140,110,' + (0.25 - i * 0.1) + ')';
+        ctx.beginPath(); ctx.arc(RC.x - Math.cos(U.ang(RC.x, RC.y, RC.ped.x, RC.ped.y)) * (14 + i * 8), RC.y + 12, 3 - i, 0, TAU); ctx.fill();
+      }
+    }
+  },
+
   drawPet(pet, G) {
     const ctx = this.ctx;
     ctx.save();
@@ -2218,6 +2297,21 @@ const Render = {
       ctx.fillText('Ⅱ', 15, -15.5);
     }
 
+    // GET WELL balloon (gift shop) — it follows. it believes.
+    if (p._balloon) {
+      const t = (G && G.t) || 0;
+      const bx = 15 + Math.sin(t * 1.6) * 3, by = -38 + Math.sin(t * 2.1) * 2.5;
+      ctx.strokeStyle = 'rgba(120,100,120,0.7)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(6, -8); ctx.quadraticCurveTo(bx - 4, by + 18, bx, by + 10); ctx.stroke();
+      ctx.fillStyle = (p._balloonHits || 0) >= 2 ? '#c86a78' : '#e05a6a';
+      ctx.beginPath(); ctx.ellipse(bx, by, 8, 9.5, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.beginPath(); ctx.ellipse(bx - 2.5, by - 3, 2.5, 3.2, -0.4, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 4.5px "Trebuchet MS",sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('GET', bx, by - 1); ctx.fillText('WELL', bx, by + 4);
+      ctx.fillStyle = ctx.fillStyle; ctx.beginPath(); ctx.moveTo(bx - 2, by + 9); ctx.lineTo(bx + 2, by + 9); ctx.lineTo(bx, by + 12); ctx.closePath();
+      ctx.fillStyle = '#c04a58'; ctx.fill();
+    }
+
     // item held overhead
     if (p.itemHold > 0.6) {
       ctx.fillStyle = '#f2dcc0';
@@ -2367,6 +2461,36 @@ const Render = {
         // the phone
         ctx.fillStyle = '#15181f'; this.rr(ctx, -7, 10, 14, 9, 2); ctx.fill();
         ctx.fillStyle = '#9ecbe8'; this.rr(ctx, -5.5, 11.5, 11, 6, 1); ctx.fill();
+        break;
+      }
+      case 'rival': { // THE RIVAL: your silhouette, someone else's smugness
+        this.orb(ctx, 0, 0, e.r, body, flash);
+        ctx.fillStyle = '#e05a5a'; this.rr(ctx, -e.r + 1, -e.r * 0.62, (e.r - 1) * 2, 4.5, 2); ctx.fill();   // sweatband
+        ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(e.r - 4, -e.r * 0.62 + 2, 2, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#2c2333';   // narrowed, keeping score
+        ctx.beginPath(); ctx.ellipse(-5, -2, 2.6, 1.7, -0.2, 0, TAU); ctx.ellipse(5, -2, 2.6, 1.7, 0.2, 0, TAU); ctx.fill();
+        ctx.strokeStyle = '#2c2333'; ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.moveTo(-4, 6); ctx.quadraticCurveTo(0, 4.2, 4, 6.4); ctx.stroke();   // the smirk
+        ctx.strokeStyle = 'rgba(44,35,51,0.55)'; ctx.lineWidth = 2; ctx.lineCap = 'round';   // gym towel
+        ctx.beginPath(); ctx.moveTo(-e.r + 3, 4); ctx.quadraticCurveTo(-e.r - 5, 9, -e.r + 1, e.r + 2); ctx.stroke(); ctx.lineCap = 'butt';
+        const RN = (typeof Meta !== 'undefined' && Meta.data.rival) ? Meta.data.rival.name : 'RIVAL';
+        ctx.fillStyle = '#d08a4a'; ctx.font = this.font(9, true); ctx.textAlign = 'center';
+        ctx.fillText('🥊 ' + RN, 0, -e.r - 10);
+        break;
+      }
+      case 'nightnurse': { // THE NIGHT NURSE: glides. the lantern is for you, not her.
+        const gl2 = ctx.createRadialGradient(0, 0, 4, 0, 0, e.r + 26);
+        gl2.addColorStop(0, 'rgba(200,205,255,0.22)'); gl2.addColorStop(1, 'rgba(200,205,255,0)');
+        ctx.fillStyle = gl2; ctx.beginPath(); ctx.arc(0, 0, e.r + 26, 0, TAU); ctx.fill();
+        this.orb(ctx, 0, 0, e.r, body, flash);
+        ctx.fillStyle = '#f0f2f8';   // the cap
+        ctx.beginPath(); ctx.moveTo(-e.r * 0.7, -e.r * 0.55); ctx.lineTo(e.r * 0.7, -e.r * 0.55); ctx.lineTo(e.r * 0.44, -e.r - 5); ctx.lineTo(-e.r * 0.44, -e.r - 5); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#8a90c8'; ctx.font = this.font(8, true); ctx.textAlign = 'center';
+        ctx.fillText('🌙', 0, -e.r + 1);
+        ctx.strokeStyle = '#2c2333'; ctx.lineWidth = 1.6;   // half-lidded calm
+        ctx.beginPath(); ctx.moveTo(-8, -1); ctx.quadraticCurveTo(-5, 1.6, -2, -1); ctx.moveTo(2, -1); ctx.quadraticCurveTo(5, 1.6, 8, -1); ctx.stroke();
+        ctx.strokeStyle = 'rgba(44,35,51,0.6)'; ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.moveTo(-3, 6.5); ctx.lineTo(3, 6.5); ctx.stroke();   // a professionally neutral mouth
         break;
       }
       case 'notif': { // glossy red alert badge, buzzing
@@ -4198,7 +4322,7 @@ const Render = {
     ctx.fillText(D.name, W / 2, y);
     ctx.font = this.font(11.5);
     ctx.fillStyle = 'rgba(230,222,210,0.55)';
-    ctx.fillText(G.ascent ? 'ADMIN A' + (G.depth - G.ascentBase) + ' · EXECUTIVE' : 'WARD ' + G.depth + ' · ' + DATA.tierName(G.depth).toUpperCase(), W / 2, y + 17);
+    ctx.fillText((G.nightShift ? '🌙 ' : '') + (G.ascent ? 'ADMIN A' + (G.depth - G.ascentBase) + ' · EXECUTIVE' : 'WARD ' + G.depth + ' · ' + DATA.tierName(G.depth).toUpperCase()), W / 2, y + 17);
 
     // status mood line (mania/dip/hyperfocus/adrenaline) when relevant
     let statusTxt = '';

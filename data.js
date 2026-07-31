@@ -464,7 +464,12 @@ DATA.ACHIEVEMENTS = [
   { id: 'volunteer',  name: "Back On Purpose",     desc: "Clear a floor wearing the Volunteer Badge.",      hint: "Your file is closed. Theirs aren't.",       check: m => !!m.everVolunteer },
   { id: 'archivist',  name: "The Archivist",       desc: "Recover all 12 misfiled documents.",              hint: "The building's paperwork surfaces where the mess was.", check: m => Object.keys(m.docs || {}).length >= 12 },
   { id: 'biographer', name: "An Unreliable Narrator", desc: "Fill 10 pages of the Patient Diary.",          hint: "The journal on the coffee table writes itself. About you.", check: m => (m.dayCount || 0) >= 10 },
-  { id: 'architect',  name: "Prior Authorization", desc: "Take a Custom Care Plan to ward 5.",              hint: "Design your own complications. Get them approved. Survive them.", check: m => !!m.carePlanDeep }
+  { id: 'architect',  name: "Prior Authorization", desc: "Take a Custom Care Plan to ward 5.",              hint: "Design your own complications. Get them approved. Survive them.", check: m => !!m.carePlanDeep },
+  { id: 'rivalry3',   name: "It's Not A Competition", desc: "Win 3 gym duels against your rival.",          hint: "Someone checked in the same day as you. They counted.", check: m => !!(m.rival && (m.rival.duelW || 0) >= 3) },
+  { id: 'races5',     name: "Photo Finish",        desc: "Beat your rival to 5 prescriptions.",             hint: "When they burst in, stop aiming and RUN.",  check: m => !!(m.rival && (m.rival.raceW || 0) >= 5) },
+  { id: 'retail8',    name: "Retail Therapy",      desc: "Buy 8 things from the Gift Shop.",                hint: "The fund was going to the walrus anyway.",  check: m => (m.giftBuys || 0) >= 8 },
+  { id: 'nightOwl',   name: "Working Nights",      desc: "Clear 3 floors on the night shift (9pm–6am).",    hint: "The building keeps hours. Keep worse ones.", check: m => (m.nightFloors || 0) >= 3 },
+  { id: 'blackout',   name: "BLACKOUT",            desc: "Complete every square on a daily bingo card.",    hint: "The activities coordinator believes in you. Contractually.", check: m => (m.bingoBlackouts || 0) >= 1 }
 ];
 DATA.checkAchievements = function (m) {
   if (!m.unlocks) m.unlocks = {};
@@ -520,6 +525,10 @@ DATA.ENEMIES = {
   placebo:   { name: "The Placebo", hp: 1, spd: 60, r: 20, dmg: 1, beh: 'chase', clr: '#e8e0f0' },
   /* --- the roaming hunter --- */
   auditor:  { name: "THE AUDITOR", hp: 135, spd: 58, r: 22, dmg: 1, beh: 'auditor', clr: '#a8a29a', shotCd: 3.4, bulSpd: 195 },
+  /* --- your rival (duels only — never in random pools) --- */
+  rival:    { name: "THE RIVAL", hp: 58, spd: 92, r: 15, dmg: 1, beh: 'rival', clr: '#d08a4a', shotCd: 1.7, bulSpd: 205 },
+  /* --- night-shift exclusive miniboss --- */
+  nightnurse: { name: "THE NIGHT NURSE", hp: 70, spd: 38, r: 24, dmg: 1, beh: 'nightnurse', clr: '#8a90c8', shotCd: 2.8, bulSpd: 170 },
   /* --- ward minibosses (clinic rooms) --- */
   chargenurse: { name: "THE CHARGE NURSE", hp: 55, spd: 42, r: 24, dmg: 1, beh: 'nursey', clr: '#e8ecf0', shotCd: 0.55, bulSpd: 210 },
   resident:    { name: "THE RESIDENT", hp: 48, spd: 58, r: 22, dmg: 1, beh: 'resident', clr: '#7ab8a0', bulSpd: 180 },
@@ -638,6 +647,56 @@ DATA.CREDITS = [
   ['sub', 'everybody\'s got somethin. be kind. including to yourself.'],
   ['gap'],
   ['title', '🦭']
+];
+
+/* ============ THE RIVAL (checked in the same day. files identical. one of you is thriving.) ============ */
+DATA.RIVAL_NAMES = ['TODD', 'DENISE', 'CRAIG', 'MARLA', 'DOUGIE', 'BEV', 'TOBIAS', 'SHARON', 'KEITH', 'PAM'];
+DATA.RIVAL_TAUNTS = {
+  raceWin:  ["“Mine! Prescribed to ME, basically.”", "“You hesitated. The chart noticed.”", "“Same intake day, and yet. AND YET.”"],
+  raceLose: ["“I wasn't even trying. That was cardio.”", "“Keep it. It clashed with my prognosis anyway.”", "“...fine. FINE.”"],
+  duelOffer: "“One round. Loser admits their coping is a lifestyle. The gym's free till four.”",
+  duelWin:  ["“I'm telling the group about this. MY version of this.”", "“Best of three?? Rhetorical. Bye.”"],
+  duelLose: ["“Undefeated. Tell your allies. Tell your PET.”"]
+};
+DATA.GIFTS = [
+  { id: 'flowers',   icon: '💐', name: 'Flowers',            cost: 25, desc: 'They brighten the room. The room bills for light.', fx: '+1 heart container at check-in', quip: '“Real ones. Mostly. The ferns are aspirational.”' },
+  { id: 'balloon',   icon: '🎈', name: 'GET WELL Balloon',   cost: 15, desc: 'It follows you. It believes in you. It is one (1) hit from bursting into confetti — three, actually.', fx: '+1 luck · pops after 3 hits (luck stays)', quip: '“Latex-free. Hope-adjacent.”' },
+  { id: 'card',      icon: '💌', name: 'Get-Well Card',      cost: 20, desc: 'A message from someone who cares, or a good impression of one.', fx: '+0.4 damage all run', quip: '“The sentiment is preprinted. The love is implied.”' },
+  { id: 'plush',     icon: '🧸', name: 'Plush Walrus (small)', cost: 30, desc: 'A tiny doctor of vibes. Orbits. Blocks nothing emotionally, some things physically.', fx: 'start with a plush familiar', quip: '“The eyes follow you. That\'s the quality.”' },
+  { id: 'visitor',   icon: '🎫', name: 'Visitor Pass',       cost: 35, desc: 'One (1) guest may accompany the patient. The guest is armed.', fx: 'a random ally joins at check-in', quip: '“Visiting hours are whenever now. Nobody checks.”' },
+  { id: 'chocolate', icon: '🍫', name: 'Contraband Chocolate', cost: 10, desc: 'Smuggled past the nutrition board in a get-well basket.', fx: 'a pre-identified pill + 2¢', quip: '“It\'s medicinal if you chew slowly.”' }
+];
+
+/* ============ WARD BINGO (the activities coordinator finally did something) ============ */
+DATA.BINGO_POOL = [
+  { id: 'kill25',    icon: '👥', name: 'Manage 25 symptoms',        ev: 'kill',      n: 25 },
+  { id: 'rooms12',   icon: '🚪', name: 'Clear 12 rooms',            ev: 'room',      n: 12 },
+  { id: 'boss2',     icon: '☠',  name: 'Defeat 2 bosses',           ev: 'boss',      n: 2 },
+  { id: 'coin30',    icon: '🪙', name: 'Collect 30¢',               ev: 'coin',      n: 30 },
+  { id: 'pill4',     icon: '💊', name: 'Swallow 4 pills',           ev: 'pill',      n: 4 },
+  { id: 'bomb2',     icon: '📄', name: 'File 2 claim forms',        ev: 'bomb',      n: 2 },
+  { id: 'buy2',      icon: '🏪', name: 'Buy 2 meds',               ev: 'buy',       n: 2 },
+  { id: 'secret1',   icon: '🧱', name: 'Find a secret room',        ev: 'secret',    n: 1 },
+  { id: 'hazard1',   icon: '⚠',  name: 'Visit a hazard ward',       ev: 'hazard',    n: 1 },
+  { id: 'miniboss1', icon: '⚕',  name: 'Clear a Clinic',            ev: 'miniboss',  n: 1 },
+  { id: 'clean2',    icon: '✨', name: '2 rooms untouched',         ev: 'cleanroom', n: 2 },
+  { id: 'floorclean1', icon: '🧼', name: 'A whole floor, no hits',  ev: 'floorclean', n: 1 },
+  { id: 'trinket1',  icon: '🧷', name: 'Pocket a personal effect',  ev: 'trinket',   n: 1 },
+  { id: 'ally1',     icon: '🤝', name: 'Recruit an ally',           ev: 'ally',      n: 1 },
+  { id: 'contract1', icon: '📝', name: 'Complete a contract',       ev: 'contract',  n: 1 },
+  { id: 'sample1',   icon: '🎁', name: 'Take a free sample',        ev: 'sample',    n: 1 },
+  { id: 'janitor1',  icon: '🧹', name: 'Buy from the Janitor',      ev: 'janitor',   n: 1 },
+  { id: 'race1',     icon: '🏁', name: 'Outrun your rival',         ev: 'race',      n: 1 },
+  { id: 'spare1',    icon: '✌',  name: 'Spare a boss',              ev: 'spare',     n: 1 },
+  { id: 'union1',    icon: '🤝', name: 'Settle a union',            ev: 'union',     n: 1 },
+  { id: 'depth5',    icon: '⬇',  name: 'Reach Ward 5',              ev: 'depth5',    n: 1 },
+  { id: 'depth8',    icon: '⬇',  name: 'Reach Ward 8',              ev: 'depth8',    n: 1 },
+  { id: 'walrus1',   icon: '🦭', name: 'Beat Dr. Walrus',           ev: 'walrus',    n: 1 },
+  { id: 'goals3',    icon: '🎯', name: 'Finish 3 treatment goals',  ev: 'goal',      n: 3 },
+  { id: 'doc1',      icon: '🗂', name: 'Recover a misfiled document', ev: 'doc',     n: 1 },
+  { id: 'daily1',    icon: '🗓', name: "Play today's Daily Ward",   ev: 'daily',     n: 1 },
+  { id: 'night1',    icon: '🌙', name: 'Clear a floor on nights',   ev: 'night',     n: 1 },
+  { id: 'gift1',     icon: '🎀', name: 'Check in with a gift',      ev: 'gift',      n: 1 }
 ];
 
 /* ============ MISFILED DOCUMENTS (the building's true history, one page at a time) ============
@@ -789,7 +848,10 @@ DATA.INTERCOM = {
   floor12: ["Ward 12. Honestly? We didn't think you'd get this far. Accounting did. Accounting always knows.", "Ward 12. The walls are load-bearing. So is your denial."],
   pattern: ["Try not to let the {X} get you this time. It's becoming a pattern. We've made it a chart.", "Statistically, the {X} is your problem. Clinically too."],
   internLost: ["The intern did not make it. This will be reflected in SOMEONE'S performance review.", "We regret to announce the intern. Past tense.", "The intern's badge has been retired. It was one (1) day old."],
-  internGrad: ["The intern survived three floors. HR is calling it 'a program.'", "Congratulations to the intern, who has been promoted to Slightly Less Terrified."]
+  internGrad: ["The intern survived three floors. HR is calling it 'a program.'", "Congratulations to the intern, who has been promoted to Slightly Less Terrified."],
+  rival: ["Patient {X} has claimed another prescription. The board is keeping score. The board was ASKED not to.", "Would {X} please stop lapping the other intake. This is a ward, not a track meet.", "Reminder: recovery is not a competition. {X} has requested that it be."],
+  rivalLost: ["Update: {X} did not get there first. {X} would like the record to show the floor was wet.", "A moment of silence for {X}'s undefeated season."],
+  night: ["(whisper) It's the night shift. If you need anything, need it quietly.", "(whisper) The lights are off for morale. The dark is complimentary.", "(whisper) Night differential is in effect. The coins apologize for the hour."]
 };
 
 /* ============ INSURANCE PLANS (pick your coverage at intake) ============ */
@@ -851,6 +913,8 @@ DATA.CODEX_CHART = {
     waitlist: "Not hostile, exactly. It just keeps adding names ahead of yours. The tickets it prints are, though.",
     premium: "Cannot be harmed until it has billed you. One touch, one copay, and suddenly it's mortal like the rest of us.",
     placebo: "Looks devastating. Glows like a champion. Dies to literally anything. The confetti is real, though.",
+    rival: "Checked in the same day as you. Files identical, minute-for-minute. One of you is thriving, and they have opinions about which. Fights like your mirror with a grudge.",
+    nightnurse: "Only works nights. Glides. Doesn't run — has never needed to. Occasionally turns the lights off 'for morale' and closes the distance in the dark.",
     larper: "Read one (1) article. Now an expert. Sincerity: guarded.",
     ad: "Ask your doctor if being a walking commercial is right for you.",
     doubt: "Are you SURE it's real? It isn't sure either.",
