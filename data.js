@@ -501,7 +501,10 @@ DATA.ACHIEVEMENTS = [
   { id: 'goodShow',   name: "Nothing To See Here",  desc: "Hold your fire through an entire INSPECTION.",    hint: "When the Inspector tours, the ward performs wellness. Let it.", check: m => (m.inspections || 0) >= 1 },
   { id: 'whoAmI',     name: "Administrative Error", desc: "Survive a chart MIX-UP (a whole ward as someone else).", hint: "Bay 6 has your chart. You have theirs. Make it work.", check: m => (m.mixups || 0) >= 1 },
   { id: 'theHandoff', name: "Forty Years, One Bucket", desc: "Take the mop.",                                hint: "Close your file. Earn his trust, ten times over. Then look in the basement.", check: m => !!m.handoffDone },
-  { id: 'playdate',   name: "The Daycare Expands",  desc: "Clear a floor with two fully-evolved animals on shift.", hint: "Two ★ companions. One very crowded kidney dish.", check: m => (m.playdates || 0) >= 1 }
+  { id: 'playdate',   name: "The Daycare Expands",  desc: "Clear a floor with two fully-evolved animals on shift.", hint: "Two ★ companions. One very crowded kidney dish.", check: m => (m.playdates || 0) >= 1 },
+  { id: 'annexClear', name: "Condemned, Cleared",   desc: "Survive THE ANNEX and take its deep exit.",        hint: "A boarded door beside some trapdoors. The wing they closed.", check: m => (m.annexClears || 0) >= 1 },
+  { id: 'pulledIt',   name: "It Said Do Not",       desc: "Pull the fire alarm.",                            hint: "The box on the wall. The sign has three words.",   check: m => (m.alarmPulls || 0) >= 1 },
+  { id: 'goodCrowd',  name: "Good Crowd",           desc: "Support 3 open-mic performers.",                  hint: "The Day Room has a stage now. It's a step stool.", check: m => (m.micSupports || 0) >= 3 }
 ];
 DATA.checkAchievements = function (m) {
   if (!m.unlocks) m.unlocks = {};
@@ -907,7 +910,20 @@ DATA.INTERCOM = {
   night: ["(whisper) It's the night shift. If you need anything, need it quietly.", "(whisper) The lights are off for morale. The dark is complimentary.", "(whisper) Night differential is in effect. The coins apologize for the hour."],
   inspection: ["Reminder to all patients: we have ALWAYS had a meditation garden. Point at the garden when asked.", "The Inspector is here. Nothing is wrong. Nothing has EVER been wrong. Smile with your eyes.", "For the duration of the tour, symptoms are 'wellness journeys.' The fog machine is 'ambiance.' The screaming is 'a choir.'"],
   inspectionPass: ["The Inspector has departed, five stars. Regular dysfunction resumes... now.", "Tour complete. Everyone did BEAUTIFULLY. Especially the fog."],
-  inspectionBust: ["The patient has attacked the performance. The performance is now attacking back.", "Well. THAT'S going in the report."]
+  inspectionBust: ["The patient has attacked the performance. The performance is now attacking back.", "Well. THAT'S going in the report."],
+  firealarm: ["That was NOT a drill, because drills are SCHEDULED, and THIS was a CHOICE.", "To the patient by the alarm: the sign has three words. You read all three. You PULLED.", "The sprinklers are older than most of the staff. Nobody knew if they worked. Now everything is wet and we know."]
+};
+
+/* ============ OPEN MIC NIGHT (the Day Room has a stage now. it's a step stool.) ============ */
+DATA.OPENMIC = {
+  larper:    { intro: "The Larper approaches the mic with printed pages.", piece: "“this poem is called 'per my last source.' — they said i wasn't sick. / i said you're not LISTENING. / stanza two is louder.”" },
+  scroller:  { intro: "A Doomscroller reads from their drafts folder.", piece: "“unsent reply, march: 'actually—' / unsent reply, april: 'ACTUALLY—' / i am working on it. this is the work.”" },
+  doubt:     { intro: "Doubt does crowd work, badly.", piece: "“is this thing on? is ANYTHING on? are you sure? how would you know, though. how would you KNOW.”" },
+  deadline:  { intro: "A Deadline performs spoken word at double speed.", piece: "“duebytuesdaywhichtuesday THE tuesday — okay wow, time. time, everybody. give it up for time.”" },
+  ad:        { intro: "A Pharma Ad does a tight five about itself.", piece: "“ask your doctor if listening to me is right for you. side effects include: hearing the rest of this.”" },
+  gaslighter:{ intro: "The Gaslighter performs 'a memoir.'", piece: "“chapter one: that never happened. chapter two: you loved it. chapter three: i wasn't even there, and neither were you.”" },
+  waitingnum:{ intro: "Now Serving hums its only note.", piece: "“…now serving number nine. number nine? nine. (softly) it was never about the numbers.”" },
+  generic:   { intro: "A patient takes the step stool with tremendous courage.", piece: "“i wrote this in the elevator. it's called 'B-anything.' — going down is still going. thank you.”" }
 };
 
 /* ============ INSURANCE PLANS (pick your coverage at intake) ============ */

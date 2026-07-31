@@ -1775,6 +1775,113 @@ const G = {
     this.toast('🪜 Back down into the hum. The tomatoes wave. Tomatoes can\'t wave. These did.', '#b8b0a0');
   },
 
+  /* ---------- THE ANNEX (the wing they closed; the dust kept the lease) ---------- */
+  enterAnnex() {
+    this.annexFloor = true;
+    this.depth += 1;   // the annex sits at the next ward's depth — but its exit falls one further
+    this.newFloor();
+    this.setBanner('🚧 THE ANNEX', 'the condemned wing — double loot, no services, one deep exit', 3.4);
+    this.toast('🚧 Sheeted furniture. Dust with a pulse. Everything here is 25% more upset about you.', '#b8a890');
+    this.diaryNote('Went through the boarded door into the Annex. The furniture is under sheets. Some of the sheets object.');
+    SFX.setMusic('basement');
+    SFX.play('sting');
+  },
+
+  /* ---------- THE FIRE ALARM (the sign has three words) ---------- */
+  showFireAlarm(ped) {
+    this.state = 'firealarm';
+    SFX.play('tick');
+    this.overlay(`
+      <div class="panel">
+        <h1 class="logo" style="font-size:26px">🧯 FIRE ALARM</h1>
+        <div class="tagline">the box is red. the handle is right there. the sign says <b>DO NOT PULL</b>.</div>
+        <div class="cmgrid">
+          <button class="cmcard" id="bAlarmYes"><div class="cmname" style="color:#e05a5a">🚨 PULL IT</div><div class="cmdesc">Sprinklers. Evacuation. Every room on this ward empties at once.</div><div class="cmtag">you get soaked (−1 luck this ward) · the bill notices · the intercom never forgets</div></button>
+          <button class="cmcard" id="bAlarmNo"><div class="cmname">read the sign again</div><div class="cmdesc">Three words. You can do this.</div><div class="cmtag">the handle will still be here</div></button>
+        </div>
+      </div>`);
+    document.getElementById('bAlarmYes').onclick = () => { ped.taken = true; this.hideOverlay(); this.state = 'run'; this.pullAlarm(); };
+    document.getElementById('bAlarmNo').onclick = () => { SFX.play('ui'); this.hideOverlay(); this.state = 'run'; this.toast('You read the sign again. It still says that. Character growth.', '#8fd08a'); };
+  },
+  pullAlarm() {
+    const p = this.player;
+    this._alarmPulled = true;
+    this._sprinkleT = 4.5;
+    // the whole ward evacuates (management stays; it's salaried)
+    let evac = 0;
+    for (const r of this.floorRooms) {
+      if (r.type === 'boss' || r.cleared) continue;
+      r.cleared = true; r.spawned = true;
+      evac++;
+    }
+    for (const e of this.enemies) {
+      if (e.dying || e.fake) continue;
+      e.dying = true; e.deadDone = true; e.noDrop = true;
+      this.texts.push(new FloatText(e.x, e.y - 10, '(files out, damp)', '#8fb8d8'));
+    }
+    if (this.room && this.room.type !== 'boss') this.room.cleared = true;
+    if (!this._soaked) { this._soaked = true; p.luck -= 1; }
+    if (!this.sandbox && !this.practice) { Meta.data.alarmPulls = (Meta.data.alarmPulls || 0) + 1; Meta.save(); this.checkUnlocks(); }
+    this.shake = Math.max(this.shake, 10);
+    this.setBanner('🚨 EVACUATION', evac + ' rooms empty out. you are SOAKED. worth it? unclear.', 3.2);
+    this.toast('🚨 The sprinklers are older than the staff. They work. Everything is wet and now we know.', '#8fb8d8');
+    this.pa('firealarm');
+    this.diaryNote('The sign said DO NOT PULL, which is three words, all of which I read, and then I pulled. The whole ward evacuated. I regret only the dampness.');
+    SFX.play('boss');
+    SFX.play('whoosh');
+  },
+
+  /* ---------- OPEN MIC NIGHT (the stage is a step stool) ---------- */
+  showOpenMic(ped) {
+    const p = this.player;
+    const M = DATA.OPENMIC[ped.performer] || DATA.OPENMIC.generic;
+    const pname = (DATA.ENEMIES[ped.performer] || { name: 'A patient' }).name;
+    this.state = 'openmic';
+    SFX.play('voice');
+    this.overlay(`
+      <div class="panel">
+        <h1 class="logo" style="font-size:24px">🎤 OPEN MIC NIGHT</h1>
+        <div class="tagline">${M.intro}</div>
+        <div class="docpaper" style="transform:rotate(0.2deg)">
+          <div class="docstamp" style="color:#8a6aa0;border-color:#8a6aa0">LIVE</div>
+          <div class="doctitle">🎤 ${pname}</div>
+          <div class="docbody"><div style="margin:8px 0;line-height:1.5;font-style:italic">${M.piece}</div></div>
+        </div>
+        <div class="cmgrid">
+          <button class="cmcard" id="bMicYes"><div class="cmname" style="color:#8fd08a">👏 SUPPORT</div><div class="cmdesc">Snap. Clap. Mean it, or fake it well.</div><div class="cmtag">+1 luck · the performer shares their tips</div></button>
+          <button class="cmcard" id="bMicNo"><div class="cmname" style="color:#e0a05a">🍅 HECKLE</div><div class="cmdesc">“Read the room!” The room is a psych ward. They wrote it FOR the room.</div><div class="cmtag">+0.5 damage, −0.5 luck · the room remembers</div></button>
+        </div>
+      </div>`);
+    document.getElementById('bMicYes').onclick = () => {
+      ped.taken = true;
+      this.hideOverlay(); this.state = 'run';
+      p.luck += 1;
+      for (let i = 0; i < 3; i++) this.pickups.push(new Pickup('coin', ped.x + U.rand(-24, 24), ped.y + 30));
+      if (U.chance(0.4)) this.pickups.push(new Pickup('pill', ped.x, ped.y + 50));
+      if (!this.sandbox && !this.practice) { Meta.data.micSupports = (Meta.data.micSupports || 0) + 1; Meta.save(); this.checkUnlocks(); }
+      this.toast('👏 You snapped. They saw. The set ends STRONG. (+1 luck, and they split the tips.)', '#8fd08a');
+      this.diaryNote('Supported ' + pname + ' at open mic. The piece was rough. The courage wasn\'t.');
+      SFX.play('fanfare');
+    };
+    document.getElementById('bMicNo').onclick = () => {
+      ped.taken = true;
+      this.hideOverlay(); this.state = 'run';
+      p.dmg += 0.5; p.luck -= 0.5;
+      this.diaryNote('Heckled ' + pname + ' at open mic. Felt powerful for nine seconds. The room took notes.');
+      if (U.chance(0.25) && DATA.ENEMIES[ped.performer]) {
+        const e = new Enemy(ped.performer, ped.x, ped.y, this.depth, false, 1.4, U.choice(DATA.ELITES).id);
+        e.spawnT = 0.7;
+        this.enemies.push(e);
+        this.room.cleared = false;
+        this.toast('🍅 “…say it again.” They left the stool. They brought the MIC STAND.', '#e05a5a');
+        SFX.play('boss');
+      } else {
+        this.toast('🍅 The set ends early. Your cruelty focuses you (+0.5 dmg). The room files it away (−0.5 luck).', '#e0a05a');
+        SFX.play('denied');
+      }
+    };
+  },
+
   /* ---------- THE HANDOFF (forty years, one bucket, two mops) ---------- */
   showHandoffOffer(ped) {
     this.state = 'handoffoffer';
@@ -2481,6 +2588,7 @@ const G = {
     this.actuaryBet = null; this._actuaryDone = false; this.nightShift = false; this.stairs = null;   // the Actuary's book opens fresh
     this.walkin = false; this._roofDone = false; this._phoneFloor = false;   // walk-in / roof / payphone, fresh per run
     this.inspection = null; this._inspectionDone = false; this._mixup = null; this._mixupDone = false;   // the tour + the chart mix-up
+    this.annexFloor = false; this._alarmSeen = false; this._alarmPulled = false; this._soaked = false; this._ghostRec = {}; this._ghostT = 0;   // annex / alarm / ghost, fresh per run
     // THE COMPLAINT DEPARTMENT: your grievance reports for duty
     this._complaint = (!daily && Meta.data.pendingComplaint) ? String(Meta.data.pendingComplaint).slice(0, 40) : null;
     this._complaintSpawned = false;
@@ -2692,6 +2800,7 @@ const G = {
       ['Pills, misc.', st.pills, (st.pills || 0) * 90]
     ].filter(r => r[2] > 0);
     let total = rows.reduce((a, r) => a + r[2], 0);
+    if (this._alarmPulled) { rows.push(['Fire alarm, non-emergency', 1, 25000]); total += 25000; }
     if (this._billMul > 1) { rows.push(['Settlement adjustment (the Adjuster)', '×' + this._billMul, Math.round(total * (this._billMul - 1))]); total = Math.round(total * this._billMul); }
     if (this._amaFailed) { rows.push(['AMA elopement surcharge', '×2', total]); total *= 2; }   // you tried to LEAVE?
     return { rows, total };
@@ -2714,7 +2823,7 @@ const G = {
   SAVE_KEY: 'egs_save1',
   SAVE_FIELDS: ['hp', 'maxhp', 'spd', 'tearDelay', 'dmg', 'shotSpd', 'range', 'wobble', 'luck', 'coins', 'keys', 'bombs', 'coupons', 'pill', 'iframeTime', 'abilMax', 'sleep', 'compulsion', '_scar', '_recRooms', 'trinket', '_rosaryUsed', 'battery'],
   saveCheckpoint() {
-    if (this.dailyKind || this.overtime || this.sandbox || this.practice || this.walkin || !this.player || this.player.dead) return;
+    if (this.dailyKind || this.overtime || this.sandbox || this.practice || this.walkin || this.annexFloor || !this.player || this.player.dead) return;
     const p = this.player;
     try {
       const S = {
@@ -2966,6 +3075,15 @@ const G = {
       const normals = this.floorRooms.filter(r => r.type === 'normal');
       if (normals.length > 1) U.choice(normals).type = 'dayroom';
     }
+    // THE ANNEX: the condemned wing — no services, sheeted rooms, one deep exit where the boss would be
+    if (this.annexFloor) {
+      for (const r of this.floorRooms) {
+        if (['shop', 'dayroom', 'event', 'clinic', 'gym', 'records', 'incident', 'seclusion', 'ect', 'padded', 'observation'].includes(r.type)) r.type = 'normal';
+        if (r.type === 'boss') r.type = 'annexhatch';
+      }
+    }
+    // the sprinklers dry off between floors
+    if (this._soaked) { this._soaked = false; this.player.luck += 1; this.toast('You dry off. The luck wrings back in.', '#8fb8d8'); }
     // THE THIRTEENTH WARD: not generated. curated. it was always going to be ward 13.
     this.ward13 = (this.depth === 13 && !this.ascent && !this.bossRush && !this.overtime);
     if (this.ward13) {
@@ -3102,6 +3220,10 @@ const G = {
     if (this.ward13) {   // candlelit rot — ward 13 has its own weather
       this.wingPal = { floor: '#332838', line: '#281f2c', wall: '#452e3e', trim: '#140e16' };
       this.floorDark = Math.max(this.floorDark, 0.4);
+    }
+    if (this.annexFloor) {   // the condemned wing: dust over everything
+      this.wingPal = { floor: '#3e3a34', line: '#322e28', wall: '#524c42', trim: '#1c1914' };
+      this.floorDark = Math.max(this.floorDark, 0.3);
     }
     // intercom floor commentary (once per run per floor)
     if (!this._icFloors) this._icFloors = {};
@@ -3477,6 +3599,11 @@ const G = {
         if (!this._actuaryDone && !this.actuaryBet && this.depth >= 2 && U.chance(0.35)) {
           room.peds.push({ x: CW / 2 - 170, y: RY + RH / 2 + 96, kind: 'actuary', taken: false });
         }
+        // OPEN MIC NIGHT: someone's on the step stool (30%, depth 3+)
+        if (this.depth >= 3 && U.chance(0.3)) {
+          const performer = U.choice(['larper', 'scroller', 'doubt', 'deadline', 'ad', 'gaslighter', 'waitingnum', 'generic']);
+          room.peds.push({ x: RX + RW - 90, y: RY + RH - 90, kind: 'openmic', performer, taken: false });
+        }
         // and one patient looking for a group to join (The Support Group)
         const allyPool = DATA.ALLIES.filter(a => !a.locked || (a.id === 'intern' && Meta.data.internGrad));
         room.peds.push({ x: RX + RW - 96, y: RY + RH / 2 - 30, kind: 'recruit', allyId: U.choice(allyPool).id, taken: false });
@@ -3512,6 +3639,13 @@ const G = {
         };
         // the original file, top-right corner, in the glow of one desk lamp
         room.peds.push({ x: RX + 11 * TILE + TILE / 2, y: RY + 64, kind: 'origfile', taken: false });
+        break;
+      }
+      case 'annexhatch': {   // the deep exit: a service chute past the next ward
+        room.cleared = true;
+        room.peds.push({ x: CW / 2, y: RY + RH / 2, kind: 'annexhatch', taken: false });
+        room.pickups.push(new Pickup('full', CW / 2 - 70, RY + RH / 2 + 60));
+        room.pickups.push(new Pickup('nickel', CW / 2 + 70, RY + RH / 2 + 60));
         break;
       }
       case 'incident': {   // THE INCIDENT SITE — roped off, guarded, still yours
@@ -3625,6 +3759,14 @@ const G = {
     if (this._ic && !(this._ic.cds.fast > 0) && this.t - (this._roomT0 || 0) < 5) { this._ic.cds.fast = 110; this.pa('fast'); }
     // Shadow Ward: the dark pays double
     if (this.shadowWard) for (let i = 0; i < 2; i++) this.pickups.push(new Pickup(U.choice(['coin', 'coin', 'nickel', 'half']), CW / 2 + U.rand(-60, 60), RY + RH / 2 + U.rand(-40, 40)));
+    // THE ANNEX pays double too — nobody's swept the valuables in years
+    if (this.annexFloor) for (let i = 0; i < 2; i++) this.pickups.push(new Pickup(U.choice(['coin', 'nickel', 'half', 'pill']), CW / 2 + U.rand(-60, 60), RY + RH / 2 + U.rand(-40, 40)));
+    // THE FIRE ALARM: a red box on some wall, once a run (5%)
+    if (!this._alarmSeen && !this.annexFloor && !this.overtime && (room.type === 'normal' || room.type === 'padded') && U.chance(0.05)) {
+      this._alarmSeen = true;
+      this.peds.push({ x: RX + RW - 70, y: RY + 80, kind: 'firealarm', taken: false });
+      this.toast('🧯 A fire alarm on the wall. The sign says DO NOT PULL. The sign knows you.', '#e08a8a');
+    }
     // THE WARD CALENDAR pays its respects
     if (this.hasCal('wednesday') && U.chance(0.2)) this.pickups.push(new Pickup('bomb', CW / 2 + U.rand(-60, 60), RY + RH / 2 + U.rand(-30, 30)));
     if (this.hasCal('thursday') && U.chance(0.35)) this.pickups.push(new Pickup(U.chance(0.2) ? 'nickel' : 'coin', CW / 2 + U.rand(-60, 60), RY + RH / 2 + U.rand(-30, 30)));
@@ -3674,7 +3816,7 @@ const G = {
       this.toast('🏗 Room cleared. Step on the blueprint (or PAUSE) to return to the designer.', '#8fd0e0');
     }
     // MISFILED DOCUMENTS: the building's paperwork surfaces where the mess was
-    if (!this.sandbox && !this.practice && !this.overtime && !this._docFloor) {
+    if (!this.sandbox && !this.practice && !this.overtime && !this.annexFloor && !this._docFloor) {
       const undoc = (DATA.DOCUMENTS || []).filter(d => !(Meta.data.docs || {})[d.id]);
       if (undoc.length) {
         this._docPity = (this._docPity || 0) + 1;
@@ -3691,21 +3833,21 @@ const G = {
       }
     }
     // THE ROOF: a service ladder, down from the ceiling (depth 6+, once per run)
-    if (!this._roofDone && this.depth >= 6 && !this.overtime && !this.bossRush && !this.walkin && (room.type === 'normal' || room.type === 'padded') && U.chance(0.1)) {
+    if (!this._roofDone && this.depth >= 6 && !this.overtime && !this.bossRush && !this.walkin && !this.annexFloor && (room.type === 'normal' || room.type === 'padded') && U.chance(0.1)) {
       this._roofDone = true;
       this.peds.push({ x: CW / 2 + U.rand(-70, 70), y: RY + 90, kind: 'roofladder', taken: false });
       this.toast('🪜 A service ladder unfolds from the ceiling. It goes UP. Nothing here goes up.', '#8fd0e0');
       SFX.play('door');
     }
     // THE PAYPHONE: it takes exact change and one feeling at a time (6%, once a floor)
-    if (!this._phoneFloor && (room.type === 'normal' || room.type === 'padded') && U.chance(0.06)) {
+    if (!this._phoneFloor && !this.annexFloor && (room.type === 'normal' || room.type === 'padded') && U.chance(0.06)) {
       this._phoneFloor = true;
       this.peds.push({ x: RX + 70, y: RY + 80, kind: 'payphone', taken: false });
       SFX.play('tick');
     }
     // THE JANITOR: he appears where the mess was (10%, once a floor — 25% if he's holding YOUR lost item)
     const holdingYours = Meta.data.lostItem && DATA.ITEMS[Meta.data.lostItem] && !p.items.includes(Meta.data.lostItem);
-    if (!this._janitorFloor && (room.type === 'normal' || room.type === 'padded') && U.chance(holdingYours ? 0.25 : 0.1)) {
+    if (!this._janitorFloor && !this.annexFloor && (room.type === 'normal' || room.type === 'padded') && U.chance(holdingYours ? 0.25 : 0.1)) {
       this._janitorFloor = true;
       const pool = U.shuffle([].concat(DATA.POOLS.special, DATA.POOLS.shop)).filter(id => !p.items.includes(id));
       const stock = holdingYours ? Meta.data.lostItem : (pool[0] || DATA.POOLS.special[0]);
@@ -3922,6 +4064,11 @@ const G = {
         this.toast('🗝 Something fell from the rafters. It looks… important.', '#e8c84c');
       }
       room.trapdoor = this.trapdoor = { x: CW / 2, y: RY + RH / 2 - 100 };
+      // THE ANNEX: a boarded door beside the trapdoor — the wing they closed (30%)
+      if (!this.annexFloor && !this.walkin && !this.overtime && !this.bossRush && !this.ascent && !this.practice && this.depth >= 2 && this.genSeed(['annex', this.depth], () => U.chance(0.3))) {
+        room.peds.push({ x: CW / 2 - 170, y: RY + RH / 2 - 100, kind: 'annexdoor', taken: false });
+        this.toast('🚧 A boarded door beside the trapdoor. The boards are… loose. Deliberately loose.', '#b8a890');
+      }
       // Ward 5 only: the service elevator opens beside the trapdoor — the other direction
       if (this.depth === 5 && !this.ascent) {
         room.peds.push({ x: CW / 2 + 170, y: RY + RH / 2 - 100, kind: 'elevator', taken: false });
@@ -4100,6 +4247,12 @@ const G = {
       // PB: deepest, then fastest to that depth
       if (!pb || this.splits.length > pb.splits.length || (this.splits.length === pb.splits.length && this.runTime < pb.total)) {
         Meta.data.splitsPB[key] = { total: this.runTime, splits: this.splits.slice() };
+        // the Ghost of Runs Past: your PB leaves a line to race
+        try {
+          const trail = {};
+          for (const d of Object.keys(this._ghostRec || {})) trail[d] = this._ghostRec[d];
+          (Meta.data.ghostPB || (Meta.data.ghostPB = {}))[key] = { total: this.runTime, trail };
+        } catch (e) { }
         Meta.save();
       }
     }
@@ -4576,6 +4729,23 @@ const G = {
         ped.taken = true;
         this.showDesigner();
         return;
+      } else if (ped.kind === 'annexdoor') {   // through the boards, into the wing they closed
+        ped.taken = true;
+        this.enterAnnex();
+        return;
+      } else if (ped.kind === 'annexhatch') {   // the deep exit: two wards down in one drop
+        ped.taken = true;
+        this.annexFloor = false;
+        if (!this.sandbox && !this.practice) { Meta.data.annexClears = (Meta.data.annexClears || 0) + 1; Meta.save(); this.checkUnlocks(); }
+        this.toast('🕳 The service chute drops PAST the next ward. The dust thanks you for visiting.', '#b8a890');
+        this.diaryNote('Cleared the condemned wing and took the deep chute out. Two wards in one fall. The sheets waved.');
+        this.wardPath = 'day'; this._routeMod = null;
+        this.doDescend();
+        return;
+      } else if (ped.kind === 'firealarm') {   // the sign has three words
+        if (this.lockCd <= 0) { this.lockCd = 2.0; this.showFireAlarm(ped); return; }
+      } else if (ped.kind === 'openmic') {   // someone's on the step stool
+        if (this.lockCd <= 0) { this.lockCd = 2.0; this.showOpenMic(ped); return; }
       } else if (ped.kind === 'secondmop') {   // it's leaning there like it's always been yours
         if (this.lockCd <= 0) { this.lockCd = 2.0; this.showHandoffOffer(ped); return; }
       } else if (ped.kind === 'payphone') {   // it takes exact change and one feeling at a time
@@ -4733,6 +4903,30 @@ const G = {
     if (this.overtime) this.overtimeUpdate(dt);
     // speedrun clock (the walk-in clinic is always on the clock)
     if (Meta.data.speedrun || this.walkin) this.runTime = (this.runTime || 0) + dt;
+    // THE GHOST OF RUNS PAST: record your line (speedrun runs, first 12 wards)
+    if (Meta.data.speedrun && !this.dailyKind && !this.overtime && !this.practice && !this.sandbox && !this.walkin && this.depth <= 12 && !p.dead) {
+      this._ghostT += dt;
+      if (this._ghostT >= 0.35) {
+        this._ghostT = 0;
+        const arr = this._ghostRec[this.depth] || (this._ghostRec[this.depth] = []);
+        if (arr.length < 600) arr.push([Math.round((this.runTime || 0) * 10), Math.round(p.x), Math.round(p.y)]);
+      }
+      // and the PB ghost runs beside you
+      const key = p.baseDiag === 'undiag' ? 'undiag' : p.diag;
+      const gpb = (Meta.data.ghostPB || {})[key];
+      const trail = gpb && gpb.trail && gpb.trail[this.depth];
+      if (trail && trail.length) {
+        const tNow = (this.runTime || 0) * 10;
+        let gi = this._ghostIdx || 0;
+        if (gi >= trail.length || (trail[gi] && trail[gi][0] > tNow + 40)) gi = 0;   // rewind on floor change
+        while (gi < trail.length - 1 && trail[gi + 1][0] <= tNow) gi++;
+        this._ghostIdx = gi;
+        const a = trail[gi], b = trail[Math.min(gi + 1, trail.length - 1)];
+        const span = Math.max(1, b[0] - a[0]);
+        const f = U.clamp((tNow - a[0]) / span, 0, 1);
+        this.ghost = { x: a[1] + (b[1] - a[1]) * f, y: a[2] + (b[2] - a[2]) * f, ahead: gi >= trail.length - 1 };
+      } else this.ghost = null;
+    } else this.ghost = null;
     // death recap ring buffer (the last ~6 seconds, reconstructed at the morgue)
     this._recapT = (this._recapT || 0) + dt;
     if (this._recapT >= 0.1 && p && !p.dead) {

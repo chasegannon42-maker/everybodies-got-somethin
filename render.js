@@ -1676,6 +1676,20 @@ const Render = {
       ctx.fillStyle = IT <= 10 ? '#e8c84c' : '#a8d0a0'; ctx.font = this.font(13, true); ctx.textAlign = 'center';
       ctx.fillText('🕴 INSPECTION IN PROGRESS — ' + IT + 's — hold your fire', CW / 2, 116);
     }
+    // THE SPRINKLERS: older than the staff, and they work
+    if (G._sprinkleT > 0) {
+      G._sprinkleT -= 1 / 60;
+      ctx.save();
+      ctx.strokeStyle = 'rgba(120,170,220,0.4)'; ctx.lineWidth = 1.6; ctx.lineCap = 'round';
+      for (let i = 0; i < 46; i++) {
+        const rx2 = RX + ((i * 137 + G.t * 700) % RW);
+        const ry2 = RY + ((i * 89 + G.t * 900) % RH);
+        ctx.beginPath(); ctx.moveTo(rx2, ry2); ctx.lineTo(rx2 - 3, ry2 + 12); ctx.stroke();
+      }
+      ctx.lineCap = 'butt';
+      ctx.fillStyle = 'rgba(120,170,220,0.06)'; ctx.fillRect(RX, RY, RW, RH);
+      ctx.restore();
+    }
     // CASUAL FRIDAY reaches management too
     if (G.calDay === 5 && G.boss && !G.boss.dead) {
       ctx.save(); ctx.translate(G.boss.x, G.boss.y - (G.boss.r || 30) - 26); ctx.rotate(-0.05);
@@ -2026,6 +2040,70 @@ const Render = {
         ctx.fillText('FREE SAMPLES', ped.x, ped.y - 34);
         continue;
       }
+      if (ped.kind === 'annexdoor') {   // the boards are deliberately loose
+        this.shadow(ped.x, ped.y + 20, 26, 7, 0.24);
+        ctx.save(); ctx.translate(ped.x, ped.y);
+        ctx.fillStyle = '#4e4238'; this.rr(ctx, -26, -34, 52, 62, 4); ctx.fill();   // the old door
+        ctx.strokeStyle = '#332a20'; ctx.lineWidth = 2.5; this.rr(ctx, -26, -34, 52, 62, 4); ctx.stroke();
+        ctx.fillStyle = '#8a7458';   // the boards, askew
+        ctx.save(); ctx.rotate(-0.18); this.rr(ctx, -30, -14, 60, 9, 2); ctx.fill(); ctx.restore();
+        ctx.save(); ctx.rotate(0.14); this.rr(ctx, -30, 4, 60, 9, 2); ctx.fill(); ctx.restore();
+        ctx.fillStyle = '#5a4a3a';
+        for (const [nx2, ny2] of [[-22, -16], [20, -12], [-20, 8], [22, 6]]) { ctx.beginPath(); ctx.arc(nx2, ny2, 1.6, 0, TAU); ctx.fill(); }
+        ctx.fillStyle = '#e8dcc0'; ctx.font = 'bold 7px "Arial Black",sans-serif'; ctx.textAlign = 'center';
+        ctx.save(); ctx.rotate(-0.05); ctx.fillText('CONDEMNED', 0, -20); ctx.restore();
+        ctx.restore();
+        ctx.fillStyle = '#b8a890'; ctx.font = this.font(10, true); ctx.textAlign = 'center';
+        ctx.fillText('🚧 THE ANNEX', ped.x, ped.y - 46);
+        if (U.dist(G.player.x, G.player.y, ped.x, ped.y) < 90) { ctx.fillStyle = '#e8c84c'; ctx.font = this.font(10, true); ctx.fillText('double loot · no services · exits TWO wards down', ped.x, ped.y + 42); }
+        continue;
+      }
+      if (ped.kind === 'annexhatch') {   // the service chute (it skips a floor on the way down)
+        const hg = ctx.createRadialGradient(ped.x, ped.y, 8, ped.x, ped.y, 60);
+        hg.addColorStop(0, 'rgba(20,16,24,0.9)'); hg.addColorStop(1, 'rgba(20,16,24,0)');
+        ctx.fillStyle = hg; ctx.beginPath(); ctx.arc(ped.x, ped.y, 60, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#141018'; ctx.beginPath(); ctx.ellipse(ped.x, ped.y, 36, 26, 0, 0, TAU); ctx.fill();
+        ctx.strokeStyle = '#6a5e50'; ctx.lineWidth = 4; ctx.beginPath(); ctx.ellipse(ped.x, ped.y, 36, 26, 0, 0, TAU); ctx.stroke();
+        ctx.strokeStyle = 'rgba(184,168,144,0.5)'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.ellipse(ped.x, ped.y, 24, 16, 0, 0, TAU); ctx.stroke();
+        ctx.fillStyle = '#b8a890'; ctx.font = this.font(10, true); ctx.textAlign = 'center';
+        ctx.fillText('🕳 DEEP EXIT — two wards down', ped.x, ped.y - 40);
+        continue;
+      }
+      if (ped.kind === 'firealarm') {   // three words on the sign
+        ctx.save(); ctx.translate(ped.x, ped.y);
+        ctx.fillStyle = '#b03030'; this.rr(ctx, -14, -20, 28, 40, 4); ctx.fill();
+        ctx.strokeStyle = '#7a1a1a'; ctx.lineWidth = 2.5; this.rr(ctx, -14, -20, 28, 40, 4); ctx.stroke();
+        ctx.fillStyle = '#f4eee0'; this.rr(ctx, -9, -15, 18, 12, 2); ctx.fill();
+        ctx.fillStyle = '#a03030'; ctx.font = 'bold 5px "Arial Black",sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText('DO NOT', 0, -10.5); ctx.fillText('PULL', 0, -5.5);
+        ctx.fillStyle = '#e8e0d0'; this.rr(ctx, -4, 0, 8, 15, 2); ctx.fill();   // the handle. right there.
+        ctx.strokeStyle = '#7a1a1a'; ctx.lineWidth = 1.5; this.rr(ctx, -4, 0, 8, 15, 2); ctx.stroke();
+        ctx.restore();
+        if (U.dist(G.player.x, G.player.y, ped.x, ped.y) < 80) { ctx.fillStyle = '#e08a8a'; ctx.font = this.font(10, true); ctx.textAlign = 'center'; ctx.fillText('🧯 it said do not', ped.x, ped.y + 34); }
+        continue;
+      }
+      if (ped.kind === 'openmic') {   // the stage is a step stool
+        const M = (DATA.ENEMIES[ped.performer] || { clr: '#b8a8d8' });
+        this.shadow(ped.x, ped.y + 18, 18, 6, 0.22);
+        ctx.fillStyle = '#8a6a3a'; this.rr(ctx, ped.x - 20, ped.y + 6, 40, 12, 3); ctx.fill();   // the step stool
+        ctx.fillStyle = '#6a5028'; this.rr(ctx, ped.x - 16, ped.y + 16, 32, 4, 2); ctx.fill();
+        const nb = Math.sin(G.t * 2.6) * 1.5;
+        this.orb(ctx, ped.x, ped.y - 8 + nb, 13, M.clr, false);   // tonight's performer
+        ctx.fillStyle = '#2c2333';
+        ctx.beginPath(); ctx.arc(ped.x - 4, ped.y - 10 + nb, 1.6, 0, TAU); ctx.arc(ped.x + 4, ped.y - 10 + nb, 1.6, 0, TAU); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(ped.x, ped.y - 4 + nb, 2.4, 3, 0, 0, TAU); ctx.fill();   // mid-verse
+        ctx.strokeStyle = '#4a4454'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';   // the mic stand
+        ctx.beginPath(); ctx.moveTo(ped.x + 20, ped.y + 16); ctx.lineTo(ped.x + 20, ped.y - 16); ctx.stroke(); ctx.lineCap = 'butt';
+        ctx.fillStyle = '#2c2836'; ctx.beginPath(); ctx.arc(ped.x + 20, ped.y - 18, 4, 0, TAU); ctx.fill();
+        const sg2 = ctx.createRadialGradient(ped.x, ped.y - 30, 6, ped.x, ped.y - 30, 60);
+        sg2.addColorStop(0, 'rgba(232,200,120,0.2)'); sg2.addColorStop(1, 'rgba(232,200,120,0)');
+        ctx.fillStyle = sg2; ctx.beginPath(); ctx.arc(ped.x, ped.y - 30, 60, 0, TAU); ctx.fill();   // one warm spotlight
+        ctx.fillStyle = '#c8a8e0'; ctx.font = this.font(10, true); ctx.textAlign = 'center';
+        ctx.fillText('🎤 OPEN MIC', ped.x, ped.y - 40);
+        if (U.dist(G.player.x, G.player.y, ped.x, ped.y) < 90) { ctx.fillStyle = '#e8c84c'; ctx.font = this.font(10, true); ctx.fillText('someone\'s performing', ped.x, ped.y + 36); }
+        continue;
+      }
       if (ped.kind === 'secondmop') {   // there has only ever been one mop
         const glm = ctx.createRadialGradient(ped.x, ped.y - 14, 6, ped.x, ped.y - 14, 56);
         glm.addColorStop(0, 'rgba(232,192,90,0.28)'); glm.addColorStop(1, 'rgba(232,192,90,0)');
@@ -2341,6 +2419,19 @@ const Render = {
     // player + familiars + support group
     for (const f of G.player.familiars) this.drawFamiliar(f, G);
     for (const a of G.player.allies) this.drawAlly(a, G);
+    // THE GHOST OF RUNS PAST: your PB, translucent, on its own schedule
+    if (G.ghost) {
+      ctx.save();
+      ctx.globalAlpha = 0.38;
+      const D = DATA.DIAG[G.player.diag] || { color: '#8fb0d8' };
+      this.shadow(G.ghost.x, G.ghost.y + 14, 12, 5, 0.15);
+      ctx.fillStyle = D.color; ctx.beginPath(); ctx.ellipse(G.ghost.x, G.ghost.y, 11, 13, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#e8c9a6'; ctx.beginPath(); ctx.arc(G.ghost.x, G.ghost.y - 14, 8, 0, TAU); ctx.fill();
+      ctx.globalAlpha = 0.7;
+      ctx.fillStyle = '#e8c84c'; ctx.font = this.font(8, true); ctx.textAlign = 'center';
+      ctx.fillText(G.ghost.ahead ? 'PB (gone ahead)' : 'PB', G.ghost.x, G.ghost.y - 28);
+      ctx.restore();
+    }
     if (G.player.pet) this.drawPet(G.player.pet, G);
     if (G.player.pet2) this.drawPet(G.player.pet2, G);
     if (G.p2) this.drawP2(G.p2, G);
@@ -3587,6 +3678,20 @@ const Render = {
         ctx.fillStyle = '#e0a05a'; ctx.font = this.font(9, true); ctx.textAlign = 'center';
         ctx.fillText('“' + e._complaint.slice(0, 26) + (e._complaint.length > 26 ? '…' : '') + '”', e.x, e.y - e.r - 16);
       }
+    }
+    // THE ANNEX: dust-sheeted and unhappy about visitors
+    if (e._sheet && !e.dying && e.spawnT <= 0) {
+      ctx.save();
+      ctx.fillStyle = 'rgba(226,220,208,0.5)';   // the sheet, half slid off
+      ctx.beginPath();
+      ctx.moveTo(e.x - e.r * 0.9, e.y - e.r * 0.2);
+      ctx.quadraticCurveTo(e.x - e.r * 0.6, e.y - e.r - 6, e.x, e.y - e.r - 4);
+      ctx.quadraticCurveTo(e.x + e.r * 0.7, e.y - e.r - 7, e.x + e.r * 0.9, e.y - e.r * 0.35);
+      ctx.quadraticCurveTo(e.x + e.r * 0.4, e.y - e.r * 0.55, e.x - e.r * 0.9, e.y - e.r * 0.2);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = 'rgba(160,150,135,0.6)'; ctx.font = this.font(8); ctx.textAlign = 'center';
+      ctx.fillText('🕸', e.x + e.r * 0.8, e.y - e.r * 0.8);
+      ctx.restore();
     }
     // INCIDENT SITE guard: dozing at the scene (until you get greedy)
     if (e._asleep && !e.dying) {

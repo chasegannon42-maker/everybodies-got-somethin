@@ -95,6 +95,19 @@ keyboard and mouse.
 - **📋 Patient Chart** — a codex of every patient, boss, med, and pill you've met; completing a
   tab pays out a permanent perk. **📊 Run History** keeps your real win-rate receipts, and a
   **speedrun timer with splits** is one Settings toggle away.
+- **🚧 THE ANNEX** — an alternate route: a boarded door beside some trapdoors opens into the
+  building's condemned wing — dust palette, sheeted (and 25% tougher) patients, double loot,
+  zero services — and its exit chute drops you TWO wards down.
+- **👻 The Ghost of Runs Past** — with the speedrun timer on, your personal best replays beside
+  you as a translucent you, floor by floor, per diagnosis. Beat your ghost to the trapdoor or
+  watch it walk away with a little "PB (gone ahead)" tag.
+- **🧯 THE FIRE ALARM** — a red box that says DO NOT PULL. Pull it: sprinklers, evacuation,
+  every room on the ward empties at once, you're soaked (−1 luck), the bill grows a
+  "Fire alarm, non-emergency" line, and the intercom holds a grudge.
+- **🎤 Open Mic Night** — Day Rooms sometimes have a step stool and a performer: the Larper's
+  slam poetry, the Gaslighter's memoir, a Deadline at double speed. Support them (+luck, they
+  split the tips) or heckle (+damage, −luck — and sometimes they leave the stool and bring the
+  mic stand).
 - **🕴 THE INSPECTION** — once per deep run an Inspector tours the ward and every enemy performs
   wellness: gentle wandering, folded hands, "thriving!" Hold your fire for the full 60 seconds
   and everyone files out smiling (full heal, +8¢, +◆6) — or attack the performance and face the

@@ -1946,6 +1946,7 @@ function spawnEnemiesForRoom(room, depth, G) {
     const elite = (id !== 'redflag' && U.chance(champChance)) ? U.choice(DATA.ELITES).id : null;
     const e = new Enemy(id, s.x + U.rand(-8, 8), s.y + U.rand(-8, 8), depth, false, hpMult, elite);
     if (G.shadowWard) { e.hp *= 1.3; e.maxhp *= 1.3; e._shadow = true; }   // shadow patients: darker, tougher, better tippers
+    if (G.annexFloor) { e.hp *= 1.25; e.maxhp *= 1.25; e._sheet = true; }  // the condemned wing: dust-sheeted and unhappy about visitors
     if (G.nightShift) { e.spd *= 0.92; e.hp *= 0.95; e.maxhp *= 0.95; }    // sleepy, but there are more of them
     if (G.hasRule && G.hasRule('quietHours')) { e.shotCd = (e.shotCd || 0) * 1.18; e.spd *= 1.08; }   // house rules: quiet hours
     if (mods.spdMul) e.spd *= mods.spdMul;
