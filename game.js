@@ -336,8 +336,11 @@ const G = {
         </div>
         ${(() => { const S = this.loadCheckpoint(); if (!S || !DATA.DIAG[S.diag]) return ''; const nm = S.variant && DATA.DIAG2 && DATA.DIAG2[S.diag] ? DATA.DIAG2[S.diag].name : DATA.DIAG[S.diag].name; return `<button class="btn" id="bContinue" style="border-color:#8fd0e0">📂 CONTINUE — ${nm} · WARD ${S.depth}</button>`; })()}
         <button class="btn" id="bStart">🩺 START CHECKUP</button>
-        <button class="btn minor" id="bHub">🚪 THE WAITING ROOM (walk around)</button>
-        <button class="btn" id="bDaily">🗓️ DAILY WARD</button>
+        <div class="btnrow">
+          <button class="btn" id="bDaily">🗓️ DAILY WARD</button>
+          <button class="btn minor" id="bHub">🚪 WAITING ROOM</button>
+        </div>
+        <div class="secdiv">SECOND OPINIONS</div>
         <button class="btn minor" id="bFiles">📁 PATIENT FILES (choose your diagnosis)</button>
         <div class="btnrow">
           <button class="btn minor" id="bPrognosis">🎲 PROGNOSIS</button>
@@ -345,19 +348,24 @@ const G = {
           ${(Meta.data.runs || 0) >= 1 ? '<button class="btn minor" id="bOvertime">⏰ OVERTIME</button>' : ''}
           <button class="btn minor" id="bWalkin">🚑 WALK-IN</button>
         </div>
-        <button class="btn minor" id="bTreatment">🧠 TREATMENT PLAN (skill tree) · ◆ ${Meta.data.insight || 0}</button>
-        <button class="btn minor" id="bChart">📋 PATIENT CHART (codex)</button>
-        <div class="btnrow">
-          <button class="btn minor" id="bStoryT">📖 CHART NOTES</button>
-          <button class="btn minor" id="bBestiaryT">☠ BESTIARY</button>
-        </div>
         ${ngRow}
+        <div class="secdiv">YOUR CHART</div>
+        <button class="btn minor" id="bTreatment">🧠 TREATMENT PLAN (skill tree) · ◆ ${Meta.data.insight || 0}</button>
         <div class="btnrow">
-          <button class="btn minor" id="bHow">HOW TO PLAY</button>
+          <button class="btn minor" id="bChart">📋 PATIENT CHART</button>
+          <button class="btn minor" id="bStoryT">📖 CHART NOTES</button>
+        </div>
+        <div class="btnrow">
+          <button class="btn minor" id="bBestiaryT">☠ BESTIARY</button>
           <button class="btn minor" id="bUnlocksT">🏆 UNLOCKS</button>
-          <button class="btn minor" id="bSettings">⚙ SETTINGS</button>
         </div>
         ${statsLine}
+        <div class="secdiv">FRONT DESK</div>
+        <div class="btnrow">
+          <button class="btn minor" id="bHow">HOW TO PLAY</button>
+          <button class="btn minor" id="bSettings">⚙ SETTINGS</button>
+        </div>
+        <button class="btn pamphlet" id="bHandbook">📘 THE PATIENT HANDBOOK <span style="font-size:11px;font-style:italic;opacity:.75">— take one, it's free</span></button>
         <button class="btn minor" id="bTester" style="opacity:.55;font-size:10px;padding:5px 10px;margin-top:4px">🔧 ${m.tester ? 'GAME TESTER' : 'STAFF ONLY'}</button>
         <div class="smallprint">A satire about a system that hands out labels like candy — not about the people living with them. Be kind, including to yourself. ♥</div>
       </div>`);
@@ -380,6 +388,7 @@ const G = {
     const bc = document.getElementById('bChronic'); if (bc) bc.onclick = () => { SFX.init(); SFX.play('ui'); this._startChronic = true; this.startQuiz(); };
     const bbr = document.getElementById('bBossRush'); if (bbr) bbr.onclick = () => { SFX.init(); SFX.play('ui'); this._startBossRush = true; this.startQuiz(); };
     document.getElementById('bHow').onclick = () => { SFX.init(); SFX.play('ui'); this.showHow(); };
+    document.getElementById('bHandbook').onclick = () => { SFX.init(); SFX.play('paper'); this.showHandbook(() => this.showTitle()); };
     document.getElementById('bUnlocksT').onclick = () => { SFX.init(); SFX.play('ui'); this.showUnlocks(() => this.showTitle()); };
     document.getElementById('bSettings').onclick = () => { SFX.init(); SFX.play('ui'); this.showSettings(() => this.showTitle()); };
     const brh = document.getElementById('bRunHist'); if (brh) brh.onclick = () => { SFX.init(); SFX.play('ui'); this.showStats(() => this.showTitle()); };
@@ -2603,9 +2612,217 @@ const G = {
           earn an <b>Emotional Support Animal</b> in Settings · leftover coins are "donated" when you're discharged.
           Your save keeps itself on this device — back it up or move it in <b>Settings → SAVE DATA</b>.
         </div>
+        <button class="btn pamphlet" id="bHowHb">📘 THE PATIENT HANDBOOK <span style="font-size:11px;font-style:italic;opacity:.75">— the FULL documentation</span></button>
         <button class="btn" id="bBack">BACK</button>
       </div>`);
+    document.getElementById('bHowHb').onclick = () => { SFX.play('paper'); this.showHandbook(() => this.showHow()); };
     document.getElementById('bBack').onclick = () => { SFX.play('ui'); this.showTitle(); };
+  },
+
+  /* ---------- THE PATIENT HANDBOOK (Form EGS-1) ----------
+     The complete in-fiction manual: every mechanic, symptom, ward, and
+     service. Mostly generated from DATA so new content lists itself;
+     the prose sections get a line whenever a feature ships. */
+  HB_REV: 28,
+  showHandbook(returnTo) {
+    this.state = 'handbook';
+    if (!this._hbTab) this._hbTab = 'basics';
+    const R = (icon, name, desc, tag) => `<div class="hbrow">${icon ? icon + ' ' : ''}<b>${name}</b>${tag ? ` <span class="hbtag">· ${tag}</span>` : ''} — ${desc}</div>`;
+    const H = t => `<div class="hbh">${t}</div>`;
+    const N = t => `<div class="hbnote">${t}</div>`;
+    const EN = DATA.CODEX_CHART.enemies, BO = DATA.CODEX_CHART.bosses;
+
+    const TABS = {
+      basics: () => H('WELCOME TO THE PRACTICE')
+        + N('You are a patient. The building goes down forever. Clear each room of symptoms, find the trapdoor, descend. Dr. Walrus reviews you every 5th ward; THE CURE waits on Ward 25 (it isn\'t), THE FOUNDER on Ward 50, THE SYSTEM on Ward 100. Dying discharges you — but ◆ Insight, unlocks, and the Wellness Fund persist. You always keep something.')
+        + H('CONTROLS')
+        + R('⌨️', 'PC', '<span class="kbd">WASD</span> move · arrows/mouse shoot · <span class="kbd">SPACE</span>/<span class="kbd">SHIFT</span> PRN ability · <span class="kbd">Q</span> pill · <span class="kbd">E</span> claim form · <span class="kbd">TAB</span> map · <span class="kbd">P</span> pause · <span class="kbd">M</span> mute')
+        + R('📱', 'Touch', 'left thumb moves, right thumb aims & fires; on-screen buttons for the rest')
+        + R('🎮', 'Gamepad', 'sticks move/shoot · A ability · X pill · B claim · SELECT drops <b>Patient Two</b> into couch co-op with their own chart · START pause')
+        + H('VITALS & RESOURCES')
+        + R('♥', 'Hearts', 'your health, in halves. Hit = brief invincibility frames. Zero = discharged')
+        + R('¢', 'Copays', 'the currency. Nickels are worth 5. Spent at pharmacies, machines, the Janitor — leftovers are "donated" to the Wellness Fund at discharge')
+        + R('🔑', 'Referrals', 'keys. Open the Specialist\'s door, locked treatment rooms, and chests')
+        + R('📄', 'Claim Forms', 'bombs. Place one, step back — they break rocks, walls (secret rooms!), and arguments')
+        + R('💊', 'Pills', `${DATA.PILLS.length} kinds, unidentified until swallowed. Could be either direction. Sticky Note / Maintenance Dose / Spare Readers identify them`)
+        + R('⚡', 'PRN Ability', 'your diagnosis\' signature move on a cooldown — see YOUR FILE below')
+        + R('🍀', 'Luck', 'invisible stat: better drops, better room tips, kinder machines')
+        + H('YOUR FILE — THE DIAGNOSES')
+        + N('The checkup assigns one; PATIENT FILES lets you choose. Every chart plays differently.')
+        + Object.entries(DATA.DIAG).map(([k, d]) => R('🩺', d.name, `${d.mech}${DATA.ABILITIES[k] ? ` <span class="hbtag">PRN: ${DATA.ABILITIES[k].name} — ${DATA.ABILITIES[k].blurb}</span>` : ''}`, d.tag)).join('')
+        + H('SECOND OPINIONS (unlockable variants)')
+        + N('Beat the Ward-5 Walrus with a base diagnosis to unlock its flip side — swap with ⇄ on Patient Files.')
+        + Object.values(DATA.DIAG2).map(d => R('⇄', d.name, d.mech, d.tag)).join('')
+        + H('SAVING')
+        + N('Runs checkpoint at each new floor — CONTINUE resumes them. Everything else saves itself on this device; back up or transfer via <b>Settings → SAVE DATA</b> (EGSSAVE codes). Seeded runs (Daily, Challenge) don\'t checkpoint.'),
+
+      building: () => H('THE DESCENT')
+        + N(`Escalation tiers, by depth: ${DATA.TIERS.map(t => `<b>${t.name}</b> (${t.d}+)`).join(' · ')}.`)
+        + R('🚪', 'Descending', 'beat the ward boss, take the trapdoor. Some descents offer a CHOICE of ward:')
+        + Object.values(DATA.WARD_PATHS).map(w => R('', w.name, w.desc)).join('')
+        + H('ROOMS')
+        + R('🛏', 'Normal / Padded wards', 'symptoms spawn, doors lock, manage everyone, doors open')
+        + R('⭐', 'The Specialist', 'the item room. Needs a Referral 🔑. A free prescription on a pedestal')
+        + R('🛍', 'The Gift Shop', 'meds, hearts, and misc at retail markup. Plans, coupons, and talents change prices')
+        + R('🏥', 'The Clinic', 'a miniboss office — Charge Nurse, Resident, or Orderly. Pays out a reward')
+        + R('🏋', 'The Gym', 'exercise equipment, and where your RIVAL insists on duels')
+        + R('🛋', 'The Day Room', 'sanctuary. A water cooler (heals), a patient with a boon, CONTRACTS to sign, and sometimes OPEN MIC NIGHT')
+        + R('🗄', 'The Records Room', 'your file is in there. Sneak the stacks past the flashlights for loot — get spotted and Records Patrol comes')
+        + R('☕', 'The Breakroom', 'staff only (nobody checks). The cabinet remembers what you feed it')
+        + R('⚠️', 'The Incident Site', 'something happened here last run (yours). Clear it for ◆ Insight')
+        + R('🪜', 'The Stairwell', 'an alternate descent — a gauntlet with a clean-run bonus')
+        + R('🕳', 'Secret rooms', 'bomb a promising wall. Contracts and goals love them')
+        + H('SPECIAL FLOORS & WEATHER')
+        + R('🌙', 'Night Shift', 'the lights are off, the NIGHT NURSE glides, coins pay a differential')
+        + R('👥', 'Shadow Ward', 'dark and generous — cleared rooms pay double')
+        + R('🏚', 'THE ANNEX', 'a sealed wing off deep wards. Nobody\'s swept the valuables in years')
+        + R('🍂', 'Seasonal wards', 'the weather gets indoors — check your season')
+        + R('🕯', 'The Thirteenth Ward', 'candlelit, off the books. The Janitor\'s MASTER KEY is only found here')
+        + R('🏙', 'THE ROOF', 'the ascent. Climb instead of descend and THE BOARD votes on you at the top')
+        + H('WARD CONDITIONS (rolled at descent)')
+        + N('Specialty wings: ' + DATA.WINGS.map(w => `${w.icon} <b>${w.name}</b> <span class="hbtag">${w.sub}</span>`).join(' · '))
+        + DATA.COMPLICATIONS.map(c => R('🎲', c.name, c.desc)).join('')
+        + DATA.SIDE_EFFECTS.map(s => R(s.icon, s.name, s.desc)).join('')
+        + H('CODE GRAY (floor crises, ward 4+)')
+        + DATA.CRISES.map(c => R(c.icon, c.name, c.desc)).join('')
+        + H('THE WARD CALENDAR')
+        + N('The building runs on your real week:')
+        + [1, 2, 3, 4, 5, 6, 0].map(d => { const c = DATA.CALENDAR[d]; return R(c.icon, c.name, c.desc); }).join(''),
+
+      symptoms: () => H('THE GENERAL POPULATION')
+        + N('Listed with the ward they first appear on. Deeper wards lean harder on the late roster.')
+        + DATA.enemyPoolFor(999).map(e => { const d = DATA.ENEMIES[e.id]; return R('', d.name, EN[e.id] || '—', 'ward ' + e.d + '+'); }).join('')
+        + H('SPECIAL APPEARANCES')
+        + R('', DATA.ENEMIES.form.name, EN.form, 'paperwork')
+        + R('', DATA.ENEMIES.auditor.name, EN.auditor, 'roams deep wards')
+        + R('', DATA.ENEMIES.rival.name, EN.rival, 'gym duels')
+        + R('', DATA.ENEMIES.nightnurse.name, EN.nightnurse, 'night shift')
+        + R('', DATA.ENEMIES.recordsguard.name, EN.recordsguard, 'records security')
+        + R('', DATA.ENEMIES.chargenurse.name, EN.chargenurse, 'clinic miniboss')
+        + R('', DATA.ENEMIES.resident.name, EN.resident, 'clinic miniboss')
+        + R('', DATA.ENEMIES.orderly.name, EN.orderly, 'clinic miniboss')
+        + H('CHAMPIONS (elite cases, ward 6+)')
+        + DATA.ELITES.map(e => R('👑', e.name, `${Math.round(e.hp * 100)}% health${e.dmg > 1 ? ', hits double' : ''}${e.spd > 1 ? ', faster' : e.spd < 1 ? ', slower' : ''} — drops better loot`)).join('')
+        + N('Hallucinations: some diagnoses see patients who aren\'t there. Fakes pop in one hit and can\'t hurt you. Foam Earplugs make them shimmer.'),
+
+      staff: () => H('WARD MANAGEMENT (bosses)')
+        + Object.entries(DATA.BOSSES).map(([k, b]) => {
+          const when = { gatekeeper: 'rotation · ward 1+', larperking: 'rotation · ward 1+', adjuster: 'rotation · ward 2+', priorauth: 'rotation · ward 2+', stigma: 'rotation · ward 3+', dsm: 'rotation · ward 3+', algorithm: 'rotation · ward 3+', influencer: 'rotation · ward 3+', withdrawal: 'rotation · ward 4+', burnout: 'rotation · ward 4+', peerreview: 'rotation · ward 6+', merger: 'rotation · ward 30+', walrus: 'every 5th ward', thecure: 'ward 25', theboard: 'THE ROOF', founder: 'ward 50', thesystem: 'ward 100' }[k];
+          return R('☠', `${b.name} <span class="hbtag">${b.sub}</span>`, BO[k] || '—', when);
+        }).join('')
+        + H('CHAMPION AFFIXES (ward 8+)')
+        + DATA.BOSS_AFFIXES.map(a => R('🏷', a.name, a.note)).join('')
+        + H('NEGOTIATION')
+        + N(`Some management would rather settle: at the end of their rope, ${Object.keys(DATA.BOSS_DEALS).map(k => `<b>${DATA.BOSSES[k].name}</b>`).join(', ')} may offer a deal instead of a second phase. Read the terms.`)
+        + H('SECOND PHASES & PAPERWORK')
+        + N('Every boss has more chart than it shows. Dr. Walrus in particular has never once been out of moves — the SECOND SHIFT least of all. Bosses drop a reward pedestal and the trapdoor; on some plans the reward bills you.'),
+
+      loot: () => H('PRESCRIPTIONS (items)')
+        + N(`${Object.keys(DATA.ITEMS).length} and counting — pedestal items that change your build: damage, tears, movement, familiars, flags, and worse. Pools: the Specialist's shelf (${DATA.POOLS.special.length}), boss rewards (${DATA.POOLS.boss.length}), shop stock (${DATA.POOLS.shop.length}), out-of-network oddities (${DATA.POOLS.oon.length}). The full annotated list — including what you've found — lives in the <b>PATIENT CHART</b> codex.`)
+        + H('PRESCRIPTION TRANSFORMATIONS')
+        + N('Collect 3 items from one theme and the chart upgrades you:')
+        + DATA.TRANSFORMS.map(t => R('✨', t.name, `3 ${t.theme}-themed prescriptions`)).join('')
+        + H('KNOWN SYNERGIES')
+        + DATA.SYNERGIES.map(s => R('🧪', s.name, `${(DATA.ITEMS[s.a] || {}).name || s.a} + ${(DATA.ITEMS[s.b] || {}).name || s.b}: ${s.desc}`)).join('')
+        + H('PERSONAL EFFECTS (trinkets)')
+        + N('One slot. Swap freely by walking over another.')
+        + DATA.TRINKETS.map(t => R(t.icon, t.name, t.desc)).join('')
+        + H('PILLS ON THE FORMULARY')
+        + N(DATA.PILLS.map(p => p.name).join(' · '))
+        + H('VENDORS & MACHINES')
+        + R('🛍', 'The Gift Shop / Pharmacy', 'retail. GoodRx coupons take a med to half price; plans and talents change everything')
+        + R('🧹', 'The Janitor', 'a secret shop in the walls. Cash only. Don\'t ask where it\'s been')
+        + R('💼', 'The Drug Rep', 'free samples — real stats, plus a lingering side effect from the fine print')
+        + R('⚗️', 'The Compounding Pharmacist', 'feed him two meds, get one custom compound back')
+        + R('🍫', 'Commissary machines', 'vending (snacks & sundries) and the horoscope printer (a real, small blessing or curse)')
+        + R('🎁', 'Care Packages', 'gift codes — mail an item to a friend\'s next run from the DAILY WARD screen'),
+
+      meta: () => H('◆ INSIGHT & THE TREATMENT PLAN')
+        + N(`Insight is earned by TREATMENT GOALS, contracts, incidents, protocols, and just surviving. Spend it on the TREATMENT PLAN — six therapy modalities, four tiers each, capstones included. Second opinions are free: a full-refund respec button appears once you've invested.`)
+        + DATA.TALENT_BRANCHES.map(b => R(b.icon, b.name, b.blurb)).join('')
+        + H('PER-RUN OBJECTIVES')
+        + N('3 TREATMENT GOALS roll each run and pay ◆ on the spot. Day Room patients offer CONTRACTS — sign one, deliver, get paid.')
+        + H('INSURANCE PLANS (picked at intake)')
+        + DATA.PLANS.map(p => R(p.icon, `${p.name} <span class="hbtag">${p.tag}</span>`, p.lines.join(' · '))).join('')
+        + H('COMORBIDITIES (between floors)')
+        + N('Descending sometimes offers a second label — mild risk/reward, stackable:')
+        + DATA.COMORBIDITIES.map(c => R('🏷', c.name, c.desc)).join('')
+        + N('Hold both halves of a known pair and they fuse: ' + DATA.COMORBID_SYNERGY.map(s => `<b>${s.name}</b>`).join(', ') + '.')
+        + H('MODES & DOORS IN')
+        + R('🩺', 'START CHECKUP', 'the standard intake: quiz, diagnosis, descend')
+        + R('🗓', 'DAILY WARD', 'one seeded run per day, same for everyone, with posted HOUSE RULES (' + DATA.HOUSE_RULES.length + ' in rotation). Leaderboard-of-one: your calendar')
+        + R('🚑', 'WALK-IN CLINIC', 'skip the paperwork — a quick randomized run, no questions asked')
+        + R('⏰', 'OVERTIME', 'endless arena floors on a clock. The floor never closes')
+        + R('🎲', 'PROGNOSIS', 'challenge modifiers: ' + DATA.PROGNOSES.map(p => p.name).join(', '))
+        + R('🧪', 'PROTOCOLS', DATA.PROTOCOLS.length + ' curated rule-set runs; finishing one (Ward-5 boss) pays +25◆')
+        + R('🩸', 'CHRONIC MODE', 'the New Game+ loop for finished charts — everything is worse, on purpose')
+        + R('☠', 'BOSS RUSH', 'management only, back to back (complete the boss codex to unlock)')
+        + R('🎮', 'PATIENT TWO', 'couch co-op — a second pad joins from the pause menu or SELECT')
+        + H('COMPANY YOU KEEP')
+        + N('Emotional Support Animals (equip one in Settings): ' + DATA.PETS.map(p => `${p.icon} <b>${p.name}</b> — ${p.note} <span class="hbtag">(${p.unlockHint})</span>`).join(' · '))
+        + N('THE SUPPORT GROUP (recruited allies, cap 3, revive on room clear): ' + DATA.ALLIES.map(a => `<b>${a.name}</b> (${a.diag}) — ${a.blurb}`).join(' · '))
+        + R('🪪', 'The Intern', 'appears on Ward 2, terrified. Keep them alive three floors and they graduate — permanently recruitable')
+        + R('🐾', 'Pet Playdates', 'your animals socialize in the Waiting Room. This has gameplay consequences (small, adorable ones)')
+        + H('THE WAITING ROOM (hub)')
+        + R('💰', 'The Wellness Fund', 'discharge donations buy real furniture with standing perks: ' + DATA.FACILITY.map(f => `${f.icon} ${f.name} (${f.perk})`).join(' · '))
+        + R('📬', 'The Complaint Department', 'file your feedback. They weaponize it')
+        + R('🎱', 'WARD BINGO', 'a persistent card of ward chores — lines pay ◆')
+        + R('📻', 'WWRD Ward Radio', 'the jukebox: ' + DATA.RADIO_TRACKS.length + ' tracks and a DJ with opinions')
+        + R('📞', 'The Payphone', 'collect calls from people you\'ve met. Answer it')
+        + R('📊', 'The Actuary', 'sets your INTENSITY dial (1-10) — risk and reward, actuarially adjusted')
+        + R('👻', 'Ghost of Runs Past', 'your last run haunts the hub. It has notes')
+        + R('🐕', 'Reunion', 'lost companions wait in the hub between runs')
+        + H('PAPER TRAIL')
+        + R('📖', 'Patient Diary', 'the run writes itself — reread your history')
+        + R('🗃', 'Misfiled Documents', 'lore, found where it shouldn\'t be')
+        + R('📖', 'CHART NOTES', 'the story so far, replayable')
+        + R('🏆', 'UNLOCKS', DATA.ACHIEVEMENTS.length + ' achievements; some pay out HATS: ' + DATA.HATS.map(h => `${h.name} (${h.hint})`).join(', ')),
+
+      events: () => H('WARD LIFE (mini-events)')
+        + N('Non-combat rooms where someone wants something. Choices have teeth:')
+        + DATA.EVENTS.map(e => R('🚪', e.name, e.prompt)).join('')
+        + H('SCHEDULED DISRUPTIONS')
+        + R('🧯', 'THE FIRE ALARM', 'a red box on a wall, once a run. The sign says DO NOT PULL. Pulling it is a choice with sprinklers')
+        + R('📋', 'THE INSPECTION', 'the Joint Commission tours the ward. Everything is fine. Smile with your eyes. Don\'t bust the performance')
+        + R('🤝', 'THE HANDOFF', 'shift change mid-run — your care transfers, terms and conditions apply')
+        + R('💊', 'THE MIX-UP', 'the pharmacy made an error. It\'s yours now')
+        + R('🎤', 'OPEN MIC NIGHT', 'the Day Room has a stage (a step stool). The symptoms perform. Tip accordingly')
+        + R('🏆', 'GYM DUELS', 'your RIVAL keeps score across runs and calls you out by name')
+        + R('🩻', 'THE MERGER', 'deep wards: the acquisition closed. Management fights with acquired attacks')
+        + H('WHO ELSE IS IN THE BUILDING')
+        + R('🧹', 'The Janitor', 'forty years. Secret shops, basement wisdom, a master key he\'s not supposed to have')
+        + R('📢', 'The Intercom', 'Dr. Walrus watches, and comments. The intercom is not a fan of your streaks')
+        + R('🚶', 'Day Room patients', 'The Veteran, The Optimist, The Oversharer, and friends — one boon each')
+        + H('REVISION HISTORY')
+        + N('This handbook is updated with every patch. If a feature exists, it\'s in here — that\'s the policy. Spot something missing? The Complaint Department is thataway.')
+    };
+
+    const tabs = [
+      { id: 'basics', icon: '📖', name: 'BASICS' }, { id: 'building', icon: '🏥', name: 'THE BUILDING' },
+      { id: 'symptoms', icon: '🩹', name: 'SYMPTOMS' }, { id: 'staff', icon: '☠', name: 'STAFF' },
+      { id: 'loot', icon: '💊', name: 'TREATMENT' }, { id: 'meta', icon: '🧠', name: 'YOUR CARE' },
+      { id: 'events', icon: '🗂', name: 'WARD LIFE' }
+    ];
+    this.overlay(`
+      <div class="panel wide hb">
+        <h1 class="logo" style="font-size:24px">THE PATIENT HANDBOOK</h1>
+        <div class="tagline">Form EGS-1 (rev. ${this.HB_REV}) · everything about this place, in writing · issued free of charge (billed later)</div>
+        <div class="hbtabs">${tabs.map(t => `<button class="btn minor codextab${this._hbTab === t.id ? ' active' : ''}" data-hb="${t.id}">${t.icon} ${t.name}</button>`).join('')}</div>
+        <div class="hbbody" id="hbBody"></div>
+        <div class="hbfoot">KEEP THIS DOCUMENT WITH YOUR CHART · THE CHART IS EVERYWHERE · YOU ARE THE CHART</div>
+        <button class="btn minor" id="bHbBack">BACK</button>
+      </div>`);
+    const paint = () => { document.getElementById('hbBody').innerHTML = TABS[this._hbTab](); };
+    paint();
+    document.querySelectorAll('[data-hb]').forEach(b => b.onclick = () => {
+      SFX.play('paper');
+      this._hbTab = b.dataset.hb;
+      document.querySelectorAll('[data-hb]').forEach(x => x.classList.toggle('active', x.dataset.hb === this._hbTab));
+      paint();
+      document.getElementById('hbBody').scrollTop = 0;
+      const pn = document.querySelector('#overlay .panel'); if (pn) pn.scrollTop = 0;
+    });
+    document.getElementById('bHbBack').onclick = () => { SFX.play('ui'); (returnTo || (() => this.showTitle()))(); };
   },
 
   // first checkup: play the prologue cutscene once, then tutorial (once), then the quiz
@@ -3713,6 +3930,7 @@ const G = {
     if (p.diag === 'depression' && !p.variant) p.blanket = true;   // High-Functioning has no blanket, only the mask
     if (p.variant && p.diag === 'ptsd') p._scar = 0;               // Weathered: the scars fade between floors
     p._rosaryUsed = false;   // the rosary recovers its one grace each floor
+    p._wiseUsed = false;     // Wise Mind resets with the ward
     if (p._gymAdd) { p.dmg -= p._gymAdd; }
     p._gymAdd = 0;
     if (p.flags.pillowHeal) p.heal(p.flags.synRested ? 4 : 2);
@@ -4323,9 +4541,14 @@ const G = {
     }
     if (p.flags.gym && p._gymAdd < 1.5) { p._gymAdd += 0.15; p.dmg += 0.15; }
     if (U.chance(0.03)) this.pickups.push(new Pickup('trinket', CW / 2 + U.rand(-50, 50), RY + RH / 2));
-    if (U.chance((this.intensity || 0) >= 8 ? 0.2 : this.quietFloor ? 0.25 : 0.4)) {   // Intensity 8+/quiet route: the ward stops tipping
+    if (U.chance(((this.intensity || 0) >= 8 ? 0.2 : this.quietFloor ? 0.25 : 0.4) + (p.flags.otRoutine ? 0.12 : 0))) {   // Intensity 8+/quiet: less tipping · Daily Routine: more
       const type = U.choice(['coin', 'coin', 'half', 'pill', 'coin', 'key', 'bomb']);
       this.pickups.push(new Pickup(type, CW / 2 + U.rand(-40, 40), RY + RH / 2 + U.rand(-30, 30)));
+    }
+    // Group Cohesion (capstone): the group patches you up between fights
+    if (p.flags.allyCare && p.allies.length && p.hp < p.maxhp && U.chance(0.35)) {
+      p.heal(1);
+      this.texts.push(new FloatText(p.x, p.y - 24, '🤝 the group has you +♥', '#8fd08a'));
     }
     // house rules with room-clear clauses
     if (this.hasRule('doublePills')) this.pickups.push(new Pickup('pill', CW / 2 + U.rand(-50, 50), RY + RH / 2 + U.rand(-30, 30)));
@@ -5442,10 +5665,14 @@ const G = {
         ${this.designTest ? '<button class="btn" id="bBackDesign" style="border-color:#8fd0e0">🏗 BACK TO THE DESIGNER</button>' : ''}
         <button class="btn minor" id="bP2Toggle">🎮 ${this.p2 ? 'PATIENT TWO LEAVES' : 'PATIENT TWO JOINS (pad)'}</button>
         ${Meta.data.tester ? '<button class="btn minor" id="bTesterTools">🔧 TESTER TOOLS</button>' : ''}
-        <button class="btn minor" id="bSettings2">⚙ SETTINGS</button>
+        <div class="btnrow">
+          <button class="btn minor" id="bSettings2">⚙ SETTINGS</button>
+          <button class="btn minor" id="bPauseHb">📘 HANDBOOK</button>
+        </div>
         <button class="btn minor" id="bQuit">${this.dailyKind ? 'QUIT TO TITLE' : (this.sandbox ? 'CLOCK OUT (sandbox)' : '💾 SAVE & QUIT')}</button>
       </div>`);
     document.getElementById('bResume').onclick = () => { SFX.play('ui'); this.hideOverlay(); this.state = 'run'; };
+    document.getElementById('bPauseHb').onclick = () => { SFX.play('paper'); this.showHandbook(() => this.showPause()); };
     const bbd = document.getElementById('bBackDesign');
     if (bbd) bbd.onclick = () => { SFX.play('ui'); this.showDesigner(); };
     const btt = document.getElementById('bTesterTools');
@@ -6417,19 +6644,21 @@ const G = {
     const cols = DATA.TALENT_BRANCHES.map(br => {
       const nodes = DATA.TALENTS.filter(t => t.branch === br.id).sort((a, b) => a.tier - b.tier).map((t, i) => {
         const state = owned(t.id) ? 'owned' : canBuy(t) ? 'avail' : 'locked';
-        return `${i ? '<div class="tallink"></div>' : ''}<button class="talnode ${state}" data-t="${t.id}" ${state === 'avail' ? '' : 'disabled'}>
-          <div class="talname">${t.name}</div>
+        return `${i ? '<div class="tallink"></div>' : ''}<button class="talnode ${state}${t.tier >= 4 ? ' cap' : ''}" data-t="${t.id}" ${state === 'avail' ? '' : 'disabled'}>
+          <div class="talname">${t.tier >= 4 ? '★ ' : ''}${t.name}</div>
           <div class="taldesc">${t.desc}</div>
           <div class="talcost">${owned(t.id) ? '✓ learned' : '◆ ' + t.cost}</div>
         </button>`;
       }).join('');
       return `<div class="talcol"><div class="talhead">${br.icon} ${br.name}</div>${nodes}</div>`;
     }).join('');
+    const spent = DATA.TALENTS.filter(t => owned(t.id)).reduce((a, t) => a + t.cost, 0);
     this.overlay(`
       <div class="panel wide treat">
         <h1 class="logo" style="font-size:26px">TREATMENT PLAN</h1>
-        <div class="tagline">permanent therapy skills · you have <b style="color:#8fd0e0">◆ ${insight} Insight</b></div>
+        <div class="tagline">six modalities, permanent skills · you have <b style="color:#8fd0e0">◆ ${insight} Insight</b>${spent ? ' · ◆ ' + spent + ' invested' : ''}</div>
         <div class="talgrid">${cols}</div>
+        ${spent ? '<button class="btn minor" id="bRespec">🔄 RECONSIDER TREATMENT — full refund (second opinions are free here)</button>' : ''}
         <button class="btn minor" id="bTreatBack">BACK</button>
       </div>`);
     document.querySelectorAll('.talnode[data-t]').forEach(b => b.onclick = () => {
@@ -6440,6 +6669,15 @@ const G = {
       DATA.checkAchievements(Meta.data); Meta.save();   // Modality Mastered can land mid-menu
       this.showTreatmentPlan(returnTo);
     });
+    const brs = document.getElementById('bRespec');
+    if (brs) brs.onclick = () => {
+      Meta.data.insight = (Meta.data.insight || 0) + spent;
+      Meta.data.talents = {};
+      Meta.save();
+      SFX.play('paper');
+      this.toast('🔄 Treatment reconsidered. ◆' + spent + ' refunded in full. The chart holds no grudge.', '#8fd0e0');
+      this.showTreatmentPlan(returnTo);
+    };
     document.getElementById('bTreatBack').onclick = () => { SFX.play('ui'); (returnTo || (() => this.showTitle()))(); };
   },
 

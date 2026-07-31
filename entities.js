@@ -382,6 +382,7 @@ class Player {
   useAbility(G) {
     if (!this.abil || this.abilCd > 0 || this.dead) return;
     this.abilCd = this.abilMax;
+    if (this.flags.prnGrace) this.iframes = Math.max(this.iframes, 1.5);   // Dual Attention: untouchable follow-through
     Haptics.buzz([15, 30, 20], 0);
     switch (this.diag) {
       case 'adhd': {   // Blink — dash in the current move/aim direction, briefly untouchable
@@ -792,6 +793,14 @@ class Player {
       this._rosaryUsed = true;
       this.hp = 1; this.iframes = 1.6; this.hurtFlash = 0.35;
       G.toast('📿 The rosary held. Once.', '#e8c84c');
+      G.shake = Math.max(G.shake, 8); SFX.play('whoosh');
+      return;
+    }
+    // Wise Mind (DBT capstone): once per floor, the skills hold where the heart would give
+    if (this.flags.wiseMind && !this._wiseUsed && this.hp - n <= 0 && src !== 'timeslot') {
+      this._wiseUsed = true;
+      this.hp = 1; this.iframes = 1.6; this.hurtFlash = 0.35;
+      G.toast('🛡 WISE MIND. Observed. Described. Survived.', '#8fd0e0');
       G.shake = Math.max(G.shake, 8); SFX.play('whoosh');
       return;
     }

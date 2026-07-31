@@ -453,7 +453,8 @@ DATA.ACHIEVEMENTS = [
   { id: 'hazardTour', name: "Frequent Flyer",      desc: "Visit all four special hazard rooms. Unlocks the Boomerang Chart.", hint: "Seclusion, the ECT Suite, the Padded Cell, Observation.", check: m => m.hazardsSeen && ['seclusion', 'ect', 'padded', 'observation'].every(k => m.hazardsSeen[k]), reward: "Boomerang Chart" },
   { id: 'wired',    name: "Tired & Wired",         desc: "Clear a room while WIRED. Unlocks The Ugly Cry.", hint: "Insomnia: run the Sleep meter low, then win anyway.", check: m => !!m.everWiredClear, reward: "The Ugly Cry" },
   { id: 'fullGroup', name: "Group Session",        desc: "Have three Support Group allies at once.",        hint: "The group is full (3).",                   check: m => !!m.everFullGroup },
-  { id: 'therapyGrad', name: "Modality Mastered",  desc: "Learn every talent in one therapy branch.",       hint: "Max out a Treatment Plan column.",         check: m => m.talents && ['cbt3', 'dbt3', 'emdr3', 'meds3', 'grp3'].some(id => m.talents[id]) },
+  { id: 'therapyGrad', name: "Modality Mastered",  desc: "Learn every talent in one therapy branch.",       hint: "Max out a Treatment Plan column, capstone included.", check: m => m.talents && DATA.TALENT_BRANCHES.some(br => DATA.TALENTS.filter(t => t.branch === br.id).every(t => m.talents[t.id])) },
+  { id: 'fullPlan',    name: "Comprehensive Care", desc: "Learn the entire Treatment Plan. Every branch. Every capstone.", hint: "The chart has never seen coverage like this.", check: m => m.talents && DATA.TALENTS.every(t => m.talents[t.id]) },
   { id: 'prognosisAll', name: "Worst-Case Scenarios", desc: "Attempt all five Prognosis challenge runs.",   hint: "Try every way to make it harder.",         check: m => m.prognosisBest && Object.keys(m.prognosisBest).length >= 5 },
   { id: 'crisisPro', name: "Crisis Counselor",     desc: "Earn the payout from 3 CODE GRAY ward crises.",   hint: "Hazard pay, three times.",                 check: m => (m.crisesSurvived || 0) >= 3 },
   { id: 'keystone', name: "Off-Label Use",         desc: "Pick up a keystone prescription.",                hint: "Some meds change everything about you.",   check: m => !!m.everKeystone },
@@ -1127,29 +1128,40 @@ DATA.TALENT_BRANCHES = [
   { id: 'dbt',   name: 'DBT',   icon: '🛡', blurb: 'Dialectical Behavior — endure more.' },
   { id: 'emdr',  name: 'EMDR',  icon: '💨', blurb: 'Reprocessing — move & recover faster.' },
   { id: 'meds',  name: 'Meds',  icon: '💊', blurb: 'Medication Management — economy & pills.' },
-  { id: 'group', name: 'Group', icon: '🤝', blurb: 'Group Work — a stronger Support Group.' }
+  { id: 'group', name: 'Group', icon: '🤝', blurb: 'Group Work — a stronger Support Group.' },
+  { id: 'ot',    name: 'OT',    icon: '🧰', blurb: 'Occupational Therapy — tools, routine, tips.' }
 ];
 DATA.TALENTS = [
   // CBT — damage
-  { id: 'cbt1', branch: 'cbt', tier: 1, name: 'Thought Records', desc: '+0.6 damage.', cost: 3, req: null, apply(p) { p.dmg += 0.6; } },
-  { id: 'cbt2', branch: 'cbt', tier: 2, name: 'Cognitive Restructuring', desc: '+0.8 damage.', cost: 6, req: 'cbt1', apply(p) { p.dmg += 0.8; } },
-  { id: 'cbt3', branch: 'cbt', tier: 3, name: 'Core Beliefs', desc: '+1.2 damage; tears fly faster.', cost: 12, req: 'cbt2', apply(p) { p.dmg += 1.2; p.shotSpd *= 1.12; } },
+  { id: 'cbt1', branch: 'cbt', tier: 1, name: 'Thought Records', desc: '+0.7 damage.', cost: 4, req: null, apply(p) { p.dmg += 0.7; } },
+  { id: 'cbt2', branch: 'cbt', tier: 2, name: 'Cognitive Restructuring', desc: '+0.9 damage.', cost: 8, req: 'cbt1', apply(p) { p.dmg += 0.9; } },
+  { id: 'cbt3', branch: 'cbt', tier: 3, name: 'Core Beliefs', desc: '+1.2 damage; tears fly 12% faster.', cost: 14, req: 'cbt2', apply(p) { p.dmg += 1.2; p.shotSpd *= 1.12; } },
+  { id: 'cbt4', branch: 'cbt', tier: 4, name: 'Schema Work', desc: 'CAPSTONE: +15% damage and +10% fire rate — the whole framework, internalized.', cost: 30, req: 'cbt3', apply(p) { p.dmg *= 1.15; p.tearDelay *= 0.9; } },
   // DBT — survivability
-  { id: 'dbt1', branch: 'dbt', tier: 1, name: 'Distress Tolerance', desc: '+1 heart.', cost: 3, req: null, apply(p) { p.maxhp += 2; p.hp += 2; } },
-  { id: 'dbt2', branch: 'dbt', tier: 2, name: 'Grounding Skills', desc: 'Longer i-frames after a hit.', cost: 6, req: 'dbt1', apply(p) { p.iframeTime += 0.25; } },
-  { id: 'dbt3', branch: 'dbt', tier: 3, name: 'Radical Acceptance', desc: '+2 hearts.', cost: 12, req: 'dbt2', apply(p) { p.maxhp += 4; p.hp += 4; } },
+  { id: 'dbt1', branch: 'dbt', tier: 1, name: 'Distress Tolerance', desc: '+1 heart.', cost: 4, req: null, apply(p) { p.maxhp += 2; p.hp += 2; } },
+  { id: 'dbt2', branch: 'dbt', tier: 2, name: 'Grounding Skills', desc: 'Noticeably longer i-frames after a hit.', cost: 8, req: 'dbt1', apply(p) { p.iframeTime += 0.3; } },
+  { id: 'dbt3', branch: 'dbt', tier: 3, name: 'Radical Acceptance', desc: '+2 hearts.', cost: 14, req: 'dbt2', apply(p) { p.maxhp += 4; p.hp += 4; } },
+  { id: 'dbt4', branch: 'dbt', tier: 4, name: 'Wise Mind', desc: 'CAPSTONE: +1 heart, and once per floor a killing blow leaves you standing at half a heart.', cost: 30, req: 'dbt3', apply(p) { p.maxhp += 2; p.hp += 2; p.flags.wiseMind = true; } },
   // EMDR — mobility
-  { id: 'emdr1', branch: 'emdr', tier: 1, name: 'Bilateral Stimulation', desc: '+10% move speed.', cost: 3, req: null, apply(p) { p.spd *= 1.10; } },
-  { id: 'emdr2', branch: 'emdr', tier: 2, name: 'Rapid Processing', desc: 'Ability recharges 20% faster.', cost: 6, req: 'emdr1', apply(p) { p.abilMax *= 0.8; p.abilCd = Math.min(p.abilCd, p.abilMax); } },
-  { id: 'emdr3', branch: 'emdr', tier: 3, name: 'Reprocessing', desc: '+10% speed; start each floor with a breath of i-frames.', cost: 12, req: 'emdr2', apply(p) { p.spd *= 1.10; p.flags.floorGrace = true; } },
+  { id: 'emdr1', branch: 'emdr', tier: 1, name: 'Bilateral Stimulation', desc: '+10% move speed.', cost: 4, req: null, apply(p) { p.spd *= 1.10; } },
+  { id: 'emdr2', branch: 'emdr', tier: 2, name: 'Rapid Processing', desc: 'Your PRN ability recharges 20% faster.', cost: 8, req: 'emdr1', apply(p) { p.abilMax *= 0.8; p.abilCd = Math.min(p.abilCd, p.abilMax); } },
+  { id: 'emdr3', branch: 'emdr', tier: 3, name: 'Reprocessing', desc: '+10% speed; start each floor with a breath of i-frames.', cost: 14, req: 'emdr2', apply(p) { p.spd *= 1.10; p.flags.floorGrace = true; } },
+  { id: 'emdr4', branch: 'emdr', tier: 4, name: 'Dual Attention', desc: 'CAPSTONE: using your PRN grants 1.5s of untouchable follow-through.', cost: 30, req: 'emdr3', apply(p) { p.flags.prnGrace = true; } },
   // Meds — economy / pills
-  { id: 'meds1', branch: 'meds', tier: 1, name: 'Formulary Access', desc: '+4 copays & +1 luck.', cost: 3, req: null, apply(p) { p.coins += 4; p.luck += 1; } },
-  { id: 'meds2', branch: 'meds', tier: 2, name: 'Titration', desc: '+8% fire rate.', cost: 6, req: 'meds1', apply(p) { p.tearDelay *= 0.92; } },
-  { id: 'meds3', branch: 'meds', tier: 3, name: 'Maintenance Dose', desc: 'Start with an identified pill in your pocket.', cost: 12, req: 'meds2', apply(p) { if (p.pill == null) p.pill = U.randi(0, 9); p.flags.pillsKnown = true; } },
+  { id: 'meds1', branch: 'meds', tier: 1, name: 'Formulary Access', desc: '+5 copays & +1 luck.', cost: 4, req: null, apply(p) { p.coins += 5; p.luck += 1; } },
+  { id: 'meds2', branch: 'meds', tier: 2, name: 'Titration', desc: '+8% fire rate.', cost: 8, req: 'meds1', apply(p) { p.tearDelay *= 0.92; } },
+  { id: 'meds3', branch: 'meds', tier: 3, name: 'Maintenance Dose', desc: 'Start with an identified pill in your pocket.', cost: 14, req: 'meds2', apply(p) { if (p.pill == null) p.pill = U.randi(0, 9); p.flags.pillsKnown = true; } },
+  { id: 'meds4', branch: 'meds', tier: 4, name: 'Preferred Formulary', desc: 'CAPSTONE: pharmacy prices −15% and +1 luck. The system finally works for you, slightly.', cost: 30, req: 'meds3', apply(p) { p._facShopMul = (p._facShopMul || 1) * 0.85; p.luck += 1; } },
   // Group — allies
-  { id: 'grp1', branch: 'group', tier: 1, name: 'Peer Support', desc: 'Begin each run with a Support Group ally.', cost: 4, req: null, apply(p, G) { p.recruitAlly(G); } },
-  { id: 'grp2', branch: 'group', tier: 2, name: 'Facilitator', desc: 'Allies are tougher and hit harder.', cost: 7, req: 'grp1', apply(p) { p.flags.allyTough = true; } },
-  { id: 'grp3', branch: 'group', tier: 3, name: 'Full Circle', desc: 'Begin each run with a second ally.', cost: 14, req: 'grp2', apply(p, G) { p.recruitAlly(G); } }
+  { id: 'grp1', branch: 'group', tier: 1, name: 'Peer Support', desc: 'Begin each run with a Support Group ally.', cost: 5, req: null, apply(p, G) { p.recruitAlly(G); } },
+  { id: 'grp2', branch: 'group', tier: 2, name: 'Facilitator', desc: 'Allies are tougher and hit harder.', cost: 9, req: 'grp1', apply(p) { p.flags.allyTough = true; } },
+  { id: 'grp3', branch: 'group', tier: 3, name: 'Full Circle', desc: 'Begin each run with a second ally.', cost: 16, req: 'grp2', apply(p, G) { p.recruitAlly(G); } },
+  { id: 'grp4', branch: 'group', tier: 4, name: 'Group Cohesion', desc: 'CAPSTONE: when a room clears, your group sometimes patches you up (+½♥, 35%).', cost: 32, req: 'grp3', apply(p) { p.flags.allyCare = true; } },
+  // OT — tools & routine
+  { id: 'ot1', branch: 'ot', tier: 1, name: 'Structured Day', desc: 'Start with +1 Referral 🔑 and +1 Claim Form 📄.', cost: 4, req: null, apply(p) { p.keys += 1; p.bombs += 1; } },
+  { id: 'ot2', branch: 'ot', tier: 2, name: 'Coping Toolkit', desc: 'Start each run holding a random Personal Effect (trinket).', cost: 8, req: 'ot1', apply(p) { const t = U.choice(DATA.TRINKETS.filter(x => x.id !== 'masterkey')); p.trinket = t.id; } },
+  { id: 'ot3', branch: 'ot', tier: 3, name: 'Daily Routine', desc: 'Cleared rooms tip noticeably more often.', cost: 14, req: 'ot2', apply(p) { p.flags.otRoutine = true; } },
+  { id: 'ot4', branch: 'ot', tier: 4, name: 'Mastery Project', desc: 'CAPSTONE: start every run with a prescription off the good shelf.', cost: 30, req: 'ot3', apply(p) { const pool = DATA.POOLS.special; p.addItem(U.choice(pool), null, true); } }
 ];
 
 /* ============ MINI-EVENTS (non-combat choice rooms) ============ */

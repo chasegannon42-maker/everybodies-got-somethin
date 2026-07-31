@@ -84,7 +84,15 @@ keyboard and mouse.
   real perks. File a grievance at the **📋 Complaint Department** — next run it shows up wearing a
   name tag, and killing it pays.
 - **🧠 Treatment Plan** — a permanent skill tree. Every run earns **◆ Insight**; spend it across
-  five therapy modalities (CBT, DBT, EMDR, Meds Management, Group Work) for permanent perks.
+  six therapy modalities (CBT, DBT, EMDR, Meds Management, Group Work, Occupational Therapy),
+  four tiers deep — each column ends in a gold **★ capstone** (Schema Work, Wise Mind, Dual
+  Attention, Preferred Formulary, Group Cohesion, Mastery Project). Second opinions are free:
+  one button refunds every ◆ for a full respec.
+- **📘 THE PATIENT HANDBOOK** — Form EGS-1, racked at the bottom of the title screen: the complete
+  in-fiction manual. Seven tabs — Basics, The Building, Symptoms, Staff, Treatment, Your Care,
+  Ward Life — cover every mechanic, enemy, boss, ward, trinket, mode, and machine in the game,
+  generated from live game data so it updates itself with every patch (and revised by hand when
+  it can't). Also reachable from HOW TO PLAY and the pause menu.
 - **🎲 Prognosis** & **🧪 Protocols** — challenge runs and rule-set gauntlets, from Glass Cannon
   to the 20-minute time slot.
 - **⏰ OVERTIME** — arena mode: one room, escalating waves, management personally attends every

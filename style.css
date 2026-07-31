@@ -34,6 +34,7 @@ html, body {
   padding: 12px;
 }
 #overlay.show { display: flex; }
+#overlay:not(.lightbg) { backdrop-filter: blur(2.5px); }
 #overlay.lightbg { background: rgba(14, 10, 18, 0.5); }   /* title: let the atmospheric canvas backdrop breathe */
 
 .panel {
@@ -51,6 +52,10 @@ html, body {
   transform: rotate(-0.4deg);
 }
 .panel.wide { max-width: 720px; width: min(96vw, 720px); }
+/* paper-toned scrollbars inside panels (WebKit) */
+.panel::-webkit-scrollbar, .achlist::-webkit-scrollbar, .bgrid::-webkit-scrollbar, .talgrid::-webkit-scrollbar { width: 10px; height: 10px; }
+.panel::-webkit-scrollbar-track, .achlist::-webkit-scrollbar-track, .bgrid::-webkit-scrollbar-track, .talgrid::-webkit-scrollbar-track { background: rgba(120, 100, 70, 0.12); border-radius: 8px; }
+.panel::-webkit-scrollbar-thumb, .achlist::-webkit-scrollbar-thumb, .bgrid::-webkit-scrollbar-thumb, .talgrid::-webkit-scrollbar-thumb { background: #c8b894; border: 2px solid #f6eedd; border-radius: 8px; }
 
 h1.logo {
   font-size: clamp(26px, 6vw, 46px);
@@ -100,12 +105,37 @@ h1.logo {
   text-align: center;
 }
 .btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #2c2333; }
+@media (hover: hover) { .btn:hover { filter: brightness(1.06); } }
+.btn:focus-visible, .talnode:focus-visible, .charCard:focus-visible { outline: 3px solid #3a5ac8; outline-offset: 2px; }
 .btn.answer { background: #fff; text-align: left; }
 .btn.answer:hover { background: #ffe9bd; }
 .btn.minor { background: #d8cfc2; font-size: 14px; padding: 9px 12px; }
 .btn.danger { background: #e0705a; color: #fff; }
-.btnrow { display: flex; gap: 10px; }
-.btnrow .btn { flex: 1; }
+.btnrow { display: flex; gap: 10px; flex-wrap: wrap; }
+.btnrow .btn { flex: 1 1 130px; }
+
+/* section dividers on busy menus — like headings on an intake form */
+.secdiv {
+  display: flex; align-items: center; gap: 10px;
+  margin: 13px 2px 3px; color: #9a8a74;
+  font-size: 10.5px; font-weight: bold; letter-spacing: 2.5px;
+}
+.secdiv:before, .secdiv:after { content: ""; flex: 1; border-top: 2px dashed #d2c6ae; }
+
+/* the Patient Handbook — a tri-fold leaflet in the rack by the door */
+.btn.pamphlet {
+  position: relative; overflow: hidden;
+  background: linear-gradient(180deg, #eef4ff, #d6e4f8);
+  border-color: #2c3a68; color: #22305a;
+  box-shadow: 0 4px 0 #2c3a68;
+}
+.btn.pamphlet:before, .btn.pamphlet:after {
+  content: ""; position: absolute; top: 0; bottom: 0; width: 2px;
+  background: rgba(44, 58, 104, 0.18);
+}
+.btn.pamphlet:before { left: 33.3%; }
+.btn.pamphlet:after { left: 66.6%; }
+.btn.pamphlet:active { box-shadow: 0 1px 0 #2c3a68; }
 
 .rx {
   border: 3px dashed #b03030;
@@ -387,9 +417,10 @@ body.touch.inrun #padLand { display: block; }
 .wardcard .cmdesc { color: #6b5a4a; }
 .cmtag { font-size: clamp(11px, 2.8vw, 13px); color: #2c5a33; margin-top: 5px; font-style: italic; }
 /* Treatment Plan skill tree */
-.panel.treat { max-width: 880px; width: min(97vw, 880px); }
-.talgrid { display: flex; gap: 8px; margin: 14px 0; justify-content: center; overflow-x: auto; padding-bottom: 6px; }
-.talcol { display: flex; flex-direction: column; align-items: stretch; min-width: 120px; flex: 1 1 0; }
+.panel.treat { max-width: 1040px; width: min(97vw, 1040px); }
+.talgrid { display: flex; gap: 8px; margin: 14px 0; justify-content: flex-start; overflow-x: auto; padding-bottom: 6px; scroll-snap-type: x proximity; }
+.talcol { display: flex; flex-direction: column; align-items: stretch; min-width: 132px; flex: 1 1 0; scroll-snap-align: start; }
+@media (min-width: 900px) { .talgrid { justify-content: center; } }
 .talhead { font-weight: bold; font-size: 14px; color: #2c2333; text-align: center; padding: 6px; background: #efe4d0; border: 2px solid #2c2333; border-radius: 8px; margin-bottom: 8px; }
 .tallink { width: 3px; height: 12px; background: #2c2333; opacity: 0.35; align-self: center; }
 .talnode { font-family: inherit; text-align: left; cursor: default; background: #fff; color: #2c2333; border: 3px solid #2c2333; border-radius: 10px; box-shadow: 0 3px 0 #2c2333; padding: 8px 10px; transition: transform .07s; }
@@ -405,8 +436,25 @@ body.touch.inrun #padLand { display: block; }
 .talnode.owned .talcost { color: #3a7a3a; }
 .talnode.locked { opacity: 0.5; }
 .talnode.locked .talcost { color: #8a5a5a; }
+.talnode.cap { border-width: 3px; background: linear-gradient(180deg, #fff8e0, #ffedb8); border-color: #7a5a18; box-shadow: 0 3px 0 #7a5a18; }
+.talnode.cap .talname { color: #6a4a10; }
+.talnode.cap.owned { background: linear-gradient(180deg, #eef7d8, #dff0c0); border-color: #3a7a3a; box-shadow: 0 3px 0 #3a7a3a; }
+.talnode.cap.locked { background: #f3ecdc; }
 /* keep the portrait deck's 4 action buttons compact */
 .deckmid .deckbtn { padding: 8px 6px; }
+
+/* ============ THE PATIENT HANDBOOK (Form EGS-1) ============ */
+.panel.hb { max-width: 920px; width: min(97vw, 920px); }
+.hbtabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0 10px; }
+.hbtabs .codextab { flex: 1 1 100px; margin: 0; padding: 8px 4px; font-size: 12px; }
+.hbbody { text-align: left; }
+.hbh { font-weight: bold; font-size: 15px; color: #3a2a4a; margin: 16px 0 5px; border-bottom: 2px dashed #d2c6ae; padding-bottom: 3px; letter-spacing: 0.5px; }
+.hbbody .hbh:first-child { margin-top: 2px; }
+.hbrow { font-size: 12.5px; margin: 4px 0; line-height: 1.45; color: #3a3040; }
+.hbrow b { color: #2c2333; }
+.hbtag { font-size: 10.5px; color: #8a7a68; font-style: italic; }
+.hbnote { font-size: 12px; color: #55445e; font-style: italic; margin: 6px 0; line-height: 1.5; }
+.hbfoot { margin-top: 14px; border-top: 1.5px dashed rgba(120, 100, 70, 0.4); padding-top: 6px; font-size: 10.5px; color: #8a7a68; letter-spacing: 1px; text-align: center; }
 
 /* ============ MISFILED DOCUMENTS + PATIENT DIARY (paper reader) ============ */
 .docpaper { position: relative; background: #f4edd8; border: 2px solid #b8a882; border-radius: 4px; box-shadow: 0 4px 0 rgba(44,35,51,0.5), inset 0 0 40px rgba(160,140,100,0.18); padding: 20px 22px 14px; margin: 8px 0 12px; text-align: left; color: #3a3040; transform: rotate(-0.4deg); }
