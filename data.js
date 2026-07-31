@@ -396,7 +396,7 @@ DATA.ITEMS = {
   hyperfix:  { name: "Hyperfixation", quote: "It's all you can think about. Perfect.", desc: "The first enemy type you kill in each room takes +50% damage from you in that room.", pools: ["special"], apply(p) { p.flags.hyperfix = true; } },
   pillow:    { name: "The Good Pillow", quote: "The cold side. Always.", desc: "Heal a full heart at the start of every floor. Sleep is medicine, who knew. (Everyone. Everyone knew.)", pools: ["special", "shop"], apply(p) { p.flags.pillowHeal = true; } },
   papertrail:{ name: "Paper Trail", quote: "Document EVERYTHING.", desc: "Paperwork piles always drop something when destroyed.", pools: ["special"], apply(p) { p.flags.paperTrail = true; } },
-  grouptherapy:{ name: "Group Therapy", quote: "Have you considered… joining us?", desc: "Your tears sometimes RECRUIT an enemy to the group — they fight for you until they burn out.", pools: ["special", "boss"], apply(p) { p.flags.charm = true; } },
+  grouptherapy:{ name: "Group Therapy", quote: "Have you considered… joining us?", desc: "Your tears sometimes RECRUIT a patient to the group (3 at a time, tops). Management, security, and paperwork never defect.", pools: ["special", "boss"], apply(p) { p.flags.charm = true; } },
   coldcompress:{ name: "Cold Compress", quote: "Just breathe. Colder.", desc: "Your tears CHILL — each hit stacks a slow on the patient (they get so, so tired).", pools: ["special", "shop"], apply(p) { p.flags.chillTears = true; } },
   incidentreport:{ name: "Incident Report", quote: "This WILL be escalated.", desc: "Your tears can IGNITE — paperwork burns, and so does everything it touches.", pools: ["special", "boss"], apply(p) { p.flags.burnTears = true; } },
   intrusivethought:{ name: "Intrusive Thought", quote: "It spreads if you feed it.", desc: "Kills release the thought — nearby patients CATCH it, take damage, and pass it on when they go.", pools: ["special", "boss"], apply(p) { p.flags.contagion = true; } },
@@ -486,6 +486,9 @@ DATA.ACHIEVEMENTS = [
   { id: 'goodFaith',  name: "Bargained in Good Faith", desc: "Settle a union action with severance.",       hint: "When they unionize, you don't HAVE to fight.", check: m => (m.unionsSettled || 0) >= 1 },
   { id: 'volunteer',  name: "Back On Purpose",     desc: "Clear a floor wearing the Volunteer Badge.",      hint: "Your file is closed. Theirs aren't.",       check: m => !!m.everVolunteer },
   { id: 'holdHung',   name: "Thank You For Holding", desc: "Hang up on THE HOLD.",                          hint: "Ward 7+. Press the number it asks for. Then press harder.", check: m => (m.holdKills || 0) >= 1 },
+  { id: 'debtFree',   name: "In Good Standing",     desc: "Repay a Financing Desk plan in full.",           hint: "Borrow. Descend. Watch what follows. Pay it off anyway.", check: m => (m.debtsPaid || 0) >= 1 },
+  { id: 'lucid',      name: "Lucid",                desc: "Take the DREAM PRESCRIPTION.",                   hint: "After a hard boss, sometimes: a bed. A real one.", check: m => (m.dreamRx || 0) >= 1 },
+  { id: 'cutOut',     name: "Cut Out The Middleman", desc: "Pop the Pharmacy Benefits Manager.",            hint: "When prices spike 40% for no reason, the reason is in one of the rooms.", check: m => (m.pbmKills || 0) >= 1 },
   { id: 'sugarPill',  name: "It Was Sugar",        desc: "Complete a Clinical Trial that turns out to be the placebo.", hint: "Enroll with the Drug Rep. Believe hard.", check: m => (m.placeboDone || 0) >= 1 },
   { id: 'reRead',     name: "Second Read",         desc: "Let THE SCANNER re-interpret a prescription.",    hint: "A rare imaging suite. It sees something different every time.", check: m => (m.scans || 0) >= 1 },
   { id: 'mopShift',   name: "Second Career",       desc: "Reach Ward 5 as The Janitor.",                    hint: "Finish THE HANDOFF first. Then work the shift you accepted.", check: m => !!m.mopShift },
@@ -576,6 +579,10 @@ DATA.ENEMIES = {
   placebo:   { name: "The Placebo", hp: 1, spd: 60, r: 20, dmg: 1, beh: 'chase', clr: '#e8e0f0' },
   /* --- the roaming hunter --- */
   auditor:  { name: "THE AUDITOR", hp: 135, spd: 58, r: 22, dmg: 1, beh: 'auditor', clr: '#a8a29a', shotCd: 3.4, bulSpd: 195 },
+  /* --- the price parasite (one room per PBM floor — hunt him) --- */
+  middleman:{ name: "THE MIDDLEMAN", hp: 45, spd: 132, r: 15, dmg: 0, beh: 'pbm', clr: '#b0a468' },
+  /* --- the debt made flesh (spawns while you owe the Financing Desk) --- */
+  collector:{ name: "THE COLLECTOR", hp: 30, spd: 96, r: 16, dmg: 1, beh: 'thief', clr: '#8a6a9a' },
   /* --- your rival (duels only — never in random pools) --- */
   rival:    { name: "THE RIVAL", hp: 58, spd: 92, r: 15, dmg: 1, beh: 'rival', clr: '#d08a4a', shotCd: 1.7, bulSpd: 205 },
   /* --- night-shift exclusive miniboss --- */
@@ -1037,6 +1044,8 @@ DATA.CODEX_CHART = {
     comparison: "Everyone's doing better than you. The healthier you look, the harder it tries.",
     waitingnum: "NOW SERVING #47. You are #112. When the counter hits zero, everyone loses it.",
     auditor: "It found a discrepancy. It follows you room to room until the books balance. The books are you.",
+    middleman: "The Pharmacy Benefits Manager. Adds 40% to every price on the floor and cannot explain what he does. Runs when seen. Has vents. Pop him and watch the prices exhale.",
+    collector: "The financing plan, personified. He doesn't fight — he FOLLOWS, and every floor you still owe, he comes back bigger. Killing him does nothing. The DEBT is the monster.",
     chargenurse: "Runs the floor. Sees everything. If you're moving, you're a problem — and she solves problems.",
     resident: "Thirty hours into the shift, doing an impression of every boss he's ever seen. Badly.",
     orderly: "Not angry. Not fast. Just always, always closer than he was."
@@ -1289,6 +1298,23 @@ DATA.HATS = [
   { id: 'visor',    name: "Auditor's Visor",  ach: 'auditClean',   hint: "put down THE AUDITOR" },
   { id: 'ticket',   name: "Ticket Stub",      ach: 'protocolFive', hint: "complete 5 Protocols" },
   { id: 'paperhat', name: "Folded Paper Hat", ach: 'stairMaster',  hint: "three clean stairwell descents" }
+];
+
+/* ============ AWARENESS MONTHS (the building observes the real calendar, loudly) ============
+   Applied at run start from the actual month. Small, always slightly self-serving. */
+DATA.MONTHS = [
+  { name: 'NEW YEAR NEW YOU INITIATIVE', tag: 'January',  desc: 'the posters are fresh and so, briefly, are you — +0.3 damage', apply(p) { p.dmg += 0.3; } },
+  { name: 'HEART HEALTH MONTH',          tag: 'February', desc: 'cardiology sponsors the lobby — +1 heart container',           apply(p) { p.maxhp += 2; p.hp += 2; } },
+  { name: 'SLEEP AWARENESS MONTH',       tag: 'March',    desc: 'rest is medicine (billable) — PRN abilities recharge 10% faster', apply(p) { p.abilMax *= 0.9; } },
+  { name: 'STRESS AWARENESS MONTH',      tag: 'April',    desc: 'a breathing poster appears — slightly longer i-frames',        apply(p) { p.iframeTime += 0.15; } },
+  { name: 'MENTAL HEALTH AWARENESS MONTH', tag: 'May',    desc: 'the building CARES, visibly, all month — +1 luck and +5¢',     apply(p) { p.luck += 1; p.coins += 5; } },
+  { name: 'EMPLOYEE WELLNESS MONTH',     tag: 'June',     desc: 'the coolers got serviced — water coolers heal +1 extra',       apply(p) { p.flags.monthCooler = true; } },
+  { name: 'HYDRATION AWARENESS MONTH',   tag: 'July',     desc: 'there are cucumber slices in the water — +5% speed',           apply(p) { p.spd *= 1.05; } },
+  { name: 'BACK-TO-SCHOOL DRIVE',        tag: 'August',   desc: 'donated supplies — start with +1 Claim Form',                  apply(p) { p.bombs += 1; } },
+  { name: 'SELF-CARE SEPTEMBER',         tag: 'September', desc: 'the building endorses baths — heal a half-heart at each new ward', apply(p) { p.flags.monthHeal = true; } },
+  { name: 'AWARENESS AWARENESS MONTH',   tag: 'October',  desc: 'this month we raise awareness of the other months — +1 luck',  apply(p) { p.luck += 1; } },
+  { name: 'GRATITUDE MONTH',             tag: 'November', desc: 'the staff are thankful, contractually — +5¢',                  apply(p) { p.coins += 5; } },
+  { name: 'OPEN ENROLLMENT SEASON',      tag: 'December', desc: 'everything must go (up) — pharmacy prices −10%',               apply(p) { p._facShopMul = (p._facShopMul || 1) * 0.9; } }
 ];
 
 /* ============ THE WARD CALENDAR (the building runs on a real week) ============ */

@@ -213,6 +213,18 @@ keyboard and mouse.
 - **🩻 THE SCANNER** — a rare imaging suite (Ward 3+, once a run): pay to have one prescription
   completely re-read into a different one. Fees escalate per scan, and repeat imaging risks an
   artifact from the out-of-network pool. "It sees something different every time."
+- **💳 THE FINANCING DESK** — every pharmacy has one now: borrow copays at 0% APR* (*today —
+  interest accrues +5¢ per ward). While you owe, THE COLLECTOR visits every floor, briefcase
+  first, bigger each time. Killing him is noted, not credited. Medical debt: the mechanic.
+- **🛏 THE DREAM WARD** — after a hard boss, sometimes: a bed. A made one. Sleep and dream the
+  next ward instead — soft purple halls, symptoms that are literally clouds and rain half-hearts,
+  and one DREAM PRESCRIPTION that's absurdly strong and evaporates two wards after you wake.
+- **💼 THE MIDDLEMAN** — some deep wards have a Pharmacy Benefits Manager hiding in a room,
+  adding 40% to every price on the floor and contributing nothing. He flees through vents.
+  Corner him and the prices exhale: skim gone, plus 15% off out of sheer relief.
+- **🗓 Awareness Months** — the building observes the real calendar at monthly scale: twelve
+  observances (Heart Health February, Self-Care September, Awareness Awareness October…), each
+  with a small, always slightly self-serving modifier.
 - **🔧 STAFF ONLY** — a full Game Tester hub on the title screen, behind a secret code, organized
   into five tabs. **PLAY**: sandbox any patient at any ward with loadout presets (kitted, glass
   cannon, tank, or hand-picked meds) — the save is snapshot-frozen throughout. **BOSS LAB**:

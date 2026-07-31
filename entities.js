@@ -1008,8 +1008,14 @@ class Tear {
           else if (this._season === 2) { const ka = Math.atan2(this.vy, this.vx); const push = 34 * sm; e.x = U.clamp(e.x + Math.cos(ka) * push, RX + e.r, RX + RW - e.r); e.y = U.clamp(e.y + Math.sin(ka) * push, RY + e.r, RY + RH - e.r); }   // 🍂
           else if (this._season === 3 && U.chance(0.5 * sm)) { e._chill = Math.min(3, (e._chill || 0) + 1); e._chillT = 1.2; }           // ❄️
         }
-        // Peer Support: a chance the shot recruits them to the group instead of just hurting (the Auditor is unrecruitable)
-        if (G.player.flags.charm && !e.fake && !e.dying && e.hp > 0 && e.id !== 'auditor' && U.chance(G.player.flags.synHouse ? 0.26 : 0.16)) {
+        // Peer Support: a chance the shot recruits them to the group instead of just hurting.
+        // Management does not defect: minibosses, security, the rival, paperwork, union reps,
+        // and inspection performers are all unrecruitable — and the group caps at 3 strays.
+        if (G.player.flags.charm && !e.fake && !e.dying && e.hp > 0
+          && !['auditor', 'rival', 'nightnurse', 'chargenurse', 'resident', 'orderly', 'recordsguard', 'middleman', 'form'].includes(e.id)
+          && !e._form && !e._union && !e._perform && !e._collector && !e.noCharm
+          && G.enemies.filter(x => x.charmed && !x.dying).length < 3
+          && U.chance(G.player.flags.synHouse ? 0.26 : 0.16)) {
           e.charmed = true; e.charmIdleT = 0; e.hp = Math.max(e.hp, e.maxhp * 0.5);
           G.toast('recruited to the group', '#8fd05a'); SFX.play('heal');
           for (let i = 0; i < 8; i++) { const a = (i / 8) * TAU; G.parts.push(new Particle(e.x, e.y, Math.cos(a) * 120, Math.sin(a) * 120, 0.5, '#8fd05a', 3)); }
@@ -1418,6 +1424,27 @@ class Enemy {
         }
         break;
       }
+      case 'pbm': {   // THE MIDDLEMAN: adds 40%, contributes nothing, runs like it knows
+        this._vents = this._vents == null ? 3 : this._vents;
+        const d = U.dist(this.x, this.y, p.x, p.y);
+        const away = U.ang(p.x, p.y, this.x, this.y);
+        // scurry away, hugging walls, briefcase first
+        this.x += Math.cos(away + Math.sin(this.t * 5) * 0.5) * S * dt;
+        this.y += Math.sin(away + Math.sin(this.t * 5) * 0.5) * S * dt;
+        const cornered = (this.x < RX + 44 || this.x > RX + RW - 44) && (this.y < RY + 44 || this.y > RY + RH - 44);
+        if (cornered && d < 130 && this._vents > 0 && (this._ventCd || 0) <= 0) {
+          this._vents--; this._ventCd = 1.2;
+          // through the vents: reappear across the room
+          for (let i = 0; i < 10; i++) G.parts.push(new Particle(this.x, this.y, U.rand(-140, 140), U.rand(-140, 140), 0.4, '#b0a468', 3));
+          this.x = U.clamp(RX + RW - (this.x - RX), RX + 50, RX + RW - 50);
+          this.y = U.clamp(RY + RH - (this.y - RY), RY + 50, RY + RH - 50);
+          G.texts.push(new FloatText(this.x, this.y - 24, this._vents > 0 ? 'he has VENTS' : 'out of vents', '#b0a468'));
+          SFX.play('whoosh');
+        }
+        this._ventCd = (this._ventCd || 0) - dt;
+        if (this._vents <= 0 && !this._panting) { this._panting = true; this.spd *= 0.55; }   // out of vents: panting, catchable
+        break;
+      }
       case 'shieldbot': {   // Wellness Bot: drones around casting a protective bubble on its friends
         this.wanderA += 0.7 * dt;
         const cx = RX + RW / 2 + Math.cos(this.wanderA) * 150;
@@ -1715,6 +1742,12 @@ class Enemy {
       }
       if (spread) { for (let i = 0; i < 8; i++) { const a = (i / 8) * TAU; G.parts.push(new Particle(this.x, this.y, Math.cos(a) * 160, Math.sin(a) * 160, 0.4, '#8fd08a', 3)); } SFX.play('pop'); }
     }
+    // THE DREAM: symptoms here were only ever clouds — they rain small mercies
+    if (this._dream && U.chance(0.6)) G.pickups.push(new Pickup('half', this.x, this.y));
+    // THE MIDDLEMAN: the prices exhale
+    if (this.id === 'middleman' && G.pbmDown) G.pbmDown(this);
+    // THE COLLECTOR: you can kill the man. the DEBT sends another man.
+    if (this._collector) { G.toast('The Collector folds. The debt does not. (' + (G.debt ? G.debt.owed + '¢ outstanding' : 'paid?') + ')', '#8a6a9a'); }
     // THE COMPLAINT DEPARTMENT: feedback, resolved
     if (this._complaint) {
       Meta.data.insight = (Meta.data.insight || 0) + 6;
@@ -1988,7 +2021,7 @@ function spawnEnemiesForRoom(room, depth, G) {
   if (G.nightShift) count += 1;   // night shift: short-staffed, overcrowded
   if (G.hasCal && G.hasCal('sunday')) count = Math.max(3, count - 1);   // quiet sunday: short-staffed on purpose
   count = U.clamp(count + U.randi(-1, 1), 3, G.chronic ? 18 : 16);
-  const champChance = G.protocol === 'allelites' ? 1 : U.clamp(dif.champChance + (mods.champAdd || 0) + ((G.intensity || 0) >= 5 ? 0.15 : 0), 0, 0.75);   // Grand Rounds: everyone's a champion
+  const champChance = G.dreamFloor ? 0 : (G.protocol === 'allelites' ? 1 : U.clamp(dif.champChance + (mods.champAdd || 0) + ((G.intensity || 0) >= 5 ? 0.15 : 0), 0, 0.75));   // Grand Rounds: everyone's a champion; dreams have no VIPs
   const spots = [];
   for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
     if (room.layout[r][c] !== 0) continue;
@@ -1999,7 +2032,7 @@ function spawnEnemiesForRoom(room, depth, G) {
   const chosen = U.shuffle(spots).slice(0, count);
   const spawned = [];
   // IT REMEMBERS YOU: your last killer walks in wearing a champion's aura
-  if (G.nemesisId && !G._nemesisSpawned && room.type === 'normal' && spots.length > count) {
+  if (G.nemesisId && !G._nemesisSpawned && !G.dreamFloor && room.type === 'normal' && spots.length > count) {
     G._nemesisSpawned = true;
     const s = U.shuffle(spots).find(sp => !chosen.includes(sp)) || spots[0];
     const ne = new Enemy(G.nemesisId, s.x, s.y, depth, false, hpMult * 2.2, U.choice(DATA.ELITES).id);
@@ -2009,7 +2042,7 @@ function spawnEnemiesForRoom(room, depth, G) {
     SFX.play('sting');
   }
   // THE COMPLAINT DEPARTMENT: your grievance has been assigned a body
-  if (G._complaint && !G._complaintSpawned && room.type === 'normal' && spots.length > count) {
+  if (G._complaint && !G._complaintSpawned && !G.dreamFloor && room.type === 'normal' && spots.length > count) {
     G._complaintSpawned = true;
     const s = U.shuffle(spots).find(sp => !chosen.includes(sp)) || spots[0];
     const ce = new Enemy(DATA.pickEnemy(depth, G.wing), s.x, s.y, depth, false, hpMult * 1.8, U.choice(DATA.ELITES).id);
@@ -2024,6 +2057,12 @@ function spawnEnemiesForRoom(room, depth, G) {
     const e = new Enemy(id, s.x + U.rand(-8, 8), s.y + U.rand(-8, 8), depth, false, hpMult, elite);
     if (G.shadowWard) { e.hp *= 1.3; e.maxhp *= 1.3; e._shadow = true; }   // shadow patients: darker, tougher, better tippers
     if (G.annexFloor) { e.hp *= 1.25; e.maxhp *= 1.25; e._sheet = true; }  // the condemned wing: dust-sheeted and unhappy about visitors
+    if (G.dreamFloor) {   // THE DREAM: the symptoms are clouds here. they cannot hurt you. they rain mercies.
+      e.dmg = 0; e._dream = true; e.noDrop = false;
+      e.hp = Math.max(3, Math.round(e.hp * 0.5)); e.maxhp = e.hp;
+      e.spd *= 0.7;
+      e.beh = ['chase', 'bounce', 'orbit'].includes(e.beh) ? e.beh : 'chase';   // nothing shoots in a dream
+    }
     if (G.nightShift) { e.spd *= 0.92; e.hp *= 0.95; e.maxhp *= 0.95; }    // sleepy, but there are more of them
     if (G.hasRule && G.hasRule('quietHours')) { e.shotCd = (e.shotCd || 0) * 1.18; e.spd *= 1.08; }   // house rules: quiet hours
     if (mods.spdMul) e.spd *= mods.spdMul;

@@ -2223,6 +2223,60 @@ const Render = {
         if (U.dist(G.player.x, G.player.y, ped.x, ped.y) < 90) { ctx.fillStyle = '#e8c84c'; ctx.font = this.font(10, true); ctx.fillText('it\'s leaning like it\'s yours', ped.x, ped.y + 42); }
         continue;
       }
+      if (ped.kind === 'finance') {   // the desk: bolted-on plaque, tray of pens that don't write
+        this.shadow(ped.x, ped.y + 22, 26, 7, 0.2);
+        ctx.save(); ctx.translate(ped.x, ped.y);
+        ctx.fillStyle = '#7a5a48'; this.rr(ctx, -28, -6, 56, 26, 4); ctx.fill();   // the counter
+        ctx.strokeStyle = '#4a362c'; ctx.lineWidth = 2; this.rr(ctx, -28, -6, 56, 26, 4); ctx.stroke();
+        ctx.fillStyle = '#8a6a54'; this.rr(ctx, -28, -6, 56, 7, 3); ctx.fill();
+        ctx.fillStyle = '#e8dcc0'; this.rr(ctx, -18, -22, 36, 13, 2); ctx.fill();   // the plaque, crooked
+        ctx.save(); ctx.rotate(-0.04);
+        ctx.fillStyle = '#5a4632'; ctx.font = 'bold 7px "Arial Black",sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText('0% APR*', 0, -12.5);
+        ctx.restore();
+        ctx.fillStyle = '#c8a24a'; ctx.beginPath(); ctx.arc(-14, 4, 3, 0, TAU); ctx.arc(-6, 6, 3, 0, TAU); ctx.fill();   // the tray of change
+        ctx.restore();
+        const owes = G.debt;
+        ctx.fillStyle = owes ? '#e08a8a' : '#c8a878'; ctx.font = this.font(10, true); ctx.textAlign = 'center';
+        ctx.fillText(owes ? 'FINANCING DESK · ' + owes.owed + '¢ OWED' : 'FINANCING DESK', ped.x, ped.y - 34);
+        if (U.dist(G.player.x, G.player.y, ped.x, ped.y) < 84) { ctx.fillStyle = '#e8c84c'; ctx.font = this.font(10, true); ctx.fillText(owes ? 'walk up to settle' : 'walk up to borrow (*today)', ped.x, ped.y + 40); }
+        continue;
+      }
+      if (ped.kind === 'dreambed') {   // a bed. a made one. the most suspicious object in the building.
+        this.shadow(ped.x, ped.y + 20, 30, 8, 0.2);
+        ctx.save(); ctx.translate(ped.x, ped.y);
+        const glow = ctx.createRadialGradient(0, -6, 6, 0, -6, 52);
+        glow.addColorStop(0, 'rgba(184,168,216,0.3)'); glow.addColorStop(1, 'rgba(184,168,216,0)');
+        ctx.fillStyle = glow; ctx.fillRect(-52, -58, 104, 104);
+        ctx.fillStyle = '#8a6a4a'; this.rr(ctx, -30, -14, 60, 32, 4); ctx.fill();          // frame
+        ctx.fillStyle = '#e8e2f0'; this.rr(ctx, -27, -12, 54, 18, 3); ctx.fill();          // mattress
+        ctx.fillStyle = '#b8a8d8'; this.rr(ctx, -27, -2, 54, 10, 3); ctx.fill();           // the blanket, tucked
+        ctx.fillStyle = '#fff'; this.rr(ctx, -23, -10, 18, 9, 3); ctx.fill();              // pillow
+        ctx.strokeStyle = 'rgba(90,70,110,0.4)'; ctx.lineWidth = 1.5; this.rr(ctx, -30, -14, 60, 32, 4); ctx.stroke();
+        ctx.restore();
+        ctx.fillStyle = '#b8a8d8'; ctx.font = this.font(10, true); ctx.textAlign = 'center';
+        ctx.fillText('A BED. A REAL ONE.', ped.x, ped.y - 30);
+        if (U.dist(G.player.x, G.player.y, ped.x, ped.y) < 84) { ctx.fillStyle = '#e8c84c'; ctx.font = this.font(10, true); ctx.fillText('lie down · dream the next ward instead', ped.x, ped.y + 34); }
+        continue;
+      }
+      if (ped.kind === 'wakehatch') {   // up through the pillow
+        ctx.save(); ctx.translate(ped.x, ped.y);
+        const pulse = 1 + Math.sin(G.t * 2) * 0.06;
+        const wg = ctx.createRadialGradient(0, 0, 4, 0, 0, 46 * pulse);
+        wg.addColorStop(0, 'rgba(255,252,240,0.7)'); wg.addColorStop(1, 'rgba(184,168,216,0)');
+        ctx.fillStyle = wg; ctx.beginPath(); ctx.arc(0, 0, 46 * pulse, 0, TAU); ctx.fill();
+        ctx.strokeStyle = 'rgba(255,250,235,0.8)'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.ellipse(0, 0, 30, 20, 0, 0, TAU); ctx.stroke();
+        for (let i = 0; i < 3; i++) {   // rising motes
+          const mt = ((G.t * 0.5 + i * 0.33) % 1);
+          ctx.fillStyle = 'rgba(255,250,235,' + (0.7 - mt * 0.6) + ')';
+          ctx.beginPath(); ctx.arc(Math.sin(i * 2.4 + G.t) * 14, -mt * 42, 2.4, 0, TAU); ctx.fill();
+        }
+        ctx.restore();
+        ctx.fillStyle = '#efe8d8'; ctx.font = this.font(10, true); ctx.textAlign = 'center';
+        ctx.fillText('WAKE UP (rested, one ward down)', ped.x, ped.y - 38);
+        continue;
+      }
       if (ped.kind === 'scanner') {   // the imaging suite: a donut that bills like a bakery doesn't
         this.shadow(ped.x, ped.y + 30, 34, 8, 0.22);
         ctx.save(); ctx.translate(ped.x, ped.y);
@@ -2353,7 +2407,7 @@ const Render = {
       const bob = Math.sin(G.t * 2.4 + ped.x) * 3;
       // spotlight glow from above
       const gg = ctx.createRadialGradient(ped.x, ped.y - 26, 4, ped.x, ped.y - 26, 46);
-      const gc = ped.kind === 'oon' ? '230,80,80' : ped.kind === 'sample' ? '140,230,140' : ped.kind === 'boss' ? '230,200,110' : '250,240,200';
+      const gc = ped.kind === 'oon' ? '230,80,80' : ped.kind === 'sample' ? '140,230,140' : ped.kind === 'boss' ? '230,200,110' : ped.kind === 'dreamitem' ? '184,150,230' : '250,240,200';
       gg.addColorStop(0, 'rgba(' + gc + ',0.28)'); gg.addColorStop(1, 'rgba(' + gc + ',0)');
       ctx.fillStyle = gg;
       ctx.beginPath(); ctx.arc(ped.x, ped.y - 26, 46, 0, TAU); ctx.fill();
@@ -3622,6 +3676,44 @@ const Render = {
         ctx.beginPath(); ctx.ellipse(0, 4, 7 * bulge, 8.5 * bulge, 0, 0, TAU); ctx.fill();
         ctx.strokeStyle = '#8a6a2a'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(0, 4, 7 * bulge, 8.5 * bulge, 0, 0, TAU); ctx.stroke();
         ctx.fillStyle = '#8a6a2a'; ctx.font = this.font(9, true); ctx.textAlign = 'center'; ctx.fillText('¢', 0, 7);
+        ctx.restore();
+        break;
+      }
+      case 'middleman': { // the PBM: a suit, a briefcase, a bead of sweat, zero value added
+        ctx.rotate(Math.sin(G.t * 12) * 0.06);   // perpetually mid-scurry
+        this.orb(ctx, 0, 2, e.r, e.clr, flash);
+        // the tie (clip-on)
+        ctx.fillStyle = '#7a3a3a'; ctx.beginPath(); ctx.moveTo(0, -3); ctx.lineTo(3, 4); ctx.lineTo(0, 10); ctx.lineTo(-3, 4); ctx.closePath(); ctx.fill();
+        // shifty eyes
+        ctx.fillStyle = '#2c2333';
+        const look = Math.sin(G.t * 6) * 2.5;
+        ctx.beginPath(); ctx.arc(-4 + look, -5, 1.6, 0, TAU); ctx.arc(4 + look, -5, 1.6, 0, TAU); ctx.fill();
+        // the bead of sweat (he knows what he does; it's nothing)
+        ctx.fillStyle = 'rgba(160,210,240,0.9)'; ctx.beginPath(); ctx.arc(e.r * 0.55, -e.r * 0.7, 2, 0, TAU); ctx.fill();
+        // THE BRIEFCASE — the entire job
+        ctx.save(); ctx.translate(-e.r * 0.95, 2); ctx.rotate(-0.15 + Math.sin(G.t * 12) * 0.1);
+        ctx.fillStyle = flash ? '#fff' : '#6a5232'; this.rr(ctx, -8, -6, 16, 12, 2); ctx.fill();
+        ctx.strokeStyle = '#4a3822'; ctx.lineWidth = 1.5; this.rr(ctx, -8, -6, 16, 12, 2); ctx.stroke();
+        ctx.fillStyle = '#c8a24a'; this.rr(ctx, -2, -7, 4, 3, 1); ctx.fill();
+        ctx.restore();
+        // +40% halo, faint, load-bearing
+        if (!e._panting) { ctx.fillStyle = 'rgba(176,164,104,0.75)'; ctx.font = this.font(8, true); ctx.textAlign = 'center'; ctx.fillText('+40%', 0, -e.r - 8); }
+        break;
+      }
+      case 'collector': { // the debt, personified: a taller visor, a thicker folder
+        this.orb(ctx, 0, 2, e.r, e.clr, flash);
+        // dark homburg energy
+        ctx.fillStyle = '#3a2c46'; this.rr(ctx, -e.r * 0.66, -e.r - 4, e.r * 1.32, 6, 3); ctx.fill();
+        this.rr(ctx, -e.r * 0.4, -e.r - 12, e.r * 0.8, 9, 3); ctx.fill();
+        // calm, terrible eyes
+        ctx.fillStyle = '#e8e0f0';
+        ctx.beginPath(); ctx.arc(-4.5, -4, 2, 0, TAU); ctx.arc(4.5, -4, 2, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#2c2333'; ctx.beginPath(); ctx.arc(-4.5, -4, 1, 0, TAU); ctx.arc(4.5, -4, 1, 0, TAU); ctx.fill();
+        // the folder with your name on it
+        ctx.save(); ctx.translate(e.r * 0.9, 0); ctx.rotate(0.2);
+        ctx.fillStyle = flash ? '#fff' : '#c8b890'; this.rr(ctx, -7, -9, 14, 18, 2); ctx.fill();
+        ctx.strokeStyle = '#8a7a58'; ctx.lineWidth = 1.4; this.rr(ctx, -7, -9, 14, 18, 2); ctx.stroke();
+        ctx.fillStyle = '#a03030'; ctx.font = 'bold 6px "Arial Black",sans-serif'; ctx.textAlign = 'center'; ctx.fillText('DUE', 0, 1);
         ctx.restore();
         break;
       }

@@ -847,6 +847,23 @@ const G = {
 
   /* ---- THE SCENARIO JUMPER: every special encounter, pre-armed ---- */
   TESTER_SCENARIOS: [
+    { icon: '💳', name: 'Deep in debt', sub: '45¢ owed, two floors of interest, he knows', run(G) {
+      G.ensureSandboxAt(4);
+      G.debt = { principal: 30, owed: 55, floors: 2 };
+      G._collectorSpawned = false;
+      const r = G.floorRooms.find(x => x.type === 'normal' && !x.cleared && x !== G.room);
+      if (r) G.enterRoom(r, null);
+    } },
+    { icon: '🛏', name: 'THE DREAM WARD', sub: 'asleep, mid-dream, pedestal intact', run(G) {
+      G.ensureSandboxAt(4);
+      G.enterDream();
+    } },
+    { icon: '💼', name: 'THE MIDDLEMAN', sub: 'the skim, live, in this very room', run(G) {
+      G.ensureSandboxAt(5);
+      G._pbmFloor = true; G._pbmDead = false;
+      const r = G.floorRooms.find(x => x.type === 'normal' && !x.cleared && x !== G.room);
+      if (r) { r._pbm = true; G.enterRoom(r, null); }
+    } },
     { icon: '📞', name: 'THE HOLD', sub: 'the phone tree, keypad live, ward 8 tuning', run(G) {
       G.startBossLab({ boss: 'thehold', depth: 8, affix: '', shift2: false, joint: '' });
     } },
@@ -2265,6 +2282,93 @@ const G = {
     SFX.play('sting');
   },
 
+  /* ---------- THE DREAM WARD (the building, but soft) ---------- */
+  enterDream() {
+    this.dreamFloor = true;
+    this.depth += 1;   // the dream sits where the next ward would be; waking descends past it
+    this.newFloor();
+    this.setBanner('THE DREAM WARD', 'nothing here bills you', 3.2);
+    this.toast('The hum is gone. The lights are warm. The symptoms are... clouds?', '#b8a8d8');
+    this.diaryNote('Found a bed after the boss and actually slept. The ward I dreamed had carpet.');
+    SFX.setMusic('dayroom');
+    SFX.play('whoosh');
+  },
+
+  /* ---------- THE FINANCING DESK (medical debt: the mechanic) ---------- */
+  showFinance() {
+    this.state = 'finance';
+    const p = this.player;
+    const D = this.debt;
+    const body = D
+      ? `<div class="rx">
+          <div class="stamp">BALANCE</div>
+          <h2>${D.owed}¢ outstanding</h2>
+          <div class="sub">principal ${D.principal}¢ · ${D.floors || 0} floor${(D.floors || 0) === 1 ? '' : 's'} of interest · +5¢ each descent</div>
+          <div class="mech">The Collector will continue to visit — bigger each time — until the balance clears. Killing him is <i>noted</i> but not <i>credited</i>.</div>
+        </div>
+        <button class="btn" id="bFinPay" ${p.coins < D.owed ? 'disabled style="opacity:.55"' : ''}>REPAY ${D.owed}¢ IN FULL${p.coins < D.owed ? ' (you have ' + p.coins + '¢)' : ''}</button>`
+      : `<div class="rx">
+          <div class="stamp">0% APR*</div>
+          <h2>CareCash™ Point-of-Suffering Financing</h2>
+          <div class="sub">*today. interest accrues +5¢ per ward descended. a Collector will be assigned to your case.</div>
+          <div class="mech">Instant copays, no credit check, no judgment (the judgment is dispatched separately).</div>
+        </div>
+        <button class="btn" id="bFin15">BORROW 15¢ — repay 22¢</button>
+        <button class="btn" id="bFin30">BORROW 30¢ — repay 45¢</button>`;
+    this.overlay(`
+      <div class="panel">
+        <h1 class="logo" style="font-size:24px">THE FINANCING DESK</h1>
+        <div class="tagline">“because care shouldn't wait for solvency” — a plaque, bolted on crooked</div>
+        ${body}
+        <button class="btn minor" id="bFinBack">STEP AWAY FROM THE DESK</button>
+      </div>`);
+    const done = () => { this.hideOverlay(); this.state = 'run'; };
+    const borrow = (amt, owe) => {
+      p.coins += amt;
+      this.debt = { principal: amt, owed: owe, floors: 0 };
+      Meta.data.debtsTaken = (Meta.data.debtsTaken || 0) + 1; Meta.save();
+      this.toast('BORROWED ' + amt + '¢. A Collector has been assigned to your case. He sounds thrilled.', '#8a6a9a');
+      this.diaryNote('Financed ' + amt + '¢ at the desk. The paperwork had a pulse.');
+      SFX.play('coin');
+      done();
+    };
+    const b15 = document.getElementById('bFin15'); if (b15) b15.onclick = () => borrow(15, 22);
+    const b30 = document.getElementById('bFin30'); if (b30) b30.onclick = () => borrow(30, 45);
+    const bp = document.getElementById('bFinPay');
+    if (bp) bp.onclick = () => {
+      if (p.coins < this.debt.owed) { SFX.play('error'); return; }
+      p.coins -= this.debt.owed;
+      this.debt = null;
+      Meta.data.debtsPaid = (Meta.data.debtsPaid || 0) + 1; Meta.save();
+      DATA.checkAchievements(Meta.data); Meta.save(); this.checkUnlocks();
+      for (const e of this.enemies) if (e._collector && !e.dying) { e.dying = true; e.deadDone = true; }
+      this.toast('PAID IN FULL. Somewhere, a briefcase closes with genuine disappointment.', '#8fd08a');
+      this.diaryNote('Paid the desk back, interest and all. The Collector nodded once, like a coworker.');
+      SFX.play('fanfare');
+      done();
+    };
+    document.getElementById('bFinBack').onclick = () => { SFX.play('ui'); done(); };
+  },
+
+  /* ---------- THE MIDDLEMAN, down: the prices exhale ---------- */
+  pbmDown(e) {
+    this._pbmDead = true;
+    Meta.data.pbmKills = (Meta.data.pbmKills || 0) + 1; Meta.save();
+    DATA.checkAchievements(Meta.data); Meta.save(); this.checkUnlocks();
+    for (let i = 0; i < 7; i++) this.pickups.push(new Pickup(i < 2 ? 'nickel' : 'coin', e.x + U.rand(-40, 40), e.y + U.rand(-30, 30)));
+    const deflate = pd => { if (pd.price > 1) pd.price = Math.max(1, Math.round(pd.price / 1.4 * 0.85)); };
+    for (const room of this.floorRooms) {
+      (room.peds || []).forEach(deflate);
+      (room.stock || []).forEach(deflate);
+    }
+    (this.peds || []).forEach(deflate);
+    (this.shopStock || []).forEach(deflate);
+    this.setBanner('THE MIDDLEMAN IS DOWN', 'floor-wide prices exhale: −40% skim, then 15% off out of relief', 3.0);
+    this.toast('He added 40% and could not explain what he did. The floor is cheaper without him.', '#8fd08a');
+    this.diaryNote('Cornered the Pharmacy Benefits Manager behind a gurney. The prices dropped before he did.');
+    SFX.play('fanfare');
+  },
+
   /* ---------- THE FIRE ALARM (the sign has three words) ---------- */
   showFireAlarm(ped) {
     this.state = 'firealarm';
@@ -2640,7 +2744,7 @@ const G = {
      The complete in-fiction manual: every mechanic, symptom, ward, and
      service. Mostly generated from DATA so new content lists itself;
      the prose sections get a line whenever a feature ships. */
-  HB_REV: 30,
+  HB_REV: 31,
   showHandbook(returnTo) {
     this.state = 'handbook';
     if (!this._hbTab) this._hbTab = 'basics';
@@ -2704,7 +2808,12 @@ const G = {
         + DATA.CRISES.map(c => R(c.icon, c.name, c.desc)).join('')
         + H('THE WARD CALENDAR')
         + N('The building runs on your real week:')
-        + [1, 2, 3, 4, 5, 6, 0].map(d => { const c = DATA.CALENDAR[d]; return R(c.icon, c.name, c.desc); }).join(''),
+        + [1, 2, 3, 4, 5, 6, 0].map(d => { const c = DATA.CALENDAR[d]; return R(c.icon, c.name, c.desc); }).join('')
+        + H('AWARENESS MONTHS')
+        + N('It also observes the real calendar at monthly scale — one observance at a time, always slightly self-serving:')
+        + DATA.MONTHS.map(m => R('🗓', m.name, m.desc, m.tag)).join('')
+        + H('SPECIAL FLOORS, CONTINUED')
+        + R('🛏', 'THE DREAM WARD', 'after a hard boss (ward 3+, once a run, if you\'re hurting): a bed appears beside the trapdoor. Sleep and dream the next ward instead — soft halls, harmless cloud symptoms that rain half-hearts, and ONE dream prescription that\'s absurdly strong and evaporates two wards after you wake. Waking descends you, rested (+2♥)'),
 
       symptoms: () => H('THE GENERAL POPULATION')
         + N('Listed with the ward they first appear on. Deeper wards lean harder on the late roster.')
@@ -2754,6 +2863,8 @@ const G = {
         + R('🩻', 'THE SCANNER', 'a rare imaging suite (ward 3+, once a run): pay to have one prescription RE-READ into a different one. Fees escalate per scan; repeat imaging risks an artifact from the out-of-network pool. Samples, boons, and handshake deals don\'t survive re-imaging')
         + R('🧪', 'THE CLINICAL TRIAL', 'the Drug Rep offers enrollment once a run: an unknown compound, effects revealed one per ward, debrief + full payment after 3 wards. 35% of enrollments are the placebo. The placebo also gets paid')
         + R('🍫', 'Commissary machines', 'vending (snacks & sundries) and the horoscope printer (a real, small blessing or curse)')
+        + R('💳', 'THE FINANCING DESK', 'in every pharmacy: borrow 15¢ (repay 22) or 30¢ (repay 45), interest +5¢ per ward. While you owe, THE COLLECTOR visits every floor — bigger each time. Killing him is noted, not credited; repaying at any desk calls him off')
+        + R('💼', 'THE MIDDLEMAN', 'some wards (4+) have a Pharmacy Benefits Manager hiding in a room, adding 40% to every price and contributing nothing. He flees through vents (three times). Pop him: the skim ends, plus 15% off floor-wide out of sheer relief')
         + R('🎁', 'Care Packages', 'gift codes — mail an item to a friend\'s next run from the DAILY WARD screen'),
 
       meta: () => H('◆ INSIGHT & THE TREATMENT PLAN')
@@ -2816,6 +2927,7 @@ const G = {
         + N('This handbook is updated with every patch. If a feature exists, it\'s in here — that\'s the policy. Spot something missing? The Complaint Department is thataway.')
         + N('rev. 29 — the crayons were confiscated: every pictograph in the building replaced with proper inked signage, hand-drawn by the same tired hand as everything else here.')
         + N('rev. 30 — new on the ward: THE HOLD (management, ward 7+, bring patience and footwork) · THE CLINICAL TRIAL (see TREATMENT) · THE SCANNER (see TREATMENT) · and a thirteenth patient file for whoever finished THE HANDOFF. The mop is in the closet where he left it.')
+        + N('rev. 31 — the building learned finance and the calendar: THE FINANCING DESK and THE MIDDLEMAN (see TREATMENT) · THE DREAM WARD (see THE BUILDING) · AWARENESS MONTHS (see THE BUILDING). Also: Group Therapy recruitment now caps at three and no longer works on management, security, paperwork, or anyone mid-performance. The group apologizes to the charge nurse.')
     };
 
     const tabs = [
@@ -2855,7 +2967,7 @@ const G = {
   },
   // story interlude when first reaching a milestone ward; returns true if one is now playing
   maybeInterlude() {
-    if (Meta.data.storyOff || typeof Story === 'undefined' || this.bossRush || this.ascent) return false;
+    if (Meta.data.storyOff || typeof Story === 'undefined' || this.bossRush || this.ascent || this.dreamFloor || this.annexFloor || this.sandbox) return false;   // pocket floors and rehearsals aren't the real milestone
     const id = { 5: 'ward5', 10: 'ward10', 15: 'ward15', 20: 'ward20', 50: 'ward50pre', 100: 'ward100pre' }[this.depth];
     // the interlude interrupts the descend animation, so its onDone must rebuild the floor AND restore play
     if (id && !(Meta.data.seenStory && Meta.data.seenStory[id])) { Story.play(id, () => { this.newFloor(); this.state = 'run'; }); return true; }
@@ -3147,6 +3259,12 @@ const G = {
     if (this.protocol === 'waitingroom') { this.player.maxhp = 2; this.player.hp = 2; this.player.flags.noHeal = true; }   // one heart, no healing
     this.applyTalents(this.player);      // Treatment Plan (permanent skill-tree perks)
     this.applyFacility(this.player);     // Waiting Room furniture perks (the Wellness Fund at work)
+    // AWARENESS MONTH: the building observes the real calendar, loudly and slightly self-servingly
+    this._month = DATA.MONTHS[new Date().getMonth()] || null;
+    if (this._month) {
+      try { this._month.apply(this.player); } catch (e) { }
+      if (!this.sandbox && !this._resuming) this.toast('Observed this month: ' + this._month.name + ' — ' + this._month.desc + '.', '#c8b8d8');
+    }
     // emotional support animal (equipped in Settings; must still be earned)
     if (Meta.data.pet) {
       const pd = DATA.PETS.find(x => x.id === Meta.data.pet);
@@ -3281,6 +3399,7 @@ const G = {
     this.walkin = false; this._roofDone = false; this._phoneFloor = false;   // walk-in / roof / payphone, fresh per run
     this.inspection = null; this._inspectionDone = false; this._mixup = null; this._mixupDone = false;   // the tour + the chart mix-up
     this.annexFloor = false; this._alarmSeen = false; this._alarmPulled = false; this._soaked = false; this._ghostRec = {}; this._ghostT = 0;   // annex / alarm / ghost, fresh per run
+    this.dreamFloor = false; this._dreamSeen = false; this._dreamItem = null; this.debt = null; this._collectorSpawned = false; this._pbmFloor = false; this._pbmDead = false;   // dream / debt / middleman, fresh per run
     // THE COMPLAINT DEPARTMENT: your grievance reports for duty
     this._complaint = (!daily && Meta.data.pendingComplaint) ? String(Meta.data.pendingComplaint).slice(0, 40) : null;
     this._complaintSpawned = false;
@@ -3515,7 +3634,7 @@ const G = {
   SAVE_KEY: 'egs_save1',
   SAVE_FIELDS: ['hp', 'maxhp', 'spd', 'tearDelay', 'dmg', 'shotSpd', 'range', 'wobble', 'luck', 'coins', 'keys', 'bombs', 'coupons', 'pill', 'iframeTime', 'abilMax', 'sleep', 'compulsion', '_scar', '_recRooms', 'trinket', '_rosaryUsed', 'battery'],
   saveCheckpoint() {
-    if (this.dailyKind || this.overtime || this.sandbox || this.practice || this.walkin || this.annexFloor || !this.player || this.player.dead) return;
+    if (this.dailyKind || this.overtime || this.sandbox || this.practice || this.walkin || this.annexFloor || this.dreamFloor || !this.player || this.player.dead) return;
     const p = this.player;
     try {
       const S = {
@@ -3527,7 +3646,8 @@ const G = {
         familiars: p.familiars.map(f => f.type),
         allies: p.allies.map(a => a.id),
         goals: this.goals, stats: this.stats, goalInsight: this._goalInsight || 0,
-        trial: this.trial || null, trialNo: this._trialDeclined ? 1 : 0, scans: this._scans || 0
+        trial: this.trial || null, trialNo: this._trialDeclined ? 1 : 0, scans: this._scans || 0,
+        debt: this.debt || null, dreamItem: this._dreamItem || null, dreamSeen: this._dreamSeen ? 1 : 0
       };
       for (const f of this.SAVE_FIELDS) S[f] = p[f];
       localStorage.setItem(this.SAVE_KEY, JSON.stringify(S));
@@ -3565,6 +3685,8 @@ const G = {
     this.plan = S.plan || 'silver';
     this.contracts = (S.contracts || []).map(sc => { const def = DATA.CONTRACTS.find(c => c.id === sc.id); return def ? { id: sc.id, def, prog: sc.prog || 0, done: !!sc.done } : null; }).filter(Boolean);
     this.trial = S.trial || null; this._trialDeclined = !!S.trialNo; this._scans = S.scans || 0;   // trial effects live in the restored numbers
+    this.debt = S.debt || null; this._dreamItem = S.dreamItem || null; this._dreamSeen = !!S.dreamSeen;
+    this._resumeTick = true;   // reopening the chart isn't a descent — no interest, no findings
     this.newFloor();
     this.toast('📂 Chart reopened — ward ' + this.depth + '. Welcome back.', '#8fd0e0');
   },
@@ -3735,6 +3857,15 @@ const G = {
 
   newFloor() {
     if (this.maybeInterlude()) return;   // story beat first; it re-calls newFloor when done
+    // THE DREAM PRESCRIPTION: dreams don't transfer between facilities (runs before p binds — it swaps the player)
+    if (this._dreamItem && this.depth >= this._dreamItem.evapDepth && this.player) {
+      const items = this.player.items.slice();
+      const ix = items.indexOf(this._dreamItem.id);
+      if (ix >= 0) { items.splice(ix, 1); this.rebuildPlayer(items); }
+      this.toast('The ' + ((DATA.ITEMS[this._dreamItem.id] || {}).name || 'dream prescription') + ' evaporates. You remember being stronger. You were.', '#b8a8d8');
+      SFX.play('whoosh');
+      this._dreamItem = null;
+    }
     const gen = this.genSeed(['floor', this.depth], () => generateFloor(this.depth, this.lastBoss));
     this.grid = gen.grid;
     this.floorRooms = gen.rooms;
@@ -3776,10 +3907,17 @@ const G = {
         if (r.type === 'boss') r.type = 'annexhatch';
       }
     }
+    if (this.dreamFloor) {   // THE DREAM: soft rooms, no services, one pedestal, one way to wake
+      for (const r of this.floorRooms) {
+        if (r.type === 'item') { r.type = 'dreamitem'; r.lockOpen = true; }
+        else if (r.type === 'boss') r.type = 'wakehatch';
+        else if (r.type !== 'start' && r.type !== 'secret' && r.type !== 'normal') r.type = 'normal';
+      }
+    }
     // the sprinklers dry off between floors
     if (this._soaked) { this._soaked = false; this.player.luck += 1; this.toast('You dry off. The luck wrings back in.', '#8fb8d8'); }
     // THE THIRTEENTH WARD: not generated. curated. it was always going to be ward 13.
-    this.ward13 = (this.depth === 13 && !this.ascent && !this.bossRush && !this.overtime);
+    this.ward13 = (this.depth === 13 && !this.ascent && !this.bossRush && !this.overtime && !this.dreamFloor);
     if (this.ward13) {
       const cycle = ['seclusion', 'ect', 'padded', 'observation', 'clinic', 'dayroom'];
       let ci = 0;
@@ -3793,7 +3931,7 @@ const G = {
       SFX.setMusic('ward13');
     } else if (SFX.musicMode === 'ward13' && !this.overtime) SFX.setMusic('run');   // ward 14 lets the building breathe again
     // SHADOW WARD: some floors flip dark — mirrored halls, shadow patients, double loot
-    this.shadowWard = (this.depth >= 6 && !this.ascent && !this.bossRush)
+    this.shadowWard = (this.depth >= 6 && !this.ascent && !this.bossRush && !this.dreamFloor)
       ? this.genSeed(['shadow', this.depth], () => U.chance(0.18))
       : false;
     if (this._forceShadow && !this.ward13) this.shadowWard = true;   // the elevator said so
@@ -3831,6 +3969,12 @@ const G = {
     const wingDef = this.wing ? DATA.WINGS.find(w => w.id === this.wing) : null;
     this.wingPal = wingDef ? wingDef.pal : null;
     if (wingDef && wingDef.dark) this.floorDark = Math.max(this.floorDark, wingDef.dark);
+    if (this.dreamFloor) {   // THE DREAM: carpet, somehow. warmth, somehow.
+      this.wing = null;
+      this.wingPal = { floor: '#8a7ab2', line: '#7a6aa0', wall: '#b09ac8', trim: '#4a3c66' };
+      this.floorDark = 0;
+      this.complications = []; this.floorMods = {}; this.sideEffect = null; this.crisis = null;
+    }
     if (this.protocol === 'nightshift') this.floorDark = Math.max(this.floorDark, 0.55);   // the lights never come on
     // THE NIGHT SHIFT: the building keeps hours (local clock, unseeded runs only)
     const hrN = new Date().getHours();
@@ -3959,6 +4103,25 @@ const G = {
     this.holdZones = null; this.holdPrompt = null;   // THE HOLD's keypad never follows you
     if (p.diag === 'janitor' && this.depth >= 5 && !this.sandbox && !Meta.data.mopShift) { Meta.data.mopShift = 1; Meta.save(); this.checkUnlocks(); }   // Second Career
     this.trialFloorTick();   // the study observes every descent
+    // SELF-CARE SEPTEMBER (and friends): some months tuck half a heart in at the door
+    if (p.flags.monthHeal) p.heal(1);
+    // THE FINANCING DESK: the balance compounds, and something is dispatched
+    this._collectorSpawned = false;
+    if (this.debt && !this._resumeTick) {
+      this.debt.owed += 5; this.debt.floors = (this.debt.floors || 0) + 1;
+      this.toast('Your balance compounded: ' + this.debt.owed + '¢ outstanding. Something has been dispatched.', '#8a6a9a');
+    }
+    this._resumeTick = false;
+    // THE MIDDLEMAN: some floors have a parasite in the pipes (ward 4+)
+    this._pbmFloor = false; this._pbmDead = false;
+    if (this.depth >= 4 && !this.dreamFloor && !this.annexFloor && !this.overtime && !this.bossRush && !this.ward13 && !this.walkin && U.chance(0.3)) {
+      const cands = this.floorRooms.filter(r => r.type === 'normal');
+      if (cands.length) {
+        this._pbmFloor = true;
+        this.genSeed(['pbm', this.depth], () => U.choice(cands))._pbm = true;
+        this.toast('Prices on this ward are up 40%. Nobody can say why. (Someone can say why. He is in one of the rooms.)', '#b0a468');
+      }
+    }
     if (p._gymAdd) { p.dmg -= p._gymAdd; }
     p._gymAdd = 0;
     if (p.flags.pillowHeal) p.heal(p.flags.synRested ? 4 : 2);
@@ -4149,6 +4312,28 @@ const G = {
     if (room.type === 'secret' && !room.greeted) { room.greeted = true; this.toast(DATA.TOASTS.secret); }
     if (room.type === 'oon' && !room.greeted) { room.greeted = true; this.toast(DATA.TOASTS.oon, '#e08a8a'); }
     if (room.type === 'gym' && !room.greeted) { room.greeted = true; this.toast('🥊 The gym. Someone chalked a name on the board. It\'s yours, misspelled.', '#d08a4a'); }
+    // THE COLLECTOR: while you owe, he finds you — once per floor, in the first live room
+    if (this.debt && !this._collectorSpawned && !room.cleared && (room.type === 'normal' || room.type === 'padded') && !this.dreamFloor && this.enemies.length > 0) {
+      this._collectorSpawned = true;
+      const f = this.debt.floors || 0;
+      const ce = new Enemy('collector', RX + 60, RY + 70, this.depth, false, 1);
+      ce.hp = ce.maxhp = 30 + f * 14;
+      ce.r = Math.min(26, 16 + f * 2);
+      ce.spd = Math.min(155, 96 + f * 9);
+      ce._collector = true; ce.noCharm = true; ce.noDrop = true; ce.spawnT = 0.6;
+      this.enemies.push(ce);
+      this.toast('THE COLLECTOR found the ward. ' + this.debt.owed + '¢ outstanding' + (f >= 2 ? ' — he brought associates\' energy' : '') + '.', '#8a6a9a');
+      SFX.play('sting');
+    }
+    // THE MIDDLEMAN: he is in THIS room, adding 40% and radiating plausible deniability
+    if (room._pbm && !room._pbmSpawned && !room.cleared) {
+      room._pbmSpawned = true;
+      const me = new Enemy('middleman', CW / 2 + U.rand(-80, 80), RY + 90, this.depth, false, 1);
+      me._pbm = true; me.noCharm = true; me.noDrop = true; me.spawnT = 0.4;
+      this.enemies.push(me);
+      this.toast('THERE — the briefcase. The 40%. THE MIDDLEMAN. He is already leaving.', '#b0a468');
+      SFX.play('voice');
+    }
     // THE INSPECTION begins: the first live room on this ward becomes the tour stop
     if (this.inspection && this.inspection.pending && room.type === 'normal' && !room.cleared && this.enemies.length > 0) {
       this.inspection = { active: true, t: 60, busted: false };
@@ -4231,7 +4416,8 @@ const G = {
         room.cleared = true;
         const copayMul = (1 + (this.depth - 1) * 0.07) * (this.protocol === 'deductible' ? 2 : 1) * (this.plan === 'bronze' ? 1.5 : this.plan === 'gold' ? 0.6 : 1) * ((this.intensity || 0) >= 2 ? 1.25 : 1) * (this.hasRule('pricier') ? 1.3 : 1);   // copays climb with the ward (it's the healthcare system, baby)
         const disc = (p.flags.discount ? 0.5 : (this.wardPath === 'outpatient' ? 0.75 : 1)) * (p.trinket === 'expiredcoupon' ? 0.7 : 1) * (p.trinket === 'laminatedcard' ? 0.85 : 1) * (p._facShopMul || 1);
-        const px = (n) => Math.max(1, Math.ceil(n * disc * copayMul));
+        const pbmMul = (this._pbmFloor && !this._pbmDead) ? 1.4 : (this._pbmDead ? 0.85 : 1);   // the Middleman skims; his absence is a sale
+        const px = (n) => Math.max(1, Math.ceil(n * disc * copayMul * pbmMul));
         const yc = RY + RH / 2 + 30, yi = RY + RH / 2 - 80;
         room.stock = [
           { type: 'half', price: px(3), x: RX + 90, y: yc, taken: false },
@@ -4249,6 +4435,7 @@ const G = {
           room.peds.push({ x: RX + 110, y: yi, kind: 'restock', price: px(6), taken: false });
         }
         if (U.chance(0.3)) room.peds.push({ x: RX + RW - 90, y: yi, kind: U.choice(['vending', 'horoscope']), taken: false, uses: 3 });   // commissary corner
+        room.peds.push({ x: RX + RW - 90, y: yc + 40, kind: 'finance', taken: false });   // THE FINANCING DESK: 0% APR* (*today)
         // THE COMPOUNDING PHARMACIST: a back room, sometimes, if you look like the type
         if (this.depth >= 4 && U.chance(0.25)) {
           const cpool = U.shuffle([].concat(DATA.POOLS.special, DATA.POOLS.shop)).filter(id => !p.items.includes(id));
@@ -4337,6 +4524,17 @@ const G = {
         };
         // the original file, top-right corner, in the glow of one desk lamp
         room.peds.push({ x: RX + 11 * TILE + TILE / 2, y: RY + 64, kind: 'origfile', taken: false });
+        break;
+      }
+      case 'wakehatch': {   // the way back up through the pillow
+        room.cleared = true;
+        room.peds.push({ x: CW / 2, y: RY + RH / 2, kind: 'wakehatch', taken: false });
+        break;
+      }
+      case 'dreamitem': {   // one pedestal, impossibly lit
+        room.cleared = true;
+        const dpool = DATA.pickPool('special', p.items);
+        room.peds.push({ x: CW / 2, y: RY + RH / 2, itemId: U.choice(dpool.length ? dpool : DATA.POOLS.special), kind: 'dreamitem', taken: false });
         break;
       }
       case 'annexhatch': {   // the deep exit: a service chute past the next ward
@@ -4786,6 +4984,12 @@ const G = {
       if (!this.annexFloor && !this.walkin && !this.overtime && !this.bossRush && !this.ascent && !this.practice && this.depth >= 2 && this.genSeed(['annex', this.depth], () => U.chance(0.3))) {
         room.peds.push({ x: CW / 2 - 170, y: RY + RH / 2 - 100, kind: 'annexdoor', taken: false });
         this.toast('🚧 A boarded door beside the trapdoor. The boards are… loose. Deliberately loose.', '#b8a890');
+      } else if (!this._dreamSeen && !this.dreamFloor && !this.annexFloor && !this.walkin && !this.overtime && !this.bossRush && !this.ascent && !this.practice
+        && this.depth >= 3 && p.hp <= p.maxhp * 0.6 && U.chance(0.3)) {
+        // THE DREAM WARD: after a hard boss, sometimes — a bed. a made one.
+        this._dreamSeen = true;
+        this.peds.push({ x: CW / 2 - 170, y: RY + RH / 2 - 100, kind: 'dreambed', taken: false });
+        this.toast('Beside the trapdoor: a bed. A real one. Made. Nobody is watching it.', '#b8a8d8');
       }
       // Ward 5 only: the service elevator opens beside the trapdoor — the other direction
       if (this.depth === 5 && !this.ascent) {
@@ -5227,13 +5431,13 @@ const G = {
     const aud = this.enemies.find(e => e.id === 'auditor' && !e.dying);
     if (aud) this.auditorHp = aud.hp;   // the file follows you
     // lone-survivor impatience: the last patient in a room eventually comes to YOU
-    const liveNow = this.enemies.filter(e => !e.dying && !e.charmed && e.id !== 'auditor' && !e.fake);
+    const liveNow = this.enemies.filter(e => !e.dying && !e.charmed && e.id !== 'auditor' && e.id !== 'collector' && e.id !== 'middleman' && !e.fake);
     const noAggro = liveNow.length > 0 && liveNow.every(e => ['mirror', 'mimic', 'shooter', 'larper', 'bounce', 'ticket', 'buffer', 'shieldbot'].includes(e.beh));
     if ((liveNow.length === 1 || noAggro) && this.room && !this.room.cleared) {
       this._loneT = (this._loneT || 0) + dt;
       if (this._loneT > 14) for (const e of liveNow) e._impatient = true;   // even the symptoms get bored
     } else this._loneT = 0;
-    const hostiles = this.enemies.some(e => !e.charmed && e.id !== 'auditor');   // the Auditor never blocks the doors — run if you want
+    const hostiles = this.enemies.some(e => !e.charmed && e.id !== 'auditor' && e.id !== 'collector' && e.id !== 'middleman');   // the Auditor never blocks the doors — run if you want
     if (!room.cleared && (room.type === 'normal' || room.type === 'padded' || room.type === 'clinic' || room.type === 'gym' || room.type === 'incident' || room.type === 'records') && room.spawned && !hostiles) this.onRoomCleared();
     if (!room.cleared && room.type === 'boss' && this.boss && this.boss.dead && this.enemies.length === 0 && !room.cleared) {
       // onBossDead already ran via boss.die
@@ -5249,7 +5453,7 @@ const G = {
         return;   // pause the loop; modal is up
       } else if (ped.kind === 'cooler') {   // Day Room water cooler
         if (this.hasRule('brokenCoolers')) { if (this.lockCd <= 0) { this.lockCd = 1.4; this.toast('🚱 OUT OF ORDER. (house rules)', '#a89a8a'); SFX.play('denied'); } }
-        else if (p.hp < p.maxhp) { p.heal((p.flags.bigCooler ? 3 : 2) + (this.hasCal('tuesday') ? 1 : 0)); ped.taken = true; this.texts.push(new FloatText(ped.x, ped.y - 30, this.hasCal('tuesday') ? '+♥ hydrated (+ pudding)' : '+♥ hydrated', '#8fd0e0')); SFX.play('heal'); }
+        else if (p.hp < p.maxhp) { p.heal((p.flags.bigCooler ? 3 : 2) + (this.hasCal('tuesday') ? 1 : 0) + (p.flags.monthCooler ? 1 : 0)); ped.taken = true; this.texts.push(new FloatText(ped.x, ped.y - 30, this.hasCal('tuesday') ? '+♥ hydrated (+ pudding)' : '+♥ hydrated', '#8fd0e0')); SFX.play('heal'); }
         else if (this.lockCd <= 0) { this.lockCd = 1.0; this.toast('You feel fine. Physically.', '#8fd0e0'); }
       } else if (ped.kind === 'sacrifice') {   // Seclusion Room — bleed on the altar for escalating loot
         if (p.iframes <= 0 && this.lockCd <= 0) {
@@ -5468,6 +5672,31 @@ const G = {
         if (this.lockCd <= 0) { this.lockCd = 2.0; this.showHandoffOffer(ped); return; }
       } else if (ped.kind === 'payphone') {   // it takes exact change and one feeling at a time
         if (this.lockCd <= 0) { this.lockCd = 2.0; this.showPayphone(ped); return; }
+      } else if (ped.kind === 'finance') {   // 0% APR* (*today)
+        if (this.lockCd <= 0) { this.lockCd = 1.2; this.showFinance(); return; }
+      } else if (ped.kind === 'dreambed') {   // a bed. a real one. made.
+        ped.taken = true;
+        this.enterDream();
+        return;
+      } else if (ped.kind === 'dreamitem') {  // the dream prescription — take it anyway
+        ped.taken = true;
+        p.addItem(ped.itemId, this);
+        this.stats.items++;
+        this._dreamItem = { id: ped.itemId, evapDepth: this.depth + 3 };
+        Meta.data.dreamRx = (Meta.data.dreamRx || 0) + 1; Meta.save();
+        DATA.checkAchievements(Meta.data); Meta.save(); this.checkUnlocks();
+        this.toast('THE DREAM PRESCRIPTION: ' + ((DATA.ITEMS[ped.itemId] || {}).name || '?') + '. It will not survive waking. Take it anyway.', '#b8a8d8');
+        this.diaryNote('Took the dream prescription. It fit perfectly, the way only borrowed things do.');
+        SFX.play('evolve');
+      } else if (ped.kind === 'wakehatch') {  // up through the pillow
+        ped.taken = true;
+        this.dreamFloor = false;
+        p.heal(4);
+        this.toast('You wake on the next ward — actually rested. The building finds this suspicious.', '#b8a8d8');
+        this.diaryNote('Slept. Dreamed of a softer building. Woke up a ward lower with the rest still in my hands.');
+        SFX.play('heal');
+        this.doDescend();
+        return;
       } else if (ped.kind === 'roofladder') {   // up, for once
         ped.taken = true;
         this.enterRoof();
@@ -5608,7 +5837,7 @@ const G = {
     // union trigger: a big room, a long fight, an idea spreads
     if (!this._unionTried && this.room && !this.room.cleared && (this.room.type === 'normal' || this.room.type === 'padded') && (this.t - (this._roomT0 || 0)) > 6) {
       this._unionTried = true;
-      const live = this.enemies.filter(e => !e.dying && !e.fake && !e.charmed && e.spawnT <= 0 && e.id !== 'auditor').length;
+      const live = this.enemies.filter(e => !e.dying && !e.fake && !e.charmed && e.spawnT <= 0 && e.id !== 'auditor' && e.id !== 'collector' && e.id !== 'middleman').length;
       if (live >= 4 && Math.random() < 0.12) this.unionize();
     }
     // THE INSPECTION: the tour, in progress
@@ -5981,7 +6210,7 @@ const G = {
 
   /* ---------- THE UNION (the room organizes; you fight it or you settle) ---------- */
   unionize() {
-    const live = this.enemies.filter(e => !e.dying && !e.fake && !e.charmed && e.spawnT <= 0 && e.id !== 'auditor' && !e._form);
+    const live = this.enemies.filter(e => !e.dying && !e.fake && !e.charmed && e.spawnT <= 0 && e.id !== 'auditor' && e.id !== 'collector' && e.id !== 'middleman' && !e._form);
     if (live.length < 4) return;
     let rep = live[0];
     for (const e of live) if (e.hp > rep.hp) rep = e;
@@ -6159,7 +6388,7 @@ const G = {
   },
   overtimeUpdate(dt) {
     const OT = this.overtime; if (!OT) return;
-    const live = this.enemies.some(e => !e.dying && e.id !== 'auditor') || (this.boss && !this.boss.dead);
+    const live = this.enemies.some(e => !e.dying && e.id !== 'auditor' && e.id !== 'collector' && e.id !== 'middleman') || (this.boss && !this.boss.dead);
     if (live) return;
     OT.spawnT -= dt;
     if (OT.spawnT > 0) return;
@@ -6331,7 +6560,7 @@ const G = {
   },
   amaUpdate(dt) {
     const A = this.amaRun; if (!A || A.done) return;
-    const live = this.enemies.some(e => !e.dying && e.id !== 'auditor');
+    const live = this.enemies.some(e => !e.dying && e.id !== 'auditor' && e.id !== 'collector' && e.id !== 'middleman');
     if (live) return;
     if (A.wave >= A.total) {   // all waves down — the exit opens
       A.done = true;
