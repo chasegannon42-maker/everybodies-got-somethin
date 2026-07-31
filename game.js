@@ -867,6 +867,29 @@ const G = {
 
   /* ---- THE SCENARIO JUMPER: every special encounter, pre-armed ---- */
   TESTER_SCENARIOS: [
+    { icon: '👥', name: 'Deep roster', sub: 'twins, billing error, the wait, second notice — ward 12', run(G) {
+      G.ensureSandboxAt(12);
+      const r = G.room; r.cleared = false;
+      G.enemies.length = 0; G.eBullets.length = 0;
+      const spots = [[RX + 120, RY + 110], [RX + RW - 130, RY + 120], [RX + 130, RY + RH - 120], [RX + RW - 140, RY + RH - 130]];
+      ['twin', 'billerror', 'thewait', 'secondnotice'].forEach((id, i) => {
+        const e = new Enemy(id, spots[i][0], spots[i][1], 12, false, 1);
+        e.spawnT = 0.6 + i * 0.15;
+        G.enemies.push(e);
+      });
+      G.toast('The deep roster reports for intake. Mind the co-signature line.', '#7ea8e0');
+    } },
+    { icon: '🏥', name: 'New clinic staff', sub: 'THE SPECIALIST + THE CASE MANAGER share an office', run(G) {
+      G.ensureSandboxAt(8);
+      const r = G.room; r.cleared = false;
+      G.enemies.length = 0; G.eBullets.length = 0;
+      ['specialist', 'casemanager'].forEach((id, i) => {
+        const e = new Enemy(id, RX + RW / 2 + (i === 0 ? -110 : 110), RY + 130, 8, false, 1);
+        e.noDrop = true; e._miniboss = true; e.spawnT = 0.5;
+        G.enemies.push(e);
+      });
+      G.toast('Double-booked: the referral and the caseload. Drop the CASE MANAGER first.', '#e0b890');
+    } },
     { icon: '💳', name: 'THE DEDUCTIBLE', sub: 'the meter, ward 9 tuning', run(G) {
       G.startBossLab({ boss: 'deductible', depth: 9, affix: '', shift2: false, joint: '' });
     } },
@@ -3171,7 +3194,7 @@ const G = {
      The complete in-fiction manual: every mechanic, symptom, ward, and
      service. Mostly generated from DATA so new content lists itself;
      the prose sections get a line whenever a feature ships. */
-  HB_REV: 40,
+  HB_REV: 41,
   showHandbook(returnTo) {
     this.state = 'handbook';
     if (!this._hbTab) this._hbTab = 'basics';
@@ -3212,7 +3235,7 @@ const G = {
         + R('🛏', 'Normal / Padded wards', 'symptoms spawn, doors lock, manage everyone, doors open')
         + R('⭐', 'The Specialist', 'the item room. Needs a Referral 🔑. A free prescription on a pedestal')
         + R('🛍', 'The Gift Shop', 'meds, hearts, and misc at retail markup. Plans, coupons, and talents change prices')
-        + R('🏥', 'The Clinic', 'a miniboss office — Charge Nurse, Resident, or Orderly. Pays out a reward')
+        + R('🏥', 'The Clinic', 'a miniboss office — Charge Nurse, Resident, or Orderly; deep wards may staff the Specialist (6+) or the Case Manager (7+). Pays out a reward')
         + R('🏋', 'The Gym', 'exercise equipment, and where your RIVAL insists on duels')
         + R('🛋', 'The Day Room', 'sanctuary. A water cooler (heals), a patient with a boon, CONTRACTS to sign, and sometimes OPEN MIC NIGHT')
         + R('🗄', 'The Records Room', 'your file is in there. Sneak the stacks past the flashlights for loot — get spotted and Records Patrol comes')
@@ -3256,6 +3279,9 @@ const G = {
         + R('', DATA.ENEMIES.chargenurse.name, EN.chargenurse, 'clinic miniboss')
         + R('', DATA.ENEMIES.resident.name, EN.resident, 'clinic miniboss')
         + R('', DATA.ENEMIES.orderly.name, EN.orderly, 'clinic miniboss')
+        + R('', DATA.ENEMIES.specialist.name, EN.specialist, 'clinic miniboss · ward 6+')
+        + R('', DATA.ENEMIES.casemanager.name, EN.casemanager, 'clinic miniboss · ward 7+')
+        + R('', DATA.ENEMIES.decimal.name, EN.decimal, 'billing fallout')
         + H('CHAMPIONS (elite cases, ward 6+)')
         + DATA.ELITES.map(e => R('👑', e.name, `${Math.round(e.hp * 100)}% health${e.dmg > 1 ? ', hits double' : ''}${e.spd > 1 ? ', faster' : e.spd < 1 ? ', slower' : ''} — drops better loot`)).join('')
         + N('Hallucinations: some diagnoses see patients who aren\'t there. Fakes pop in one hit and can\'t hurt you. Foam Earplugs make them shimmer.'),
@@ -3354,6 +3380,7 @@ const G = {
         + R('🚶', 'Day Room patients', 'The Veteran, The Optimist, The Oversharer, and friends — one boon each')
         + H('REVISION HISTORY')
         + N('This handbook is updated with every patch. If a feature exists, it\'s in here — that\'s the policy. Spot something missing? The Complaint Department is thataway.')
+        + N('rev. 41 — INTAKE, EXPANDED: the deep wards admitted four new cases (the PREAUTH TWINS and their load-bearing co-signature line, THE BILLING ERROR and its decimals, THE WAIT and its thickened time, THE SECOND NOTICE and its follow-ups — see SYMPTOMS), and two new offices opened in the Clinic: THE SPECIALIST (ward 6+, blinks, refers you mid-fight) and THE CASE MANAGER (ward 7+, shields everyone but herself; management priority: her). The general population thanks management for the company.')
         + N('rev. 29 — the crayons were confiscated: every pictograph in the building replaced with proper inked signage, hand-drawn by the same tired hand as everything else here.')
         + N('rev. 30 — new on the ward: THE HOLD (management, ward 7+, bring patience and footwork) · THE CLINICAL TRIAL (see TREATMENT) · THE SCANNER (see TREATMENT) · and a thirteenth patient file for whoever finished THE HANDOFF. The mop is in the closet where he left it.')
         + N('rev. 31 — the building learned finance and the calendar: THE FINANCING DESK and THE MIDDLEMAN (see TREATMENT) · THE DREAM WARD (see THE BUILDING) · AWARENESS MONTHS (see THE BUILDING). Also: Group Therapy recruitment now caps at three and no longer works on management, security, paperwork, or anyone mid-performance. The group apologizes to the charge nurse.')
@@ -5102,9 +5129,12 @@ const G = {
         }
         break;
       }
-      case 'clinic': {   // The Clinic — a miniboss is holding office hours
+      case 'clinic': {   // The Clinic — a miniboss is holding office hours (deeper wards staff the harder offices)
         room.cleared = false;
-        const mb = new Enemy(this.nightShift ? 'nightnurse' : U.choice(['chargenurse', 'resident', 'orderly']), CW / 2, RY + 120, this.depth, false, 1);
+        const staff = ['chargenurse', 'resident', 'orderly'];
+        if (this.depth >= 6) staff.push('specialist');
+        if (this.depth >= 7) staff.push('casemanager');
+        const mb = new Enemy(this.nightShift ? 'nightnurse' : U.choice(staff), CW / 2, RY + 120, this.depth, false, 1);
         mb.noDrop = true; mb._miniboss = true;
         this.enemies.push(mb);
         room._minibossName = DATA.ENEMIES[mb.id].name;
@@ -7061,7 +7091,7 @@ const G = {
       const n = Math.min(14, 3 + Math.ceil(w * 0.8));
       for (let i = 0; i < n; i++) {
         const a = (i / n) * TAU + Math.random();
-        const id = (w % 3 === 0 && i === 0) ? U.choice(['chargenurse', 'resident', 'orderly']) : DATA.pickEnemy(depth, null);
+        const id = (w % 3 === 0 && i === 0) ? U.choice(w >= 9 ? ['chargenurse', 'resident', 'orderly', 'specialist', 'casemanager'] : ['chargenurse', 'resident', 'orderly']) : DATA.pickEnemy(depth, null);
         const e = new Enemy(id, U.clamp(CW / 2 + Math.cos(a) * U.rand(150, 300), RX + 36, RX + RW - 36), U.clamp(RY + RH / 2 + Math.sin(a) * U.rand(90, 200), RY + 36, RY + RH - 36), depth, false, 1, (w >= 5 && U.chance(Math.min(0.5, w * 0.03))) ? U.choice(DATA.ELITES).id : null);
         e.spawnT = 0.6 + i * 0.1;
         this.enemies.push(e);

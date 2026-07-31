@@ -4133,6 +4133,168 @@ const Render = {
         }
         break;
       }
+      case 'twin': { // one half of an authorization, in a small sad suit
+        // the co-signature line (lead twin draws it, under both bodies)
+        const tw = e._twin;
+        if (e._twinLead && tw && !tw.dying && tw.spawnT <= 0) {
+          const dx = tw.x - e.x, dy = tw.y - e.y;
+          const td = Math.hypot(dx, dy);
+          if (td < 300) {
+            const hum = 0.55 + Math.sin(G.t * 7) * 0.25;
+            ctx.strokeStyle = `rgba(126,168,224,${hum})`; ctx.lineWidth = 2.5;
+            ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(dx, dy); ctx.stroke();
+            ctx.strokeStyle = 'rgba(240,244,255,0.35)'; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(dx, dy); ctx.stroke();
+            // a signature crawling along the line
+            const st = (G.t * 0.4) % 1;
+            ctx.fillStyle = 'rgba(220,232,255,0.9)'; ctx.font = this.font(7, true); ctx.textAlign = 'center';
+            ctx.save(); ctx.translate(dx * st, dy * st); ctx.rotate(Math.atan2(dy, dx)); ctx.fillText('✗______', 0, -4); ctx.restore();
+          }
+        }
+        this.orb(ctx, 0, 2, e.r, e.clr, flash);
+        // matching tie (they coordinate; it's policy)
+        ctx.fillStyle = '#3a5a8a'; ctx.beginPath(); ctx.moveTo(0, 2); ctx.lineTo(3, 7); ctx.lineTo(0, e.r - 1); ctx.lineTo(-3, 7); ctx.closePath(); ctx.fill();
+        // identical dot eyes (identically unimpressed)
+        ctx.fillStyle = '#2c2333'; ctx.beginPath(); ctx.arc(-5, -3, 2, 0, TAU); ctx.arc(5, -3, 2, 0, TAU); ctx.fill();
+        ctx.strokeStyle = '#2c2333'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(-3.5, 4); ctx.lineTo(3.5, 4); ctx.stroke();
+        // the pen. always the pen.
+        ctx.save(); ctx.translate(e.r * 0.8, -2); ctx.rotate(-0.5);
+        ctx.fillStyle = '#2c3a54'; this.rr(ctx, -1.5, -7, 3, 12, 1.5); ctx.fill();
+        ctx.fillStyle = '#c8d4e8'; ctx.beginPath(); ctx.moveTo(-1.5, 5); ctx.lineTo(0, 8.5); ctx.lineTo(1.5, 5); ctx.closePath(); ctx.fill();
+        ctx.restore();
+        break;
+      }
+      case 'billerror': { // a charge nobody can explain, ambulatory
+        ctx.rotate(Math.sin(G.t * 3 + e.x) * 0.06);
+        // torn invoice silhouette (ragged bottom edge)
+        ctx.fillStyle = flash ? '#fff' : '#f4eee0';
+        ctx.beginPath(); ctx.moveTo(-e.r * 0.8, -e.r);
+        ctx.lineTo(e.r * 0.8, -e.r); ctx.lineTo(e.r * 0.8, e.r * 0.55);
+        for (let i = 0; i < 5; i++) ctx.lineTo(e.r * 0.8 - (i + 0.5) * e.r * 0.32, e.r * (i % 2 ? 0.6 : 0.95));
+        ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = '#b8a890'; ctx.lineWidth = 1.5; ctx.stroke();
+        // line items (illegible, as intended)
+        ctx.strokeStyle = 'rgba(90,80,70,0.5)'; ctx.lineWidth = 1.2;
+        for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.moveTo(-e.r * 0.55, -e.r * 0.6 + i * 5); ctx.lineTo(e.r * 0.4, -e.r * 0.6 + i * 5); ctx.stroke(); }
+        // the total, circled in red, angrily
+        ctx.fillStyle = '#c04030'; ctx.font = this.font(8, true); ctx.textAlign = 'center';
+        ctx.fillText('$?!', 2, e.r * 0.25);
+        ctx.strokeStyle = 'rgba(192,64,48,0.85)'; ctx.lineWidth = 1.8;
+        ctx.beginPath(); ctx.ellipse(2, e.r * 0.12, 9, 6.5, -0.2, 0, TAU); ctx.stroke();
+        // cross little eyes
+        ctx.fillStyle = '#2c2333'; ctx.beginPath(); ctx.arc(-5, -e.r * 0.78, 1.8, 0, TAU); ctx.arc(5, -e.r * 0.78, 1.8, 0, TAU); ctx.fill();
+        break;
+      }
+      case 'decimal': { // a line item that got loose
+        ctx.rotate(Math.sin(G.t * 6 + e.y) * 0.1);
+        this.orb(ctx, 0, 1, e.r, e.clr, flash);
+        ctx.fillStyle = '#5a3028'; ctx.font = this.font(e._tiny ? 7 : 9, true); ctx.textAlign = 'center';
+        ctx.fillText(e._tiny ? '.0¢' : '.9¢', 0, 3);
+        ctx.fillStyle = '#2c2333'; ctx.beginPath(); ctx.arc(-3.5, -e.r * 0.45, 1.3, 0, TAU); ctx.arc(3.5, -e.r * 0.45, 1.3, 0, TAU); ctx.fill();
+        break;
+      }
+      case 'thewait': { // a clock that has stopped caring
+        // the thickened-time aura, breathing
+        const wpul = 0.16 + Math.sin(G.t * 1.1) * 0.05;
+        ctx.strokeStyle = `rgba(168,176,192,${wpul})`; ctx.lineWidth = 2;
+        ctx.setLineDash([7, 9]); ctx.beginPath(); ctx.arc(0, 0, 148, G.t * 0.15, G.t * 0.15 + TAU); ctx.stroke(); ctx.setLineDash([]);
+        ctx.strokeStyle = `rgba(168,176,192,${wpul * 0.6})`; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.arc(0, 0, 120, 0, TAU); ctx.stroke();
+        // clock body
+        this.orb(ctx, 0, 2, e.r, e.clr, flash);
+        ctx.fillStyle = flash ? '#fff' : '#e8ecf2'; ctx.beginPath(); ctx.arc(0, 0, e.r * 0.72, 0, TAU); ctx.fill();
+        ctx.strokeStyle = '#5a6070'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(0, 0, e.r * 0.72, 0, TAU); ctx.stroke();
+        // tick marks
+        ctx.strokeStyle = 'rgba(90,96,112,0.7)'; ctx.lineWidth = 1.2;
+        for (let i = 0; i < 12; i++) { const ta2 = (i / 12) * TAU; ctx.beginPath(); ctx.moveTo(Math.cos(ta2) * e.r * 0.62, Math.sin(ta2) * e.r * 0.62); ctx.lineTo(Math.cos(ta2) * e.r * 0.7, Math.sin(ta2) * e.r * 0.7); ctx.stroke(); }
+        // hands: the minute hand crawls; the second hand keeps flinching backward
+        const mh = G.t * 0.02, sh = G.t * 0.5 - Math.max(0, Math.sin(G.t * 2.2)) * 0.35;
+        ctx.strokeStyle = '#3a4050'; ctx.lineWidth = 2.2; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(mh) * e.r * 0.38, Math.sin(mh) * e.r * 0.38); ctx.stroke();
+        ctx.strokeStyle = '#8a4040'; ctx.lineWidth = 1.3;
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(sh) * e.r * 0.56, Math.sin(sh) * e.r * 0.56); ctx.stroke(); ctx.lineCap = 'butt';
+        ctx.fillStyle = '#3a4050'; ctx.beginPath(); ctx.arc(0, 0, 1.8, 0, TAU); ctx.fill();
+        break;
+      }
+      case 'secondnotice': { // correspondence with a grudge
+        // pending follow-ups: a delivery window closing over where you were standing
+        if (e._marks) for (const m of e._marks) {
+          const mp = 1 - Math.max(0, m.t) / 0.9;   // 0 → just filed, 1 → arriving
+          const mx = m.x - e.x, my = m.y - e.y;
+          ctx.strokeStyle = `rgba(216,192,74,${0.3 + mp * 0.5})`; ctx.lineWidth = 2;
+          ctx.setLineDash([5, 5]); ctx.beginPath(); ctx.arc(mx, my, m.r * (1.15 - mp * 0.15), 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+          ctx.strokeStyle = `rgba(216,192,74,${0.45 + mp * 0.45})`; ctx.lineWidth = 2.4; ctx.lineCap = 'round';
+          const xs = 6 + mp * 4;
+          ctx.beginPath(); ctx.moveTo(mx - xs, my - xs); ctx.lineTo(mx + xs, my + xs); ctx.moveTo(mx + xs, my - xs); ctx.lineTo(mx - xs, my + xs); ctx.stroke(); ctx.lineCap = 'butt';
+          ctx.fillStyle = `rgba(216,192,74,${0.12 + mp * 0.22})`; ctx.beginPath(); ctx.arc(mx, my, m.r * (1.15 - mp * 0.15), 0, TAU); ctx.fill();
+        }
+        ctx.translate(0, Math.sin(G.t * 2.4 + e.x * 0.02) * 3);
+        // envelope body
+        ctx.fillStyle = flash ? '#fff' : '#f0e8d4'; this.rr(ctx, -e.r, -e.r * 0.7, e.r * 2, e.r * 1.4, 2); ctx.fill();
+        ctx.strokeStyle = '#b0a080'; ctx.lineWidth = 1.5; this.rr(ctx, -e.r, -e.r * 0.7, e.r * 2, e.r * 1.4, 2); ctx.stroke();
+        // flap
+        ctx.beginPath(); ctx.moveTo(-e.r, -e.r * 0.7); ctx.lineTo(0, e.r * 0.15); ctx.lineTo(e.r, -e.r * 0.7); ctx.stroke();
+        // FINAL-ish red band
+        ctx.fillStyle = '#c04038'; this.rr(ctx, -e.r * 0.85, e.r * 0.05, e.r * 1.7, e.r * 0.5, 1.5); ctx.fill();
+        ctx.fillStyle = '#f4eee0'; ctx.font = this.font(6.5, true); ctx.textAlign = 'center';
+        ctx.fillText('2ND NOTICE', 0, e.r * 0.42);
+        // little peering eyes over the flap
+        ctx.fillStyle = '#2c2333'; ctx.beginPath(); ctx.arc(-4.5, -e.r * 0.32, 1.8, 0, TAU); ctx.arc(4.5, -e.r * 0.32, 1.8, 0, TAU); ctx.fill();
+        break;
+      }
+      case 'specialist': { // the referral you never asked for
+        // blink shimmer: right before the jump, the office flickers
+        if (e._blinkT != null && e._blinkT < 0.35) {
+          const bp = 1 - e._blinkT / 0.35;
+          ctx.strokeStyle = `rgba(200,160,224,${0.55 * bp})`; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.arc(0, 0, e.r + 6 + bp * 10, 0, TAU); ctx.stroke();
+        }
+        this.orb(ctx, 0, 3, e.r, e.clr, flash);
+        // rimless glasses (expensive, judgmental)
+        ctx.strokeStyle = '#4a3858'; ctx.lineWidth = 1.6;
+        ctx.beginPath(); ctx.arc(-5.5, -3, 4, 0, TAU); ctx.stroke();
+        ctx.beginPath(); ctx.arc(5.5, -3, 4, 0, TAU); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-1.5, -3); ctx.lineTo(1.5, -3); ctx.stroke();
+        ctx.fillStyle = '#2c2333'; ctx.beginPath(); ctx.arc(-5.5, -3, 1.6, 0, TAU); ctx.arc(5.5, -3, 1.6, 0, TAU); ctx.fill();
+        // pursed professional mouth
+        ctx.strokeStyle = '#2c2333'; ctx.lineWidth = 1.8; ctx.beginPath(); ctx.moveTo(-3, 6); ctx.lineTo(2, 6); ctx.stroke();
+        // white coat collar
+        ctx.strokeStyle = '#f0ecf4'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(-8, e.r * 0.5); ctx.lineTo(0, e.r * 0.85); ctx.lineTo(8, e.r * 0.5); ctx.stroke();
+        // the referral pad, mid-scribble
+        ctx.save(); ctx.translate(-e.r * 0.9, 3); ctx.rotate(-0.25);
+        ctx.fillStyle = '#f4eee0'; this.rr(ctx, -6, -8, 12, 16, 1.5); ctx.fill();
+        ctx.strokeStyle = '#9a8a6a'; ctx.lineWidth = 1; this.rr(ctx, -6, -8, 12, 16, 1.5); ctx.stroke();
+        ctx.strokeStyle = 'rgba(74,56,88,0.7)';
+        ctx.beginPath(); ctx.moveTo(-4, -4); ctx.lineTo(4, -4); ctx.moveTo(-4, 0); ctx.lineTo(3, 0); ctx.moveTo(-4, 4); ctx.lineTo(4 * Math.abs(Math.sin(G.t * 3)), 4); ctx.stroke();
+        ctx.restore();
+        break;
+      }
+      case 'casemanager': { // coordinated care, radiating outward (at everyone but herself)
+        // the caseload aura
+        const cpul = 0.14 + Math.sin(G.t * 1.8) * 0.05;
+        ctx.strokeStyle = `rgba(224,184,144,${cpul})`; ctx.lineWidth = 2;
+        ctx.setLineDash([10, 8]); ctx.beginPath(); ctx.arc(0, 0, 210, -G.t * 0.2, -G.t * 0.2 + TAU); ctx.stroke(); ctx.setLineDash([]);
+        this.orb(ctx, 0, 3, e.r, e.clr, flash);
+        // reading glasses pushed up, permanently tired kind eyes
+        ctx.fillStyle = '#2c2333'; ctx.beginPath(); ctx.arc(-5.5, -2, 2, 0, TAU); ctx.arc(5.5, -2, 2, 0, TAU); ctx.fill();
+        ctx.strokeStyle = 'rgba(44,35,51,0.5)'; ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.arc(-5.5, 1, 3, 0.3, Math.PI - 0.3); ctx.arc(5.5, 1, 3, 0.3, Math.PI - 0.3); ctx.stroke();
+        ctx.strokeStyle = '#6a5040'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(0, -e.r * 0.62, e.r * 0.5, Math.PI + 0.4, TAU - 0.4); ctx.stroke();   // the pushed-up glasses
+        ctx.strokeStyle = '#2c2333'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(-3, 6); ctx.quadraticCurveTo(0, 7.5, 3, 6); ctx.stroke();
+        // lanyard + badge
+        ctx.strokeStyle = '#8a5a4a'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(-6, e.r * 0.3); ctx.lineTo(0, e.r * 0.8); ctx.moveTo(6, e.r * 0.3); ctx.lineTo(0, e.r * 0.8); ctx.stroke();
+        ctx.fillStyle = '#f4eee0'; this.rr(ctx, -3.5, e.r * 0.75, 7, 9, 1); ctx.fill();
+        // THE BINDER (three rings, load-bearing)
+        ctx.save(); ctx.translate(e.r * 0.95, 2); ctx.rotate(0.15);
+        ctx.fillStyle = '#7a4a3a'; this.rr(ctx, -7, -11, 14, 22, 2); ctx.fill();
+        ctx.strokeStyle = '#5a3428'; ctx.lineWidth = 1.5; this.rr(ctx, -7, -11, 14, 22, 2); ctx.stroke();
+        ctx.fillStyle = '#c8c0b0'; for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(-7, -7 + i * 7, 1.6, 0, TAU); ctx.fill(); }
+        ctx.fillStyle = '#f0e8d8'; this.rr(ctx, -4, -8, 9, 16, 1); ctx.fill();
+        ctx.restore();
+        break;
+      }
       case 'waitingnum': { // the deli-counter ticket of doom
         const urgent = e.count <= 3;
         ctx.rotate(Math.sin(G.t * (urgent ? 14 : 2)) * (urgent ? 0.06 : 0.02));
