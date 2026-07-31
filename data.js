@@ -600,6 +600,12 @@ DATA.ENEMIES = {
   waitlist:  { name: "The Waitlist", hp: 22, spd: 30, r: 19, dmg: 1, beh: 'waitlist', clr: '#c8b890' },
   premium:   { name: "The Premium", hp: 14, spd: 96, r: 14, dmg: 0, beh: 'premium', clr: '#e0b83a' },
   placebo:   { name: "The Placebo", hp: 1, spd: 60, r: 20, dmg: 1, beh: 'chase', clr: '#e8e0f0' },
+  /* --- the deeper roster (ward 10+) --- */
+  twin:      { name: "Preauth Twin", hp: 13, spd: 82, r: 14, dmg: 1, beh: 'twin', clr: '#7ea8e0' },
+  billerror: { name: "The Billing Error", hp: 18, spd: 50, r: 18, dmg: 1, beh: 'chase', clr: '#e07a5a' },
+  decimal:   { name: "The Decimal", hp: 5, spd: 104, r: 10, dmg: 1, beh: 'chase', clr: '#e09a7a' },
+  thewait:   { name: "THE WAIT", hp: 16, spd: 24, r: 17, dmg: 1, beh: 'wait', clr: '#a8b0c0' },
+  secondnotice: { name: "The Second Notice", hp: 15, spd: 62, r: 15, dmg: 1, beh: 'notice', clr: '#d8c04a', shotCd: 2.3 },
   /* --- the roaming hunter --- */
   auditor:  { name: "THE AUDITOR", hp: 135, spd: 58, r: 22, dmg: 1, beh: 'auditor', clr: '#a8a29a', shotCd: 3.4, bulSpd: 195 },
   /* --- the price parasite (one room per PBM floor — hunt him) --- */
@@ -617,7 +623,9 @@ DATA.ENEMIES = {
   /* --- ward minibosses (clinic rooms) --- */
   chargenurse: { name: "THE CHARGE NURSE", hp: 55, spd: 42, r: 24, dmg: 1, beh: 'nursey', clr: '#e8ecf0', shotCd: 0.55, bulSpd: 210 },
   resident:    { name: "THE RESIDENT", hp: 48, spd: 58, r: 22, dmg: 1, beh: 'resident', clr: '#7ab8a0', bulSpd: 180 },
-  orderly:     { name: "THE ORDERLY", hp: 74, spd: 34, r: 27, dmg: 1, beh: 'orderly', clr: '#9aa4b8' }
+  orderly:     { name: "THE ORDERLY", hp: 74, spd: 34, r: 27, dmg: 1, beh: 'orderly', clr: '#9aa4b8' },
+  specialist:  { name: "THE SPECIALIST", hp: 60, spd: 40, r: 23, dmg: 1, beh: 'specialist', clr: '#c8a0e0', shotCd: 2.1, bulSpd: 200 },
+  casemanager: { name: "THE CASE MANAGER", hp: 66, spd: 44, r: 23, dmg: 1, beh: 'casemanager', clr: '#e0b890' }
 };
 DATA.enemyPoolFor = function (depth) {
   // deeper enemies get relatively more common the further past their unlock you go,
@@ -632,7 +640,9 @@ DATA.enemyPoolFor = function (depth) {
     { id: 'projection', d: 5, w: 1.5 }, { id: 'wellnessbot', d: 5, w: 1.3 }, { id: 'waitingnum', d: 5, w: 1.2 },
     { id: 'comparison', d: 6, w: 1.5 },
     { id: 'secondop', d: 8, w: 1.7 }, { id: 'waitlist', d: 8, w: 1.3 },
-    { id: 'premium', d: 9, w: 1.5 }, { id: 'placebo', d: 8, w: 1.1 }
+    { id: 'premium', d: 9, w: 1.5 }, { id: 'placebo', d: 8, w: 1.1 },
+    { id: 'twin', d: 10, w: 1.3 }, { id: 'billerror', d: 10, w: 1.5 },
+    { id: 'thewait', d: 11, w: 1.2 }, { id: 'secondnotice', d: 12, w: 1.4 }
   ].filter(e => depth >= e.d);
   for (const e of P) e.w *= 1 + 0.12 * Math.max(0, depth - e.d);
   return P;
@@ -1110,7 +1120,14 @@ DATA.CODEX_CHART = {
     collector: "The financing plan, personified. He doesn't fight — he FOLLOWS, and every floor you still owe, he comes back bigger. Killing him does nothing. The DEBT is the monster.",
     chargenurse: "Runs the floor. Sees everything. If you're moving, you're a problem — and she solves problems.",
     resident: "Thirty hours into the shift, doing an impression of every boss he's ever seen. Badly.",
-    orderly: "Not angry. Not fast. Just always, always closer than he was."
+    orderly: "Not angry. Not fast. Just always, always closer than he was.",
+    twin: "Two signatures, one authorization. They bracket you, and the co-signature line between them is load-bearing — do not walk through the paperwork. Hurt either and both feel it. Drop one and the whole approval collapses.",
+    billerror: "A charge nobody can explain. Kill it and it itemizes — into decimals, then into rounding errors. It gets smaller. It never gets simpler.",
+    decimal: "A line item off the Billing Error. Small, fast, and it still rounds against you.",
+    thewait: "It barely moves. It barely has to. Stand anywhere near it and time thickens — your legs remember every waiting room they've ever stood in. Kill it FIRST.",
+    secondnotice: "You were notified. It's in writing. It marks where you're standing, and a moment later the follow-up arrives — exactly there. Keep moving. Never be where you were.",
+    specialist: "You've been referred — mid-fight, without being asked. Blinks across the office and greets you with a three-bolt consultation each time. Out-of-network, obviously.",
+    casemanager: "Her caseload is everyone in the room except herself. As long as she's standing, every other patient is wrapped in coordinated care. She is, notably, NOT. Management priority: her."
   },
   bosses: {
     merger: "Two managements stitched into one org chart. Fights entirely with acquired attacks — nothing about it is original, including the smile. The stock ticks down as you object.",

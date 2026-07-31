@@ -1047,7 +1047,7 @@ class Tear {
         // Management does not defect: minibosses, security, the rival, paperwork, union reps,
         // and inspection performers are all unrecruitable — and the group caps at 3 strays.
         if (G.player.flags.charm && !e.fake && !e.dying && e.hp > 0
-          && !['auditor', 'rival', 'nightnurse', 'chargenurse', 'resident', 'orderly', 'recordsguard', 'middleman', 'form'].includes(e.id)
+          && !['auditor', 'rival', 'nightnurse', 'chargenurse', 'resident', 'orderly', 'specialist', 'casemanager', 'recordsguard', 'middleman', 'form', 'twin'].includes(e.id)
           && !e._form && !e._union && !e._perform && !e._collector && !e.noCharm
           && G.enemies.filter(x => x.charmed && !x.dying).length < 3
           && U.chance(G.player.flags.synHouse ? 0.26 : 0.16)) {
@@ -1270,7 +1270,7 @@ class Enemy {
     const S = this.spd * slowF * (this._enraged > 0 ? 1.45 : 1);
 
     // the last patient standing gets impatient — evasive types stop playing keep-away and come to you
-    const beh = (this._impatient && !this.fake && ['mirror', 'mimic', 'shooter', 'larper', 'bounce', 'ticket', 'buffer', 'shieldbot', 'charger'].includes(this.beh)) ? 'chase' : this.beh;
+    const beh = (this._impatient && !this.fake && ['mirror', 'mimic', 'shooter', 'larper', 'bounce', 'ticket', 'buffer', 'shieldbot', 'charger', 'notice'].includes(this.beh)) ? 'chase' : this.beh;
     switch (beh) {
       case 'chase': {
         const a = U.ang(this.x, this.y, p.x, p.y) + Math.sin(this.t * 3) * 0.3;
@@ -1688,6 +1688,100 @@ class Enemy {
         }
         break;
       }
+      case 'twin': {   // Preauth Twins: two signatures, one authorization — mind the line between them
+        if (!this._twinInit) {
+          this._twinInit = true;
+          if (!this._twin && !this.fake) {   // the paperwork arrives in duplicate
+            const a0 = U.rand(0, TAU);
+            const tw = new Enemy('twin', U.clamp(this.x + Math.cos(a0) * 84, RX + 30, RX + RW - 30), U.clamp(this.y + Math.sin(a0) * 84, RY + 30, RY + RH - 30), this.depth, false, this._hpMult || 1);
+            tw._twinInit = true; tw._twin = this; tw.noDrop = true; tw.spawnT = 0.4;
+            tw.hp = this.hp; tw.maxhp = this.maxhp;   // one shared chart between them
+            this._twin = tw; this._twinLead = true;
+            G.enemies.push(tw);
+          }
+        }
+        const ta = U.ang(this.x, this.y, p.x, p.y) + Math.sin(this.t * 2.2 + (this._twinLead ? 0 : Math.PI)) * 0.5;
+        this.x += Math.cos(ta) * S * dt; this.y += Math.sin(ta) * S * dt;
+        const tw = this._twin;
+        if (tw && !tw.dying) {
+          const td = U.dist(this.x, this.y, tw.x, tw.y);
+          if (td < 120 && td > 0.01) {   // they keep professional distance, bracketing you
+            const ra = U.ang(tw.x, tw.y, this.x, this.y);
+            this.x += Math.cos(ra) * 60 * dt; this.y += Math.sin(ra) * 60 * dt;
+          }
+          // the co-signature line: cross between them and it counts against you
+          if (this._twinLead && !this.fake && this.spawnT <= 0 && tw.spawnT <= 0 && td < 300 && p.iframes <= 0) {
+            const vx = tw.x - this.x, vy = tw.y - this.y;
+            const tt = U.clamp(((p.x - this.x) * vx + (p.y - this.y) * vy) / (td * td), 0, 1);
+            if (U.dist(p.x, p.y, this.x + vx * tt, this.y + vy * tt) < p.r + 4) p.hurt(1, G, 'twin');
+          }
+        }
+        break;
+      }
+      case 'wait': {   // THE WAIT: does nothing to you, except everything, slowly
+        const wa2 = U.ang(this.x, this.y, p.x, p.y);
+        this.x += Math.cos(wa2) * S * dt; this.y += Math.sin(wa2) * S * dt;
+        if (!this.fake && U.dist(this.x, this.y, p.x, p.y) < 148) {
+          p.tempSlow = Math.max(p.tempSlow || 0, 0.14);   // time thickens in here
+          if (Math.random() < dt * 5) { const a2 = U.rand(0, TAU); const rr = U.rand(120, 148); G.parts.push(new Particle(this.x + Math.cos(a2) * rr, this.y + Math.sin(a2) * rr, -Math.cos(a2) * 26, -Math.sin(a2) * 26, 0.5, 'rgba(168,176,192,0.5)', 2.5)); }
+        }
+        break;
+      }
+      case 'notice': {   // The Second Notice: it marks where you ARE, and files where you WERE
+        const nd = U.dist(this.x, this.y, p.x, p.y);
+        const na = U.ang(this.x, this.y, p.x, p.y);
+        const dir2 = nd < 200 ? -1 : nd > 320 ? 0.6 : 0;
+        this.x += Math.cos(na) * S * dir2 * dt + Math.cos(this.t * 1.9) * 26 * dt;
+        this.y += Math.sin(na) * S * dir2 * dt + Math.sin(this.t * 1.4) * 26 * dt;
+        this.shotT -= dt;
+        this._marks = this._marks || [];
+        if (this.shotT <= 0 && !this.fake && this._marks.length < 3) {
+          this.shotT = this.shotCd;
+          this._marks.push({ x: p.x, y: p.y, t: 0.9, r: 36 });
+          SFX.play('paper');
+        }
+        break;
+      }
+      case 'specialist': {   // THE SPECIALIST: you've been referred. mid-fight. without asking.
+        this._blinkT = (this._blinkT == null ? 1.2 : this._blinkT) - dt;
+        if (this._blinkT <= 0) {
+          this._blinkT = this.shotCd;
+          for (let i = 0; i < 10; i++) G.parts.push(new Particle(this.x, this.y, U.rand(-130, 130), U.rand(-130, 130), 0.35, '#c8a0e0', 3));
+          const ba = U.rand(0, TAU), bd2 = U.rand(130, 200);
+          this.x = U.clamp(p.x + Math.cos(ba) * bd2, RX + 40, RX + RW - 40);
+          this.y = U.clamp(p.y + Math.sin(ba) * bd2, RY + 40, RY + RH - 40);
+          for (let i = 0; i < 8; i++) G.parts.push(new Particle(this.x, this.y, U.rand(-130, 130), U.rand(-130, 130), 0.35, '#c8a0e0', 3));
+          SFX.play('whoosh');
+          if (!this.fake) for (const off of [-0.22, 0, 0.22]) this.fireAt(G, p.x, p.y, this.bulSpd, '#c8a0e0', off);   // the consultation
+        } else {
+          const a2 = U.ang(this.x, this.y, p.x, p.y);
+          this.x += Math.cos(a2) * S * 0.5 * dt; this.y += Math.sin(a2) * S * 0.5 * dt;
+        }
+        break;
+      }
+      case 'casemanager': {   // THE CASE MANAGER: her caseload is everyone in the room but her
+        const ca = U.ang(this.x, this.y, p.x, p.y) + Math.sin(this.t * 1.6) * 0.25;
+        this.x += Math.cos(ca) * S * dt; this.y += Math.sin(ca) * S * dt;
+        if (!this.fake) for (const e of G.enemies) {
+          if (e === this || e.dying || e.fake || e.beh === 'casemanager') continue;
+          if (U.dist(this.x, this.y, e.x, e.y) < 210) e._shieldT = 0.3;   // coordinated care
+        }
+        break;
+      }
+    }
+
+    // Second Notice paperwork lands even if the sender got impatient and switched to chasing
+    if (this._marks && this._marks.length) {
+      for (const m of this._marks) {
+        m.t -= dt;
+        if (m.t <= 0 && !m.done) {   // the follow-up arrives, exactly where you were standing
+          m.done = true;
+          for (let i = 0; i < 8; i++) { const ba = (i / 8) * TAU; G.parts.push(new Particle(m.x, m.y, Math.cos(ba) * 150, Math.sin(ba) * 150, 0.3, '#d8c04a', 3)); }
+          if (p.iframes <= 0 && U.dist(m.x, m.y, p.x, p.y) < m.r + p.r * 0.5) p.hurt(1, G, 'secondnotice');
+          SFX.play('stamp');
+        }
+      }
+      this._marks = this._marks.filter(m => !m.done);
     }
 
     // stay in bounds + tile collide (except bounce/charger handle their own walls)
@@ -1754,6 +1848,11 @@ class Enemy {
       ft.small = true; G.texts.push(ft);
     }
     if (this.beh === 'orderly') this._calm = 0;   // pain resets his patience
+    // Preauth Twins: one chart, two bodies — damage to either is damage to both
+    if (this.beh === 'twin' && this._twin && !this._twin.dying) {
+      this._twin.hp = this.hp;
+      this._twin.hitFlash = Math.max(this._twin.hitFlash, 0.08);
+    }
     // The Second Opinion: wound it and it produces a colleague who disagrees
     if (this.id === 'secondop' && !this._split && !this.fake && this.hp > 0 && U.chance(0.5)) {
       this._split = true;
@@ -1894,6 +1993,25 @@ class Enemy {
         child.spawnT = 0.25; child.noDrop = true;
         G.enemies.push(child);
       }
+    }
+    // Preauth Twins: drop one and the whole authorization collapses
+    if (this.beh === 'twin' && this._twin && !this._twin.dying) {
+      const tw = this._twin;
+      this._twin = null; tw._twin = null;   // unlink first so the collapse doesn't echo
+      tw.noDrop = true;
+      tw.die(G);
+      G.texts.push(new FloatText(tw.x, tw.y - 20, 'co-signer lost', '#7ea8e0'));
+    }
+    // The Billing Error itemizes on death — into decimals, then into rounding errors
+    if ((this.id === 'billerror' || this.id === 'decimal') && !this.fake && !this._tiny) {
+      for (let i = 0; i < 2; i++) {
+        const a = U.rand(0, TAU);
+        const child = new Enemy('decimal', this.x + Math.cos(a) * 12, this.y + Math.sin(a) * 12, this.depth, false, this._hpMult || 1);
+        child.spawnT = 0.25; child.noDrop = true;
+        if (this.id === 'decimal') { child._tiny = true; child.hp = Math.max(2, Math.round(child.hp * 0.5)); child.maxhp = child.hp; child.r = 7; child.spd *= 1.15; }
+        G.enemies.push(child);
+      }
+      if (this.id === 'billerror') G.texts.push(new FloatText(this.x, this.y - 20, 'itemized', '#e07a5a'));
     }
     if (this.beh === 'bomber') { this.explode(G); return; }
     // THE AUDITOR goes down: the books balance in your favor

@@ -281,13 +281,20 @@ keyboard and mouse.
 - **🎡 WHEEL OF APPEALS** — a commissary machine: 6¢ a spin to appeal one active negative — debt
   interest, a sample side effect, a ward condition. Lands on OVERTURNED or DENIED (the wheel
   sulks until the next ward). A bureaucratic slot machine.
+- **👥 The Deep Roster** — four new patients for the deep wards (10+): the PREAUTH TWINS
+  (two bodies, one shared chart, and a co-signature line between them you should not walk
+  through), THE BILLING ERROR (itemizes on death — into decimals, then rounding errors),
+  THE WAIT (a clock whose aura thickens time around you), and THE SECOND NOTICE (marks where
+  you stand; the follow-up arrives exactly there). Plus two new Clinic minibosses: THE
+  SPECIALIST (Ward 6+, blinks across the office, refers you mid-fight) and THE CASE MANAGER
+  (Ward 7+, shields every patient but herself — drop her first).
 - **💊 Content Pack II** — six new prescriptions (including the Waiver Pen keystone: nothing you
   sign flies straight), two new Personal Effects, and one pill that is simply The Good One.
 - **🔧 STAFF ONLY** — a full Game Tester hub on the title screen, behind a secret code, organized
   into five tabs. **PLAY**: sandbox any patient at any ward with loadout presets (kitted, glass
   cannon, tank, or hand-picked meds) — the save is snapshot-frozen throughout. **BOSS LAB**:
   rehearse any boss at any depth with any champion affix, SECOND SHIFT, or a Joint-Commission
-  partner. **TRIGGERS**: a 25-scenario jumper that drops you straight into any special encounter
+  partner. **TRIGGERS**: a 39-scenario jumper that drops you straight into any special encounter
   (rival races, the INSPECTION, heists, the Annex, Casual Friday…) pre-armed, no RNG. **DESIGNER**:
   the room editor with templates, undo, mirror, flood-fill, boss placement, playtest conditions
   (night/heat/wing), a named room library, and `EGSROOM` share codes. **TOOLS**: god mode, debug
