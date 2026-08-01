@@ -18,7 +18,7 @@ const Render = {
 
     if (G.state === 'run' || G.state === 'pause' || G.state === 'dead' || G.state === 'descend') {
       // screen shake
-      if (G.shake > 0.3 && !(Meta.data.a11y && Meta.data.a11y.reduceMotion)) ctx.translate(U.rand(-G.shake, G.shake) * 0.5, U.rand(-G.shake, G.shake) * 0.5);
+      if (G.shake > 0.3 && !(Meta.data.a11y && Meta.data.a11y.reduceMotion)) { const sm = (Meta.data.a11y && Meta.data.a11y.shakeMul != null) ? Meta.data.a11y.shakeMul : 1; if (sm > 0) ctx.translate(U.rand(-G.shake, G.shake) * 0.5 * sm, U.rand(-G.shake, G.shake) * 0.5 * sm); }
       this.drawRoom(G);
       this.drawEntities(G);
       if (G.hitboxes && Meta.data.tester) this.drawHitboxes(G);
@@ -1252,7 +1252,7 @@ const Render = {
     // falling items
     for (const it of A.items) {
       ctx.save(); ctx.translate(it.x, it.y); ctx.rotate(it.rot);
-      if (it.kind === 'pill') this.drawPillIcon(0, 0, DATA.PILL_COLORS[it.colorIdx]);
+      if (it.kind === 'pill') this.drawPillIcon(0, 0, DATA.PILL_COLORS[it.colorIdx], it.colorIdx);
       else if (it.kind === 'nickel') { ctx.fillStyle = '#e8c84c'; ctx.beginPath(); ctx.arc(0, 0, 9, 0, TAU); ctx.fill(); ctx.fillStyle = '#a8842a'; ctx.font = this.font(9, true); ctx.textAlign = 'center'; ctx.fillText('5', 0, 3); }
       else if (it.kind === 'script') { ctx.fillStyle = '#f4eee0'; this.rr(ctx, -8, -10, 16, 20, 2); ctx.fill(); ctx.strokeStyle = '#8a7a68'; ctx.lineWidth = 1; for (let l = -5; l <= 5; l += 4) { ctx.beginPath(); ctx.moveTo(-5, l); ctx.lineTo(5, l); ctx.stroke(); } ctx.fillStyle = '#3a6aa0'; ctx.font = this.font(8, true); ctx.textAlign = 'center'; ctx.fillText('℞', 0, -3); }
       else if (it.kind === 'walrus') { this.drawWalrusFace(ctx, 0, 0, 0.22, G.t); }
@@ -2905,7 +2905,7 @@ const Render = {
     // shop stock
     for (const s of G.shopStock) {
       if (s.taken) continue;
-      const icons = { half: () => this.drawHeart(s.x, s.y - 8, 9, '#e05a5a', true), pill: () => this.drawPillIcon(s.x, s.y - 8, DATA.PILL_COLORS[s.colorIdx || 0]), key: () => this.drawKeyIcon(s.x, s.y - 8), bomb: () => this.drawBombIcon(s.x, s.y - 8), coupon: () => { ctx.save(); ctx.fillStyle = '#c8e0a0'; this.rr(ctx, s.x - 12, s.y - 16, 24, 15, 3); ctx.fill(); ctx.strokeStyle = '#4a8a3a'; ctx.setLineDash([2, 2]); ctx.lineWidth = 1; this.rr(ctx, s.x - 12, s.y - 16, 24, 15, 3); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = '#356a2a'; ctx.font = this.font(11, true); ctx.textAlign = 'center'; ctx.fillText('%', s.x, s.y - 4); ctx.restore(); } };
+      const icons = { half: () => this.drawHeart(s.x, s.y - 8, 9, '#e05a5a', true), pill: () => this.drawPillIcon(s.x, s.y - 8, DATA.PILL_COLORS[s.colorIdx || 0], s.colorIdx || 0), key: () => this.drawKeyIcon(s.x, s.y - 8), bomb: () => this.drawBombIcon(s.x, s.y - 8), coupon: () => { ctx.save(); ctx.fillStyle = '#c8e0a0'; this.rr(ctx, s.x - 12, s.y - 16, 24, 15, 3); ctx.fill(); ctx.strokeStyle = '#4a8a3a'; ctx.setLineDash([2, 2]); ctx.lineWidth = 1; this.rr(ctx, s.x - 12, s.y - 16, 24, 15, 3); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = '#356a2a'; ctx.font = this.font(11, true); ctx.textAlign = 'center'; ctx.fillText('%', s.x, s.y - 4); ctx.restore(); } };
       if (icons[s.type]) icons[s.type]();
       ctx.fillStyle = '#e8c84c';
       ctx.font = this.font(13, true); ctx.textAlign = 'center';
@@ -2937,7 +2937,7 @@ const Render = {
       }
       else if (pk.type === 'half') this.drawHeart(pk.x, pk.y + bob, 8, '#e05a5a', true);
       else if (pk.type === 'full') this.drawHeart(pk.x, pk.y + bob, 10, '#e05a5a', false);
-      else if (pk.type === 'pill') this.drawPillIcon(pk.x, pk.y + bob, DATA.PILL_COLORS[pk.colorIdx]);
+      else if (pk.type === 'pill') this.drawPillIcon(pk.x, pk.y + bob, DATA.PILL_COLORS[pk.colorIdx], pk.colorIdx);
       else if (pk.type === 'key') this.drawKeyIcon(pk.x, pk.y + bob);
       else if (pk.type === 'bomb') this.drawBombIcon(pk.x, pk.y + bob);
       else if (pk.type === 'document') {   // MISFILED: a manila folder that shouldn't be here
@@ -4754,6 +4754,41 @@ const Render = {
         if (flash) { ctx.fillStyle = 'rgba(255,255,255,0.5)'; this.rr(ctx, -r * 0.78, -r * 0.95, r * 1.56, r * 1.9, 10); ctx.fill(); }
         break;
       }
+      case 'secondmd': { // the second opinion: taller than your doctor, wronger than your chart
+        const r = b.r || 40;
+        // long white coat, drawn like a disagreement
+        ctx.fillStyle = flash ? '#fff' : '#f0ecf4';
+        ctx.beginPath(); ctx.moveTo(-r * 0.7, -r * 0.5); ctx.quadraticCurveTo(0, -r * 1.15, r * 0.7, -r * 0.5);
+        ctx.lineTo(r * 0.6, r * 1.05); ctx.lineTo(-r * 0.6, r * 1.05); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = '#b8b0c8'; ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.moveTo(0, -r * 0.4); ctx.lineTo(0, r * 1.0); ctx.stroke();   // the coat's lapel line
+        // head: narrow, certain
+        ctx.fillStyle = flash ? '#fff' : '#e8d8c8';
+        ctx.beginPath(); ctx.ellipse(0, -r * 0.72, r * 0.34, r * 0.4, 0, 0, TAU); ctx.fill();
+        // half-glasses, worn low, for looking over
+        ctx.strokeStyle = '#4a3858'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(-r * 0.13, -r * 0.66, r * 0.11, 0, Math.PI); ctx.stroke();
+        ctx.beginPath(); ctx.arc(r * 0.13, -r * 0.66, r * 0.11, 0, Math.PI); ctx.stroke();
+        ctx.fillStyle = '#2c2333';
+        ctx.beginPath(); ctx.arc(-r * 0.13, -r * 0.78, 2.6, 0, TAU); ctx.arc(r * 0.13, -r * 0.78, 2.6, 0, TAU); ctx.fill();   // eyes ABOVE the glasses
+        ctx.strokeStyle = '#2c2333'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(-r * 0.12, -r * 0.5); ctx.lineTo(r * 0.06, -r * 0.52); ctx.stroke();   // the mouth, mid-“actually”
+        // the clipboard: YOUR chart, crossed out
+        ctx.save(); ctx.translate(r * 0.72, r * 0.1); ctx.rotate(0.18 + Math.sin(b.t * 1.2) * 0.05);
+        ctx.fillStyle = '#8a6a3a'; this.rr(ctx, -13, -18, 26, 36, 3); ctx.fill();
+        ctx.fillStyle = '#f4ecd8'; this.rr(ctx, -10, -14, 20, 28, 2); ctx.fill();
+        ctx.strokeStyle = 'rgba(90,70,50,0.6)'; ctx.lineWidth = 1.2;
+        for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.moveTo(-7, -8 + i * 6); ctx.lineTo(7, -8 + i * 6); ctx.stroke(); }
+        ctx.strokeStyle = '#c04030'; ctx.lineWidth = 2.4;   // the disagreement, in red
+        ctx.beginPath(); ctx.moveTo(-8, -10); ctx.lineTo(8, 10); ctx.moveTo(8, -10); ctx.lineTo(-8, 10); ctx.stroke();
+        ctx.restore();
+        // a pen in the other hand, held like a verdict
+        ctx.save(); ctx.translate(-r * 0.72, r * 0.05); ctx.rotate(-0.6 + Math.sin(b.t * 3) * 0.1);
+        ctx.fillStyle = '#2c3a54'; this.rr(ctx, -2, -12, 4, 20, 2); ctx.fill();
+        ctx.restore();
+        if (flash) { ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fill(); }
+        break;
+      }
       case 'seminar': { // the facilitator: polo, headset, unbreakable eye contact
         const r = b.r || 40;
         const pitching = b._semMode === 'pitch';
@@ -5584,7 +5619,7 @@ const Render = {
       } else if (kind === 'items') {
         this.drawItemIcon(id, 0, 2);
       } else if (kind === 'pills') {
-        this.drawPillIcon(0, 0, DATA.PILL_COLORS[id % DATA.PILL_COLORS.length]);
+        this.drawPillIcon(0, 0, DATA.PILL_COLORS[id % DATA.PILL_COLORS.length], id % DATA.PILL_COLORS.length);
       }
     } catch (e) { }
     ctx.restore();
@@ -5658,7 +5693,7 @@ const Render = {
     ctx.bezierCurveTo(x + s * 0.7, y - s, x + s * 1.4, y - s * 0.2, x, y + s * 0.9);
     ctx.stroke();
   },
-  drawPillIcon(x, y, clr) {
+  drawPillIcon(x, y, clr, idx) {
     const ctx = this.ctx;
     ctx.save();
     ctx.translate(x, y);
@@ -5669,6 +5704,23 @@ const Render = {
     this.rr(ctx, 0, -6, 12, 12, 6); ctx.fill();
     ctx.strokeStyle = '#2c2333'; ctx.lineWidth = 1.5;
     this.rr(ctx, -12, -6, 24, 12, 6); ctx.stroke();
+    // REASONABLE ACCOMMODATIONS: pattern marks — colors get a shape, colorblind players get the truth
+    if (idx != null && Meta.data.a11y && Meta.data.a11y.pillMarks) {
+      ctx.strokeStyle = '#1c1620'; ctx.fillStyle = '#1c1620'; ctx.lineWidth = 1.4;
+      const cx0 = 6;   // center of the colored half
+      switch (idx % 10) {
+        case 0: ctx.beginPath(); ctx.arc(cx0, 0, 1.7, 0, TAU); ctx.fill(); break;                          // one dot
+        case 1: ctx.beginPath(); ctx.arc(cx0 - 2.6, 0, 1.4, 0, TAU); ctx.arc(cx0 + 2.6, 0, 1.4, 0, TAU); ctx.fill(); break;   // two dots
+        case 2: ctx.beginPath(); ctx.arc(cx0, -2.6, 1.3, 0, TAU); ctx.arc(cx0 - 2.4, 2, 1.3, 0, TAU); ctx.arc(cx0 + 2.4, 2, 1.3, 0, TAU); ctx.fill(); break;   // three dots
+        case 3: ctx.beginPath(); ctx.arc(cx0, 0, 3, 0, TAU); ctx.stroke(); break;                          // ring
+        case 4: ctx.beginPath(); ctx.moveTo(cx0 - 3, -3); ctx.lineTo(cx0 + 3, 3); ctx.moveTo(cx0 + 3, -3); ctx.lineTo(cx0 - 3, 3); ctx.stroke(); break;   // cross
+        case 5: ctx.beginPath(); ctx.moveTo(cx0, -4); ctx.lineTo(cx0, 4); ctx.stroke(); break;             // stripe
+        case 6: ctx.beginPath(); ctx.moveTo(cx0 - 2, -4); ctx.lineTo(cx0 - 2, 4); ctx.moveTo(cx0 + 2, -4); ctx.lineTo(cx0 + 2, 4); ctx.stroke(); break;   // double stripe
+        case 7: ctx.beginPath(); ctx.moveTo(cx0, -3.4); ctx.lineTo(cx0 + 3.2, 2.6); ctx.lineTo(cx0 - 3.2, 2.6); ctx.closePath(); ctx.stroke(); break;   // triangle
+        case 8: ctx.strokeRect(cx0 - 2.6, -2.6, 5.2, 5.2); break;                                          // square
+        case 9: ctx.beginPath(); ctx.moveTo(cx0 - 3.4, 0); ctx.lineTo(cx0 + 3.4, 0); ctx.moveTo(cx0, -3.4); ctx.lineTo(cx0, 3.4); ctx.stroke(); break;   // plus
+      }
+    }
     ctx.restore();
   },
   drawKeyIcon(x, y) {
@@ -5792,6 +5844,16 @@ const Render = {
       }
     }
 
+    // THE SECOND OPINION's re-diagnosis: a contested-chart chip, top center
+    if (G.rediagFx) {
+      const rw = 250, rx0 = CW / 2 - rw / 2, ry0 = 64;
+      ctx.fillStyle = 'rgba(30,20,34,0.82)'; this.rr(ctx, rx0, ry0, rw, 30, 8); ctx.fill();
+      ctx.strokeStyle = '#e0a95a'; ctx.lineWidth = 2; this.rr(ctx, rx0, ry0, rw, 30, 8); ctx.stroke();
+      ctx.fillStyle = '#e0a95a'; ctx.font = this.font(11, true); ctx.textAlign = 'center';
+      ctx.fillText(G.rediagFx.label + ' (contested)', CW / 2, ry0 + 14);
+      ctx.fillStyle = 'rgba(224,169,90,0.5)';
+      this.rr(ctx, rx0 + 6, ry0 + 21, (rw - 12) * U.clamp(G.rediagFx.t / 5, 0, 1), 5, 2); ctx.fill();
+    }
     // signature ability pip (bottom-left)
     if (p.abil) {
       const ax = 42, ay = CH - 44, ar = 22, ready = p.abilCd <= 0;
@@ -5887,7 +5949,7 @@ const Render = {
     ctx.strokeStyle = 'rgba(240,232,216,0.5)'; ctx.lineWidth = 2;
     this.rr(ctx, 350, 8, 66, 34, 8); ctx.stroke();
     if (p.pill != null) {
-      this.drawPillIcon(371, 25, DATA.PILL_COLORS[p.pill]);
+      this.drawPillIcon(371, 25, DATA.PILL_COLORS[p.pill], p.pill);
       ctx.textAlign = 'left';
       ctx.fillStyle = 'rgba(240,232,216,0.75)';
       ctx.font = this.font(11, true);

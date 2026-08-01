@@ -48,6 +48,7 @@ const G = {
   },
   applyCodexPerks(p) {
     if (Meta.data.orientationDone) p.luck += 0.5;   // Fully Oriented: the tape knew things
+    if (Meta.data.appealUpheld) { p.luck += 0.5; p.maxhp += 1; p.hp += 1; }   // UPHELD ON APPEAL: your chart survived a second opinion
     if (this.codexTabComplete('pills')) p.flags.pillsKnown = true;   // all pills documented → pre-identified
     if (this.codexTabComplete('enemies')) p.flags.hpBars = true;     // all patients → Clinician's Eye (HP bars)
   },
@@ -446,6 +447,13 @@ const G = {
         <button class="btn minor" id="bA11yEasy">${ct(a.easy, 'Second Opinion (easier)')}</button>
         <button class="btn minor" id="bA11yAim">${ct(a.aimAssist !== false, 'Aim assist (stick/touch)')}</button>
         <button class="btn minor" id="bA11yDmg">${ct(!!a.dmgNums, 'Damage numbers')}</button>
+        <button class="btn minor" id="bA11yAuto">${ct(!!a.autofire, 'Autofire (targets nearest)')}</button>
+        <button class="btn minor" id="bA11yPills">${ct(!!a.pillMarks, 'Pill pattern marks (colorblind)')}</button>
+        <div class="setrow">
+          <label>💥 Screen shake <span id="shakePct">${a.shakeMul != null ? Math.round(a.shakeMul * 100) : 100}%</span></label>
+          <input type="range" class="slider" id="shakeSlider" min="0" max="100" value="${a.shakeMul != null ? Math.round(a.shakeMul * 100) : 100}">
+        </div>
+        <button class="btn minor" id="bControls">⌨ CONTROLS (remap keys)</button>
         <button class="btn minor" id="bStoryToggle">${ct(!Meta.data.storyOff, 'Story cutscenes')}</button>
         ${(() => {
           const owned = DATA.HATS.filter(h => (Meta.data.unlocks || {})[h.ach]);
@@ -494,6 +502,12 @@ const G = {
     const bAim = document.getElementById('bA11yAim');
     if (bAim) bAim.onclick = () => { SFX.play('ui'); a.aimAssist = a.aimAssist === false; Meta.save(); bAim.textContent = ct(a.aimAssist !== false, 'Aim assist (stick/touch)'); };
     tog('bA11yDmg', 'dmgNums', 'Damage numbers');
+    tog('bA11yAuto', 'autofire', 'Autofire (targets nearest)');
+    tog('bA11yPills', 'pillMarks', 'Pill pattern marks (colorblind)');
+    const shk = document.getElementById('shakeSlider');
+    if (shk) shk.oninput = () => { a.shakeMul = shk.value / 100; Meta.save(); document.getElementById('shakePct').textContent = shk.value + '%'; };
+    const bctl = document.getElementById('bControls');
+    if (bctl) bctl.onclick = () => { SFX.play('ui'); this.showControls(() => this.showSettings(returnTo)); };
     const bst = document.getElementById('bStoryToggle');
     if (bst) bst.onclick = () => { SFX.play('ui'); Meta.data.storyOff = Meta.data.storyOff ? 0 : 1; Meta.save(); bst.textContent = ct(!Meta.data.storyOff, 'Story cutscenes'); };
     document.querySelectorAll('[data-hat]').forEach(b => b.onclick = () => { SFX.play('ui'); Meta.data.hat = b.dataset.hat || null; Meta.save(); this.showSettings(returnTo); });
@@ -871,6 +885,16 @@ const G = {
 
   /* ---- THE SCENARIO JUMPER: every special encounter, pre-armed ---- */
   TESTER_SCENARIOS: [
+    { icon: '⚖', name: 'SECOND OPINION, M.D.', sub: 'the re-diagnoser, ward 13 tuning', run(G) {
+      G.startBossLab({ boss: 'secondmd', depth: 13, affix: '', shift2: false, joint: '' });
+    } },
+    { icon: '📌', name: 'POLICY BOARD', sub: 'fund granted, corkboard open', run(G) {
+      Meta.data.fund = Math.max(Meta.data.fund || 0, 600);
+      G.showPolicyBoard(() => { G.hideOverlay(); G.state = 'title'; G.showTitle(); });
+    } },
+    { icon: '📖', name: 'DEEP PAGES', sub: 'ward 30 · 40 · roof, back to back', run(G) {
+      Story.play('ward30', () => Story.play('ward40', () => Story.play('roofpre', () => { G.showTitle(); })));
+    } },
     { icon: '🛗', name: 'THE ELEVATOR', sub: 'car in the shaft, all three stops', run(G) {
       G.ensureSandboxAt(4);
       G._elevFloor = true; G._elevRode = false;
@@ -3244,7 +3268,7 @@ const G = {
      The complete in-fiction manual: every mechanic, symptom, ward, and
      service. Mostly generated from DATA so new content lists itself;
      the prose sections get a line whenever a feature ships. */
-  HB_REV: 44,
+  HB_REV: 45,
   showHandbook(returnTo) {
     this.state = 'handbook';
     if (!this._hbTab) this._hbTab = 'basics';
@@ -3341,7 +3365,7 @@ const G = {
 
       staff: () => H('WARD MANAGEMENT (bosses)')
         + Object.entries(DATA.BOSSES).map(([k, b]) => {
-          const when = { gatekeeper: 'rotation · ward 1+', larperking: 'rotation · ward 1+', adjuster: 'rotation · ward 2+', priorauth: 'rotation · ward 2+', stigma: 'rotation · ward 3+', dsm: 'rotation · ward 3+', algorithm: 'rotation · ward 3+', influencer: 'rotation · ward 3+', withdrawal: 'rotation · ward 4+', burnout: 'rotation · ward 4+', peerreview: 'rotation · ward 6+', thehold: 'rotation · ward 7+', abtest: 'rotation · ward 9+', deductible: 'rotation · ward 8+', seminar: 'rotation · ward 10+', merger: 'rotation · ward 30+', walrus: 'every 5th ward', thecure: 'ward 25', theboard: 'THE ROOF', founder: 'ward 50', thesystem: 'ward 100' }[k];
+          const when = { gatekeeper: 'rotation · ward 1+', larperking: 'rotation · ward 1+', adjuster: 'rotation · ward 2+', priorauth: 'rotation · ward 2+', stigma: 'rotation · ward 3+', dsm: 'rotation · ward 3+', algorithm: 'rotation · ward 3+', influencer: 'rotation · ward 3+', withdrawal: 'rotation · ward 4+', burnout: 'rotation · ward 4+', peerreview: 'rotation · ward 6+', thehold: 'rotation · ward 7+', abtest: 'rotation · ward 9+', deductible: 'rotation · ward 8+', seminar: 'rotation · ward 10+', secondmd: 'rotation · ward 12+', merger: 'rotation · ward 30+', walrus: 'every 5th ward', thecure: 'ward 25', theboard: 'THE ROOF', founder: 'ward 50', thesystem: 'ward 100' }[k];
           return R('☠', `${b.name} <span class="hbtag">${b.sub}</span>`, BO[k] || '—', when);
         }).join('')
         + H('CHAMPION AFFIXES (ward 8+)')
@@ -3433,8 +3457,14 @@ const G = {
         + R('🧹', 'The Janitor', 'forty years. Secret shops, basement wisdom, a master key he\'s not supposed to have')
         + R('📢', 'The Intercom', 'Dr. Walrus watches, and comments. The intercom is not a fan of your streaks')
         + R('🚶', 'Day Room patients', 'The Veteran, The Optimist, The Oversharer, and friends — one boon each')
+        + H('THE POLICY BOARD (Waiting Room corkboard)')
+        + N('Spend the Wellness Fund on PERMANENT building policies. Enacted policies apply to every future run:')
+        + DATA.POLICIES.map(p => R('📌', p.name + ' — ' + p.cost + '¢', p.desc)).join('')
+        + H('REASONABLE ACCOMMODATIONS (Settings)')
+        + N('Full keyboard remapping (⌨ CONTROLS), autofire that targets the nearest threat, a screen-shake intensity slider, and colorblind pattern marks on every pill. The building installed a ramp. It only took forty-five revisions.')
         + H('REVISION HISTORY')
         + N('This handbook is updated with every patch. If a feature exists, it\'s in here — that\'s the policy. Spot something missing? The Complaint Department is thataway.')
+        + N('rev. 45 — THE BUILDING, IMPROVED: the Waiting Room grew a POLICY BOARD (spend the Wellness Fund on permanent building policies — hydration, quiet intake hours, transparent billing, staff retention; see the corkboard), THE SECOND OPINION, M.D. is seeing patients on wards 12+ (he will RE-DIAGNOSE you mid-fight; beat him once and your chart is UPHELD ON APPEAL, permanently, with benefits), Settings gained REASONABLE ACCOMMODATIONS (full key remapping, autofire targeting, a screen-shake slider, and colorblind pattern marks on pills), and the Chart Notes grew three DEEP PAGES: Ward 30, Ward 40, and the roof before THE BOARD. The letter is signed with a smiley face. You keep it.')
         + N('rev. 44 — CONTINUITY OF CARE: the champion that got you now gets a NAME and comes back wearing it (see THE NEMESIS LEDGER under SYMPTOMS — repeat offenders earn ranks and bigger bounties), some trapdoors have an ELEVATOR CAR in them today (pick your stop: the next ward, THE MEZZANINE between wards, or EXPRESS past a whole one — sometimes the doors open mid-ride and someone gets on; nobody talks), the PATIENT PORTAL is live on your phone (T key or the pause menu, two logins per ward: results, messages, billing disputes, mail-order refills), and some wards put the folding chairs in a circle: GROUP SESSION (take the open chair; validate, deflect, or overshare; live with it). The circle is sacred. The muzak is load-bearing.')
         + N('rev. 43 — OPEN HOUSE PREP: the front desk was tidied for new patients — a first visit now shows only the doors that matter (the rest of the directory unlocks after checkup #1), the building holds its calendar small-talk until your second visit, the orientation card finally admits the PRN ability and the pause key exist, and there is a COMPLAINT DEPARTMENT (external) at the bottom of the title screen. Complaints are filed as GitHub issues. They are read. Unlike here, they are read.')
         + N('rev. 42 — MANDATORY ENRICHMENT: THE WELLNESS SEMINAR is now presenting on wards 10+ (folding-chair cover, participation zones, an AUDIENCE MOOD meter, enforced attendance, and — at the end of its rope — a timeshare; see STAFF), and four new champion crowns joined the deep rotation: ITEMIZED, RE-ADMITTED, LINGERING, and OUT-OF-NETWORK (see the CHAMPIONS list — kill order matters now). The chairs are not load-bearing. The pitch is.')
@@ -3490,8 +3520,14 @@ const G = {
   },
   // story interlude when first reaching a milestone ward; returns true if one is now playing
   maybeInterlude() {
-    if (Meta.data.storyOff || typeof Story === 'undefined' || this.bossRush || this.ascent || this.dreamFloor || this.annexFloor || this.sandbox) return false;   // pocket floors and rehearsals aren't the real milestone
-    const id = { 5: 'ward5', 10: 'ward10', 15: 'ward15', 20: 'ward20', 50: 'ward50pre', 100: 'ward100pre' }[this.depth];
+    if (Meta.data.storyOff || typeof Story === 'undefined' || this.bossRush || this.dreamFloor || this.annexFloor || this.sandbox) return false;   // pocket floors and rehearsals aren't the real milestone
+    // THE ROOF: the top of the ascent gets its own page before THE BOARD convenes
+    if (this.ascent && this.depth - this.ascentBase >= 5 && !(Meta.data.seenStory && Meta.data.seenStory.roofpre)) {
+      Story.play('roofpre', () => { this.newFloor(); this.state = 'run'; });
+      return true;
+    }
+    if (this.ascent) return false;   // other ascent floors aren't milestones
+    const id = { 5: 'ward5', 10: 'ward10', 15: 'ward15', 20: 'ward20', 30: 'ward30', 40: 'ward40', 50: 'ward50pre', 100: 'ward100pre' }[this.depth];
     // the interlude interrupts the descend animation, so its onDone must rebuild the floor AND restore play
     if (id && !(Meta.data.seenStory && Meta.data.seenStory[id])) { Story.play(id, () => { this.newFloor(); this.state = 'run'; }); return true; }
     return false;
@@ -3993,6 +4029,7 @@ const G = {
         { x: 170, y: 218, r: 46, door: false, label: '🎁 GIFT SHOP', hint: 'fund: ' + (Meta.data.fund || 0) + '¢ · gifts deliver at check-in', act: () => this.showGiftShop(() => this.showHub()) },
         { x: 645, y: 552, r: 42, door: false, label: '🕹 BREAKROOM', hint: (Meta.data.arcade && Meta.data.arcade.best ? 'PILL CATCHER · best ' + Meta.data.arcade.best : 'PILL CATCHER · 2¢ a play'), act: () => this.showArcade() },
         { x: 596, y: 208, r: 34, door: false, label: '📻 WWRD', hint: Object.keys(Meta.data.tracksHeard || {}).length + '/9 tracks · ward radio', act: () => this.showRadio(() => this.showHub()) },
+        { x: 745, y: 214, r: 42, door: false, label: '📌 POLICY BOARD', hint: Object.keys(Meta.data.policies || {}).length + '/' + DATA.POLICIES.length + ' enacted · the building, improved', act: () => this.showPolicyBoard(() => this.showHub()) },
         { x: 480, y: 628, r: 40, door: this.exitReady(), label: this.exitReady() ? '🚪 THE FRONT DOOR' : '🔒 FRONT DOOR', hint: this.exitReady() ? 'it\'s open. it\'s actually open.' : 'locked since intake', act: () => this.tryExit() }
       ]
     };
@@ -4506,6 +4543,11 @@ const G = {
     this.floorMods = {};
     for (const c of this.complications) Object.assign(this.floorMods, c.mods);
     if (this.quietFloor) this.floorMods.countMul = (this.floorMods.countMul || 1) * 0.65;   // the quiet route: fewer patients
+    // POLICY: QUIET HOURS — the first two wards run gentler intake
+    if (this.depth <= 2 && this.policyOn('quiethours')) {
+      this.floorMods.countMul = (this.floorMods.countMul || 1) * 0.85;
+      this.floorMods.shotMul = (this.floorMods.shotMul || 1) * 1.2;   // slower trigger fingers
+    }
     this.floorDark = this.floorMods.dark || 0;
     // ward side-effect (satirical "curse") — a whole-floor modifier rolled at deeper wards
     this.sideEffect = (this.depth >= 3)
@@ -4656,6 +4698,7 @@ const G = {
     this.abFlip = false; this.abSweepX = null;       // the A/B TEST's methodology stays in its room
     this.semChairs = null; this.semZones = null; this.semMeter = 0;   // the SEMINAR's chairs get stacked at close
     this._portalUses = 2; this._portalOpen = false;   // the PORTAL resets its session limit at each ward
+    this.rediagFx = null;   // second opinions don't follow you downstairs
     // THE WELLNESS SEMINAR's timeshare: the membership fee bills at each new ward (not on chart-reopen)
     if (this.semFee && this.semFee.left > 0 && !this.dreamFloor && !this.annexFloor && !this.sandbox && !this._resumeTick) {
       const p2 = this.player;
@@ -4939,6 +4982,13 @@ const G = {
       SFX.setMusic(this.ward13 ? 'ward13' : 'run');
     }
     if (room.type === 'clinic' && !room.cleared && room._minibossName && !room.greeted) { room.greeted = true; this.setBanner('⚕ ' + room._minibossName, 'office hours', 2.2); SFX.play('boss'); }
+    // POLICY: TRANSPARENT BILLING — the shop posts its stock at the door, out loud, like it's normal
+    if (room.type === 'shop' && this.policyOn('billing') && !room._postedPrices) {
+      room._postedPrices = true;
+      const stock = (room.stock || []).filter(s => !s.taken).slice(0, 5)
+        .map(s => (s.itemId && DATA.ITEMS[s.itemId] ? DATA.ITEMS[s.itemId].name : s.type) + ' ' + s.price + '¢').join(' · ');
+      if (stock) this.toast('POSTED AT THE DOOR: ' + stock + '. (Transparent Billing, your policy.)', '#9db85a');
+    }
     if (room.type === 'secret' && !room.greeted) { room.greeted = true; this.toast(DATA.TOASTS.secret); }
     if (room.type === 'oon' && !room.greeted) { room.greeted = true; this.toast(DATA.TOASTS.oon, '#e08a8a'); }
     if (room.type === 'gym' && !room.greeted) { room.greeted = true; this.toast('🥊 The gym. Someone chalked a name on the board. It\'s yours, misspelled.', '#d08a4a'); }
@@ -5160,6 +5210,7 @@ const G = {
         if (p.allies.length && !this._sessionDone && U.chance(0.25)) { this._sessionDone = true; room.peds.push({ x: RX + RW - 120, y: RY + 120, kind: 'session', taken: false }); }   // The Day Room — a sanctuary: a water cooler + a few other patients
         room.cleared = true;
         room.peds.push({ x: RX + 90, y: RY + RH / 2, kind: 'cooler', taken: false });
+        if (this.policyOn('hydration')) room.peds.push({ x: RX + RW - 90, y: RY + RH / 2, kind: 'cooler', taken: false });   // POLICY: the second cooler. morale is measurable.
         if (U.chance(0.3)) room.pickups.push(new Pickup('trinket', CW / 2 - 120, RY + RH / 2 + 70));   // lost property
         const nDay = this.hasRule('visitorDay') ? 5 : 3;   // house rules: visitor day — the room is crowded
         const npcs = U.shuffle(DATA.DAYROOM.map((_, i) => i)).slice(0, nDay);
@@ -5373,6 +5424,13 @@ const G = {
     }
     if ((this._roomHits || 0) === 0) this.contractEvent('cleanroom');   // Look Untouchable
     if (room.type === 'clinic') this.contractEvent('miniboss');        // Office Politics
+    // POLICY: STAFF RETENTION — the office pays out extra, on the record
+    if (room.type === 'clinic' && this.policyOn('retention')) {
+      this.pickups.push(new Pickup(U.choice(['half', 'pill', 'nickel']), CW / 2 + U.rand(-40, 40), RY + RH / 2 + U.rand(-30, 30)));
+      this.pickups.push(new Pickup('coin', CW / 2 + U.rand(-50, 50), RY + RH / 2 + U.rand(-30, 30)));
+      this.pickups.push(new Pickup('coin', CW / 2 + U.rand(-50, 50), RY + RH / 2 + U.rand(-30, 30)));
+      this.toast('STAFF RETENTION: the office pays out properly. HR is astonished.', '#8fd08a');
+    }
     this._cleanStreak = (this._roomHits || 0) === 0 ? (this._cleanStreak || 0) + 1 : 0;
     if (this._ic && !(this._ic.cds.fast > 0) && this.t - (this._roomT0 || 0) < 5) { this._ic.cds.fast = 110; this.pa('fast'); }
     // Shadow Ward: the dark pays double
@@ -5589,6 +5647,19 @@ const G = {
       if (this.bossId === 'seminar' && !this.practice && !this.sandbox) {
         Meta.data.seminarKills = (Meta.data.seminarKills || 0) + 1; Meta.save();
         this.toast('The seminar concludes. Feedback forms will not be provided.', '#8fd08a');
+        this.checkUnlocks();
+      }
+    }
+    // THE SECOND OPINION, M.D.: overruled — your chart is UPHELD ON APPEAL
+    if (this.bossId === 'secondmd') {
+      this.rediagFx = null;
+      if (!this.practice && !this.sandbox) {
+        Meta.data.secondmdKills = (Meta.data.secondmdKills || 0) + 1;
+        if (!Meta.data.appealUpheld) {
+          Meta.data.appealUpheld = 1;
+          this.toast('UPHELD ON APPEAL — your original chart stands, permanently. +½ luck, +½♥ container, every run, forever. He is FURIOUS.', '#8fd08a');
+        } else this.toast('“…noted,” he says, and bills someone else for the first time.', '#8fd08a');
+        Meta.save();
         this.checkUnlocks();
       }
     }
@@ -6753,6 +6824,66 @@ const G = {
   },
 
   /* ---------- pause / death overlays ---------- */
+  /* ---------- REASONABLE ACCOMMODATIONS: the key remapper ---------- */
+  showControls(returnTo) {
+    this.state = 'controls';
+    Input.loadBinds();
+    const nice = c => (c || '—').replace('Key', '').replace('Arrow', '') .replace('Left', c && c.startsWith('Arrow') ? '←' : 'L-').replace('Right', c && c.startsWith('Arrow') ? '→' : 'R-').replace('Up', '↑').replace('Down', '↓');
+    this.overlay(`<div class="panel">
+      <h1 class="logo" style="font-size:24px">⌨ CONTROLS</h1>
+      <div class="tagline">Click an action, press a key. The building will adapt. It is legally required to.</div>
+      <div class="summary" style="max-height:46vh;overflow-y:auto">
+        ${Object.keys(Input.BIND_DEFAULTS).map(a2 => `<div class="sumrow"><span>${Input.BIND_NAMES[a2]}</span><button class="btn minor" data-bind="${a2}" style="min-width:86px">${nice(Input.bind(a2))}</button></div>`).join('')}
+      </div>
+      <div class="btnrow">
+        <button class="btn minor" id="bBindReset">RESET TO DEFAULTS</button>
+        <button class="btn" id="bBindBack">BACK</button>
+      </div>
+    </div>`);
+    document.querySelectorAll('[data-bind]').forEach(b => b.onclick = () => {
+      SFX.play('ui');
+      b.textContent = 'press a key…';
+      Input.capture = (code) => {
+        if (code === 'Escape') { this.showControls(returnTo); return; }
+        Input.setBind(b.dataset.bind, code);
+        SFX.play('stamp');
+        this.showControls(returnTo);
+      };
+    });
+    document.getElementById('bBindReset').onclick = () => { SFX.play('ui'); Meta.data.binds = {}; Meta.save(); Input.loadBinds(); this.showControls(returnTo); };
+    document.getElementById('bBindBack').onclick = () => { SFX.play('ui'); Input.capture = null; (returnTo || (() => this.showTitle()))(); };
+  },
+
+  /* ---------- THE POLICY BOARD: the Fund buys standing improvements ---------- */
+  policyOn(id) { return !!(Meta.data.policies || {})[id]; },
+  showPolicyBoard(returnTo) {
+    this.state = 'policyboard';
+    const fund = Meta.data.fund || 0;
+    const pol = Meta.data.policies || (Meta.data.policies = {});
+    this.overlay(`<div class="panel wide">
+      <h1 class="logo" style="font-size:24px">📌 THE POLICY BOARD</h1>
+      <div class="tagline">Corkboard, thumbtacks, real change. The Fund holds <b>${fund}¢</b>. Policies are permanent. The building resists, then complies.</div>
+      <div class="cmgrid">
+        ${DATA.POLICIES.map(p => pol[p.id]
+          ? `<div class="cmcard" style="opacity:.75;border-color:#8fd08a"><div class="cmname" style="color:#8fd08a">${p.name} — ENACTED</div><div class="cmdesc">${p.desc}</div><div class="cmtag">policy in effect. laminated.</div></div>`
+          : `<button class="cmcard" data-pol="${p.id}"><div class="cmname">${p.name}</div><div class="cmdesc">${p.desc}</div><div class="cmtag">${p.cost}¢ from the Fund${fund < p.cost ? ' — INSUFFICIENT' : ''}</div></button>`).join('')}
+      </div>
+      <button class="btn" id="bPolBack">BACK</button>
+    </div>`);
+    document.querySelectorAll('[data-pol]').forEach(b => b.onclick = () => {
+      const p = DATA.POLICIES.find(x => x.id === b.dataset.pol);
+      if ((Meta.data.fund || 0) < p.cost) { SFX.play('denied'); this.toast('The Fund is willing. The Fund is also empty-ish.', '#e05a5a'); return; }
+      Meta.data.fund -= p.cost;
+      (Meta.data.policies || (Meta.data.policies = {}))[p.id] = 1;
+      Meta.save();
+      this.toast('POLICY ENACTED: ' + p.name + '. Somewhere, a laminator warms up.', '#8fd08a');
+      SFX.play('fanfare');
+      this.checkUnlocks && this.checkUnlocks();
+      this.showPolicyBoard(returnTo);
+    });
+    document.getElementById('bPolBack').onclick = () => { SFX.play('ui'); (returnTo || (() => this.showTitle()))(); };
+  },
+
   /* ---------- THE ELEVATOR: some shafts have a car in them (stops, riders, muzak) ---------- */
   showElevatorStops() {
     this.state = 'elevstops';
