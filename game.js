@@ -131,8 +131,8 @@ const G = {
     return `<div class="calgrid">${cells}</div>`;
   },
   /* ISO week key for the Quarterly Review (Mon-anchored) */
-  weekKey() {
-    const d = new Date();
+  weekKey(d0) {
+    const d = d0 || new Date();
     const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
     const day = (t.getUTCDay() + 6) % 7;
     t.setUTCDate(t.getUTCDate() - day + 3);
@@ -153,6 +153,31 @@ const G = {
     const key = this.weekKey();
     if (!Q || Q.key !== key) { Q = Meta.data.quarterly = { key, bills: [] }; Meta.save(); }
     return Q;
+  },
+
+  /* MANAGER OF THE WEEK: one seeded duel. same manager for everyone, all week.
+     the schedule is the only fair thing in the building. */
+  prevWeekKey() { return this.weekKey(new Date(Date.now() - 7 * 86400000)); },
+  motwInfo() {
+    const key = this.weekKey();
+    const seed = hashSeed(4644646, [key]);
+    const R = mulberry32(seed);
+    const bosses = Object.keys(DATA.BOSSES).filter(b => !['founder', 'thesystem', 'thecure'].includes(b));
+    const boss = bosses[Math.floor(R() * bosses.length)];
+    const depth = 7 + Math.floor(R() * 9);   // wards 7–15: management with tenure
+    const affix = R() < 0.45 ? DATA.BOSS_AFFIXES[Math.floor(R() * DATA.BOSS_AFFIXES.length)].id : '';
+    const diag = this.DAILY_DIAGS[Math.floor(R() * this.DAILY_DIAGS.length)];
+    const pool = [].concat(DATA.POOLS.special, DATA.POOLS.shop);
+    const items = [];
+    while (items.length < 2 && pool.length) {
+      const pick = pool.splice(Math.floor(R() * pool.length), 1)[0];
+      if (DATA.ITEMS[pick] && !items.includes(pick)) items.push(pick);
+    }
+    return { key, boss, depth, affix, diag, items };
+  },
+  motwFmt(ms) {
+    const s = Math.floor(ms / 1000);
+    return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0') + '.' + (Math.floor(ms / 100) % 10);
   },
 
   showDaily() {
@@ -1166,6 +1191,31 @@ const G = {
       for (let i = 0; i < 5; i++) { const e = new Enemy(DATA.pickEnemy(3, null), U.clamp(p.x + U.rand(-200, 200), RX + 40, RX + RW - 40), U.clamp(p.y + U.rand(-140, 140), RY + 40, RY + RH - 40), 3, false, 1); e.spawnT = 0; G.enemies.push(e); }
       G.room.cleared = false; G.room.spawned = true;
       G.toast('🎩 Scenario: it is now, locally and legally, Casual Friday.', '#c8b878');
+    } },
+    { icon: '🏆', name: "THIS WEEK'S MANAGER", sub: 'rehearse the weekly duel, off the record', run(G) {
+      const info = G.motwInfo();
+      G.startBossLab({ boss: info.boss, depth: info.depth, affix: info.affix, shift2: false, joint: '' });
+      const p = G.player;
+      for (const id of info.items) if (DATA.ITEMS[id]) p.addItem(id, G, true);
+      p.hp = p.maxhp;
+      G.setBanner('🏆 REHEARSAL', 'this week\'s manager, no clock, nothing files', 2.6);
+    } },
+    { icon: '📬', name: 'THE CARRIER', sub: 'the working pigeon, mail incoming', run(G) {
+      G.ensureSandboxAt(3);
+      G.player.pet = new Pet('carrier');
+      G._portalUses = 2;
+      G.toast('📬 Scenario: the Carrier is on shift. Send portal mail (T) — replies arrive instantly.', '#c8c0b8');
+    } },
+    { icon: '🧾', name: 'EXPLANATION OF BENEFITS', sub: 'get hit, get itemized', run(G) {
+      G.ensureSandboxAt(5);
+      const p = G.player;
+      p.hp = 3;
+      for (let i = 0; i < 6; i++) { const e = new Enemy(DATA.pickEnemy(5, null), U.clamp(p.x + U.rand(-220, 220), RX + 40, RX + RW - 40), U.clamp(p.y + U.rand(-150, 150), RY + 40, RY + RH - 40), 5, false, 1); e.spawnT = 0; G.enemies.push(e); }
+      G.room.cleared = false; G.room.spawned = true;
+      G.toast('🧾 Scenario: 3♥ left. Whatever bills you gets itemized on the way out.', '#c8a24a');
+    } },
+    { icon: '🕯', name: 'MEMORIAL WALL', sub: 'the plaques, the candle, one honor', run(G) {
+      G.showMemorial(() => { G.hideOverlay(); G.showTitle(); });
     } }
   ],
   runScenario(i) {
@@ -1229,6 +1279,99 @@ const G = {
       } catch (e) { }
       this._metaSnap = null;
     }
+  },
+
+  /* ---------- MANAGER OF THE WEEK (the trophy case: one seeded duel, all week) ---------- */
+  showMotw() {
+    this.state = 'motw';
+    const info = this.motwInfo();
+    const B = DATA.BOSSES[info.boss] || { name: info.boss };
+    const A = info.affix ? DATA.BOSS_AFFIXES.find(a => a.id === info.affix) : null;
+    const D = DATA.DIAG[info.diag];
+    const rec = Meta.data.motw || {};
+    const foughtThisWeek = rec.week === info.key && rec.ms;
+    const liveStreak = (rec.lastWin === info.key || rec.lastWin === this.prevWeekKey()) ? (rec.streak || 0) : 0;
+    const rxNames = info.items.map(id => DATA.ITEMS[id].name).join(' + ');
+    this.overlay(`
+      <div class="panel">
+        <div class="rx">
+          <div class="stamp" style="color:#8a6a20;border-color:#8a6a20">POSTED ${info.key}</div>
+          <h2>🏆 MANAGER OF THE WEEK</h2>
+          <div class="tagline">the framed photo by the elevator. this week it's a duel.</div>
+          <div class="hbnote" style="margin-top:10px">
+            <b>${A ? A.name + ' ' : ''}${B.name}</b> · ward ${info.depth}<br>
+            you clock in as <b style="color:${D.color}">${D.name}</b>, prescribed <b>${rxNames}</b>.<br>
+            <span class="smallprint">same manager for everyone, all week. seeded. the schedule is the only fair thing in the building.</span>
+          </div>
+          <div class="sumrow"><span>this week's time</span><b>${foughtThisWeek ? this.motwFmt(rec.ms) : '— unfought —'}</b></div>
+          <div class="sumrow"><span>weeks won (ever)</span><b>${rec.wins || 0}</b></div>
+          <div class="sumrow"><span>current streak</span><b>${liveStreak} wk${liveStreak === 1 ? '' : 's'}</b></div>
+          <div class="btnrow" style="margin-top:12px">
+            <button class="btn" id="bMotwGo">CLOCK IN</button>
+            <button class="btn minor" id="bMotwBack">BACK</button>
+          </div>
+          <div class="smallprint">a loss ends the streak. clocking out mid-review files no time — and no shame, officially.</div>
+        </div>
+      </div>`);
+    document.getElementById('bMotwGo').onclick = () => { SFX.play('boss'); this.startMotw(); };
+    document.getElementById('bMotwBack').onclick = () => { SFX.play('ui'); this.showHub(); };
+  },
+  startMotw() {
+    const info = this.motwInfo();
+    const keepDiag = this._sbDiag;
+    this._sbDiag = info.diag;
+    this.startBossLab({ boss: info.boss, depth: info.depth, affix: info.affix, shift2: false, joint: '' });
+    this._sbDiag = keepDiag;
+    const p = this.player;
+    for (const id of info.items) if (DATA.ITEMS[id]) p.addItem(id, this, true);
+    p.hp = p.maxhp;
+    this.motw = { key: info.key, boss: info.boss };
+    this.runTime = 0;
+    this.setBanner('🏆 MANAGER OF THE WEEK', (DATA.BOSSES[info.boss] || {}).name + ' · ward ' + info.depth + ' · ' + info.key, 3);
+  },
+  _motwFinish(won) {
+    const M = this.motw; if (!M) return;
+    this.motw = null;
+    const ms = Math.max(100, Math.round((this.runTime || 0) * 1000));
+    this.endSandbox();   // restore the real chart BEFORE filing the real record
+    let rec = Meta.data.motw;
+    if (!rec || typeof rec !== 'object') rec = Meta.data.motw = { week: '', ms: 0, wins: 0, streak: 0, lastWin: '' };
+    let newBest = false;
+    if (won) {
+      if (rec.lastWin !== M.key) {   // first win of the week: the streak math happens
+        rec.wins = (rec.wins || 0) + 1;
+        rec.streak = rec.lastWin === this.prevWeekKey() ? (rec.streak || 0) + 1 : 1;
+        rec.lastWin = M.key;
+        rec.week = M.key; rec.ms = ms; newBest = true;
+      } else if (rec.week === M.key && (!rec.ms || ms < rec.ms)) { rec.ms = ms; newBest = true; }
+      Meta.data.motwWins = (Meta.data.motwWins || 0) + 1;
+    } else if (rec.lastWin !== M.key) {
+      rec.streak = 0;   // a witnessed loss ends the streak (unless you already won this week)
+    }
+    Meta.save();
+    this.checkUnlocks();
+    const B = DATA.BOSSES[M.boss] || { name: M.boss };
+    this.state = 'motwdone';
+    document.body.classList.remove('inrun');
+    SFX.setMusic('menu');
+    this.overlay(`
+      <div class="panel">
+        <div class="rx" style="border-color:${won ? '#3a7a3a' : '#8a3030'}">
+          <div class="stamp" style="color:${won ? '#3a7a3a' : '#8a3030'};border-color:${won ? '#3a7a3a' : '#8a3030'}">${won ? 'REVIEWED: EXCEEDS' : 'REVIEWED: NEGATIVE'}</div>
+          <h2>${won ? 'MANAGER OF THE WEEK: YOU, BRIEFLY' : 'THE PHOTO STAYS UP'}</h2>
+          <div class="tagline">${won ? B.name + ' has been asked to clean out the frame.' : B.name + ' straightens the frame and updates nothing.'}</div>
+          <div class="sumrow"><span>time on the clock</span><b>${this.motwFmt(ms)}${won && newBest ? ' ★ week best' : ''}</b></div>
+          <div class="sumrow"><span>weeks won (ever)</span><b>${(Meta.data.motw || {}).wins || 0}</b></div>
+          <div class="sumrow"><span>streak</span><b>${(Meta.data.motw || {}).streak || 0} wk${((Meta.data.motw || {}).streak || 0) === 1 ? '' : 's'}</b></div>
+          <div class="btnrow" style="margin-top:12px">
+            <button class="btn" id="bMotwAgain">${won ? 'BEAT THE TIME' : 'CONTEST THE REVIEW'}</button>
+            <button class="btn minor" id="bMotwHub">WAITING ROOM</button>
+          </div>
+          <div class="smallprint">${won ? 'retries this week only lower your time. the win is already framed.' : 'the review may be re-taken at any time. the manager finds this exhausting.'}</div>
+        </div>
+      </div>`);
+    document.getElementById('bMotwAgain').onclick = () => { SFX.play('boss'); this.startMotw(); };
+    document.getElementById('bMotwHub').onclick = () => { SFX.play('ui'); this.showHub(); };
   },
 
   /* ---------- THE ROOM DESIGNER (paint the ward; staff will bill someone for it) ---------- */
@@ -3268,7 +3411,7 @@ const G = {
      The complete in-fiction manual: every mechanic, symptom, ward, and
      service. Mostly generated from DATA so new content lists itself;
      the prose sections get a line whenever a feature ships. */
-  HB_REV: 45,
+  HB_REV: 46,
   showHandbook(returnTo) {
     this.state = 'handbook';
     if (!this._hbTab) this._hbTab = 'basics';
@@ -3464,6 +3607,7 @@ const G = {
         + N('Full keyboard remapping (⌨ CONTROLS), autofire that targets the nearest threat, a screen-shake intensity slider, and colorblind pattern marks on every pill. The building installed a ramp. It only took forty-five revisions.')
         + H('REVISION HISTORY')
         + N('This handbook is updated with every patch. If a feature exists, it\'s in here — that\'s the policy. Spot something missing? The Complaint Department is thataway.')
+        + N('rev. 46 — PERFORMANCE REVIEW: the Waiting Room grew a MEMORIAL WALL (every patient you\'ve been gets a plaque; honor one per day and the next run on that chart starts blessed) and a trophy case: MANAGER OF THE WEEK (one seeded duel, same manager for everyone all week — best time, streaks, and a framed photo at stake; unlocks at ward 5). A seventh animal is taking shifts: THE CARRIER, a different pigeon with a job — your portal mail arrives instantly and it brings letters between floors (read 5 pieces of mail to recruit it). Death now itemizes: the discharge paperwork includes an EXPLANATION OF BENEFITS (every hit, who billed it, and what was covered, which is nothing). Also: management noticed the place was coasting and TIGHTENED THE WHOLE BUILDING — more staff per floor, slightly sturdier and quicker across the board, and the deeper wards mean it more. The frame is polished weekly. The plaques are polished never.')
         + N('rev. 45 — THE BUILDING, IMPROVED: the Waiting Room grew a POLICY BOARD (spend the Wellness Fund on permanent building policies — hydration, quiet intake hours, transparent billing, staff retention; see the corkboard), THE SECOND OPINION, M.D. is seeing patients on wards 12+ (he will RE-DIAGNOSE you mid-fight; beat him once and your chart is UPHELD ON APPEAL, permanently, with benefits), Settings gained REASONABLE ACCOMMODATIONS (full key remapping, autofire targeting, a screen-shake slider, and colorblind pattern marks on pills), and the Chart Notes grew three DEEP PAGES: Ward 30, Ward 40, and the roof before THE BOARD. The letter is signed with a smiley face. You keep it.')
         + N('rev. 44 — CONTINUITY OF CARE: the champion that got you now gets a NAME and comes back wearing it (see THE NEMESIS LEDGER under SYMPTOMS — repeat offenders earn ranks and bigger bounties), some trapdoors have an ELEVATOR CAR in them today (pick your stop: the next ward, THE MEZZANINE between wards, or EXPRESS past a whole one — sometimes the doors open mid-ride and someone gets on; nobody talks), the PATIENT PORTAL is live on your phone (T key or the pause menu, two logins per ward: results, messages, billing disputes, mail-order refills), and some wards put the folding chairs in a circle: GROUP SESSION (take the open chair; validate, deflect, or overshare; live with it). The circle is sacred. The muzak is load-bearing.')
         + N('rev. 43 — OPEN HOUSE PREP: the front desk was tidied for new patients — a first visit now shows only the doors that matter (the rest of the directory unlocks after checkup #1), the building holds its calendar small-talk until your second visit, the orientation card finally admits the PRN ability and the pause key exist, and there is a COMPLAINT DEPARTMENT (external) at the bottom of the title screen. Complaints are filed as GitHub issues. They are read. Unlike here, they are read.')
@@ -3824,6 +3968,13 @@ const G = {
       try { this._month.apply(this.player); } catch (e) { }
       if (!this.sandbox && !this._resuming && Meta.data.runs > 1) this.toast('Observed this month: ' + this._month.name + ' — ' + this._month.desc + '.', '#c8b8d8');   // first visit: the building holds its small talk
     }
+    // THE MEMORIAL WALL: an honored plaque lends its luck to the next run on that chart
+    if (!this.sandbox && !this._resuming && Meta.data.memorialBless && Meta.data.memorialBless === (this.player.baseDiag === 'undiag' ? 'undiag' : this.player.diag)) {
+      this.player.luck += 0.5;
+      this.player.heal(2);
+      Meta.data.memorialBless = null; Meta.save();
+      this.toast('The wall remembers. Someone who was here before you left a little luck on the chart. +½ luck, +1♥.', '#e8c84c');
+    }
     // emotional support animal (equipped in Settings; must still be earned)
     if (Meta.data.pet) {
       const pd = DATA.PETS.find(x => x.id === Meta.data.pet);
@@ -3975,6 +4126,8 @@ const G = {
     this.nemRec = (this.nemesisId && Meta.data.nemRec && Meta.data.nemRec.id === this.nemesisId) ? Meta.data.nemRec : null;
     this._nemesisSpawned = false;
     this._grudgeFiled = null;
+    this._eob = {};   // EXPLANATION OF BENEFITS: fresh ledger of everything that hits you
+    this.motw = null;   // the weekly review flag is set only by startMotw, after this reset
     this._runCured = false;
     this._runStart = Date.now();
     this.larperToastShown = false;
@@ -4030,6 +4183,8 @@ const G = {
         { x: 645, y: 552, r: 42, door: false, label: '🕹 BREAKROOM', hint: (Meta.data.arcade && Meta.data.arcade.best ? 'PILL CATCHER · best ' + Meta.data.arcade.best : 'PILL CATCHER · 2¢ a play'), act: () => this.showArcade() },
         { x: 596, y: 208, r: 34, door: false, label: '📻 WWRD', hint: Object.keys(Meta.data.tracksHeard || {}).length + '/9 tracks · ward radio', act: () => this.showRadio(() => this.showHub()) },
         { x: 745, y: 214, r: 42, door: false, label: '📌 POLICY BOARD', hint: Object.keys(Meta.data.policies || {}).length + '/' + DATA.POLICIES.length + ' enacted · the building, improved', act: () => this.showPolicyBoard(() => this.showHub()) },
+        { x: 884, y: 190, r: 40, door: false, label: '🕯 MEMORIAL WALL', hint: (Meta.data.runlog || []).filter(r => r.out === 'dead').length + ' plaques · they were here', act: () => this.showMemorial(() => this.showHub()) },
+        { x: 884, y: 96, r: 40, door: false, label: '🏆 MGR OF THE WEEK', hint: Meta.data.bestFloor >= 5 ? ((Meta.data.motw || {}).week === this.weekKey() && (Meta.data.motw || {}).ms ? 'this week: ' + this.motwFmt(Meta.data.motw.ms) : 'the trophy case · one duel, all week') : 'locked · reach ward 5 — management notices you after that', act: () => { if (Meta.data.bestFloor >= 5) this.showMotw(); else { SFX.play('denied'); this.toast('The frame is empty. Reach ward 5 and management will learn your name.', '#e0a05a'); } } },
         { x: 480, y: 628, r: 40, door: this.exitReady(), label: this.exitReady() ? '🚪 THE FRONT DOOR' : '🔒 FRONT DOOR', hint: this.exitReady() ? 'it\'s open. it\'s actually open.' : 'locked since intake', act: () => this.tryExit() }
       ]
     };
@@ -4699,6 +4854,16 @@ const G = {
     this.semChairs = null; this.semZones = null; this.semMeter = 0;   // the SEMINAR's chairs get stacked at close
     this._portalUses = 2; this._portalOpen = false;   // the PORTAL resets its session limit at each ward
     this.rediagFx = null;   // second opinions don't follow you downstairs
+    // THE CARRIER: between floors, it brings letters from elsewhere in the building
+    if (this.hasPet('carrier') && this.depth >= 2 && !this.sandbox && !this._resumeTick && U.chance(0.4)) {
+      const letter = U.choice(DATA.LETTERS);
+      this.toast('THE CARRIER delivers a letter: ' + letter, '#c8c0b8');
+      Meta.data.lettersRead = (Meta.data.lettersRead || 0) + 1;
+      if (this.petEvolved('carrier')) { this.player.coins += 1; }   // THE COURIER SERVICE: postage due, in your favor
+      Meta.save();
+      this.checkUnlocks && this.checkUnlocks();
+      SFX.play('paper');
+    }
     // THE WELLNESS SEMINAR's timeshare: the membership fee bills at each new ward (not on chart-reopen)
     if (this.semFee && this.semFee.left > 0 && !this.dreamFloor && !this.annexFloor && !this.sandbox && !this._resumeTick) {
       const p2 = this.player;
@@ -4815,21 +4980,8 @@ const G = {
     room.discovered = true;
     room.visited = true;
     // PATIENT PORTAL deliveries: replies and refills arrive N rooms after you hit send
-    if (this._portalReply && --this._portalReply.roomsLeft <= 0) {
-      const M = this._portalReply.msg; this._portalReply = null;
-      this.toast(DATA.PORTAL.replyLeadIn + ' ' + M.reply, '#8fd0e0');
-      const p0 = this.player;
-      if (M.boon === 'heal') p0.heal(2);
-      else if (M.boon === 'coins') { p0.coins += 2; SFX.play('coin'); }
-      else if (M.boon === 'luck') p0.luck += 0.5;
-      SFX.play('bell');
-    }
-    if (this._portalPkg && --this._portalPkg.roomsLeft <= 0) {
-      const itemId = this._portalPkg.itemId; this._portalPkg = null;
-      room.peds.push({ x: U.clamp(this.player.x + 70, RX + 40, RX + RW - 40), y: U.clamp(this.player.y, RY + 40, RY + RH - 40), itemId, kind: 'item', taken: false });
-      this.toast('PORTAL — your mail-order refill has arrived. It was left on the floor. Signature was required; nobody signed.', '#8fd0e0');
-      SFX.play('paper');
-    }
+    if (this._portalReply) { this._portalReply.roomsLeft--; this.portalDeliveries(); }
+    if (this._portalPkg) { this._portalPkg.roomsLeft--; this.portalDeliveries(); }
     // achievement tracking: the hazard-room tour
     if (['seclusion', 'ect', 'padded', 'observation'].includes(room.type)) {
       const hs = Meta.data.hazardsSeen || (Meta.data.hazardsSeen = {});
@@ -5696,6 +5848,13 @@ const G = {
       this.pickups.push(new Pickup('full', CW / 2, RY + RH / 2));
       this.toast('⏰ Management clocked out. The floor didn\'t.', '#e8c84c');
       this.overtime.spawnT = 3.5;
+      return;
+    }
+    // MANAGER OF THE WEEK: punch the clock, file the time, leave the building standing
+    if (this.motw) {
+      room.cleared = true;
+      SFX.play('fanfare');
+      this._motwFinish(true);
       return;
     }
     room.cleared = true;
@@ -6754,8 +6913,8 @@ const G = {
     if (this.p2) this.p2Update(dt);
     // OVERTIME waves
     if (this.overtime) this.overtimeUpdate(dt);
-    // speedrun clock (the walk-in clinic is always on the clock)
-    if (Meta.data.speedrun || this.walkin) this.runTime = (this.runTime || 0) + dt;
+    // speedrun clock (the walk-in clinic is always on the clock; so is the weekly review)
+    if (Meta.data.speedrun || this.walkin || this.motw) this.runTime = (this.runTime || 0) + dt;
     // THE GHOST OF RUNS PAST: record your line (speedrun runs, first 12 wards)
     if (Meta.data.speedrun && !this.dailyKind && !this.overtime && !this.practice && !this.sandbox && !this.walkin && this.depth <= 12 && !p.dead) {
       this._ghostT += dt;
@@ -6824,6 +6983,39 @@ const G = {
   },
 
   /* ---------- pause / death overlays ---------- */
+  /* ---------- THE MEMORIAL WALL: they were here. the building won't say it, so the wall does ---------- */
+  showMemorial(returnTo) {
+    this.state = 'memorial';
+    const dead = (Meta.data.runlog || []).filter(r => r.out === 'dead').slice(-24).reverse();
+    const today = this.todayKey();
+    const honoredToday = Meta.data.memorialDay === today;
+    const plaque = r => {
+      const D = DATA.DIAG[r.diag] || DATA.DIAG2 && DATA.DIAG2[r.diag] || { name: r.diag, color: '#c8bfae' };
+      return `<button class="cmcard" data-honor="${r.diag}" ${honoredToday ? 'disabled style="opacity:.55"' : ''}>
+        <div class="cmname" style="color:${D.color || '#c8bfae'}">${D.name || r.diag}</div>
+        <div class="cmdesc">Ward ${r.ward} · ${this._causeName(r.cause)}</div>
+        <div class="cmtag">${r.t || 'some Tuesday'} · they were here</div>
+      </button>`;
+    };
+    this.overlay(`<div class="panel wide">
+      <h1 class="logo" style="font-size:24px">🕯 THE MEMORIAL WALL</h1>
+      <div class="tagline">One plaque per discharge. The building didn\'t build this — you did, out of thumbtacks and spite. ${honoredToday ? 'You\'ve paid your respects today.' : 'Honor one plaque per day: that chart carries a small blessing into its next run.'}</div>
+      ${dead.length ? `<div class="cmgrid" style="max-height:52vh;overflow-y:auto">${dead.map(plaque).join('')}</div>` : '<div class="tagline">No plaques yet. The wall waits, patiently, like everything else here.</div>'}
+      <button class="btn" id="bMemBack">BACK</button>
+    </div>`);
+    document.querySelectorAll('[data-honor]').forEach(b => b.onclick = () => {
+      if (Meta.data.memorialDay === today) return;
+      Meta.data.memorialDay = today;
+      Meta.data.memorialBless = b.dataset.honor;
+      Meta.data.honorsGiven = (Meta.data.honorsGiven || 0) + 1;
+      Meta.save();
+      SFX.play('bell');
+      this.toast('You straighten the plaque. The next ' + ((DATA.DIAG[b.dataset.honor] || {}).name || b.dataset.honor) + ' run carries their luck. The candle is electric. It still counts.', '#e8c84c');
+      this.showMemorial(returnTo);
+    });
+    document.getElementById('bMemBack').onclick = () => { SFX.play('ui'); (returnTo || (() => this.showTitle()))(); };
+  },
+
   /* ---------- REASONABLE ACCOMMODATIONS: the key remapper ---------- */
   showControls(returnTo) {
     this.state = 'controls';
@@ -7039,6 +7231,34 @@ const G = {
     SFX.play('boss');
   },
 
+  /* ---------- portal mail plumbing (shared by room-count deliveries and THE CARRIER) ---------- */
+  hasPet(id) {
+    const p = this.player;
+    return !!(p && ((p.pet && p.pet.type === id) || (p.pet2 && p.pet2.type === id)));
+  },
+  petEvolved(id) {
+    return this.hasPet(id) && ((Meta.data.petXp || {})[id] || 0) >= 40;
+  },
+  portalDeliveries() {
+    const room = this.room, p0 = this.player;
+    if (this._portalReply && this._portalReply.roomsLeft <= 0) {
+      const M = this._portalReply.msg; this._portalReply = null;
+      this.toast(DATA.PORTAL.replyLeadIn + ' ' + M.reply, '#8fd0e0');
+      if (M.boon === 'heal') p0.heal(2);
+      else if (M.boon === 'coins') { p0.coins += 2; SFX.play('coin'); }
+      else if (M.boon === 'luck') p0.luck += 0.5;
+      Meta.data.lettersRead = (Meta.data.lettersRead || 0) + 1; Meta.save();
+      this.checkUnlocks && this.checkUnlocks();
+      SFX.play('bell');
+    }
+    if (this._portalPkg && this._portalPkg.roomsLeft <= 0 && room) {
+      const itemId = this._portalPkg.itemId; this._portalPkg = null;
+      room.peds.push({ x: U.clamp(p0.x + 70, RX + 40, RX + RW - 40), y: U.clamp(p0.y, RY + 40, RY + RH - 40), itemId, kind: 'item', taken: false });
+      this.toast(this.hasPet('carrier') ? 'THE CARRIER lands with your refill, salutes with a wing, and files the delivery confirmation itself.' : 'PORTAL — your mail-order refill has arrived. It was left on the floor. Signature was required; nobody signed.', '#8fd0e0');
+      SFX.play('paper');
+    }
+  },
+
   /* ---------- THE PATIENT PORTAL: the machine, but as an app (2 logins per ward) ---------- */
   showPortal(tab) {
     if (this.state !== 'run' && this.state !== 'pause' && this.state !== 'portal') return;
@@ -7089,7 +7309,7 @@ const G = {
         ? `<div class="tagline">Mail-order limit reached: one (1) refill per admission. The system regrets.</div>`
         : owned.length
           ? `<div class="tagline">${DATA.PORTAL.refillBlurb}</div>
-             ${owned.slice(0, 5).map(id => `<button class="btn minor" data-prefill="${id}">${DATA.ITEMS[id].name} — 6¢</button>`).join('')}`
+             ${owned.slice(0, 5).map(id => `<button class="btn minor" data-prefill="${id}">${DATA.ITEMS[id].name} — ${this.petEvolved('carrier') ? '4¢ (courier rate)' : '6¢'}</button>`).join('')}`
           : `<div class="tagline">No mail-order-eligible prescriptions on file. The flat-effect ones only. Pharmacy noticed last time.</div>`;
     }
     this.overlay(`<div class="panel">
@@ -7103,8 +7323,9 @@ const G = {
     document.getElementById('bPortalClose').onclick = () => { SFX.play('ui'); this._portalOpen = false; this.hideOverlay(); this.state = 'run'; };
     document.querySelectorAll('[data-pmsg]').forEach(b => b.onclick = () => {
       const m = DATA.PORTAL.messages[+b.dataset.pmsg];
-      this._portalReply = { roomsLeft: 1, msg: m };
+      this._portalReply = { roomsLeft: this.hasPet('carrier') ? 0 : 1, msg: m };
       SFX.play('paper');
+      if (this.hasPet('carrier')) { this.portalDeliveries(); }   // THE CARRIER does not believe in transit time
       this.showPortal('messages');
     });
     const bd = document.getElementById('bPortalDispute');
@@ -7115,11 +7336,13 @@ const G = {
       this.showPortal('billing');
     };
     document.querySelectorAll('[data-prefill]').forEach(b => b.onclick = () => {
-      if (p.coins < 6) { this.toast('Insufficient copays. The cart remembers.', '#e05a5a'); SFX.play('denied'); return; }
-      p.coins -= 6;
+      const cost = this.petEvolved('carrier') ? 4 : 6;   // THE COURIER SERVICE negotiates bulk rates
+      if (p.coins < cost) { this.toast('Insufficient copays. The cart remembers.', '#e05a5a'); SFX.play('denied'); return; }
+      p.coins -= cost;
       this._portalRefilled = true;
-      this._portalPkg = { roomsLeft: 2, itemId: b.dataset.prefill };
+      this._portalPkg = { roomsLeft: this.hasPet('carrier') ? 0 : 2, itemId: b.dataset.prefill };
       SFX.play('coin');
+      if (this.hasPet('carrier')) { this.portalDeliveries(); }
       this.showPortal('refills');
     });
   },
@@ -7148,9 +7371,18 @@ const G = {
           <button class="btn minor" id="bPauseHb">📘 HANDBOOK</button>
         </div>
         <button class="btn minor" id="bPausePortal">📱 PATIENT PORTAL <span style="font-size:10px;opacity:.7">(T) · ${Math.max(0, this._portalUses || 0)} login${(this._portalUses || 0) === 1 ? '' : 's'} left this ward</span></button>
+        ${(!this.dailyKind && !this.sandbox && !this.overtime && !this.walkin) ? '<button class="btn minor" id="bRestartRun" style="opacity:.8">↻ RESTART RUN (same chart, counts as a discharge)</button>' : ''}
         <button class="btn minor" id="bQuit">${this.dailyKind ? 'QUIT TO TITLE' : (this.sandbox ? 'CLOCK OUT (sandbox)' : '💾 SAVE & QUIT')}</button>
       </div>`);
     document.getElementById('bResume').onclick = () => { SFX.play('ui'); this.hideOverlay(); this.state = 'run'; };
+    const brr = document.getElementById('bRestartRun');
+    if (brr) brr.onclick = () => {
+      SFX.play('stamp');
+      const diagId = this.player ? (this.player.baseDiag === 'undiag' ? 'undiag' : this.player.diag) : null;
+      this.recordRun('quit');
+      this.hideOverlay();
+      if (diagId) this.showEnrollment(diagId); else this.showTitle();
+    };
     document.getElementById('bPauseHb').onclick = () => { SFX.play('paper'); this.showHandbook(() => this.showPause()); };
     const bpp = document.getElementById('bPausePortal');
     if (bpp) bpp.onclick = () => { SFX.play('ui'); this.showPortal(); };
@@ -7166,6 +7398,8 @@ const G = {
     document.getElementById('bSettings2').onclick = () => { SFX.play('ui'); this.showSettings(() => this.showPause()); };
     document.getElementById('bQuit').onclick = () => {
       SFX.play('ui');
+      // MANAGER OF THE WEEK: clocking out mid-review files no time — and breaks no streak
+      if (this.motw) { this.motw = null; this.endSandbox(); this.showHub(); return; }
       if (this.dailyKind) { this.recordRun('quit'); }   // seeded runs can't be resumed — log the quit
       else { this.saveCheckpoint(); this._runLogged = true; }   // keep the checkpoint; don't log a death/quit
       this.showTitle();
@@ -7912,6 +8146,8 @@ const G = {
   },
 
   showDead() {
+    // MANAGER OF THE WEEK: the review went badly. it goes in the file, not on a plaque.
+    if (this.motw) { this._motwFinish(false); return; }
     const diagId = this.player.diag;
     // record meta exactly once per death (this screen can be re-opened from Unlocks)
     if (!this._deathRecorded) {
@@ -7983,6 +8219,17 @@ const G = {
         </div>
         ${this._insightGained ? `<div class="tagline" style="margin-top:-6px">spend it in the 🧠 Treatment Plan on the title screen</div>` : ''}
         ${this.billHtml()}
+        ${(() => {   // EXPLANATION OF BENEFITS: what hit you, itemized, coverage: none
+          const rows = Object.entries(this._eob || {}).sort((a, b) => b[1].dmg - a[1].dmg).slice(0, 8);
+          if (!rows.length) return '';
+          const totalHits = rows.reduce((a, r) => a + r[1].hits, 0);
+          return `<div class="summary" style="margin-top:8px">
+            <div class="sumrow"><span><b>🩹 EXPLANATION OF BENEFITS</b> <i style="opacity:.6">(this is not care*)</i></span><b></b></div>
+            <div class="sumrow" style="opacity:.65"><span>PROVIDER</span><b>HITS · ♥ BILLED · COVERED</b></div>
+            ${rows.map(([src, r]) => `<div class="sumrow"><span>${this._causeName(src)}</span><b>${r.hits} × · ${(r.dmg / 2).toFixed(1)}♥ · <span style="color:#e05a5a">$0.00</span></b></div>`).join('')}
+            <div class="sumrow" style="border-top:1px solid rgba(240,232,216,0.2)"><span><i>*it is also not benefits. ${totalHits} claims processed.</i></span><b></b></div>
+          </div>`;
+        })()}
         ${unlockHtml}
         <div class="walrusbox">
           <canvas class="walrusCanvas" width="132" height="132" id="deadWalrus"></canvas>
@@ -8504,6 +8751,10 @@ const G = {
   Meta.load();
   Meta.idbRestore();   // if localStorage came up empty but the IndexedDB mirror has a save, recover it
   window.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') Meta.save(); });
+  // EXPLANATION OF BENEFITS bundle: auto-pause when the tab loses you (bot runs and opt-outs exempt)
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && G.state === 'run' && !(window.__bot && window.__bot.running) && !(Meta.data.a11y && Meta.data.a11y.autoPause === false)) G.showPause();
+  });
   window.addEventListener('pagehide', () => Meta.save());
   Haptics.init();
   Input.init(canvas);
