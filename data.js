@@ -505,6 +505,8 @@ DATA.ACHIEVEMENTS = [
   { id: 'satThrough', name: "Stayed For The Whole Thing", desc: "End THE WELLNESS SEMINAR, by any means.",  hint: "Ward 10+. The chairs are cover. The clapping is mandatory. The exit is through it.", check: m => (m.seminarKills || 0) >= 1 },
   { id: 'upheld',     name: "Upheld On Appeal", desc: "Defeat THE SECOND OPINION, M.D. — your chart stands.", hint: "Ward 12+. He will re-diagnose you mid-fight. Your original chart is worth defending.", check: m => (m.secondmdKills || 0) >= 1 },
   { id: 'landlord',   name: "De Facto Administrator", desc: "Enact every policy on the POLICY BOARD.", hint: "The Waiting Room corkboard. The Fund is willing. Four policies, laminated.", check: m => DATA.POLICIES.every(p => (m.policies || {})[p.id]) },
+  { id: 'punchclock', name: "Employee Of The Moment", desc: "Clear a MANAGER OF THE WEEK performance review.", hint: "The trophy case in the Waiting Room. One manager, one week, everyone gets the same one.", check: m => (m.motwWins || 0) >= 1 },
+  { id: 'tenured',    name: "Wall Of Framed Photos", desc: "Win MANAGER OF THE WEEK three weeks running.", hint: "Streaks count consecutive calendar weeks. The building checks the calendar. The building loves the calendar.", check: m => ((m.motw || {}).streak || 0) >= 3 },
   { id: 'debtFree',   name: "In Good Standing",     desc: "Repay a Financing Desk plan in full.",           hint: "Borrow. Descend. Watch what follows. Pay it off anyway.", check: m => (m.debtsPaid || 0) >= 1 },
   { id: 'lucid',      name: "Lucid",                desc: "Take the DREAM PRESCRIPTION.",                   hint: "After a hard boss, sometimes: a bed. A real one.", check: m => (m.dreamRx || 0) >= 1 },
   { id: 'cutOut',     name: "Cut Out The Middleman", desc: "Pop the Pharmacy Benefits Manager.",            hint: "When prices spike 40% for no reason, the reason is in one of the rooms.", check: m => (m.pbmKills || 0) >= 1 },
@@ -1054,7 +1056,22 @@ DATA.PETS = [
   { id: 'snake',    icon: '🐍', name: 'The Metaphor', note: 'it bites your problems. it IS your problems',      unlock: m => (m.amaDone || 0) >= 1,        unlockHint: 'leave Against Medical Advice once' },
   { id: 'goldfish', icon: '🐟', name: 'The Goldfish', note: 'enemies near it forget what they were doing',      unlock: m => (m.appealsWon || 0) >= 1,     unlockHint: 'win an appeal' },
   { id: 'dog',      icon: '🐕', name: 'Therapy Dog',  note: 'certified. vested. extremely good.',               unlock: m => !!(m.rival && (m.rival.duelW || 0) >= 1), unlockHint: 'win one gym duel vs your rival' },
-  { id: 'ferret',   icon: '🐾', name: 'The Ferret',   note: 'steals for you. legally gray, morally correct',    unlock: m => (m.pbmKills || 0) >= 3,       unlockHint: 'pop THE MIDDLEMAN three times' }
+  { id: 'ferret',   icon: '🐾', name: 'The Ferret',   note: 'steals for you. legally gray, morally correct',    unlock: m => (m.pbmKills || 0) >= 3,       unlockHint: 'pop THE MIDDLEMAN three times' },
+  { id: 'carrier',  icon: '📬', name: 'The Carrier',  note: 'a different pigeon. this one has a job. your mail arrives instantly; it brings letters between floors', unlock: m => (m.lettersRead || 0) >= 5, unlockHint: 'read 5 pieces of mail (portal replies count)' }
+];
+
+/* ============ FLOOR MAIL (The Carrier brings letters from elsewhere in the building) ============ */
+DATA.LETTERS = [
+  '“Whoever keeps feeding the goose: it can open doors now. This is on you.” — Facilities',
+  '“The Day Room cooler is NOT a suggestion box. We keep finding suggestions in the ice.” — a laminated sign, mailed for some reason',
+  '“I was discharged in March. I still take the elevator sometimes, just to ride. Nobody checks.” — a former patient',
+  '“The 4th floor vending machine accepts buttons now. It gives correct change. In buttons.” — Maintenance',
+  '“If you find a mop with a blue handle, that\'s mine. The building can keep the gray ones.” — J.',
+  '“All Waiting Room plants are real except one. Stop watering that one. It is thriving and we don\'t like it.” — Reception',
+  '“Someone left a five-star review. We have framed it. We are not okay.” — Administration',
+  '“Your chart smells like lavender now. That was me. You seemed like you needed it.” — the night nurse, off duty',
+  '“Ward 40 gets the sun in the afternoon. Whoever routed your descent through there: that was a kindness. Take it.” — unsigned',
+  '“Stop teaching the parrot billing codes.” — a memo, misdelivered, deeply concerning'
 ];
 
 /* ============ THE INTERCOM (Dr. Walrus is watching. commenting, even.) ============ */
@@ -1631,16 +1648,16 @@ DATA.GOALS = [
    quadratic so it keeps pace with an item-stacked player forever. */
 DATA.difficulty = function (depth) {
   const d = depth - 1;
-  return {
-    enemyHp: 1 + 0.30 * d + 0.0065 * d * d,            // spongier, uncapped — keeps pace with a stacked build
-    enemySpd: 1 + Math.min(0.55, 0.02 * d),            // soft cap ~+55%
+  return {   // R46 tune: "a little harder overall" — every knob nudged ~5-12%, nothing doubled
+    enemyHp: 1 + 0.33 * d + 0.0071 * d * d,            // spongier, uncapped — keeps pace with a stacked build
+    enemySpd: 1 + Math.min(0.58, 0.022 * d),           // soft cap ~+58%
     enemyDmg: 1 + Math.floor(depth / 13),              // hits get heavier past ward 13, 25...
-    shotRate: Math.max(0.5, 1 - 0.018 * d),            // shooters fire faster deep (x on cooldown)
-    count: U.clamp(3 + Math.floor(0.8 * depth), 3, 12),// more bodies per room, cap 12
-    champChance: U.clamp(0.05 * (depth - 5), 0, 0.62), // elites from ward 6, up to 62%
-    bossHp: 1 + 0.20 * d + 0.0052 * d * d,
+    shotRate: Math.max(0.48, 0.96 - 0.018 * d),        // triggers 4% quicker everywhere, faster deep
+    count: U.clamp(3 + Math.floor(0.85 * depth), 3, 13),// more bodies per room, cap 13
+    champChance: U.clamp(0.055 * (depth - 5), 0, 0.66),// elites from ward 6, up to 66%
+    bossHp: 1 + 0.22 * d + 0.0056 * d * d,
     bossDmg: 1 + Math.floor(depth / 9),                // boss hits heavier past ward 9, 18...
-    bossAggr: 1 + Math.min(0.6, 0.022 * d)             // bosses move & attack faster deep
+    bossAggr: 1 + Math.min(0.65, 0.024 * d)            // bosses move & attack faster deep
   };
 };
 

@@ -209,6 +209,13 @@ window.__bot = (function(){
       if(st==='enrollwin'){ const b=document.getElementById('bMktBack'); if(b){b.click(); this.rep.events.push('plan-kept');} return true; }
       if(st==='session'){ const b=document.getElementById('bSessBack'); if(b){b.click(); this.rep.events.push('session-skipped');} return true; }
       if(st==='wheel'){ const b=document.getElementById('bWheelBack'); if(b){b.click(); this.rep.events.push('appeal-walked');} return true; }
+      if(st==='elevstops'){ const b=document.getElementById('bElevGo'); if(b){b.click(); this.rep.events.push('elevator-rode');} return true; }
+      if(st==='mezz'){ const b=document.getElementById('bMezzGo'); if(b){b.click(); this.rep.events.push('mezzanine-left');} return true; }
+      if(st==='portal'){ const b=document.getElementById('bPortalClose')||document.getElementById('bPortalOut'); if(b){b.click(); this.rep.events.push('portal-closed');} return true; }
+      if(st==='group'){ const r=document.querySelector('[data-resp]'); if(r){r.click(); this.rep.events.push('circle-responded');} else { const b=document.getElementById('bGrpOut'); if(b){b.click(); this.rep.events.push('circle-stood');} } return true; }
+      if(st==='memorial'){ const b=document.getElementById('bMemBack'); if(b){b.click(); this.rep.events.push('memorial-visited');} return true; }
+      if(st==='motw'){ const b=document.getElementById('bMotwBack'); if(b){b.click(); this.rep.events.push('motw-declined');} return true; }
+      if(st==='motwdone'){ const b=document.getElementById('bMotwHub'); if(b){b.click(); this.rep.events.push('motw-finished');} return true; }
       if(st==='cutscene'){ Story.skipScene(); return true; }
       if(st==='event'){ const c=document.querySelector('.cmcard'); if(c){c.click(); this.rep.events.push('event');} else { G.hideOverlay(); G.state='run'; } return true; }
       if(st==='ending'){ const b=document.getElementById('bEndKeep'); if(b){b.click(); this.rep.events.push('ending-keep');} return true; }

@@ -327,11 +327,30 @@ keyboard and mouse.
   (Ward 7+, shields every patient but herself — drop her first).
 - **💊 Content Pack II** — six new prescriptions (including the Waiver Pen keystone: nothing you
   sign flies straight), two new Personal Effects, and one pill that is simply The Good One.
+- **🕯 THE MEMORIAL WALL** — every patient you've been gets a plaque in the Waiting Room
+  (ward, cause, date — "they were here"). Honor one per day and the next run on that chart
+  starts blessed: a little luck, a little healing, somebody else's momentum. The candle is
+  electric. It still counts.
+- **🏆 MANAGER OF THE WEEK** — a trophy case by the elevator: one date-seeded duel, the same
+  manager, ward, chart, and prescription for every player, all week. Best time on the clock,
+  streaks for consecutive weeks, a framed photo at stake. Losses end streaks. Clocking out
+  mid-review files no time and, officially, no shame. Unlocks at ward 5.
+- **📬 THE CARRIER** — a seventh Emotional Support Animal: a different pigeon, this one with a
+  job. Portal mail arrives instantly instead of one room later, letters from elsewhere in the
+  building find you between floors, and its evolved form (THE COURIER SERVICE) tips you a coin
+  per delivery and discounts mail-order refills. Recruited by reading 5 pieces of mail.
+- **🧾 EXPLANATION OF BENEFITS** — the discharge paperwork now itemizes the whole visit:
+  every symptom that billed you, how many times, for how much, and what your plan covered
+  (a confident $0.00). Your death, in network, fully documented.
+- **📈 A GENERAL TIGHTENING** — management noticed the building was coasting: slightly more
+  staff per floor, modestly sturdier and quicker patients and managers, champions with better
+  attendance — and the deeper wards mean it more. Plus a RESTART RUN button in the pause menu
+  and an auto-pause when the tab loses focus, because the building bills for attention too.
 - **🔧 STAFF ONLY** — a full Game Tester hub on the title screen, behind a secret code, organized
   into five tabs. **PLAY**: sandbox any patient at any ward with loadout presets (kitted, glass
   cannon, tank, or hand-picked meds) — the save is snapshot-frozen throughout. **BOSS LAB**:
   rehearse any boss at any depth with any champion affix, SECOND SHIFT, or a Joint-Commission
-  partner. **TRIGGERS**: a 48-scenario jumper that drops you straight into any special encounter
+  partner. **TRIGGERS**: a 53-scenario jumper that drops you straight into any special encounter
   (rival races, the INSPECTION, heists, the Annex, Casual Friday…) pre-armed, no RNG. **DESIGNER**:
   the room editor with templates, undo, mirror, flood-fill, boss placement, playtest conditions
   (night/heat/wing), a named room library, and `EGSROOM` share codes. **TOOLS**: god mode, debug

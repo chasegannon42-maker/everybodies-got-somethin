@@ -53,6 +53,13 @@ class Pet {
       this.segs.unshift({ x: this.x, y: this.y });
       if (this.segs.length > (this.evo ? 10 : 7)) this.segs.pop();
     }
+    if (this.type === 'carrier') {   // THE CARRIER: a different pigeon. this one has a job.
+      const a = U.ang(this.x, this.y, p.x + 34, p.y - 10);
+      const d = U.dist(this.x, this.y, p.x + 34, p.y - 10);
+      if (d > 20) { this.x += Math.cos(a) * Math.min(d * 3, 280) * dt; this.y += Math.sin(a) * Math.min(d * 3, 280) * dt; }
+      // professional pride: a small salute when mail is pending
+      if ((G._portalReply || G._portalPkg) && Math.random() < dt * 0.5) G.texts.push(new FloatText(this.x, this.y - 16, 'on it', '#c8c0b8'));
+    }
     if (this.type === 'pigeon') {   // flutters near you; periodically finds change
       // PLAYDATE: if the dog's on shift too, the pigeon rides the dog. obviously.
       const dogMate = (p.pet && p.pet !== this && p.pet.type === 'dog') ? p.pet : (p.pet2 && p.pet2 !== this && p.pet2.type === 'dog') ? p.pet2 : null;
@@ -924,6 +931,8 @@ class Player {
     if (G.rapidMods && G.rapidMods.def !== 1) n = Math.max(1, Math.round(n * G.rapidMods.def));   // Rapid Cycling defense swing
     if (G.easy) n = Math.max(1, Math.ceil(n * 0.5));   // 'Second Opinion' easy mode
     if (src) this._lastSrc = src;   // cause-of-death tracking for run log
+    // EXPLANATION OF BENEFITS: every hit is itemized (source → hits, damage) for the death-screen EOB
+    if (src) { const eob = G._eob || (G._eob = {}); const row = eob[src] || (eob[src] = { hits: 0, dmg: 0 }); row.hits++; row.dmg += n; }
     this.hp -= n;
     G.hitstop = Math.max(G.hitstop || 0, 0.055);   // getting hit lands
     G.hurtVig = 0.55;                              // the edges go red for a beat
@@ -2111,7 +2120,7 @@ class Enemy {
       }
       return;
     }
-    const dropChance = 0.20 + p.luck * 0.03;
+    const dropChance = 0.18 + p.luck * 0.03;   // R46: the building tightened the freebie budget
     if (U.chance(dropChance)) {
       const roll = Math.random();
       let type;
