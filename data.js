@@ -503,6 +503,8 @@ DATA.ACHIEVEMENTS = [
   { id: 'volunteer',  name: "Back On Purpose",     desc: "Clear a floor wearing the Volunteer Badge.",      hint: "Your file is closed. Theirs aren't.",       check: m => !!m.everVolunteer },
   { id: 'holdHung',   name: "Thank You For Holding", desc: "Hang up on THE HOLD.",                          hint: "Ward 7+. Press the number it asks for. Then press harder.", check: m => (m.holdKills || 0) >= 1 },
   { id: 'satThrough', name: "Stayed For The Whole Thing", desc: "End THE WELLNESS SEMINAR, by any means.",  hint: "Ward 10+. The chairs are cover. The clapping is mandatory. The exit is through it.", check: m => (m.seminarKills || 0) >= 1 },
+  { id: 'upheld',     name: "Upheld On Appeal", desc: "Defeat THE SECOND OPINION, M.D. — your chart stands.", hint: "Ward 12+. He will re-diagnose you mid-fight. Your original chart is worth defending.", check: m => (m.secondmdKills || 0) >= 1 },
+  { id: 'landlord',   name: "De Facto Administrator", desc: "Enact every policy on the POLICY BOARD.", hint: "The Waiting Room corkboard. The Fund is willing. Four policies, laminated.", check: m => DATA.POLICIES.every(p => (m.policies || {})[p.id]) },
   { id: 'debtFree',   name: "In Good Standing",     desc: "Repay a Financing Desk plan in full.",           hint: "Borrow. Descend. Watch what follows. Pay it off anyway.", check: m => (m.debtsPaid || 0) >= 1 },
   { id: 'lucid',      name: "Lucid",                desc: "Take the DREAM PRESCRIPTION.",                   hint: "After a hard boss, sometimes: a bed. A real one.", check: m => (m.dreamRx || 0) >= 1 },
   { id: 'cutOut',     name: "Cut Out The Middleman", desc: "Pop the Pharmacy Benefits Manager.",            hint: "When prices spike 40% for no reason, the reason is in one of the rooms.", check: m => (m.pbmKills || 0) >= 1 },
@@ -681,6 +683,7 @@ DATA.BOSSES = {
   deductible: { name: "THE DEDUCTIBLE", sub: "“Your plan covers this fight at 80%. After the deductible.”", hp: 250 },
   abtest:     { name: "THE A/B TEST", sub: "“You are in the control group. You were always in the control group.”", hp: 260 },
   seminar:    { name: "THE WELLNESS SEMINAR", sub: "“Attendance is mandatory. Enthusiasm is expected.”", hp: 270 },
+  secondmd:   { name: "THE SECOND OPINION, M.D.", sub: "“Actually—”", hp: 300 },
   walrus:     { name: "DR. WALRUS, M.D.*", sub: "*mail-order", hp: 300 }
 };
 DATA.bossFor = function (depth, lastBoss) {
@@ -697,10 +700,28 @@ DATA.bossFor = function (depth, lastBoss) {
   if (depth >= 9) pool.push('abtest');       // by now you've consented to the methodology (implicitly)
   if (depth >= 8) pool.push('deductible');   // the plan year reset mid-descent. of course it did.
   if (depth >= 10) pool.push('seminar');     // attendance becomes mandatory in the deep wards
+  if (depth >= 12) pool.push('secondmd');    // deep enough that someone disagrees with your entire chart
   if (depth >= 30) pool.push('merger', 'merger');   // deep wards: the acquisition closed (double weight)
   const filtered = pool.filter(b => b !== lastBoss);
   return U.choice(filtered.length ? filtered : pool);
 };
+
+/* ============ THE SECOND OPINION, M.D. — his re-diagnoses (temporary, contested) ============ */
+DATA.REDIAG = [
+  { id: 'adhd', label: 'TEMPORARILY ADHD', td: 0.55, dm: 0.55, line: '“Classic presentation. Rapid, scattered, ineffective. The literature agrees with me. It usually does.”' },
+  { id: 'depression', label: 'TEMPORARILY DEPRESSED', td: 1.75, dm: 1.85, line: '“Note the heaviness. Note it slowly. Everything, slowly. As I published.”' },
+  { id: 'anxiety', label: 'TEMPORARILY ANXIOUS', td: 0.8, dm: 0.78, line: '“Faster now. Not better — faster. There is a difference. I have written on this.”' },
+  { id: 'ocd', label: 'TEMPORARILY PARTICULAR', td: 1.3, dm: 1.35, line: '“Deliberate. Precise. You will count your shots now. You are already counting. Textbook.”' },
+  { id: 'fine', label: 'TEMPORARILY FINE', td: 1, dm: 1, line: '“No findings. Nothing. A first, for me. Sit with that. SIT WITH IT.”' }
+];
+
+/* ============ THE POLICY BOARD (spend the Fund; the building slowly becomes yours) ============ */
+DATA.POLICIES = [
+  { id: 'hydration', name: 'HYDRATION INITIATIVE', cost: 150, desc: 'Every Day Room gets a second cooler, one that works. The cucumber slices return. Morale is now measurable and will be measured.' },
+  { id: 'quiethours', name: 'QUIET HOURS (WARDS 1–2)', cost: 120, desc: 'The first two wards adopt gentler intake — fewer admissions per room, slower trigger fingers. New charts get a lobby before the building gets them.' },
+  { id: 'billing', name: 'TRANSPARENT BILLING', cost: 100, desc: 'Gift Shops must now post their stock and prices at the door, out loud, like it\'s normal. It is. It was always normal, everywhere but here.' },
+  { id: 'retention', name: 'STAFF RETENTION PROGRAM', cost: 160, desc: 'Clinic minibosses are paid enough to stop hiding the good rewards. Office visits pay out extra. Turnover, once our leading export, plummets.' }
+];
 
 /* ============ GROUP SESSION (the circle room — the symptoms sit down) ============ */
 DATA.SESSION2 = {
@@ -1231,6 +1252,7 @@ DATA.CODEX_CHART = {
     deductible: "Every hit you land gets billed against the meter instead of hurting it. Meet the deductible and it becomes suddenly, satisfyingly mortal. The meter resets every plan year. The fight is the plan year.",
     abtest: "Half the room runs the old protocol, half runs the experimental one, and it swaps them the moment you adapt. The results will be published. You will not be cited.",
     thehold: "The phone tree, grown to full height. It announces the menu; you stand on the number or you get the consequences. Its options changed recently. They always have.",
+    secondmd: "He has read your chart and he disagrees with it — clinically, loudly, mid-fight. Periodically he RE-DIAGNOSES you: for a few seconds your tears obey somebody else's chart entirely. Survive his citations and your original diagnosis is UPHELD ON APPEAL — permanently, with benefits.",
     seminar: "Mandatory attendance, ward 10 and down. It pitches from a flip chart while the room fills with folding chairs (cover — until they fold). During the pitch, stand in a participation zone and clap or the AUDIENCE MOOD drops, and the room notices. Kite too far and attendance is enforced. At the end of its rope it offers a timeshare. Read the terms.",
     walrus: "Board-certified in Confidence. The doctor will see you now. Forever."
   }

@@ -552,6 +552,7 @@ class Player {
     if (this.flags.otForm && this.hp <= this.maxhp / 2) d *= 1.25;   // Overtime Authorization: desperation, notarized
     if (this.diag === 'seasonal' && this.season === 1) d *= this._seasonLock ? 1.3 : 1.15;   // ☀️ summer runs hot
     if (G && G.rapidMods) d *= G.rapidMods.dmg;   // Rapid Cycling
+    if (G && G.rediagFx) d *= G.rediagFx.dm;   // THE SECOND OPINION: your tears obey somebody else's chart
     return d;
   }
   effTearDelay() {
@@ -562,6 +563,7 @@ class Player {
     if (this.flags.fineMode) t *= 0.94;
     if (G && G.tearsAura) t *= 1.3;
     if (G && G.rapidMods) t *= G.rapidMods.tears;   // Rapid Cycling (tears>1 = slower)
+    if (G && G.rediagFx) t *= G.rediagFx.td;   // THE SECOND OPINION: cadence per somebody else's chart
     if (this.flags.beam) t = Math.min(t, 0.075);   // Crying It Out: a continuous stream
     return Math.max(this.flags.beam ? 0.06 : 0.105, t);   // the trigger finger has a contract
   }
@@ -569,6 +571,8 @@ class Player {
   update(dt, G) {
     this.iframes -= dt; this.hurtFlash -= dt; this.itemHold -= dt;
     this.tempSlow -= dt; this.tearTimer -= dt;
+    // THE SECOND OPINION's re-diagnosis runs out; your chart reasserts itself
+    if (G && G.rediagFx) { G.rediagFx.t -= dt; if (G.rediagFx.t <= 0) { G.rediagFx = null; if (G.toast) G.toast('Your original chart reasserts itself. It was right the whole time.', '#8fd08a'); } }
     if (this._sprintT > 0) this._sprintT -= dt;
     if (this._courageT > 0) { this._courageT -= dt; if (this._courageT <= 0) { this.dmg = Math.max(0.5, this.dmg - 0.8); if (G.toast) G.toast('The courage wears off. The grape lingers.', '#b8a0c8'); } }
     // 🌱 SPRING: things grow back (Seasonal Affective)
@@ -732,6 +736,19 @@ class Player {
         const d = U.dist(this.x, this.y, e.x, e.y); if (d < 30 || d > 460) return;
         const da = Math.abs(Math.atan2(Math.sin(U.ang(this.x, this.y, e.x, e.y) - aimA), Math.cos(U.ang(this.x, this.y, e.x, e.y) - aimA)));
         if (da < bd) { bd = da; best = e; }
+      };
+      for (const e of G.enemies) consider(e);
+      if (G.boss && !G.boss.dead && G.boss.vulnerable !== false) consider(G.boss);
+      if (G.boss2 && !G.boss2.dead && G.boss2.vulnerable !== false) consider(G.boss2);
+      if (best) { const na = U.ang(this.x, this.y, best.x, best.y); aim = { x: Math.cos(na), y: Math.sin(na) }; }
+    }
+    // REASONABLE ACCOMMODATIONS: autofire — with no manual aim held, target the nearest threat automatically
+    if (!aim && Meta.data.a11y && Meta.data.a11y.autofire && G.state === 'run') {
+      let best = null, bd = 430;
+      const consider = (e) => {
+        if (!e || e.dying || e.dead || e.fake || e.charmed || (e.spawnT > 0)) return;
+        const d = U.dist(this.x, this.y, e.x, e.y); if (d < 26 || d > bd) return;
+        bd = d; best = e;
       };
       for (const e of G.enemies) consider(e);
       if (G.boss && !G.boss.dead && G.boss.vulnerable !== false) consider(G.boss);

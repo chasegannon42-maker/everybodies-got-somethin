@@ -670,6 +670,90 @@ const Story = {
     this.drawYou(190, 428, 1.8);
   };
 
+  SC.mergerBanner = function (ctx, t) {   // ward 30: the acquisition closed overnight
+    this._room('#e8d8c0', '#d8c4a8', '#c8a878', '#b89868', CH * 0.62);   // bright beige — new ownership repainted immediately
+    // the old WELCOME banner, half down; the new one, half up
+    ctx.save(); ctx.translate(CW / 2, 132); ctx.rotate(-0.04 + Math.sin(t * 0.8) * 0.01);
+    ctx.fillStyle = '#f4ecd8'; Render.rr(ctx, -260, -26, 520, 52, 8); ctx.fill();
+    ctx.strokeStyle = '#b89868'; ctx.lineWidth = 3; Render.rr(ctx, -260, -26, 520, 52, 8); ctx.stroke();
+    ctx.fillStyle = '#8a6a4a'; ctx.font = 'bold 26px "Trebuchet MS",sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('WELCOME TO', 0, -2);
+    // the new name, being pasted OVER the old one, crooked
+    ctx.save(); ctx.translate(78, 12); ctx.rotate(0.06);
+    ctx.fillStyle = '#4a6a9a'; Render.rr(ctx, -150, -14, 300, 30, 4); ctx.fill();
+    ctx.fillStyle = '#f0f4f8'; ctx.font = 'bold 19px "Trebuchet MS",sans-serif';
+    ctx.fillText('WARDCO™ (A FAMILY OF BRANDS)', 0, 7);
+    ctx.restore(); ctx.restore();
+    // the merger itself, supervising the re-branding
+    this.drawBossActor('merger', CW / 2 + 170, MIDY + 30, 1.0, 'smug');
+    // a ladder + a stray suit stapling
+    ctx.strokeStyle = '#8a6a4a'; ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.moveTo(CW / 2 - 220, CH * 0.62); ctx.lineTo(CW / 2 - 190, 150); ctx.moveTo(CW / 2 - 160, CH * 0.62); ctx.lineTo(CW / 2 - 190, 150); ctx.stroke();
+    this._spot(200, MIDY + 116, 76, 0.14);
+    this.drawYou(200, MIDY + 62, 1.75);
+  };
+
+  SC.letterWindow = function (ctx, t) {   // ward 40: mail call — someone got out
+    // a genuinely bright window: the first daylight in ten wards
+    this._room('#d8e0e8', '#c4d0dc', '#b0a890', '#a09880', CH * 0.64);
+    const wx = CW / 2 + 120, wy = 200;
+    ctx.fillStyle = '#f8f0d8'; Render.rr(ctx, wx - 110, wy - 130, 220, 260, 14); ctx.fill();   // light spills
+    const glow = ctx.createRadialGradient(wx, wy, 30, wx, wy, 320);
+    glow.addColorStop(0, 'rgba(248,236,190,0.55)'); glow.addColorStop(1, 'rgba(248,236,190,0)');
+    ctx.fillStyle = glow; ctx.fillRect(0, 0, CW, CH);
+    ctx.strokeStyle = '#8a8068'; ctx.lineWidth = 6;
+    Render.rr(ctx, wx - 110, wy - 130, 220, 260, 14); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(wx, wy - 130); ctx.lineTo(wx, wy + 130); ctx.moveTo(wx - 110, wy); ctx.lineTo(wx + 110, wy); ctx.stroke();
+    // dust motes, drifting like they're allowed to
+    for (let i = 0; i < 8; i++) { const mx2 = wx - 80 + ((i * 53) % 160), my2 = wy - 90 + ((i * 97 + t * 12) % 180); ctx.fillStyle = 'rgba(248,240,200,0.6)'; ctx.beginPath(); ctx.arc(mx2, my2, 1.6, 0, TAU); ctx.fill(); }
+    // you, holding the letter — the page big and readable-shaped
+    this._spot(240, MIDY + 120, 80, 0.16);
+    this.drawYou(240, MIDY + 66, 1.85);
+    ctx.save(); ctx.translate(300, MIDY + 30); ctx.rotate(0.06 + Math.sin(t * 1.1) * 0.01);
+    ctx.fillStyle = '#fdf8ea'; Render.rr(ctx, -52, -66, 104, 132, 4); ctx.fill();
+    ctx.strokeStyle = '#c8b890'; ctx.lineWidth = 2; Render.rr(ctx, -52, -66, 104, 132, 4); ctx.stroke();
+    ctx.strokeStyle = 'rgba(90,80,70,0.55)'; ctx.lineWidth = 2;
+    for (let i = 0; i < 7; i++) { ctx.beginPath(); ctx.moveTo(-38, -44 + i * 16); ctx.lineTo(28 + (i % 3) * 8, -44 + i * 16); ctx.stroke(); }
+    // signed with a smiley face
+    ctx.strokeStyle = '#8a6a4a'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(24, 48, 9, 0, TAU); ctx.stroke();
+    ctx.fillStyle = '#8a6a4a'; ctx.beginPath(); ctx.arc(21, 45, 1.4, 0, TAU); ctx.arc(27, 45, 1.4, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.arc(24, 48, 5, 0.4, Math.PI - 0.4); ctx.stroke();
+    ctx.restore();
+  };
+
+  SC.roofAgenda = function (ctx, t) {   // the roof: sky, gravel, one agenda item
+    // real sky. blue. the genuine article.
+    const sky = ctx.createLinearGradient(0, 0, 0, CH * 0.7);
+    sky.addColorStop(0, '#8ec8e8'); sky.addColorStop(1, '#cde4f0');
+    ctx.fillStyle = sky; ctx.fillRect(0, 0, CW, CH * 0.7);
+    // sun, unbilled
+    ctx.fillStyle = '#f8ecb0'; ctx.beginPath(); ctx.arc(CW - 170, 120, 46, 0, TAU); ctx.fill();
+    ctx.fillStyle = 'rgba(248,236,176,0.35)'; ctx.beginPath(); ctx.arc(CW - 170, 120, 78 + Math.sin(t * 1.4) * 5, 0, TAU); ctx.fill();
+    // clouds with no chart numbers on them
+    for (const [cx2, cy2, s2] of [[180, 110, 1.1], [CW / 2, 82, 0.8], [CW - 380, 160, 0.95]]) {
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ctx.beginPath(); ctx.ellipse(cx2, cy2, 54 * s2, 22 * s2, 0, 0, TAU); ctx.ellipse(cx2 + 34 * s2, cy2 - 12 * s2, 36 * s2, 18 * s2, 0, 0, TAU); ctx.ellipse(cx2 - 38 * s2, cy2 - 8 * s2, 30 * s2, 15 * s2, 0, 0, TAU); ctx.fill();
+    }
+    // roof gravel
+    ctx.fillStyle = '#b0a898'; ctx.fillRect(0, CH * 0.7, CW, CH * 0.3);
+    for (let i = 0; i < 40; i++) { ctx.fillStyle = i % 2 ? '#a89e8c' : '#bcb4a4'; ctx.beginPath(); ctx.arc((i * 127) % CW, CH * 0.7 + ((i * 61) % (CH * 0.28)) + 6, 2.2, 0, TAU); ctx.fill(); }
+    // the folding table, far end, three silhouettes with lanyards
+    ctx.fillStyle = '#7a6a52'; Render.rr(ctx, CW / 2 - 150, CH * 0.66, 300, 16, 4); ctx.fill();
+    ctx.strokeStyle = '#5a4e3c'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(CW / 2 - 130, CH * 0.66 + 16); ctx.lineTo(CW / 2 - 140, CH * 0.74); ctx.moveTo(CW / 2 + 130, CH * 0.66 + 16); ctx.lineTo(CW / 2 + 140, CH * 0.74); ctx.stroke();
+    for (let i = -1; i <= 1; i++) {
+      const sx2 = CW / 2 + i * 92;
+      ctx.fillStyle = '#3a4258';
+      ctx.beginPath(); ctx.ellipse(sx2, CH * 0.62, 26, 34, 0, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.arc(sx2, CH * 0.55, 15, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#e8c84c'; Render.rr(ctx, sx2 - 4, CH * 0.585, 8, 12, 2); ctx.fill();   // lanyard
+    }
+    // one empty chair on YOUR side. the agenda.
+    this._spot(CW / 2, CH * 0.85, 84, 0.14);
+    this.drawYou(CW / 2 - 6, CH * 0.82, 1.9);
+  };
+
   SC.kindness = function (ctx, t) {   // the note at the end
     const sky = ctx.createLinearGradient(0, 0, 0, CH);
     sky.addColorStop(0, '#f0d8b8'); sky.addColorStop(1, '#e0b898');
@@ -715,6 +799,17 @@ const STORY = {
   ward20: [
     { art: 'mirrorWard', stamp: 'WARD 20', lines: ['Ward 20. You\'ve been in here so long', 'you answer to the chart.', 'You look for your face and find a', 'stack of forms wearing it.', 'But there\'s someone under the paper.'] }
   ],
+  ward30: [
+    { art: 'mergerBanner', stamp: 'ACQUIRED', lines: ['Ward 30. The lanyards changed first.', 'The building was sold while you', 'slept. Same halls. New letterhead.', 'Your chart conveyed with the fixtures.'] },
+    { art: 'mergerBanner', stamp: 'SYNERGY', lines: ['Nothing else would change, they said.', 'They kept that promise. It was', 'the only one. The machine got a', 'new name and kept the old teeth.', '', 'Consent was inferred from your', 'continued existence.'] }
+  ],
+  ward40: [
+    { art: 'letterWindow', stamp: 'RECEIVED', lines: ['Ward 40. Mail call. A real letter,', 'hand-addressed to your intake number.', '', '“They tell you the way out is at', 'the bottom. It isn\'t. The way out', 'is a door. There is one on every', 'floor.”'] },
+    { art: 'letterWindow', stamp: 'SIGNED', lines: ['“I walked out on a Tuesday. Nobody', 'stopped me. Nobody stops anyone —', 'the walls are made of paperwork,', 'and paperwork is made of nothing.”', '', 'No signature. Just a smiley face.', 'You keep it.'] }
+  ],
+  roofpre: [
+    { art: 'roofAgenda', stamp: 'AGENDA', lines: ['The roof. Actual sky. Unscheduled', 'weather. You climbed through every', 'ward for this air —', 'and someone set up a folding table.', '', 'Three chairs. One agenda item.', 'You.'] }
+  ],
   ward50pre: [
     { art: 'foundersTower', stamp: 'WARD 50', lines: ['Ward 50. The top of the ladder.', 'A tower built of copays and slogans,', 'and at the very top, the man who', 'turned each feeling into a product line.'] }
   ],
@@ -756,6 +851,9 @@ const STORY_CHAPTERS = [
   { id: 'ward15',    title: 'Ward 15 — The Copay' },
   { id: 'ward20',    title: 'Ward 20 — The Mirror' },
   { id: 'cure',      title: 'Ward 25 — The Cure' },
+  { id: 'ward30',    title: 'Ward 30 — The Acquisition' },
+  { id: 'ward40',    title: 'Ward 40 — The Letter' },
+  { id: 'roofpre',   title: 'The Roof — The Agenda' },
   { id: 'ward50pre', title: 'Ward 50 — The Tower' },
   { id: 'founder',   title: 'Ward 50 — The Fall' },
   { id: 'board',     title: 'The Ascent — The Board' },

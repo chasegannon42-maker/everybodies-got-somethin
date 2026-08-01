@@ -281,6 +281,18 @@ keyboard and mouse.
 - **🎡 WHEEL OF APPEALS** — a commissary machine: 6¢ a spin to appeal one active negative — debt
   interest, a sample side effect, a ward condition. Lands on OVERTURNED or DENIED (the wheel
   sulks until the next ward). A bureaucratic slot machine.
+- **📌 THE POLICY BOARD** — the Wellness Fund finally buys real change: permanent building
+  policies on the Waiting Room corkboard — a second cooler in every Day Room, gentler intake
+  hours on wards 1–2, shops that post their prices at the door, clinics that pay out properly.
+  The building slowly becomes yours.
+- **⚖ THE SECOND OPINION, M.D.** — a boss (Ward 12+) who disagrees with your entire chart,
+  clinically, mid-fight — he RE-DIAGNOSES you and for five seconds your tears obey somebody
+  else's chart. Beat him once and yours is UPHELD ON APPEAL: permanent benefits, every run.
+- **⌨ REASONABLE ACCOMMODATIONS** — full keyboard remapping, autofire that targets the
+  nearest threat, a screen-shake slider, and colorblind pattern marks on every pill.
+- **📖 THE DEEP PAGES** — three new Chart Notes for the players who keep going: Ward 30
+  (the acquisition closes overnight), Ward 40 (a letter from someone who got out, signed with
+  a smiley face), and the roof before THE BOARD — real sky, folding table, one agenda item.
 - **🩸 THE NEMESIS LEDGER** — whatever kills you gets a NAME ("GREGORY, Who Waited") and
   comes back next run wearing a champion's aura, hunting you specifically. Repeat offenders earn
   ranks — THE RECURRING, CHRONIC, TENURED — and bigger bounties. Settle it and the title is yours.
@@ -319,7 +331,7 @@ keyboard and mouse.
   into five tabs. **PLAY**: sandbox any patient at any ward with loadout presets (kitted, glass
   cannon, tank, or hand-picked meds) — the save is snapshot-frozen throughout. **BOSS LAB**:
   rehearse any boss at any depth with any champion affix, SECOND SHIFT, or a Joint-Commission
-  partner. **TRIGGERS**: a 45-scenario jumper that drops you straight into any special encounter
+  partner. **TRIGGERS**: a 48-scenario jumper that drops you straight into any special encounter
   (rival races, the INSPECTION, heists, the Annex, Casual Friday…) pre-armed, no RNG. **DESIGNER**:
   the room editor with templates, undo, mirror, flood-fill, boss placement, playtest conditions
   (night/heat/wing), a named room library, and `EGSROOM` share codes. **TOOLS**: god mode, debug

@@ -563,21 +563,44 @@ const Input = {
   _edge: { pill: false, bomb: false, pause: false, confirm: false, mute: false, map: false, ability: false, p2join: false, petcmd: false },
   canvas: null,
 
+  /* REASONABLE ACCOMMODATIONS: remappable binds (persisted via Meta.data.binds).
+     Defaults preserve the historical layout; every gameplay action can be re-pointed. */
+  BIND_DEFAULTS: {
+    mvU: 'KeyW', mvD: 'KeyS', mvL: 'KeyA', mvR: 'KeyD',
+    aimU: 'ArrowUp', aimD: 'ArrowDown', aimL: 'ArrowLeft', aimR: 'ArrowRight',
+    pill: 'KeyQ', bomb: 'KeyE', ability: 'Space', ability2: 'ShiftLeft',
+    portal: 'KeyT', petcmd: 'KeyF', pause: 'KeyP', map: 'Tab', mute: 'KeyM'
+  },
+  BIND_NAMES: { mvU: 'Move up', mvD: 'Move down', mvL: 'Move left', mvR: 'Move right', aimU: 'Shoot up', aimD: 'Shoot down', aimL: 'Shoot left', aimR: 'Shoot right', pill: 'Swallow pill', bomb: 'Place claim', ability: 'PRN ability', ability2: 'PRN (alt)', portal: 'Patient Portal', petcmd: 'Pet command', pause: 'Pause', map: 'Map', mute: 'Mute' },
+  binds: null,
+  bind(action) { return (this.binds && this.binds[action]) || this.BIND_DEFAULTS[action]; },
+  loadBinds() {
+    try { this.binds = Object.assign({}, this.BIND_DEFAULTS, (typeof Meta !== 'undefined' && Meta.data.binds) || {}); }
+    catch (e) { this.binds = Object.assign({}, this.BIND_DEFAULTS); }
+  },
+  setBind(action, code) {
+    this.binds[action] = code;
+    try { Meta.data.binds = Meta.data.binds || {}; Meta.data.binds[action] = code; Meta.save(); } catch (e) { }
+  },
+
   init(canvas) {
     this.canvas = canvas;
+    this.loadBinds();
     window.addEventListener('keydown', e => {
-      if (e.repeat) { if (['Space', 'Enter'].includes(e.code)) e.preventDefault(); return; }
+      if (this.capture) { e.preventDefault(); const cb = this.capture; this.capture = null; cb(e.code); return; }   // remap listening
+      if (e.repeat) { if ([this.bind('ability'), 'Enter'].includes(e.code)) e.preventDefault(); return; }
       this.keys[e.code] = true;
-      if (e.code === 'KeyQ') this._edge.pill = true;
-      if (e.code === 'KeyT') this._edge.portal = true;
-      if (e.code === 'KeyE') this._edge.bomb = true;
-      if (e.code === 'KeyP' || e.code === 'Escape') this._edge.pause = true;
+      const B = a => e.code === this.bind(a);
+      if (B('pill')) this._edge.pill = true;
+      if (B('portal')) this._edge.portal = true;
+      if (B('bomb')) this._edge.bomb = true;
+      if (B('pause') || e.code === 'Escape') this._edge.pause = true;
       if (e.code === 'Enter' || e.code === 'Space') this._edge.confirm = true;
-      if (e.code === 'KeyM') this._edge.mute = true;
-      if (e.code === 'KeyF') this._edge.petcmd = true;
-      if (e.code === 'Space' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') this._edge.ability = true;
-      if (e.code === 'Tab') { this._edge.map = true; e.preventDefault(); }
-      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
+      if (B('mute')) this._edge.mute = true;
+      if (B('petcmd')) this._edge.petcmd = true;
+      if (B('ability') || B('ability2') || e.code === 'ShiftRight') this._edge.ability = true;
+      if (B('map')) { this._edge.map = true; e.preventDefault(); }
+      if ([this.bind('aimU'), this.bind('aimD'), this.bind('aimL'), this.bind('aimR'), this.bind('ability')].includes(e.code)) e.preventDefault();
     });
     window.addEventListener('keyup', e => { this.keys[e.code] = false; });
 
