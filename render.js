@@ -3268,6 +3268,23 @@ const Render = {
         ctx.strokeStyle = '#8a6a3a'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(-2, 1); ctx.lineTo(2, -4); ctx.stroke();
         ctx.fillStyle = '#e8c84c'; ctx.fillRect(-1, 3, 2.5, 1.5);
       }
+    } else if (pet.type === 'carrier') {
+      this.shadow(0, 8, 8, 3, 0.2);
+      ctx.translate(0, bob - Math.abs(Math.sin(pet.t * 8)) * 3);   // same flappy hop, different job
+      ctx.fillStyle = '#ded8cc'; ctx.beginPath(); ctx.ellipse(0, 0, 7, 5.5, 0, 0, TAU); ctx.fill();   // homing white
+      ctx.fillStyle = '#b8ac98'; ctx.beginPath(); ctx.ellipse(-2, -1, 4.5, 3, -0.4 + Math.sin(pet.t * 10) * 0.25, 0, TAU); ctx.fill();   // wing
+      ctx.fillStyle = '#d0c8ba'; ctx.beginPath(); ctx.arc(5, -4, 3.4, 0, TAU); ctx.fill();   // head
+      ctx.fillStyle = '#2c2333'; ctx.beginPath(); ctx.arc(6, -4.5, 0.9, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#e0a05a'; ctx.beginPath(); ctx.moveTo(8, -4); ctx.lineTo(11, -3.2); ctx.lineTo(8, -2.4); ctx.closePath(); ctx.fill();   // beak
+      ctx.fillStyle = '#c04040'; ctx.fillRect(-1, 4.5, 2.2, 1.6);   // leg band: registered courier
+      ctx.fillStyle = '#7a5a30'; this.rr(ctx, -4, 0.5, 7.5, 5.5, 1.5); ctx.fill();   // satchel, standard issue
+      ctx.strokeStyle = '#7a5a30'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(-3, 0.5); ctx.lineTo(2, -4); ctx.stroke();
+      ctx.fillStyle = '#f0ead8'; ctx.save(); ctx.translate(-0.5, 0.8); ctx.rotate(-0.18); ctx.fillRect(-2.4, -1.4, 4.8, 3); ctx.restore();   // the letter
+      ctx.strokeStyle = '#b0a890'; ctx.lineWidth = 0.7; ctx.beginPath(); ctx.moveTo(-2.7, 0); ctx.lineTo(-0.4, 1.4); ctx.lineTo(1.9, -0.6); ctx.stroke();   // envelope flap
+      if (pet.evo) {   // COURIER SERVICE: a tiny mail cap with a brim
+        ctx.fillStyle = '#3a5a8a'; ctx.beginPath(); ctx.arc(5, -6.6, 2.6, Math.PI, 0); ctx.fill();
+        ctx.fillRect(4.5, -6.8, 4.2, 1.1);
+      }
     } else if (pet.type === 'cat') {
       this.shadow(0, 10, 9, 3.5, 0.2);
       ctx.translate(0, bob * 0.4);
